@@ -3,7 +3,7 @@
 import { keccak256 } from '@ethersproject/keccak256';
 
 import { ConfigService } from '../../config-service/services';
-import { Web3 } from '../index';
+import { type Web3 } from '../index';
 import { rpcMethod } from './decorators';
 import { rpcParamValidationRules } from './validators';
 

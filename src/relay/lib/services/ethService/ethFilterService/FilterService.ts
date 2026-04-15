@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { generateRandomHex, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
-import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
-import { INewFilterParams } from '../../../types/requestParams';
-import { ICommonService } from '../../index';
-import { IFilterService } from './IFilterService';
+import { type Log } from '../../../model';
+import { type RequestDetails } from '../../../types';
+import { type INewFilterParams } from '../../../types/requestParams';
+import { type ICommonService } from '../../index';
+import { type IFilterService } from './IFilterService';
 
 /**
  * Create a new Filter Service implementation.

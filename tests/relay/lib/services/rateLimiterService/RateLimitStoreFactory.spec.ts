@@ -2,7 +2,7 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { Logger, pino } from 'pino';
+import { type Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { LruRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/LruRateLimitStore';

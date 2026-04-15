@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { JsonRpcError, predefined } from '../errors/JsonRpcError';
-import { IObjectSchema } from './objectTypes';
+import { type IObjectSchema } from './objectTypes';
 import { TYPES } from './types';
 
 export function validateObject<T extends object = any>(object: T, filters: IObjectSchema) {

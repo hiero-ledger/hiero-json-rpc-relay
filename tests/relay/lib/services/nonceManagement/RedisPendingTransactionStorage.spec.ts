@@ -3,7 +3,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
-import { createClient, RedisClientType } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 
 import { RedisPendingTransactionStorage } from '../../../../../src/relay/lib/services/transactionPoolService/RedisPendingTransactionStorage';
 import { useInMemoryRedisServer } from '../../../helpers';

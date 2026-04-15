@@ -2,19 +2,19 @@
 
 import { zeroAddress } from '@ethereumjs/util';
 import { AccountId, Hbar } from '@hashgraph/sdk';
-import { Logger } from 'pino';
-import { Counter, Gauge, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { prepend0x } from '../../../formatters';
 import { Utils } from '../../../utils';
 import constants from '../../constants';
-import { EvmAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
-import { HbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/hbarSpendingPlanRepository';
-import { IPAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { IDetailedHbarSpendingPlan } from '../../db/types/hbarLimiter/hbarSpendingPlan';
+import { type EvmAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
+import { type HbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/hbarSpendingPlanRepository';
+import { type IPAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { type IDetailedHbarSpendingPlan } from '../../db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../db/types/hbarLimiter/subscriptionTier';
-import { RequestDetails } from '../../types';
-import { IHbarLimitService } from './IHbarLimitService';
+import { type RequestDetails } from '../../types';
+import { type IHbarLimitService } from './IHbarLimitService';
 
 export class HbarLimitService implements IHbarLimitService {
   static readonly TIER_LIMITS: Record<SubscriptionTier, Hbar> = {

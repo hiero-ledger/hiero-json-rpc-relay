@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ParameterizedContext } from 'koa';
+import { type ParameterizedContext } from 'koa';
 
 import { ConfigService } from '../../../config-service/services';
 

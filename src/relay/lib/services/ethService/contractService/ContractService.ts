@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import {
@@ -11,17 +11,22 @@ import {
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
 } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
-import { Log } from '../../../model';
-import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
+import { type Log } from '../../../model';
+import {
+  type IContractCallRequest,
+  type IContractCallResponse,
+  type IGetLogsParams,
+  type RequestDetails,
+} from '../../../types';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
-import { ICommonService } from '../../ethService/ethCommonService/ICommonService';
-import HAPIService from '../../hapiService/hapiService';
-import { IContractService } from './IContractService';
+import { type ICommonService } from '../../ethService/ethCommonService/ICommonService';
+import type HAPIService from '../../hapiService/hapiService';
+import { type IContractService } from './IContractService';
 
 /**
  * Service responsible for handling contract-related operations.

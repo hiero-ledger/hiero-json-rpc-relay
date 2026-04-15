@@ -6,7 +6,7 @@ import {
   AccountId,
   Client,
   EthereumTransaction,
-  ExchangeRate,
+  type ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
@@ -17,9 +17,9 @@ import {
   Status,
   TransactionId,
   TransactionRecordQuery,
-  TransactionResponse,
+  type TransactionResponse,
 } from '@hashgraph/sdk';
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
 import { EventEmitter } from 'events';
@@ -41,7 +41,11 @@ import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClient
 import HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import MetricService from '../../../src/relay/lib/services/metricService/metricService';
-import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, TypedEvents } from '../../../src/relay/lib/types';
+import {
+  type IExecuteQueryEventPayload,
+  type IExecuteTransactionEventPayload,
+  type TypedEvents,
+} from '../../../src/relay/lib/types';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { Utils } from '../../../src/relay/utils';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';

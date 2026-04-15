@@ -1,37 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  AccountId,
+  type AccountId,
   Client,
   EthereumTransaction,
   EthereumTransactionData,
-  ExchangeRate,
+  type ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
-  FileId,
+  type FileId,
   FileInfoQuery,
   Hbar,
   HbarUnit,
   Logger as HederaLogger,
   LogLevel,
-  PublicKey,
-  Query,
+  type PublicKey,
+  type Query,
   Status,
-  Transaction,
-  TransactionRecord,
+  type Transaction,
+  type TransactionRecord,
   TransactionRecordQuery,
-  TransactionResponse,
+  type TransactionResponse,
 } from '@hashgraph/sdk';
-import { EventEmitter } from 'events';
-import { Logger } from 'pino';
+import { type EventEmitter } from 'events';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../config-service/services';
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService, PaymasterAccount } from '../services';
-import { HbarLimitService } from '../services/hbarLimitService';
-import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
+import { CommonService, type PaymasterAccount } from '../services';
+import { type HbarLimitService } from '../services/hbarLimitService';
+import { type ITransactionRecordMetric, type RequestDetails, type TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { TracerType } from '../constants';
-import { ICallTracerConfig, ITracerConfig } from './ITracerConfig';
-import { ContractAction, MirrorNodeContractResult } from './mirrorNode';
+import { type TracerType } from '../constants';
+import { type ICallTracerConfig, type ITracerConfig } from './ITracerConfig';
+import { type ContractAction, type MirrorNodeContractResult } from './mirrorNode';
 
 /**
  * Configuration object for block tracing operations.

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Koa from 'koa';
-import { Logger } from 'pino';
+import type Koa from 'koa';
+import { type Logger } from 'pino';
 
-import { JsonRpcError, predefined, Relay } from '../../relay';
-import { MirrorNodeClient } from '../../relay/lib/clients';
-import { RequestDetails } from '../../relay/lib/types';
-import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
+import { JsonRpcError, predefined, type Relay } from '../../relay';
+import { type MirrorNodeClient } from '../../relay/lib/clients';
+import { type RequestDetails } from '../../relay/lib/types';
+import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../../server/koaJsonRpc/lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { SubscriptionService } from '../service/subscriptionService';
+import type ConnectionLimiter from '../metrics/connectionLimiter';
+import type WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from '../utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './subscribeController';

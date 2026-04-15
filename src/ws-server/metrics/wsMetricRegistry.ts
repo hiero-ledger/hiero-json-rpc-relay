@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Histogram, Registry } from 'prom-client';
+import { Counter, Histogram, type Registry } from 'prom-client';
 
 import { WS_CONSTANTS } from '../utils/constants';
 

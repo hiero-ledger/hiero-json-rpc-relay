@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from 'crypto';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { HbarSpendingPlan } from '../../entities/hbarLimiter/hbarSpendingPlan';
 import { HbarSpendingRecord } from '../../entities/hbarLimiter/hbarSpendingRecord';
 import { HbarSpendingPlanNotActiveError, HbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
-import { IDetailedHbarSpendingPlan, IHbarSpendingPlan } from '../../types/hbarLimiter/hbarSpendingPlan';
-import { IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
-import { SubscriptionTier } from '../../types/hbarLimiter/subscriptionTier';
+import { type IDetailedHbarSpendingPlan, type IHbarSpendingPlan } from '../../types/hbarLimiter/hbarSpendingPlan';
+import { type IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
+import { type SubscriptionTier } from '../../types/hbarLimiter/subscriptionTier';
 
 export class HbarSpendingPlanRepository {
   public static readonly collectionKey = 'hbarSpendingPlan';

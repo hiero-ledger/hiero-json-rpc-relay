@@ -3,11 +3,11 @@
 import { Mutex } from 'async-mutex';
 import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../config-service/services';
-import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types/lock';
-import { LockMetricsService } from './LockMetricsService';
+import { type LockAcquisitionResult, type LockStrategy, type LockStrategyLabel } from '../../types/lock';
+import { type LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
 /**

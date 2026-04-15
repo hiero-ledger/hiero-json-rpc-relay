@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../../config-service/services';
-import { PendingTransactionStorage } from '../../types/transactionPool';
+import { type PendingTransactionStorage } from '../../types/transactionPool';
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
   /**

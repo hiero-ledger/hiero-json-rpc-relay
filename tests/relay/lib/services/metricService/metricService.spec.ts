@@ -2,8 +2,8 @@
 
 import { EventEmitter } from 'node:events';
 
-import { Hbar, Long, Status, TransactionRecord, TransactionRecordQuery } from '@hashgraph/sdk';
-import axios, { AxiosInstance } from 'axios';
+import { Hbar, Long, Status, type TransactionRecord, TransactionRecordQuery } from '@hashgraph/sdk';
+import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
 import pino from 'pino';
@@ -21,9 +21,9 @@ import { HbarLimitService } from '../../../../../src/relay/lib/services/hbarLimi
 import MetricService from '../../../../../src/relay/lib/services/metricService/metricService';
 import type { TypedEvents } from '../../../../../src/relay/lib/types';
 import {
-  IEthExecutionEventPayload,
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
+  type IEthExecutionEventPayload,
+  type IExecuteQueryEventPayload,
+  type IExecuteTransactionEventPayload,
   RequestDetails,
 } from '../../../../../src/relay/lib/types';
 import {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { RPC_METHOD_KEY, RPC_PARAM_LAYOUT_KEY } from '../../decorators';
-import { RpcMethodRegistry, RpcNamespaceRegistry } from '../../types';
+import { type RpcMethodRegistry, type RpcNamespaceRegistry } from '../../types';
 import { RPC_PARAM_VALIDATION_RULES_KEY } from '../../validators';
 
 /**

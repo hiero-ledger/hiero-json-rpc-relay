@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { predefined } from '../errors/JsonRpcError';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
+import {
+  type ICallTracerConfig,
+  type IOpcodeLoggerConfig,
+  type ITracerConfig,
+  type ITracerConfigWrapper,
+} from '../types';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';

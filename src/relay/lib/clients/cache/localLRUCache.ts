@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { LRUCache } from 'lru-cache';
-import { Logger } from 'pino';
-import { Gauge, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import { Utils } from '../../../utils';

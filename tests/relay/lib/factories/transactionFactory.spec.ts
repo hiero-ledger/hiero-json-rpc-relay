@@ -8,7 +8,7 @@ import {
   createTransactionFromContractResult,
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
-import { AuthorizationListEntry, Log, Transaction } from '../../../../src/relay/lib/model';
+import { type AuthorizationListEntry, type Log, type Transaction } from '../../../../src/relay/lib/model';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {

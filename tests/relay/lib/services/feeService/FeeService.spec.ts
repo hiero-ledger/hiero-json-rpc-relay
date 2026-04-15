@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../../src/relay/formatters';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
 import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
-import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
+import { type IFeeHistory, type MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('FeeService', function () {

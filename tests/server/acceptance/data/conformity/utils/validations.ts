@@ -6,7 +6,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect } from 'chai';
 
-import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
+import { type ErrorResponse, type JsonRpcResponse, type Method, type Schema } from './interfaces';
 
 let execApisOpenRpcData: any = null;
 function getExecApisOpenRpcData() {

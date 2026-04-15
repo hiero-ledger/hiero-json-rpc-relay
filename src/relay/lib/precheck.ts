@@ -4,12 +4,12 @@ import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { prepend0x } from '../formatters';
-import { MirrorNodeClient } from './clients';
+import { type MirrorNodeClient } from './clients';
 import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
-import { CommonService, TransactionPoolService } from './services';
-import { RequestDetails } from './types';
-import { IAccountBalance } from './types/mirrorNode';
+import { CommonService, type TransactionPoolService } from './services';
+import { type RequestDetails } from './types';
+import { type IAccountBalance } from './types/mirrorNode';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.

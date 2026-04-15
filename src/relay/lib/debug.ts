@@ -2,7 +2,7 @@
 
 import EventEmitter from 'events';
 import type { Logger } from 'pino';
-import { Registry } from 'prom-client';
+import { type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
 import {
@@ -16,12 +16,12 @@ import {
   toHexString,
 } from '../formatters';
 import { type Debug } from '../index';
-import { JsonRpcError } from '../index';
+import { type JsonRpcError } from '../index';
 import { Utils } from '../utils';
-import { MirrorNodeClient } from './clients';
+import { type MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
-import { IOpcode } from './clients/models/IOpcode';
-import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
+import { type IOpcode } from './clients/models/IOpcode';
+import { type IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
@@ -30,26 +30,26 @@ import { type Block, Log } from './model';
 import {
   BlockService,
   CommonService,
-  IBlockService,
-  LockService,
-  TransactionPoolService,
+  type IBlockService,
+  type LockService,
+  type TransactionPoolService,
   TransactionService,
 } from './services';
-import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
-import HAPIService from './services/hapiService/hapiService';
+import { type ITransactionService } from './services/ethService/transactionService/ITransactionService';
+import type HAPIService from './services/hapiService/hapiService';
 import {
-  BlockTracerConfig,
-  CallTracerResult,
-  EntityTraceStateMap,
-  ICallTracerConfig,
-  IOpcodeLoggerConfig,
-  MirrorNodeContractLog,
-  OpcodeLoggerResult,
-  RequestDetails,
-  TraceBlockTxResult,
-  TransactionTracerConfig,
-  TxHashToContractResultOrActionsMap,
-  TypedEvents,
+  type BlockTracerConfig,
+  type CallTracerResult,
+  type EntityTraceStateMap,
+  type ICallTracerConfig,
+  type IOpcodeLoggerConfig,
+  type MirrorNodeContractLog,
+  type OpcodeLoggerResult,
+  type RequestDetails,
+  type TraceBlockTxResult,
+  type TransactionTracerConfig,
+  type TxHashToContractResultOrActionsMap,
+  type TypedEvents,
 } from './types';
 import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';

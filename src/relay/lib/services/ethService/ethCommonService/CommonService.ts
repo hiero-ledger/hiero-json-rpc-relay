@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as _ from 'lodash';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import { type IAccountInfo, type MirrorNodeContractLog, type RequestDetails } from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from './ICommonService';
+import { type ICommonService } from './ICommonService';
 
 export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
 export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]];

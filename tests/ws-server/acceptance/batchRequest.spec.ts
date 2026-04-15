@@ -2,7 +2,7 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';

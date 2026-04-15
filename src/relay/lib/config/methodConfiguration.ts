@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '../../../config-service/services';
-import { MethodRateLimitConfiguration } from '../types';
+import { type MethodRateLimitConfiguration } from '../types';
 
 // Lazy getter function that reads config at call time (not module load time)
 // This allows test environment overrides to work properly

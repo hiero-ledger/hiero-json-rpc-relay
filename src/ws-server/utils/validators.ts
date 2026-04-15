@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { JsonRpcError, predefined } from '../../relay';
-import { MirrorNodeClient } from '../../relay/lib/clients';
+import { type MirrorNodeClient } from '../../relay/lib/clients';
 import constants from '../../relay/lib/constants';
-import { RequestDetails } from '../../relay/lib/types';
+import { type RequestDetails } from '../../relay/lib/types';
 import { validateEthSubscribeLogsParamObject } from '../../relay/lib/validators';
 
 interface EthSubscribeLogsParams {

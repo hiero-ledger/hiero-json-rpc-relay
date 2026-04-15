@@ -2,12 +2,12 @@
 
 import crypto from 'crypto';
 import { LRUCache } from 'lru-cache';
-import { Logger } from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Counter, Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
 import { generateRandomHex } from '../../relay/formatters';
-import { Relay } from '../../relay/lib/relay';
+import { type Relay } from '../../relay/lib/relay';
 import { PollerService } from './pollerService';
 
 export interface Subscriber {

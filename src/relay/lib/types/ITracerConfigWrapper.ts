@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { TracerType } from '../constants';
-import { IOpcodeLoggerConfig, ITracerConfig } from './ITracerConfig';
+import { type TracerType } from '../constants';
+import { type IOpcodeLoggerConfig, type ITracerConfig } from './ITracerConfig';
 
 export interface ITracerConfigWrapper extends Partial<IOpcodeLoggerConfig> {
   tracer?: TracerType;

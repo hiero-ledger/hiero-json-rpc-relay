@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import { Counter, Gauge, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
 import { WebSocketError } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
-import { IPRateLimiterService } from '../../relay/lib/services';
+import { type IPRateLimiterService } from '../../relay/lib/services';
 import { WS_CONSTANTS } from '../utils/constants';
 
 type IpCounter = {

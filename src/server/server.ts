@@ -6,8 +6,8 @@ import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { Counter, Histogram, type Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';

@@ -5,7 +5,7 @@ import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
 import {
-  IParamValidation,
+  type IParamValidation,
   RPC_PARAM_VALIDATION_RULES_KEY,
   rpcParamValidationRules,
 } from '../../../../src/relay/lib/validators';

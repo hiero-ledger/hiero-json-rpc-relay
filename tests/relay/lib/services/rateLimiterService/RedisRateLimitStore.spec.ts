@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Logger, pino } from 'pino';
+import { type Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { RedisRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';

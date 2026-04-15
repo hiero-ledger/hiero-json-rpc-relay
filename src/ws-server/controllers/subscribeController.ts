@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Context } from 'koa';
-import { Logger } from 'pino';
+import { type Context } from 'koa';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
 import { predefined } from '../../relay';
-import { MirrorNodeClient } from '../../relay/lib/clients';
+import { type MirrorNodeClient } from '../../relay/lib/clients';
 import constants from '../../relay/lib/constants';
-import { RequestDetails } from '../../relay/lib/types';
-import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type RequestDetails } from '../../relay/lib/types';
+import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { type IJsonRpcResponse, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
 
 type SubscriptionId = string | undefined;
 type SubscriptionResponse = IJsonRpcResponse<SubscriptionId>;
 
-import { SubscriptionService } from '../service/subscriptionService';
+import { type SubscriptionService } from '../service/subscriptionService';
 import {
   areSubscriptionsEnabled,
   constructValidLogSubscriptionFilter,
@@ -22,7 +22,7 @@ import {
   sendSubscriptionsDisabledError,
 } from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
-import { ISharedParams } from './jsonRpcController';
+import { type ISharedParams } from './jsonRpcController';
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
  * @param {any} filters - The filters object specifying criteria for the subscription.

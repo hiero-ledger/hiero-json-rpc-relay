@@ -6,7 +6,7 @@ import { ConfigService } from '../../../../../config-service/services';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
-import { RequestDetails } from '../../../types';
+import { type RequestDetails } from '../../../types';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from './CommonService';
 

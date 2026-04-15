@@ -6,7 +6,11 @@ import sinon from 'sinon';
 
 import { rpcMethod } from '../../../../../src/relay/lib/decorators';
 import { registerRpcMethods } from '../../../../../src/relay/lib/services/registryService/rpcMethodRegistryService';
-import { RpcMethodRegistry, RpcNamespaceRegistry, RpcServiceImpl } from '../../../../../src/relay/lib/types';
+import {
+  type RpcMethodRegistry,
+  type RpcNamespaceRegistry,
+  type RpcServiceImpl,
+} from '../../../../../src/relay/lib/types';
 chai.use(chaiAsPromised);
 
 /**

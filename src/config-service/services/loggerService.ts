@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigKey } from './globalConfig';
+import { type ConfigKey } from './globalConfig';
 
 export class LoggerService {
   /**

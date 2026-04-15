@@ -5,7 +5,7 @@ import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { JsonRpcError, predefined } from '../../../src/relay';
+import { type JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';

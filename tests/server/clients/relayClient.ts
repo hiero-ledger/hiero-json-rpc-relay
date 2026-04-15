@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BlockTag, ethers } from 'ethers';
+import { type BlockTag, ethers } from 'ethers';
 
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { ITransactionReceipt } from '../../../src/relay/lib/types';
+import { type ITransactionReceipt } from '../../../src/relay/lib/types';
 import Assertions from '../helpers/assertions';
 import constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';

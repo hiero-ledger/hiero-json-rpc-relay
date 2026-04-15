@@ -12,7 +12,7 @@ import IERC20Json from '../../server/contracts/openzeppelin/IERC20.json';
 import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import Constants from '../../server/helpers/constants';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;

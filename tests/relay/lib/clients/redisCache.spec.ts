@@ -2,7 +2,7 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import { RedisCache } from '../../../../src/relay/lib/clients';

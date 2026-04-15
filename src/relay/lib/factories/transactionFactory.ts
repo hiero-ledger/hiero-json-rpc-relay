@@ -13,7 +13,14 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
+import {
+  type AuthorizationListEntry,
+  type Log,
+  Transaction,
+  Transaction1559,
+  Transaction2930,
+  Transaction7702,
+} from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {

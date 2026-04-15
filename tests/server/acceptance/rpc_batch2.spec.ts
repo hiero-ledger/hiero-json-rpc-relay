@@ -4,7 +4,7 @@
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -12,9 +12,9 @@ import { numberTo0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import ERC20MockJson from '../contracts/ERC20Mock.json';
 // Contracts from local resources
@@ -30,7 +30,7 @@ import Helper from '../helpers/constants';
 import Address from '../helpers/constants';
 import constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds

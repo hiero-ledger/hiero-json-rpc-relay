@@ -4,13 +4,13 @@ import { Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
-import { Logger } from 'pino';
-import Piscina from 'piscina';
+import { type Logger } from 'pino';
+import type Piscina from 'piscina';
 import proxyquire from 'proxyquire';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../src/config-service/services';
-import { ConfigKey } from '../../src/config-service/services/globalConfig';
+import { type ConfigKey } from '../../src/config-service/services/globalConfig';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import constants from '../../src/relay/lib/constants';

@@ -6,9 +6,9 @@ import { BaseContract, ethers } from 'ethers';
 import findConfig from 'find-config';
 import fs from 'fs';
 import { resolve } from 'path';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -18,16 +18,16 @@ import { HbarSpendingPlanConfigService } from '../../../src/relay/lib/config/hba
 import { EvmAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { IDetailedHbarSpendingPlan } from '../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
+import { type IDetailedHbarSpendingPlan } from '../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../src/relay/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
-import { ITransfer } from '../../../src/relay/lib/types';
-import { SpendingPlanConfig } from '../../../src/relay/lib/types/spendingPlanConfig';
+import { type ITransfer } from '../../../src/relay/lib/types';
+import { type SpendingPlanConfig } from '../../../src/relay/lib/types/spendingPlanConfig';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe } from '../../relay/helpers';
-import MetricsClient from '../clients/metricsClient';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
+import type MetricsClient from '../clients/metricsClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import largeContractJson from '../contracts/hbarLimiterContracts/largeSizeContract.json';
 import mediumSizeContract from '../contracts/hbarLimiterContracts/mediumSizeContract.json';
@@ -37,7 +37,7 @@ import Assertions from '../helpers/assertions';
 import testConstants from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 

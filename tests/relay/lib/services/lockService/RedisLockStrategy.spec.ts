@@ -2,12 +2,12 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { Logger, pino } from 'pino';
-import { RedisClientType } from 'redis';
+import { type Logger, pino } from 'pino';
+import { type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../../../../src/config-service/services';
-import { LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
+import { type LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../../src/relay/lib/services/lockService/RedisLockStrategy';
 
 use(chaiAsPromised);

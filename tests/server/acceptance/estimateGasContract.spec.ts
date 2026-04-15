@@ -9,7 +9,7 @@ import EstimateGasContractJson from '../contracts/EstimateGasContract.json';
 import RelayCalls from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 describe('EstimateGasContract tests', function () {
   const signers: AliasAccount[] = [];

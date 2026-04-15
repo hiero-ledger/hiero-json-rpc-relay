@@ -5,7 +5,7 @@ import { keccak256, ZeroAddress } from 'ethers';
 
 import { strip0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
-import { Log } from '../../../src/relay/lib/model';
+import { type Log } from '../../../src/relay/lib/model';
 import { LogsBloomUtils } from '../../../src/relay/logsBloomUtils';
 import { txWithLogWithNoTopics, txWithMultipleLogs } from './fixtures/txReceiptLogsBloomFixtures';
 

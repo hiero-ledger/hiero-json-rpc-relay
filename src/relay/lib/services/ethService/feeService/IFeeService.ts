@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '../../../errors/JsonRpcError';
-import { IFeeHistory, RequestDetails } from '../../../types';
+import { type JsonRpcError } from '../../../errors/JsonRpcError';
+import { type IFeeHistory, type RequestDetails } from '../../../types';
 
 export interface IFeeService {
   feeHistory: (

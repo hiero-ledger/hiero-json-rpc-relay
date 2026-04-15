@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
-import { Logger } from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Counter, Histogram, type Registry } from 'prom-client';
 import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
@@ -17,23 +17,23 @@ import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
-  IAccountRequestParams,
-  IContractCallRequest,
-  IContractCallResponse,
-  IContractLogsResultsParams,
-  IContractResultsParams,
-  ILimitOrderParams,
-  IMirrorNodeTransactionRecord,
-  ITimestamp,
-  ITransactionRecordMetric,
-  MirrorNodeContractLog,
+  type IAccountRequestParams,
+  type IContractCallRequest,
+  type IContractCallResponse,
+  type IContractLogsResultsParams,
+  type IContractResultsParams,
+  type ILimitOrderParams,
+  type IMirrorNodeTransactionRecord,
+  type ITimestamp,
+  type ITransactionRecordMetric,
+  type MirrorNodeContractLog,
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
+import type { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
-import { IOpcodesResponse } from './models/IOpcodesResponse';
+import type { IOpcodesResponse } from './models/IOpcodesResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
 export class MirrorNodeClient {

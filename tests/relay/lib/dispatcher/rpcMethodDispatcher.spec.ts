@@ -10,7 +10,7 @@ import { RpcMethodDispatcher } from '../../../../src/relay/lib/dispatcher/rpcMet
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
-import { RequestDetails, RpcMethodRegistry } from '../../../../src/relay/lib/types';
+import { type RequestDetails, type RpcMethodRegistry } from '../../../../src/relay/lib/types';
 import * as Validator from '../../../../src/relay/lib/validators';
 import { Utils } from '../../../../src/relay/utils';
 

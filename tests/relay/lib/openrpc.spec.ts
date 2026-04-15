@@ -15,7 +15,7 @@ import sinon from 'sinon';
 import { LocalPendingTransactionStorage } from '../../../dist/relay/lib/services';
 import openRpcSchema from '../../../docs/openrpc.json';
 import { ConfigService } from '../../../src/config-service/services';
-import { Eth, JsonRpcError, Net, TxPool, Web3 } from '../../../src/relay';
+import { type Eth, type JsonRpcError, type Net, type TxPool, type Web3 } from '../../../src/relay';
 import { numberTo0x, trimPrecedingZeros } from '../../../src/relay/formatters';
 import { SDKClient } from '../../../src/relay/lib/clients';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';

@@ -2,15 +2,15 @@
 
 import { keccak256 } from '@ethersproject/keccak256';
 import { AccountId, PrivateKey } from '@hashgraph/sdk';
-import { Operator } from '@hashgraph/sdk/lib/client/Client';
+import { type Operator } from '@hashgraph/sdk/lib/client/Client';
 import crypto from 'crypto';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../config-service/services';
 import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { RequestDetails } from './lib/types';
+import { type RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;

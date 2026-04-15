@@ -2,11 +2,11 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
-import MirrorClient from '../../server/clients/mirrorClient';
+import type MirrorClient from '../../server/clients/mirrorClient';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 eth_getLogs', async function () {

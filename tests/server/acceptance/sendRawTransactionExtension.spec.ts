@@ -12,13 +12,13 @@ import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 // Assertions from local resources
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 describe('@sendRawTransactionExtension Acceptance Tests', function () {
   overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: false });

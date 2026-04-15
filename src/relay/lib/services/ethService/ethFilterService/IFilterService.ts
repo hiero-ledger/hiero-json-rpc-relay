@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '../../../errors/JsonRpcError';
-import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
-import { INewFilterParams } from '../../../types/requestParams';
+import { type JsonRpcError } from '../../../errors/JsonRpcError';
+import { type Log } from '../../../model';
+import { type RequestDetails } from '../../../types';
+import { type INewFilterParams } from '../../../types/requestParams';
 export interface IFilterService {
   newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 

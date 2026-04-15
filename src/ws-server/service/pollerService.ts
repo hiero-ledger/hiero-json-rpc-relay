@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Logger } from 'pino';
-import { Gauge, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
-import { Eth, Relay } from '../../relay';
+import { type Eth, type Relay } from '../../relay';
 import { RequestDetails } from '../../relay/lib/types';
 import { Utils } from '../../relay/utils';
 

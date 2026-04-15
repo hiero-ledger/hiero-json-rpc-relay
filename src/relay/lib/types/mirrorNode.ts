@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AuthorizationListEntry } from '../model';
+import { type AuthorizationListEntry } from '../model';
 
 export interface IAccountInfo {
   /**

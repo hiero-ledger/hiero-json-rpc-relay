@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Piscina from 'piscina';
-import { Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
 import { ConfigService } from '../../../../config-service/services';
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
-import { ICacheClient } from '../../clients/cache/ICacheClient';
+import { type ICacheClient } from '../../clients/cache/ICacheClient';
 import { RegistryFactory } from '../../factories/registryFactory';
 import type { WorkerTask } from './workers';
 import { unwrapError } from './WorkersErrorUtils';
