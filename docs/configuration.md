@@ -229,12 +229,12 @@ Unless you need to set a non-default value, it is recommended to only populate o
 | Name                                     | Default | Description                                                                                        |
 | ---------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
 | `E2E_RELAY_HOST`                         | ""      | Remote relay url to point to.                                                                      |
-| `LOCAL_NODE`                             | ""      | Flag if relay is hosted in the Hedera local node setup.                                            |
+| `LOCAL_NODE`                             | ""      | Flag if relay is hosted in the local node setup using Solo.                                        |
 | `TEST_GAS_PRICE_DEVIATION`               | 0.2     | Value to use as deviation when comparing gas prices in the rpc-batch1.spec.ts                      |
 | `TEST_TRANSACTION_RECORD_COST_TOLERANCE` | 0.02    | Defines the acceptable tolerance level for discrepancies in transaction record costs during tests. |
 | `TEST_WS_SERVER`                         | "false" | Flag config for enable or disable the WS server tests.                                             |
 
-For test context additional fields need to be set. The following example showcases a `hedera-local-node` instance (where values match those noted on [Local Node Network Variables](https://github.com/hashgraph/hedera-local-node#network-variables)
+For test context additional fields need to be set. The following example showcases a local node instance (where values match those noted on [Network and Node Identity](https://solo.hiero.org/docs/advanced-solo-setup/using-environment-variables/#network-and-node-identity)
 
 ```.env
 HEDERA_NETWORK={"127.0.0.1:50211":"0.0.3"}
