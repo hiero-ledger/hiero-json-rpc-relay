@@ -1,6 +1,9 @@
 {
   "name": "root",
   "version": "0.77.0-SNAPSHOT",
+  "bin": {
+    "hiero-relay": "./bin/hiero-relay.js"
+  },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@octokit/core": "^6.1.6",
@@ -90,7 +93,8 @@
     "start": "node dist/index.js",
     "start:ws": "RPC_HTTP_ENABLED=false RPC_WS_ENABLED=true node dist/index.js",
     "start:docker": "docker run --name hedera-relay -d -p 7546:7546 ${npm_package_name}:latest",
-    "test": "c8 ts-mocha --recursive './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' --exit",
+    "test:bin": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' --exit",
     "test:relay": "c8 ts-mocha --recursive './tests/relay/**/*.spec.ts' --exit",
     "test:server": "c8 ts-mocha --recursive './tests/server/integration/**/*.spec.ts' --exit",
     "test:ws-server": "c8 ts-mocha --recursive './tests/ws-server/unit/**/*.spec.ts' --exit",
@@ -124,7 +128,8 @@
     "piscina": "^5.1.4",
     "prom-client": "^15.1.3",
     "redis": "^5.8.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "yargs": "^18.0.0"
   },
   "overrides": {
     "protobufjs": "^7.2.4",
