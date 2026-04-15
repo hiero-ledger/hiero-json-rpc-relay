@@ -19,7 +19,6 @@ import { formatTransactionId, numberTo0x, prepend0x } from '../../../src/relay/f
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';

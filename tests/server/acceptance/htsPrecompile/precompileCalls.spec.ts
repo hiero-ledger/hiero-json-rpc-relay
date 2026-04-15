@@ -38,8 +38,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     relay: RelayClient;
   } = global;
 
-  const TX_SUCCESS_CODE = BigInt(22);
-
   const TOKEN_NAME = Utils.randomString(10);
   const TOKEN_SYMBOL = Utils.randomString(5);
   const INITIAL_SUPPLY = 100000;
@@ -55,15 +53,8 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
   const accounts: AliasAccount[] = [];
 
-  let IERC20Metadata, IERC20, IERC721Metadata, IERC721Enumerable, IERC721, TokenManager, TokenManagementSigner;
-  let nftSerial,
-    tokenAddress,
-    nftAddress,
-    htsImplAddress,
-    htsImpl,
-    adminAccountLongZero,
-    account1LongZero,
-    account2LongZero;
+  let IERC20Metadata, IERC20, IERC721Metadata, IERC721Enumerable, IERC721, TokenManager;
+  let nftSerial, tokenAddress, nftAddress, htsImplAddress, htsImpl, adminAccountLongZero, account2LongZero;
 
   let tokenAddressFixedHbarFees,
     tokenAddressFixedTokenFees,
@@ -106,12 +97,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     await mirrorNode.get(`/accounts/${accounts[0].accountId}`);
     await mirrorNode.get(`/accounts/${accounts[1].accountId}`);
     await mirrorNode.get(`/accounts/${accounts[2].accountId}`);
-
-    TokenManagementSigner = new ethers.Contract(
-      TokenManager.target,
-      TokenManagementContractJson.abi,
-      accounts[0].wallet,
-    );
 
     // Create tokens
     const defaultTokenOptions = {
@@ -224,7 +209,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     IERC721 = getContract(nftAddress, IERC721Json.abi, accounts[0].wallet);
 
     adminAccountLongZero = Utils.idToEvmAddress(accounts[0].accountId.toString());
-    account1LongZero = Utils.idToEvmAddress(accounts[1].accountId.toString());
     account2LongZero = Utils.idToEvmAddress(accounts[2].accountId.toString());
 
     // Transfer and approve token amounts
