@@ -274,6 +274,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
+          type: 4,
           from: signer.address,
           to: accounts[1].address,
           value: '0x1',

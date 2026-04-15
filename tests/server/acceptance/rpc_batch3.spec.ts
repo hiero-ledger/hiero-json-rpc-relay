@@ -172,6 +172,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       ];
 
       const callData = {
+        type: 4,
         from: signer.address,
         to: basicContractAddress,
         gas: numberTo0x(30000),
