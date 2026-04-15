@@ -39,6 +39,7 @@ jobs:
           - { name: 'Cache Service', testfilter: 'cache-service' }
           - { name: 'Server Config', testfilter: 'serverconfig' }
           - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
+          - { name: 'Mirror Node compatibility', testfilter: 'mirror-node-compatiblity' }
           - name: "Semantics and default OK response status"
             testfilter: "json_rpc_compliance"
             on_valid_json_rpc_http_response_status_code: 200

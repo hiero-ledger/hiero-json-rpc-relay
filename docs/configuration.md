@@ -19,6 +19,10 @@ These properties are noted below and should be custom set per deployment.
 - `OPERATOR_KEY_MAIN`
 - `SERVER_PORT`
 
+> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.151.0** or later.
+> Older versions do not support the `hbar` query parameter and return HTTP 400 on contract
+> result endpoints. The relay logs a warning at startup when an incompatible version is detected.
+
 **Note**: The default logging level in the TypeScript application is set to trace.
 
 ## Relay

@@ -2713,4 +2713,85 @@ describe('MirrorNodeClient', async function () {
       await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
     });
   });
+
+  describe('fetchMirrorNodeVersion', () => {
+    let probeClient: MirrorNodeClient;
+    let probeMock: MockAdapter;
+
+    before(() => {
+      // Create a client without an injected axios instance so restUrl is populated
+      // and fetchMirrorNodeVersion performs a real probe.
+      probeClient = new MirrorNodeClient(
+        'http://localhost:5551/api/v1',
+        logger.child({ name: 'mirror-node-probe' }),
+        registry,
+        cacheService,
+      );
+      probeMock = new MockAdapter((probeClient as any).restClient);
+    });
+
+    afterEach(() => {
+      probeMock.reset();
+    });
+
+    it('should return the version string when the spec is served correctly', async () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  version: 0.151.0\npaths: {}';
+      probeMock.onGet(/docs\/openapi\.yml/).reply(200, yaml);
+      expect(await probeClient.fetchMirrorNodeVersion()).to.equal('0.151.0');
+    });
+
+    it('should parse version correctly when other fields precede it in the info block', async () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  title: Hedera\n  description: Hedera MN\n  version: 0.150.0\npaths: {}';
+      probeMock.onGet(/docs\/openapi\.yml/).reply(200, yaml);
+      expect(await probeClient.fetchMirrorNodeVersion()).to.equal('0.150.0');
+    });
+
+    it('should return null when the version field is missing from the spec', async () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  title: Hedera\npaths: {}';
+      probeMock.onGet(/docs\/openapi\.yml/).reply(200, yaml);
+      expect(await probeClient.fetchMirrorNodeVersion()).to.be.null;
+    });
+
+    it('should return null on network error', async () => {
+      probeMock.onGet(/docs\/openapi\.yml/).networkError();
+      expect(await probeClient.fetchMirrorNodeVersion()).to.be.null;
+    });
+
+    it('should return null on HTTP 404 (spec not available on older versions)', async () => {
+      probeMock.onGet(/docs\/openapi\.yml/).reply(404);
+      expect(await probeClient.fetchMirrorNodeVersion()).to.be.null;
+    });
+
+    it('should return null when restUrl is empty (injected Axios instance)', async () => {
+      expect(await mirrorNodeInstance.fetchMirrorNodeVersion()).to.be.null;
+    });
+  });
+
+  describe('parseVersionFromOpenApiYaml', () => {
+    it('should extract version from a minimal spec', () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  version: 0.151.0\npaths: {}';
+      expect(MirrorNodeClient.parseVersionFromOpenApiYaml(yaml)).to.equal('0.151.0');
+    });
+
+    it('should extract version when other fields precede it in the info block', () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  title: Hedera\n  description: Mirror\n  version: 0.150.0\npaths: {}';
+      expect(MirrorNodeClient.parseVersionFromOpenApiYaml(yaml)).to.equal('0.150.0');
+    });
+
+    it('should return null when the info block is missing', () => {
+      const yaml = 'openapi: 3.0.3\npaths: {}';
+      expect(MirrorNodeClient.parseVersionFromOpenApiYaml(yaml)).to.be.null;
+    });
+
+    it('should return null when version is absent from the info block', () => {
+      const yaml = 'openapi: 3.0.3\ninfo:\n  title: Hedera\npaths: {}';
+      expect(MirrorNodeClient.parseVersionFromOpenApiYaml(yaml)).to.be.null;
+    });
+
+    it('should not pick up a version key outside the info block', () => {
+      // version appears under a different root key, not under info
+      const yaml = 'openapi: 3.0.3\ninfo:\n  title: Hedera\npaths: {}\nother:\n  version: 9.9.9';
+      expect(MirrorNodeClient.parseVersionFromOpenApiYaml(yaml)).to.be.null;
+    });
+  });
 });

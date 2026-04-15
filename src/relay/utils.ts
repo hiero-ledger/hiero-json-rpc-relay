@@ -17,6 +17,24 @@ export class Utils {
 
   public static readonly VERSION_REGEX = /^\d+\.\d+\.\d+$/; // major.minor.patch
 
+  /**
+   * Returns true if candidateVersion is >= minimumVersion using semver
+   * major.minor.patch ordering. Assumes numeric components.
+   * @example Utils.isVersionAtLeast("0.151.0", "0.151.0") // true
+   * @example Utils.isVersionAtLeast("0.150.9", "0.151.0") // false
+   */
+  public static isVersionAtLeast(candidateVersion: string, minimumVersion: string): boolean {
+    const aParts = candidateVersion.split('.').map(Number);
+    const bParts = minimumVersion.split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      const a = aParts[i] ?? 0;
+      const b = bParts[i] ?? 0;
+      if (a > b) return true;
+      if (a < b) return false;
+    }
+    return true;
+  }
+
   public static readonly addPercentageBufferToGasPrice = (gasPrice: number): number => {
     // converting to tinybar and afterward to weibar again is needed
     // in order to handle the possibility of an invalid floating number being calculated as a gas price

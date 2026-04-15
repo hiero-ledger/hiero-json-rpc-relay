@@ -37,6 +37,10 @@ import { IOpcodesResponse } from './models/IOpcodesResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
 export class MirrorNodeClient {
+  /** Minimum Mirror Node version required for hbar=false query parameter support. */
+  public static readonly MIRROR_NODE_HBAR_MIN_VERSION = '0.151.0';
+
+  private static readonly GET_SPECIFICATION_ENDPOINT = 'docs/openapi.yml';
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
   private static readonly GET_TOKENS_ENDPOINT = 'tokens';
@@ -626,6 +630,47 @@ export class MirrorNodeClient {
         MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
       throw new MirrorNodeClientError(axiosError, statusCode);
     }
+  }
+
+  /**
+   * Fetches the Mirror Node's declared API version from its OpenAPI specification
+   * at GET /api/v1/docs/openapi.yml. The version is read from the `info.version`
+   * field in the YAML document.
+   *
+   * Returns null if the URL is unavailable (injected Axios instance), the request
+   * fails, or the version field cannot be found — callers must treat null as
+   * "version unknown" and apply graceful degradation.
+   */
+  public async fetchMirrorNodeVersion(): Promise<string | null> {
+    if (!this.restUrl) {
+      return null; // skip when constructed with an injected Axios instance
+    }
+
+    try {
+      const response = await this.restClient.get<string>(MirrorNodeClient.GET_SPECIFICATION_ENDPOINT, {
+        responseType: 'text',
+      });
+      return MirrorNodeClient.parseVersionFromOpenApiYaml(response.data);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Extracts the `info.version` value from an OpenAPI YAML document using a
+   * multiline regex. The regex is correct for the well-structured
+   * OpenAPI spec served by the Mirror Node, where `info:` is a root-level key
+   * and `version:` is always an indented child of `info:`.
+   *
+   * Pattern breakdown:
+   *   ^info:[ \t]*\n          — `info:` at line start (root-level key)
+   *   (?:[ \t]+[^\n]*\n)*?    — zero or more indented sibling keys (lazy)
+   *   [ \t]+version:[ \t]+    — `version:` indented under info
+   *   (\S+)                   — capture the version value
+   */
+  public static parseVersionFromOpenApiYaml(yaml: string): string | null {
+    const match = yaml.match(/^info:[ \t]*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:[ \t]+(\S+)/m);
+    return match?.[1] ?? null;
   }
 
   public async getAccount(

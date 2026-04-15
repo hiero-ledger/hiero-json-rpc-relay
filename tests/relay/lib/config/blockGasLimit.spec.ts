@@ -5,11 +5,11 @@ import { describe } from 'mocha';
 
 import {
   BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
-  isHapiVersionAtLeast,
   obtainBlockGasLimit,
   VersionGasLimit,
 } from '../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../src/relay/lib/constants';
+import { Utils } from '../../../../src/relay/utils';
 
 const TEST_CONFIG_FULL: ReadonlyArray<VersionGasLimit> = [
   { version: '1.1.0', gasLimit: 350_000_000 },
@@ -25,7 +25,7 @@ describe('blockGasLimit', () => {
     for (let i = 1; i < BLOCK_GAS_LIMIT_BY_HAPI_VERSION.length; i++) {
       const prev = BLOCK_GAS_LIMIT_BY_HAPI_VERSION[i - 1].version;
       const curr = BLOCK_GAS_LIMIT_BY_HAPI_VERSION[i].version;
-      expect(isHapiVersionAtLeast(prev, curr)).to.be.true;
+      expect(Utils.isVersionAtLeast(prev, curr)).to.be.true;
     }
   });
 

@@ -77,6 +77,7 @@
     "acceptancetest:json_rpc_compliance": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@json-rpc-compliance' --exit",
     "acceptancetest:debug": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@debug' --exit",
     "acceptancetest:xts": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@xts' --exit",
+    "acceptancetest:mirror-node-compatiblity": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@mirror-node-compatiblity' --exit",
     "build": "npm run clean && npm run compile",
     "build-and-test": "npm run build && npm run test",
     "build:docker": "docker build . -t ${npm_package_name}",

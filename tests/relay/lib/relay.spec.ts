@@ -318,4 +318,50 @@ describe('Relay', () => {
       },
     );
   });
+
+  describe('warnIfMirrorNodeOutdated', function () {
+    let fetchVersionStub: sinon.SinonStub;
+    let loggerWarnSpy: sinon.SinonSpy;
+
+    beforeEach(() => {
+      sinon.restore();
+      sinon.stub(Relay.prototype, <any>'ensureOperatorHasBalance').resolves();
+      sinon.stub(MirrorNodeClient.prototype, 'checkServerReadiness').resolves();
+      fetchVersionStub = sinon.stub(MirrorNodeClient.prototype, 'fetchMirrorNodeVersion');
+      loggerWarnSpy = sinon.spy(logger, 'warn');
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should not log a warning when mirror node version meets the minimum', async function () {
+      fetchVersionStub.resolves('0.151.0');
+      await relay.initializeRelay();
+      expect(loggerWarnSpy.calledWithMatch(/below the minimum/)).to.be.false;
+    });
+
+    it('should not log a warning when mirror node version exceeds the minimum', async function () {
+      fetchVersionStub.resolves('0.160.0');
+      await relay.initializeRelay();
+      expect(loggerWarnSpy.calledWithMatch(/below the minimum/)).to.be.false;
+    });
+
+    it('should log a warning when mirror node version is below the minimum', async function () {
+      fetchVersionStub.resolves('0.150.9');
+      await relay.initializeRelay();
+      expect(loggerWarnSpy.calledWithMatch(/below the minimum/)).to.be.true;
+    });
+
+    it('should not throw and not warn when version cannot be determined (null)', async function () {
+      fetchVersionStub.resolves(null);
+      await expect(relay.initializeRelay()).to.not.be.rejected;
+      expect(loggerWarnSpy.calledWithMatch(/below the minimum/)).to.be.false;
+    });
+
+    it('should not throw when fetchMirrorNodeVersion itself rejects', async function () {
+      fetchVersionStub.rejects(new Error('unexpected'));
+      await expect(relay.initializeRelay()).to.not.be.rejected;
+    });
+  });
 });

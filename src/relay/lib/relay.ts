@@ -272,7 +272,10 @@ export class Relay {
     //    because Mirror Node is required for both read-only and read-write operation.
     await this.waitForMirrorNode();
 
-    // 4. Validate operator balance (requires ethImpl to be initialized)
+    // 4. Warn if Mirror Node version is too old to support hbar=false
+    await this.warnIfMirrorNodeOutdated();
+
+    // 5. Validate operator balance (requires ethImpl to be initialized)
     if (!ConfigService.get('READ_ONLY')) {
       await this.ensureOperatorHasBalance();
     }
@@ -486,6 +489,34 @@ export class Relay {
       throw new Error(`Operator account '${operator}' has no balance`);
     } else {
       this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
+    }
+  }
+
+  /**
+   * Fetches the Mirror Node's declared version from its OpenAPI spec and warns
+   * if it is older than the minimum version required for hbar=false support.
+   * Never throws — a version check failure must not abort startup.
+   */
+  private async warnIfMirrorNodeOutdated(): Promise<void> {
+    try {
+      const version = await this.mirrorNodeClient.fetchMirrorNodeVersion();
+      if (version === null) {
+        this.logger.debug('Could not determine Mirror Node version from OpenAPI spec; skipping compatibility check.');
+        return;
+      }
+      if (!Utils.isVersionAtLeast(version, MirrorNodeClient.MIRROR_NODE_HBAR_MIN_VERSION)) {
+        this.logger.warn(
+          `Mirror Node version %s is below the minimum required version %s. 
+          The relay sends hbar=false on contract result endpoints; 
+          older Mirror Node versions return HTTP 400 for these requests. 
+          Upgrade your Mirror Node to v%s or later.`,
+          version,
+          MirrorNodeClient.MIRROR_NODE_HBAR_MIN_VERSION,
+          MirrorNodeClient.MIRROR_NODE_HBAR_MIN_VERSION,
+        );
+      }
+    } catch {
+      // Silently ignore — version check must never break startup
     }
   }
 
