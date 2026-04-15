@@ -511,8 +511,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
+          .args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       // delay
@@ -554,7 +554,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -566,7 +566,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -578,7 +578,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -823,8 +823,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
+          .args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 
@@ -868,8 +868,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
+          .args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 
@@ -920,8 +920,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
+          .args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 

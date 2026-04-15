@@ -6,7 +6,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
-    "@hashgraph/hedera-local": "^2.39.0",
     "@octokit/core": "^6.1.6",
     "@open-rpc/schema-utils-js": "^2.1.2",
     "@types/chai": "^5.2.3",
@@ -66,6 +65,7 @@
     "acceptancetest:release": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@release' --exit && ts-mocha tests/ws-server/acceptance/index.spec.ts -g '@release' --exit",
     "acceptancetest:release_http": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@release' --exit",
     "acceptancetest:release_ws": "c8 ts-mocha tests/ws-server/acceptance/index.spec.ts -g '@release' --exit",
+    "acceptancetest:protocol": "c8 ts-mocha tests/protocol/index.spec.ts -g '@protocol-acceptance' --exit",
     "acceptancetest:release_light": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@release-light' --exit",
     "acceptancetest:ws": "c8 ts-mocha tests/ws-server/acceptance/index.spec.ts -g '@web-socket' --exit",
     "acceptancetest:ws_batch1": "c8 ts-mocha tests/ws-server/acceptance/index.spec.ts -g '@web-socket-batch-1' --exit",

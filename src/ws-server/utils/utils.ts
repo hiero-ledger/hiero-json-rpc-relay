@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
-import { predefined } from '../../relay';
-import { RequestDetails } from '../../relay/lib/types';
-import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
+import { predefined, type Relay } from '../../relay';
+import type { RequestDetails } from '../../relay/lib/types';
+import type { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { type IJsonRpcResponse, jsonRespError } from '../../server/koaJsonRpc/lib/RpcResponse';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { SubscriptionService } from '../service/subscriptionService';
+import type ConnectionLimiter from '../metrics/connectionLimiter';
+import type WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
@@ -121,11 +121,16 @@ export const getBatchRequestsMaxSize = (): number => {
 
 /**
  * Verifies if the provided method is supported.
+ * @param {Relay} relay - the relay instance
  * @param {string} method - The method to verify.
  * @returns {boolean} A boolean indicating whether the method is supported.
  */
-export const verifySupportedMethod = (method: string): boolean => {
-  return hasOwnProperty(WS_CONSTANTS.METHODS, method.toUpperCase());
+export const verifySupportedMethod = (relay: Relay, method: string): boolean => {
+  return (
+    relay.rpcMethodRegistry.has(method) ||
+    method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE ||
+    method === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE
+  );
 };
 
 /**
