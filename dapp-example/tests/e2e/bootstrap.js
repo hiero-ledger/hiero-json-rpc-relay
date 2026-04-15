@@ -1,4 +1,4 @@
-const HederaSDK = require('@hashgraph/sdk');
+const HederaSDK = require('@hiero-ledger/sdk');
 const ethers = require('ethers');
 const fs = require('fs');
 const path = require('path');

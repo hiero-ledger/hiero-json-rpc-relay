@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import * as HederaSDK from '@hashgraph/sdk';
+import * as HederaSDK from '@hiero-ledger/sdk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

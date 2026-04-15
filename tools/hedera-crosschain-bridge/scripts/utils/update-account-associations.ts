@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { AccountId, AccountUpdateTransaction, Client, PrivateKey } from '@hashgraph/sdk';
+import { AccountId, AccountUpdateTransaction, Client, PrivateKey } from '@hiero-ledger/sdk';
 import hre, { ethers } from 'hardhat';
 
 function extractHederaNetworkByChainId(chainId: number): string {

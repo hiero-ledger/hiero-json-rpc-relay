@@ -1,6 +1,6 @@
 import React from 'react';
 import { ethers } from 'ethers';
-import { PublicKey, Client, TransferTransaction, Hbar, AccountId, AccountInfoQuery } from '@hashgraph/sdk';
+import { PublicKey, Client, TransferTransaction, Hbar, AccountId, AccountInfoQuery } from '@hiero-ledger/sdk';
 
 const client = Client.forTestnet();
 

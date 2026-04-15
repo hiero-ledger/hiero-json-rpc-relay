@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { BigNumber } from '@hiero-ledger/sdk';
 import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { BigNumber } from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';

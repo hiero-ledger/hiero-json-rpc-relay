@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { NestedUint8Array, RLP } from '@ethereumjs/rlp';
+import { ArgumentType } from '@hiero-ledger/sdk/lib/contract/ContractFunctionSelector';
+
 import {
   isHex,
   nanOrNumberInt64To0x,
@@ -10,6 +13,7 @@ import {
   stripLeadingZeroForSignatures,
   tinybarsToWeibars,
   toHash32,
+  toHexString,
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
@@ -22,6 +26,8 @@ import {
   Transaction2930,
   Transaction7702,
 } from '../model';
+import address = ArgumentType.address;
+import { expect } from 'chai';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
@@ -114,14 +120,46 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
         }))
     : [];
 
+function mapDecodedAccessList(decoded: Uint8Array | NestedUint8Array): AccessListEntry[] {
+  const asArray = (element: Uint8Array | NestedUint8Array) => (Array.isArray(element) ? element : []);
+  const asBytes = (key: NestedUint8Array | Uint8Array<ArrayBufferLike>) =>
+    key instanceof Uint8Array ? key : constants.EMPTY_HEX;
+  return asArray(decoded)
+    .map((_value, index, item) => {
+      const [addressRaw, storageKeysRaw] = asArray(item);
+      const storageKeys = asArray(storageKeysRaw).map((key) => prepend0x(toHexString(asBytes(key))));
+      return {
+        address: prepend0x(toHexString(asBytes(addressRaw))),
+        storageKeys,
+      };
+    })
+    .filter(Boolean) as AccessListEntry[];
+}
+
 /**
  * Formats an access list by normalizing and sanitizing its fields.
  *
  * @param {any} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] =>
-  accessList && Array.isArray(accessList)
+const formatAccessList = (accessList: any): AccessListEntry[] => {
+  if (isHex(accessList)) {
+    const asArray = (element: Uint8Array | NestedUint8Array) => (Array.isArray(element) ? element : []);
+    const asBytes = (key: NestedUint8Array | Uint8Array<ArrayBufferLike>) =>
+      key instanceof Uint8Array ? key : constants.EMPTY_HEX;
+
+    accessList = asArray(RLP.decode(accessList))
+      .map((_value, index, item) => {
+        const [addressRaw, storageKeysRaw] = asArray(item);
+        return {
+          address: prepend0x(toHexString(asBytes(addressRaw))),
+          storageKeys: asArray(storageKeysRaw).map((key) => prepend0x(toHexString(asBytes(key)))),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  return accessList && Array.isArray(accessList)
     ? accessList
         .filter((item: any) => item !== null && typeof item === 'object')
         .map((item: any) => ({
@@ -129,6 +167,7 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
           storageKeys: item.storageKeys ?? [],
         }))
     : [];
+};
 
 /**
  * Formats an address by normalizing and sanitizing its format.
