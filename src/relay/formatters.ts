@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
+import { BigNumber } from '@hiero-ledger/sdk/lib/Transfer';
 import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ContractId } from '@hashgraph/sdk';
+import { ContractId } from '@hiero-ledger/sdk';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 

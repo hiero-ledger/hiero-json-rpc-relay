@@ -9,7 +9,7 @@ import {
   Hbar,
   PrivateKey,
   TransferTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers, Transaction } from 'ethers';
 

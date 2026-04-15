@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { Server } from 'node:http';
 
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import fs from 'fs';

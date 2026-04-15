@@ -10,7 +10,7 @@ import {
   Status,
   TransactionId,
   TransactionResponse,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -206,7 +206,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         txResponseMock.getReceipt
           .onFirstCall()
-          .resolves({ fileId: FILE_ID } as unknown as import('@hashgraph/sdk').TransactionReceipt);
+          .resolves({ fileId: FILE_ID } as unknown as import('@hiero-ledger/sdk').TransactionReceipt);
         Object.assign(txResponseMock, {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
         });

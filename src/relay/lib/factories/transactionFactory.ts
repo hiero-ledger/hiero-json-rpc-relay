@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { RLP } from '@ethereumjs/rlp';
+
 import {
   isHex,
   nanOrNumberInt64To0x,
@@ -10,6 +12,7 @@ import {
   stripLeadingZeroForSignatures,
   tinybarsToWeibars,
   toHash32,
+  toHexString,
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
@@ -120,15 +123,24 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
  * @param {any} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] =>
-  accessList && Array.isArray(accessList)
-    ? accessList
-        .filter((item: any) => item !== null && typeof item === 'object')
-        .map((item: any) => ({
-          address: formatAddress(item.address),
-          storageKeys: item.storageKeys ?? [],
-        }))
+const formatAccessList = (accessList: any): AccessListEntry[] => {
+  if (!accessList || !isHex(accessList)) return [];
+
+  // FIXME (mirror-node#13343): this code fragment has to be reverted to the previous version when mirror node
+  // starts returning the correct access list format. For not it returns it as hex rlp encoded string.
+  const decoded = RLP.decode(accessList);
+  if (!Array.isArray(decoded)) return [];
+  return Array.isArray(decoded)
+    ? (decoded
+        .filter((_value, _index, item) => Array.isArray(item))
+        .map((_value, _index, [addressRaw, storageKeysRaw]) => ({
+          address: formatAddress(toHexString(addressRaw as Uint8Array)),
+          storageKeys: (Array.isArray(storageKeysRaw) ? storageKeysRaw : [])
+            .map((key) => prepend0x(toHexString(key as Uint8Array)))
+            .filter(Boolean),
+        })) as AccessListEntry[])
     : [];
+};
 
 /**
  * Formats an address by normalizing and sanitizing its format.

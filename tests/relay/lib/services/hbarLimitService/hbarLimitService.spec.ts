@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';

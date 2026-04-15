@@ -22,7 +22,7 @@ import {
   TransactionRecord,
   TransactionRecordQuery,
   TransactionResponse,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 

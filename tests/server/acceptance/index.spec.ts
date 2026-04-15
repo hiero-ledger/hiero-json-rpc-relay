@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // External resources
 // Hashgraph SDK
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 // Other external resources
