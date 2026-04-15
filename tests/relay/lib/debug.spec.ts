@@ -880,12 +880,12 @@ describe('Debug API Test Suite', async function () {
           });
         });
 
-        describe('tinybars to weibars conversion', async function () {
+        describe('amount field as hex value', async function () {
           const conversionTestCases = [
             {
-              name: 'should convert amount from tinybars to weibars',
+              name: 'should use amount directly as value',
               amount: 100,
-              expectedValue: '0xe8d4a51000', // 100 tinybars = 100 * 10^10 weibars = 10^12 weibars
+              expectedValue: '0x64',
             },
             {
               name: 'should return 0x0 for zero amount',
@@ -898,9 +898,9 @@ describe('Debug API Test Suite', async function () {
               expectedValue: '0x0',
             },
             {
-              name: 'should convert large amount (1 HBAR) from tinybars to weibars',
-              amount: 100_000_000, // 1 HBAR = 100_000_000 tinybars = 10^18 weibars
-              expectedValue: '0xde0b6b3a7640000',
+              name: 'should handle large amount correctly',
+              amount: 100_000_000,
+              expectedValue: '0x5f5e100',
             },
           ];
 
