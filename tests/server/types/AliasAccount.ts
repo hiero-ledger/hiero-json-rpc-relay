@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId, KeyList, PrivateKey } from '@hiero-ledger/sdk';
+import type { AccountId, KeyList, PrivateKey } from '@hiero-ledger/sdk';
 import { ethers } from 'ethers';
 
 import ServicesClient from '../clients/servicesClient';

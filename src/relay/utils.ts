@@ -2,7 +2,7 @@
 
 import { keccak256 } from '@ethersproject/keccak256';
 import { AccountId, PrivateKey } from '@hiero-ledger/sdk';
-import { Operator } from '@hiero-ledger/sdk/lib/client/Client';
+import type { Operator } from '@hiero-ledger/sdk/lib/client/Client';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 

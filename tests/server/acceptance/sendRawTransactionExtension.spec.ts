@@ -131,7 +131,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           .rejected;
       });
 
-      it('should succeed when calling "eth_sendRawTransaction" with non-empty access list and tx type != 0', async function () {
+      it('should succeed when calling "eth_sendRawTransaction" with non-empty access list and tx type != 0', async () => {
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,

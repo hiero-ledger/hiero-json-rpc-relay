@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { FileId } from '@hiero-ledger/sdk';
+import type { FileId } from '@hiero-ledger/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
