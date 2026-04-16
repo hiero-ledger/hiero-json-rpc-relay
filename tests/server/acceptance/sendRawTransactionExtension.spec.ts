@@ -131,42 +131,107 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           .rejected;
       });
 
-      it('should succeed when calling "eth_sendRawTransaction" with non-empty access list and tx type != 0', async () => {
-        const gasPrice = await relay.gasPrice();
-        const transaction = {
-          type: 2,
-          chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-          gasLimit: defaultGasLimit,
+      [
+        {
+          label: 'non-empty access list with 1 element',
           accessList: [
             {
               address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
-              storageKeys: [prepend0x('00'.repeat(32))],
+              storageKeys: [prepend0x('00'.repeat(31)) + '01'],
             },
           ],
-          to: accounts[0].address,
-        };
+        },
+        {
+          label: 'non-empty access list with 1 element and one storage key',
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [prepend0x('00'.repeat(31)) + '01'],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with 1 element and multiple storage keys',
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [prepend0x('00'.repeat(31)) + '01', prepend0x('00'.repeat(31)) + '02'],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and multiple storage keys',
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [prepend0x('00'.repeat(31)) + '01', prepend0x('00'.repeat(31)) + '02'],
+            },
+            {
+              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              storageKeys: [prepend0x('00'.repeat(31)) + '03', prepend0x('00'.repeat(31)) + '04'],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and multiple storage keys',
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [],
+            },
+            {
+              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              storageKeys: [],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and single storage key',
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [prepend0x('00'.repeat(31)) + '03'],
+            },
+            {
+              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              storageKeys: [],
+            },
+          ],
+        },
+      ].forEach(({ label, accessList }) => {
+        it(`should succeed when calling "eth_sendRawTransaction" with ${label} and tx type != 0`, async () => {
+          const gasPrice = await relay.gasPrice();
+          const transaction = {
+            type: 2,
+            chainId: Number(CHAIN_ID),
+            nonce: await relay.getAccountNonce(accounts[1].address),
+            maxPriorityFeePerGas: gasPrice,
+            maxFeePerGas: gasPrice,
+            gasLimit: defaultGasLimit,
+            accessList,
+            to: accounts[0].address,
+          };
 
-        const signedTx = await accounts[1].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-        await relay.pollForValidTransactionReceipt(transactionHash);
+          const signedTx = await accounts[1].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          await relay.pollForValidTransactionReceipt(transactionHash);
 
-        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-        expect(info).to.exist;
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.exist;
 
-        // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
-        const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
-        expect(tx).to.have.property('accessList').that.is.an('array');
-        expect(tx.accessList).to.not.be.empty;
+          // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
+          const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
+          expect(tx).to.have.property('accessList').that.is.an('array');
+          expect(tx.accessList).to.not.be.empty;
 
-        // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
-        const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
-        expect(block).to.have.property('transactions').that.is.an('array');
-        const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
-        expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
-        expect(transactionInBlock.accessList).to.not.be.empty;
+          // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
+          const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
+          expect(block).to.have.property('transactions').that.is.an('array');
+          const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
+          expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
+          expect(transactionInBlock.accessList).to.not.be.empty;
+          expect(transactionInBlock.accessList).to.deep.equal(tx.accessList);
+        });
       });
 
       it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
