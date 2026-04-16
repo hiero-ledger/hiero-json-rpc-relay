@@ -134,9 +134,9 @@ const formatAccessList = (accessList: any): AccessListEntry[] => {
     ? (decoded
         .filter((_value, _index, item) => Array.isArray(item))
         .map((_value, _index, [address, storageKeys]) => ({
-          address: formatAddress(toHexString(address as Uint8Array)),
+          address: formatAddress(!Array.isArray(address) ? toHexString(address) : null),
           storageKeys: (Array.isArray(storageKeys) ? storageKeys : [])
-            .map((key) => prepend0x(toHexString(key as Uint8Array)))
+            .map((key) => (!Array.isArray(key) ? prepend0x(toHexString(key)) : null))
             .filter(Boolean),
         })) as AccessListEntry[])
     : [];
