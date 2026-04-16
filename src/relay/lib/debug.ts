@@ -15,8 +15,7 @@ import {
   tinybarsToWeibars,
   toHexString,
 } from '../formatters';
-import { type Debug } from '../index';
-import { JsonRpcError } from '../index';
+import { type Debug, JsonRpcError } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -686,11 +685,7 @@ export class DebugImpl implements Debug {
           requestDetails,
         );
         return {
-          ...(this.getEmptyTracerObject(
-            TracerType.CallTracer,
-            resolvedFrom,
-            resolvedTo ?? constants.ZERO_HEX,
-          ) as CallTracerResult),
+          ...(this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo) as CallTracerResult),
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
           output: isHex(transactionsResponse.result)
@@ -1023,9 +1018,9 @@ export class DebugImpl implements Debug {
         };
       case TracerType.CallTracer: {
         return {
-          type: CallType.CALL,
-          from: resolvedFrom ?? constants.ZERO_HEX,
-          to: resolvedTo ?? constants.ZERO_HEX,
+          type: resolvedTo == null ? CallType.CREATE : CallType.CALL,
+          from: resolvedFrom,
+          to: resolvedTo,
           gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
           gasUsed: constants.ZERO_HEX,
           value: constants.ZERO_HEX,
