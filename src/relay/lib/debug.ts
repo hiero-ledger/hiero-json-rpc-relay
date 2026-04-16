@@ -579,7 +579,11 @@ export class DebugImpl implements Debug {
     from: string,
     to: string,
     requestDetails: RequestDetails,
-  ): Promise<{ resolvedFrom: string; resolvedTo: string }> {
+async resolveMultipleAddresses(
+  from: string,
+  to: string | null,
+  requestDetails: RequestDetails,
+): Promise<{ resolvedFrom: string; resolvedTo: string | null }>
     const [resolvedFrom, resolvedTo] = await Promise.all([
       this.resolveAddress(from, requestDetails, [
         constants.TYPE_CONTRACT,
