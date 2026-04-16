@@ -2,9 +2,9 @@ name: Dev Tool Tests
 
 on:
   pull_request:
-    branches: [main, release/**]
+    branches: [main, release/**, 5139-pectra-upgrade-accesslist]
   push:
-    branches: [main, release/**]
+    branches: [main, release/**, 5139-pectra-upgrade-accesslist]
     tags: [v*]
 
 concurrency:

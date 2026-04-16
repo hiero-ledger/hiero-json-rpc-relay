@@ -2,7 +2,7 @@ name: Build Image Test
 
 on:
   pull_request:
-    branches: [main, release/**]
+    branches: [main, release/**, 5139-pectra-upgrade-accesslist]
 
 permissions:
   contents: read
