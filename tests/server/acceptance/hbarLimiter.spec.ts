@@ -751,9 +751,9 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             hbarSpendingPlan: IDetailedHbarSpendingPlan;
           }
 
-          let accountPlanObject: Record<SubscriptionTier, AliasAccountPlan[]>;
+          let accountPlanObject: { BASIC: any[]; EXTENDED: any[]; PRIVILEGED: any[] };
 
-          const accountPlanRequirements: Record<SubscriptionTier, number> = {
+          const accountPlanRequirements: { BASIC: number; EXTENDED: number; PRIVILEGED: number } = {
             BASIC: 3,
             EXTENDED: 3,
             PRIVILEGED: 3,
@@ -762,7 +762,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
           const createMultipleAliasAccountsWithSpendingPlans = async (
             accountPlanRequirements: Record<SubscriptionTier, number>,
           ) => {
-            const accountPlanObject: Record<SubscriptionTier, AliasAccountPlan[]> = {
+            const accountPlanObject: { BASIC: any[]; EXTENDED: any[]; PRIVILEGED: any[] } = {
               BASIC: [],
               EXTENDED: [],
               PRIVILEGED: [],
@@ -781,7 +781,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
           };
 
           before(async () => {
-            accountPlanObject = await createMultipleAliasAccountsWithSpendingPlans(accountPlanRequirements);
+            accountPlanObject = await createMultipleAliasAccountsWithSpendingPlans(accountPlanRequirements as any);
           });
 
           it('should individually update amountSpents of different spending plans', async () => {
@@ -886,7 +886,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                     }
                   }
                   expect.fail(`Expected an error but nothing was thrown`);
-                } catch (e) {
+                } catch (e: any) {
                   logger.error(e.message);
                   expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
                 }

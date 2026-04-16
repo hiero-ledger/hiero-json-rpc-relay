@@ -39,9 +39,9 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
     const rateLimitedResponse = await client.callRaw(method, params);
     expect(rateLimitedResponse.error, `[${client.label}] Request ${limit + 1} for ${method} should be rate limited`).to
       .exist;
-    expect(rateLimitedResponse.error.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
-    expect(rateLimitedResponse.error.message).to.include('IP Rate limit exceeded');
-    expect(rateLimitedResponse.error.message).to.include(method);
+    expect(rateLimitedResponse.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+    expect(rateLimitedResponse.error!.message).to.include('IP Rate limit exceeded');
+    expect(rateLimitedResponse.error!.message).to.include(method);
   }
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
@@ -89,7 +89,7 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
           }
           const hashrateLimited = await client.callRaw('eth_hashrate', []);
           expect(hashrateLimited.error).to.exist;
-          expect(hashrateLimited.error.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+          expect(hashrateLimited.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
 
           // net_version -tier 3- has its own independent counter and must still succeed
           const netVersionResponse = await client.callRaw('net_version', []);

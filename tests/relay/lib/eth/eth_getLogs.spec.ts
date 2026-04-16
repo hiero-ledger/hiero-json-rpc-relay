@@ -91,16 +91,16 @@ describe('@ethGetLogs using MirrorNode', async function () {
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
   });
 
   beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
@@ -216,7 +216,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
         requestDetails,
       );
       expect.fail('should have thrown an error');
-    } catch (error) {
+    } catch (error: any) {
       expect(error).to.exist;
       const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
       expect(error.code).to.equal(predefinedError.code);

@@ -70,10 +70,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     const txPoolServiceWithMockedStorage = new TransactionPoolService(
       {
@@ -82,6 +82,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         removeFromList: sinon.stub(),
         removeAll: sinon.stub(),
         getUniqueAddressCount: sinon.stub(),
+        getAllTransactionPayloads: sinon.stub(),
+        getTransactionPayloads: sinon.stub(),
       },
       pino({ level: 'silent' }),
       registry,
@@ -145,7 +147,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       clock = useFakeTimers();
       sinon.restore();
       sdkClientStub = sinon.createStubInstance(SDKClient);
-      sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+      sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
       JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
@@ -485,7 +487,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
-          lockServiceStub.acquireLock.resolves('test-session-key-456');
+          (lockServiceStub.acquireLock as sinon.SinonStub).resolves('test-session-key-456');
           lockServiceStub.releaseLock.resolves();
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(

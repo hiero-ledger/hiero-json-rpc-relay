@@ -27,7 +27,7 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as Koa.Context;
 }
 
 describe('Unsubscribe Controller', function () {
@@ -39,7 +39,7 @@ describe('Unsubscribe Controller', function () {
   let stubConnectionLimiter: ConnectionLimiter;
   let stubMirrorNodeClient: MirrorNodeClient;
   let stubSubscriptionService: SubscriptionService;
-  let stubConfigService: ConfigService;
+  let stubConfigService: sinon.SinonStub;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('Unsubscribe Controller', function () {
       warn: sinon.stub(),
     };
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
-    stubWsMetricRegistry.getCounter.returns({
+    (stubWsMetricRegistry.getCounter as sinon.SinonStub).returns({
       labels: () => {
         return { inc: sinon.stub() };
       },
@@ -91,15 +91,15 @@ describe('Unsubscribe Controller', function () {
       stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
       const resp = await handleEthUnsubscribe(defaultParams);
 
-      expect(resp.error.code).to.equal(-32207);
-      expect(resp.error.message).to.contain('WS Subscriptions are disabled');
+      expect((resp as any).error.code).to.equal(-32207);
+      expect((resp as any).error.message).to.contain('WS Subscriptions are disabled');
     });
 
     it('should be able to unsubscribe', async function () {
-      stubSubscriptionService.unsubscribe.returns(subscriptionId);
+      (stubSubscriptionService.unsubscribe as sinon.SinonStub).returns(subscriptionId);
       const resp = await handleEthUnsubscribe(defaultParams);
 
-      expect(resp.result).to.be.true;
+      expect((resp as any).result).to.be.true;
     });
   });
 });

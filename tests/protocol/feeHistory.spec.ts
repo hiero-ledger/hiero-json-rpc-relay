@@ -17,7 +17,7 @@ describe('@release @protocol-acceptance eth_feeHistory', async () => {
     describe(client.label, () => {
       it('should return fee history with correct structure for a single block', async () => {
         const blockCount = 1;
-        const result = await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', []]);
+        const result: any = await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', []]);
 
         expect(result.baseFeePerGas, 'baseFeePerGas should be an Array').to.be.an('Array');
         expect(result.gasUsedRatio, 'gasUsedRatio should be an Array').to.be.an('Array');
@@ -29,14 +29,14 @@ describe('@release @protocol-acceptance eth_feeHistory', async () => {
       });
 
       it('should return no reward field when rewardPercentiles is empty', async () => {
-        const result = await client.call(METHOD_NAME, ['0x1', 'latest', []]);
+        const result: any = await client.call(METHOD_NAME, ['0x1', 'latest', []]);
 
         expect(result.reward).to.not.exist;
       });
 
       it('should return reward field when rewardPercentiles are provided', async () => {
         const blockCount = 2;
-        const result = await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', [25, 75]]);
+        const result: any = await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', [25, 75]]);
 
         expect(result.reward, 'reward should be an Array').to.be.an('Array');
         expect(result.reward.length).to.equal(blockCount);

@@ -179,7 +179,7 @@ describe('HBAR Rate Limit Service', function () {
     ];
 
     operatorEnvs.forEach((operatorEnv) => {
-      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress());
+      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN!).toSolidityAddress());
 
       withOverriddenEnvsInMochaTest(operatorEnv, () => {
         describe('based on evmAddress', async function () {
@@ -750,7 +750,7 @@ describe('HBAR Rate Limit Service', function () {
       );
       const updateAverageAmountSpentPerSubscriptionTierSpy = sinon.spy(
         hbarLimitService,
-        <any>'updateAverageAmountSpentPerSubscriptionTier',
+        <keyof HbarLimitService>'updateAverageAmountSpentPerSubscriptionTier',
       );
 
       const addExpensePromise = hbarLimitService.addExpense(
@@ -772,6 +772,7 @@ describe('HBAR Rate Limit Service', function () {
         await Promise.all(updateAverageAmountSpentPerSubscriptionTierSpy.returnValues);
         const expectedAverageUsage = Math.round((otherPlanOfTheSameTier.amountSpent + expense) / 2);
         sinon.assert.calledOnceWithExactly(setAverageSpendingPlanAmountSpentGaugeSpy, expectedAverageUsage);
+        // @ts-ignore
         sinon.assert.calledOnceWithExactly(incUniqueSpendingPlansCounterSpy, 1);
       } else {
         await expect(addExpensePromise).to.eventually.be.fulfilled;
@@ -883,9 +884,10 @@ describe('HBAR Rate Limit Service', function () {
 
         it('should update the hbar limit counter when a method is called and the total budget is exceeded', async function () {
           // @ts-ignore
-          const hbarLimitCounterSpy = sinon.spy(hbarLimitService.hbarLimitCounter, <any>'inc');
+          const hbarLimitCounterSpy = sinon.spy(hbarLimitService.hbarLimitCounter, <keyof HbarLimitService>'inc');
           await testIsTotalBudgetExceeded(0, true);
-          expect(hbarLimitCounterSpy.calledWithMatch({ mode, methodName }, 1)).to.be.true;
+          expect((hbarLimitCounterSpy as sinon.SinonSpy<any[], any>).calledWithMatch({ mode, methodName }, 1)).to.be
+            .true;
         });
 
         it('should reset the limiter when the reset date is reached', async function () {

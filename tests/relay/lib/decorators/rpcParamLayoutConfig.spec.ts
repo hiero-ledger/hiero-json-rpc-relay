@@ -76,6 +76,7 @@ describe('rpcParamLayoutConfig decorator', () => {
       const mockMethod = function () {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
 
+      // @ts-ignore
       const result = Utils.arrangeRpcParams(mockMethod, numberParam, requestDetails);
       expect(result).to.deep.equal([numberParam, requestDetails]);
     });
@@ -84,6 +85,7 @@ describe('rpcParamLayoutConfig decorator', () => {
       const mockMethod = function () {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
 
+      // @ts-ignore
       const result = Utils.arrangeRpcParams(mockMethod, null, requestDetails);
       expect(result).to.deep.equal([requestDetails]);
     });

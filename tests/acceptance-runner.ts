@@ -62,8 +62,8 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     const logger = testLogger.child({ name: 'rpc-acceptance-test' });
 
     const NETWORK = ConfigService.get('HEDERA_NETWORK');
-    const OPERATOR_KEY = ConfigService.get('OPERATOR_KEY_MAIN');
-    const OPERATOR_ID = ConfigService.get('OPERATOR_ID_MAIN');
+    const OPERATOR_KEY = ConfigService.get('OPERATOR_KEY_MAIN') || '';
+    const OPERATOR_ID = ConfigService.get('OPERATOR_ID_MAIN') || '';
     const MIRROR_NODE_URL = ConfigService.get('MIRROR_NODE_URL');
     const LOCAL_RELAY_URL = 'http://localhost:7546';
     const RELAY_URL = ConfigService.get('E2E_RELAY_HOST') || LOCAL_RELAY_URL;

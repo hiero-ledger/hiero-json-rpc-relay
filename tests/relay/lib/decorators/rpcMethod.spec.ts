@@ -97,11 +97,11 @@ describe('rpcMethod decorator integration', () => {
 
   describe('Decorator behavior', () => {
     // A test class that uses the actual decorator syntax
+    // @ts-ignore
     class TestRpcClass {
       static namespace = 'test';
 
       // Use the actual decorator syntax with TypeScript comment to suppress errors
-      // @ts-expect-error: TypeScript doesn't recognize decorators in tests
       @rpcMethod
       decoratedMethod() {
         return 'decorated-result';

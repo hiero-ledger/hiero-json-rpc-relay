@@ -162,7 +162,7 @@ describe('Equivalence tests', async function () {
     );
     equivalenceContractId = equivalenceContractReceipt.contractId.toString();
 
-    const contractMirror = await mirrorNodeClient.get(`/contracts/${estimatePrecompileSolidityAddress}`);
+    const contractMirror = await (mirrorNodeClient as any).get(`/contracts/${estimatePrecompileSolidityAddress}`);
 
     accounts[0] = await servicesClient.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
@@ -381,7 +381,7 @@ describe('Equivalence tests', async function () {
           EMPTY_FUNCTION_PARAMS,
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output, Constants.EMPTY_HEX);
         return;
@@ -404,7 +404,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Error, INVALID_FEE_SUBMITTED);
         return;
@@ -425,7 +425,7 @@ describe('Equivalence tests', async function () {
           EMPTY_FUNCTION_PARAMS,
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output, Constants.EMPTY_HEX);
         return;
@@ -448,7 +448,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output);
         return;
@@ -483,7 +483,7 @@ describe('Equivalence tests', async function () {
         EMPTY_FUNCTION_PARAMS,
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -542,7 +542,7 @@ describe('Equivalence tests', async function () {
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
         Constants.AMOUNT.AMOUNT_100,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -569,7 +569,7 @@ describe('Equivalence tests', async function () {
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
         Constants.AMOUNT.AMOUNT_100,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -674,7 +674,7 @@ describe('Equivalence tests', async function () {
               Constants.GAS_AS_NUMBER.LIMIT_500_000,
               test.amount,
             );
-          } catch (e) {
+          } catch (e: any) {
             const contractActions = await getContractActions(getTransactionIdFromException(e));
             validateContractActions(contractActions.actions[1], callType, test.outcome, test.message);
             return;
@@ -804,7 +804,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[1], CallTypes.Call, Outcomes.Error, INVALID_FEE_SUBMITTED);
         return;

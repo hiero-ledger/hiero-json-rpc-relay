@@ -155,7 +155,9 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       customRoyaltyFees: 1,
     });
 
+    // @ts-ignore
     const nftTokenId0 = nftResult0.receipt.tokenId.toString();
+    // @ts-ignore
     const nftTokenId1 = nftResult1.receipt.tokenId.toString();
 
     const mintArgs = {
@@ -170,32 +172,32 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     for (const account of [accounts[1], accounts[2]]) {
       await servicesNode.associateHTSToken(
         account.accountId,
-        htsResult1.receipt.tokenId,
+        htsResult1.receipt.tokenId!,
         account.privateKey,
         htsResult1.client,
       );
       await servicesNode.grantKyc({
-        tokenId: htsResult1.receipt.tokenId,
+        tokenId: htsResult1.receipt.tokenId!.toString(),
         treasuryAccountId: accounts[0].accountId.toString(),
         adminPrivateKey: accounts[0].privateKey,
-        accountId: account.accountId,
+        accountId: account.accountId.toString(),
       });
 
       await servicesNode.associateHTSToken(
         account.accountId,
-        nftResult0.receipt.tokenId,
+        nftResult0.receipt.tokenId!,
         account.privateKey,
         nftResult0.client,
       );
     }
 
     // create contract instances
-    tokenAddress = Utils.idToEvmAddress(htsResult1.receipt.tokenId.toString());
+    tokenAddress = Utils.idToEvmAddress(htsResult1.receipt.tokenId!.toString());
     tokenAddressFixedHbarFees = tokenAddress;
-    tokenAddressFixedTokenFees = Utils.idToEvmAddress(htsResult2.receipt.tokenId.toString());
-    tokenAddressNoFees = Utils.idToEvmAddress(htsResult0.receipt.tokenId.toString());
-    tokenAddressFractionalFees = Utils.idToEvmAddress(htsResult3.receipt.tokenId.toString());
-    tokenAddressAllFees = Utils.idToEvmAddress(htsResult4.receipt.tokenId.toString());
+    tokenAddressFixedTokenFees = Utils.idToEvmAddress(htsResult2.receipt.tokenId!.toString());
+    tokenAddressNoFees = Utils.idToEvmAddress(htsResult0.receipt.tokenId!.toString());
+    tokenAddressFractionalFees = Utils.idToEvmAddress(htsResult3.receipt.tokenId!.toString());
+    tokenAddressAllFees = Utils.idToEvmAddress(htsResult4.receipt.tokenId!.toString());
 
     nftAddress = Utils.idToEvmAddress(nftTokenId0);
     nftAddressRoyaltyFees = Utils.idToEvmAddress(nftTokenId1);

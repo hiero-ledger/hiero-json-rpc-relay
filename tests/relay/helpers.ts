@@ -981,6 +981,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
 
   before(async () => {
     redisInMemoryServer = await startRedisInMemoryServer(logger, port);
+    // @ts-ignore
     RedisClientManager['client'] = null;
   });
 

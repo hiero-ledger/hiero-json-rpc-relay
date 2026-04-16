@@ -164,7 +164,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       const testLogger = pino({ level: 'error' });
       // Stub child to return the same logger instance so we can spy on it
-      sinon.stub(testLogger, 'child').returns(testLogger);
+      sinon.stub(testLogger, 'child').returns(testLogger as any);
       const loggerSpy = sinon.spy(testLogger, 'error');
 
       const store = new RedisRateLimitStore(

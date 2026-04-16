@@ -5,13 +5,18 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
+import { IPRateLimiterService, RedisRateLimitStore } from '../../../src/relay/lib/services';
+import { getDefaultRateLimit } from '../../../src/server/koaJsonRpc/lib/utils';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
-const limiter = new ConnectionLimiter(logger, register);
+
+const rateLimitStore = new RedisRateLimitStore(null as any, logger, getDefaultRateLimit());
+const rateLimiter = new IPRateLimiterService(rateLimitStore, register);
+const limiter = new ConnectionLimiter(logger, register, rateLimiter);
 let relay: Relay;
 
 class MockWsConnection {
@@ -211,7 +216,7 @@ describe('subscriptionService', async function () {
     const count = subscriptionService.unsubscribe(wsConnection, subId2);
 
     expect(count).to.be.eq(1);
-    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`), wsConnection.id, subId2).to.be.eq(true);
+    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`), wsConnection.id).to.be.eq(true);
     expect(
       loggerDebugSpy.calledWith(
         `Connection %s. Unsubscribing subId: %s; tag: %s`,
