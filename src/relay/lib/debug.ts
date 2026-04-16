@@ -553,7 +553,11 @@ export class DebugImpl implements Debug {
     address: string,
     requestDetails: RequestDetails,
     types: string[] = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
+async resolveAddress(
+  address: string | null,
+  requestDetails: RequestDetails,
+  types: string[] = [...],
+): Promise<string | null>
     // if the address is null or undefined we return it as is
     if (!address) return address;
 
