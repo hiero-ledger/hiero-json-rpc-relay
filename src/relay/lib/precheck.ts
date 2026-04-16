@@ -264,7 +264,7 @@ export class Precheck {
 
     // EIP-7702 mandates that tx.to must not be null
     if (tx.type === 4 && tx.to == null) {
-      throw predefined.INVALID_PARAMETER('to', 'must not be null for type 4 transaction');
+      throw predefined.INVALID_PARAMETER('to', 'type 4 transaction cannot be used to create contract');
     }
   }
 
