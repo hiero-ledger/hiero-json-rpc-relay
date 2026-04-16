@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { NestedUint8Array, RLP } from '@ethereumjs/rlp';
+import { RLP } from '@ethereumjs/rlp';
 
 import {
   isHex,
