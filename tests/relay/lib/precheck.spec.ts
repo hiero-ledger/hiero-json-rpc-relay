@@ -1095,7 +1095,7 @@ describe('Precheck', async function () {
 
     it('should throw for type 4 tx with valid authorizationList but null to', () => {
       expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry], to: null }))).to.throw(
-        'must not be null for type 4 transaction',
+        'type 4 transaction cannot be used to create contract',
       );
     });
   });
