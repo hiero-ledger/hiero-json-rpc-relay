@@ -230,7 +230,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
-              if (subscriptionId === '') {
+              // eslint-disable-next-line eqeqeq
+              if (subscriptionId == '') {
                 subscriptionId = parsed.result;
               } else {
                 latestEventFromSubscription = parsed;
