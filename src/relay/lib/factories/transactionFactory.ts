@@ -129,7 +129,6 @@ const formatAccessList = (accessList: any): AccessListEntry[] => {
   // FIXME (mirror-node#13343): this code fragment has to be reverted to the previous version when mirror node
   // starts returning the correct access list format. For now it returns it as hex rlp encoded string.
   const decoded = RLP.decode(accessList);
-  if (!Array.isArray(decoded)) return [];
   return Array.isArray(decoded)
     ? (decoded
         .filter((_value, _index, item) => Array.isArray(item))
