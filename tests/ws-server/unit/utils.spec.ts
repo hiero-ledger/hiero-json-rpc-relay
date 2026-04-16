@@ -183,6 +183,70 @@ describe('Utilities unit tests', async function () {
     it('should terminate the websocket connection', async () => {
       expect(ctxStub.websocket.terminate.calledOnce).to.be.true;
     });
+
+    describe('timer cleanup', () => {
+      let relayStub: sinon.SinonStubbedInstance<Relay>;
+      let limiterStub: sinon.SinonStubbedInstance<ConnectionLimiter>;
+      let wsMetricRegistryStub: sinon.SinonStubbedInstance<WsMetricRegistry>;
+      let startTime: [number, number];
+      let subscriptionService: SubscriptionService;
+      let clearIntervalSpy: sinon.SinonSpy;
+
+      beforeEach(() => {
+        relayStub = sinon.createStubInstance(Relay);
+        relayStub.eth.returns(sinon.createStubInstance(EthImpl));
+        limiterStub = sinon.createStubInstance(ConnectionLimiter);
+        wsMetricRegistryStub = sinon.createStubInstance(WsMetricRegistry);
+        wsMetricRegistryStub.getCounter.returns({ inc: sinon.stub() } as unknown as Counter);
+        wsMetricRegistryStub.getHistogram.returns({
+          observe: sinon.stub(),
+          startTimer: sinon.stub(),
+        } as unknown as Histogram);
+        startTime = process.hrtime();
+        subscriptionService = new SubscriptionService(relayStub, logger, registry);
+        clearIntervalSpy = sinon.spy(global, 'clearInterval');
+      });
+
+      afterEach(() => {
+        clearIntervalSpy.restore();
+      });
+
+      it('should clear the ping interval when closing a connection', async () => {
+        const intervalId = setInterval(() => {}, 100000);
+        const ctxWithPing: any = {
+          websocket: {
+            id: 'mock-id',
+            terminate: sinon.spy(),
+            pingIntervalId: intervalId,
+          },
+        };
+
+        await handleConnectionClose(ctxWithPing, subscriptionService, limiterStub, wsMetricRegistryStub, startTime);
+
+        expect(clearIntervalSpy.calledWith(intervalId)).to.be.true;
+        expect(ctxWithPing.websocket.terminate.calledOnce).to.be.true;
+      });
+
+      it('should handle missing timers gracefully', async () => {
+        const ctxWithoutTimers: any = {
+          websocket: {
+            id: 'mock-id',
+            terminate: sinon.spy(),
+          },
+        };
+
+        await handleConnectionClose(
+          ctxWithoutTimers,
+          subscriptionService,
+          limiterStub,
+          wsMetricRegistryStub,
+          startTime,
+        );
+
+        expect(clearIntervalSpy.notCalled).to.be.true;
+        expect(ctxWithoutTimers.websocket.terminate.calledOnce).to.be.true;
+      });
+    });
   });
 
   describe('getMultipleAddressesEnabled', () => {
