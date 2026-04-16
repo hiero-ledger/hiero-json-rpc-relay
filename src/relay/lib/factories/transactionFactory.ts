@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RLP } from '@ethereumjs/rlp';
+import { NestedUint8Array, RLP } from '@ethereumjs/rlp';
 
 import {
   isHex,
@@ -118,28 +118,39 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
     : [];
 
 /**
+ * Decodes a hex string into an array of RLP-encoded items. Since the MirrorNode does NOT return the full RLP encoding,
+ * with root included, we need to decode the data we get from them, streaming it part by part.
+ * @param hex
+ * @return decoded stream
+ */
+function* decodeStream(hex: string) {
+  let rest: string | Uint8Array = hex;
+  while (rest) {
+    const { data, remainder } = RLP.decode(rest, true);
+    yield data;
+    rest = remainder;
+  }
+}
+
+/**
  * Formats an access list by normalizing and sanitizing its fields.
+ * FIXME (mirror-node#13343): this code fragment has to be reverted to the previous version when mirror node
+ * starts returning the correct access list format. For now it returns it as hex rlp encoded string.
  *
  * @param {any} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] => {
-  if (!accessList || !isHex(accessList)) return [];
-
-  // FIXME (mirror-node#13343): this code fragment has to be reverted to the previous version when mirror node
-  // starts returning the correct access list format. For now it returns it as hex rlp encoded string.
-  const decoded = RLP.decode(accessList);
-  return Array.isArray(decoded)
-    ? (decoded
-        .filter((_value, _index, item) => Array.isArray(item))
-        .map((_value, _index, [address, storageKeys]) => ({
-          address: formatAddress(!Array.isArray(address) ? toHexString(address) : null),
-          storageKeys: (Array.isArray(storageKeys) ? storageKeys : [])
-            .map((key) => (!Array.isArray(key) ? prepend0x(toHexString(key)) : null))
-            .filter(Boolean),
-        })) as AccessListEntry[])
+const formatAccessList = (accessList: any): AccessListEntry[] =>
+  accessList && isHex(accessList)
+    ? [...decodeStream(accessList)]
+        .filter((data) => data && data.length === 2)
+        .map(([address, storageKeys]) => ({
+          address: formatAddress(address instanceof Uint8Array ? toHexString(address) : null),
+          storageKeys: Array.isArray(storageKeys)
+            ? storageKeys.filter((item) => item instanceof Uint8Array).map((key) => prepend0x(toHexString(key)))
+            : [],
+        }))
     : [];
-};
 
 /**
  * Formats an address by normalizing and sanitizing its format.
