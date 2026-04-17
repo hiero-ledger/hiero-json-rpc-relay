@@ -99,6 +99,7 @@ export default {
   TX_CREATE_EXTRA: 32_000,
 
   STANDARD_TOKEN_COST: 4,
+
   // EIP-7623: Calldata floor pricing constants
   TOTAL_COST_FLOOR_PER_TOKEN: 10,
 
