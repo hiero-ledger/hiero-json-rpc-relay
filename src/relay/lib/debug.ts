@@ -550,12 +550,12 @@ export class DebugImpl implements Debug {
    * @returns {Promise<string>} The address returned as an EVM address.
    */
   async resolveAddress(
-    address: string,
+    address: string | null,
     requestDetails: RequestDetails,
     types: string[] = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
+  ): Promise<string | null> {
     // if the address is null or undefined we return it as is
-    if (!address) return address;
+    if (address == null) return null;
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
@@ -579,7 +579,7 @@ export class DebugImpl implements Debug {
     from: string,
     to: string,
     requestDetails: RequestDetails,
-  ): Promise<{ resolvedFrom: string; resolvedTo: string }> {
+  ): Promise<{ resolvedFrom: string; resolvedTo: string | null }> {
     const [resolvedFrom, resolvedTo] = await Promise.all([
       this.resolveAddress(from, requestDetails, [
         constants.TYPE_CONTRACT,
@@ -589,7 +589,7 @@ export class DebugImpl implements Debug {
       this.resolveAddress(to, requestDetails, [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT]),
     ]);
 
-    return { resolvedFrom, resolvedTo };
+    return { resolvedFrom: resolvedFrom!, resolvedTo };
   }
 
   /**
@@ -685,7 +685,7 @@ export class DebugImpl implements Debug {
           requestDetails,
         );
         return {
-          ...(this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo) as CallTracerResult),
+          ...this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo),
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
           output: isHex(transactionsResponse.result)
@@ -1002,21 +1002,29 @@ export class DebugImpl implements Debug {
    * @returns The empty tracer result object.
    */
   private getEmptyTracerObject(
+    tracer: TracerType.CallTracer,
+    resolvedFrom: string,
+    resolvedTo: string | null,
+  ): CallTracerResult;
+  private getEmptyTracerObject(
+    tracer: TracerType.PrestateTracer | TracerType.OpcodeLogger,
+  ): EntityTraceStateMap | OpcodeLoggerResult;
+  private getEmptyTracerObject(
     tracer: TracerType,
     resolvedFrom?: string,
-    resolvedTo?: string,
+    resolvedTo?: string | null,
   ): EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult {
     switch (tracer) {
       case TracerType.PrestateTracer:
-        return {};
+        return {} as EntityTraceStateMap;
       case TracerType.OpcodeLogger:
         return {
           gas: 0,
           failed: false,
           returnValue: '',
           structLogs: [],
-        };
-      case TracerType.CallTracer: {
+        } as OpcodeLoggerResult;
+      case TracerType.CallTracer:
         return {
           type: resolvedTo == null ? CallType.CREATE : CallType.CALL,
           from: resolvedFrom,
@@ -1027,8 +1035,7 @@ export class DebugImpl implements Debug {
           input: constants.EMPTY_HEX,
           output: constants.EMPTY_HEX,
           calls: [],
-        };
-      }
+        } as CallTracerResult;
     }
   }
 

@@ -47,9 +47,9 @@ export interface CallTracerResult {
   /** The type of the call (e.g., 'CALL', 'CREATE', etc.). */
   type: string;
   /** The address initiating the call. */
-  from: string | null | undefined;
+  from: string;
   /** The address receiving the call. */
-  to: string | null | undefined;
+  to: string | null;
   /** The value transferred in the call, as a string. */
   value: string;
   /** The amount of gas provided for the call, as a string. */
