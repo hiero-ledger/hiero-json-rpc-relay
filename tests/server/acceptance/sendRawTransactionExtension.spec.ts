@@ -167,7 +167,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
               storageKeys: [prepend0x('00'.repeat(31)) + '01', prepend0x('00'.repeat(31)) + '02'],
             },
             {
-              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              address: '0x1A5fdbC891c5D4e6aD68064ae45d43146D4F9F3a',
               storageKeys: [prepend0x('00'.repeat(31)) + '03', prepend0x('00'.repeat(31)) + '04'],
             },
           ],
@@ -180,7 +180,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
               storageKeys: [],
             },
             {
-              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              address: '0x1A5fdbC891c5D4e6aD68064ae45d43146D4F9F3a',
               storageKeys: [],
             },
           ],
@@ -193,7 +193,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
               storageKeys: [prepend0x('00'.repeat(31)) + '03'],
             },
             {
-              address: '0x1a5FdBc891c5D4E6aD68064Ae45D43146D4F9f3a',
+              address: '0x1A5fdbC891c5D4e6aD68064ae45d43146D4F9F3a',
               storageKeys: [],
             },
           ],
