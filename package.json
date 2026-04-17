@@ -107,7 +107,7 @@
     "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
-    "@hiero-ledger/cryptography": "^1.18.0",
+    "@ethersproject/keccak256": "^5.8.0",
     "@hiero-ledger/sdk": "^2.83.0-beta.2",
     "@hoppscotch/cli": "0.30.0",
     "@koa/cors": "^5.0.0",
