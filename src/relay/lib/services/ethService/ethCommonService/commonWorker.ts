@@ -6,6 +6,7 @@ import { ConfigService } from '../../../../../config-service/services';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
+import { type Log } from '../../../model';
 import { type RequestDetails } from '../../../types';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from './CommonService';
@@ -31,7 +32,7 @@ export async function getLogs(
   address: string | string[] | null,
   topics: any[] | null,
   requestDetails: RequestDetails,
-) {
+): Promise<Log[]> {
   try {
     const EMPTY_RESPONSE = [];
     const params: any = {};

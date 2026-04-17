@@ -72,7 +72,7 @@ export default class ConnectionLimiter {
     });
   }
 
-  public incrementCounters(ctx) {
+  public incrementCounters(ctx): void {
     const { ip } = ctx.request;
 
     this.connectedClients = ctx.app.server._connections;
@@ -90,7 +90,7 @@ export default class ConnectionLimiter {
     this.activeConnectionsGaugeByIP.labels(ip).set(this.clientIps[ip]);
   }
 
-  public decrementCounters(ctx) {
+  public decrementCounters(ctx): void {
     if (ctx.websocket.ipCounted) {
       const { ip } = ctx.request;
       this.clientIps[ip]--;
@@ -101,7 +101,7 @@ export default class ConnectionLimiter {
     this.activeConnectionsGauge.set(this.connectedClients);
   }
 
-  public applyLimits(ctx) {
+  public applyLimits(ctx): void {
     // Limit total connections
     const MAX_CONNECTION_LIMIT = ConfigService.get('WS_CONNECTION_LIMIT');
     if (this.connectedClients > MAX_CONNECTION_LIMIT) {
@@ -163,20 +163,20 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(ctx.websocket);
   }
 
-  public incrementSubs(ctx) {
+  public incrementSubs(ctx): void {
     ctx.websocket.subscriptions++;
   }
 
-  public decrementSubs(ctx, amount = 1) {
+  public decrementSubs(ctx, amount = 1): void {
     ctx.websocket.subscriptions -= amount;
   }
 
-  public validateSubscriptionLimit(ctx) {
+  public validateSubscriptionLimit(ctx): boolean {
     return ctx.websocket.subscriptions < ConfigService.get('WS_SUBSCRIPTION_LIMIT');
   }
 
   // Starts a timeout timer that closes the connection
-  private startInactivityTTLTimer(websocket) {
+  private startInactivityTTLTimer(websocket): void {
     const maxInactivityTTL = ConfigService.get('WS_MAX_INACTIVITY_TTL');
     websocket.inactivityTTL = setTimeout(() => {
       if (websocket.readyState !== 3) {
@@ -207,7 +207,7 @@ export default class ConnectionLimiter {
   }
 
   // Resets the inactivity TTL timer
-  public resetInactivityTTLTimer(websocket) {
+  public resetInactivityTTLTimer(websocket): void {
     if (websocket?.inactivityTTL) {
       clearTimeout(websocket.inactivityTTL);
     }
@@ -215,7 +215,7 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(websocket);
   }
 
-  public async shouldRateLimitOnMethod(ip, methodName, requestDetails) {
+  public async shouldRateLimitOnMethod(ip, methodName, requestDetails): Promise<boolean> {
     // subcription limits are already covered in this.validateSubscriptionLimit()
     if (methodName === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE || methodName === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)
       return false;

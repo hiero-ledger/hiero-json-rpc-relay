@@ -55,7 +55,7 @@ export class PollerService {
   /**
    * Polls the Ethereum blockchain for new events and calls the callback function for each event.
    */
-  private poll() {
+  private poll(): void {
     this.polls.forEach(async (poll) => {
       try {
         if (this.logger.isLevelEnabled('debug')) {
@@ -114,7 +114,7 @@ export class PollerService {
   /**
    * Starts the polling process.
    */
-  public start() {
+  public start(): void {
     this.logger.info(`${LOGGER_PREFIX} Starting polling with interval=${this.pollingInterval}`);
     this.interval = setInterval(async () => {
       this.latestBlock = await this.eth.blockNumber(
@@ -127,7 +127,7 @@ export class PollerService {
   /**
    * Stops the polling process.
    */
-  public stop() {
+  public stop(): void {
     this.logger.info(`${LOGGER_PREFIX} Stopping polling`);
     if (this.isPolling()) {
       clearInterval(this.interval as NodeJS.Timeout);
@@ -140,7 +140,7 @@ export class PollerService {
    * @param tag - The tag to add.
    * @param callback - The callback function to call when the poll is triggered.
    */
-  public add(tag: string, callback: (...args: unknown[]) => unknown) {
+  public add(tag: string, callback: (...args: unknown[]) => unknown): void {
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       this.polls.push({
@@ -163,7 +163,7 @@ export class PollerService {
    * Removes a poll from the polling list.
    * @param tag - The tag to remove.
    */
-  public remove(tag: string) {
+  public remove(tag: string): void {
     this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
     const pollsAtStart = this.polls.length;
     this.polls = this.polls.filter((p) => p.tag !== tag);
@@ -197,7 +197,7 @@ export class PollerService {
    * Checks if the polling process is active.
    * @returns True if the polling process is active, false otherwise.
    */
-  public isPolling() {
+  public isPolling(): boolean {
     return !!this.interval;
   }
 }

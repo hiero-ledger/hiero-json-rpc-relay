@@ -11,7 +11,7 @@ import {
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
 } from '../../../../formatters';
-import { type MirrorNodeClient } from '../../../clients';
+import type { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -24,9 +24,9 @@ import {
   type RequestDetails,
 } from '../../../types';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
-import { type ICommonService } from '../../ethService/ethCommonService/ICommonService';
+import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
 import type HAPIService from '../../hapiService/hapiService';
-import { type IContractService } from './IContractService';
+import type { IContractService } from './IContractService';
 
 /**
  * Service responsible for handling contract-related operations.

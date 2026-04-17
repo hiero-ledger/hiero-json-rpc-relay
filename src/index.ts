@@ -30,7 +30,7 @@ const mainLogger = pino({
 
 const logger = mainLogger.child({ name: 'main' });
 
-async function main() {
+async function main(): Promise<void> {
   const rpcHttpEnabled = ConfigService.get('RPC_HTTP_ENABLED');
   const rpcWsEnabled = ConfigService.get('RPC_WS_ENABLED');
 
@@ -92,7 +92,7 @@ async function main() {
     });
 
     // Graceful shutdown
-    const shutdown = async () => {
+    const shutdown: () => Promise<never> = async (): Promise<never> => {
       logger.info('Shutting down...');
       await Promise.all(servers.map((s) => s.stop()));
       // eslint-disable-next-line n/no-process-exit

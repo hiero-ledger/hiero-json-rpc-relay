@@ -203,7 +203,7 @@ export class Relay {
       help: 'Relay operator balance gauge',
       labelNames: ['mode', 'type', 'accountId'],
       registers: [register],
-      async collect() {
+      async collect(): Promise<void> {
         // Invoked when the registry collects its metrics' values.
         // Allows for updated account balance tracking
         try {
@@ -261,7 +261,7 @@ export class Relay {
   /**
    * Initializes required clients and services
    */
-  async initializeRelay() {
+  async initializeRelay(): Promise<void> {
     // 1. Connect to Redis first
     await this.connectRedisClient();
 
@@ -420,7 +420,7 @@ export class Relay {
     this.logger.info('Relay running with chainId=%s', chainId);
   }
 
-  private async connectRedisClient() {
+  private async connectRedisClient(): Promise<void> {
     if (RedisClientManager.isRedisEnabled()) {
       this.redisClient = await RedisClientManager.getClient(this.logger);
     } else {
@@ -479,7 +479,7 @@ export class Relay {
     }
   }
 
-  private async ensureOperatorHasBalance() {
+  private async ensureOperatorHasBalance(): Promise<void> {
     const operator = this.operatorAccountId!.toString();
     const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
     if (balance === BigInt(0)) {

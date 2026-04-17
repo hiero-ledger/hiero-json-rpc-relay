@@ -23,7 +23,7 @@ const validateIsContractOrTokenAddress = async (
   address: string,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
-) => {
+): Promise<void> => {
   const isContractOrToken = await mirrorNodeClient.resolveEntityType(
     address,
     constants.METHODS.ETH_SUBSCRIBE,
@@ -50,7 +50,7 @@ export const validateSubscribeEthLogsParams = async (
   filters: EthSubscribeLogsParams,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
-) => {
+): Promise<void> => {
   // validate address exists and is correct length and type
   // validate topics if exists and is array and each one is correct length and type
   // @todo: move EthSubscribeLogsParamsObject to ws-server package

@@ -16,7 +16,7 @@ export class LogsBloomUtils {
    * @param address
    * @param topics
    */
-  private static addLogItems(bitvector: Uint8Array, address: string, topics: string[]) {
+  private static addLogItems(bitvector: Uint8Array, address: string, topics: string[]): void {
     const items = [address, ...topics];
     for (let k = 0; k < items.length; k++) {
       const item = Buffer.alloc(32, strip0x(keccak256(items[k])), 'hex');

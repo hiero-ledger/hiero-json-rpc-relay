@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Log } from '../../../model';
-import { type IContractCallRequest, type IGetLogsParams, type RequestDetails } from '../../../types';
+import type { Log } from '../../../model';
+import type { IContractCallRequest, IGetLogsParams, RequestDetails } from '../../../types';
 
 export interface IContractService {
   /**

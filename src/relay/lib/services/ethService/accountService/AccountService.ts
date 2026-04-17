@@ -128,7 +128,10 @@ export class AccountService implements IAccountService {
    * @param blockNumberOrTagOrHash
    * @param requestDetails
    */
-  public async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
+  public async extractBlockNumberAndTimestamp(
+    blockNumberOrTagOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<{ latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }> {
     let latestBlock: LatestBlockNumberTimestamp;
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
@@ -171,7 +174,7 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails) {
+  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails): Promise<never[]> {
     let pagedTransactions = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
@@ -191,7 +194,12 @@ export class AccountService implements IAccountService {
    * @param latestBlock
    * @param requestDetails
    */
-  async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+  async getBalanceAtBlockNumber(
+    account,
+    block,
+    latestBlock,
+    requestDetails,
+  ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
     let mirrorAccount;
@@ -311,7 +319,7 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
+  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;

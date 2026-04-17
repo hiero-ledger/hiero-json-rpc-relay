@@ -12,7 +12,7 @@ export class JsonRpcError extends Error {
     this.data = args.data;
   }
 
-  public toJSON() {
+  public toJSON(): { code: number; data: unknown; message: string; name: string } {
     return {
       code: this.code,
       data: this.data,
@@ -27,7 +27,7 @@ export const predefined = {
     code: -32000,
     message: `The request payload exceeded the maximum size limit. Use a smaller block range.`,
   }),
-  CONTRACT_REVERT: (errorMessage?: string, data: string = '') => {
+  CONTRACT_REVERT: (errorMessage?: string, data: string = ''): JsonRpcError => {
     let message: string;
     if (errorMessage?.length) {
       message = `execution reverted: ${decodeErrorMessage(errorMessage)}`;
@@ -45,17 +45,17 @@ export const predefined = {
     code: -32015,
     message: 'Dependent service returned immature records',
   }),
-  GAS_LIMIT_TOO_HIGH: (gasLimit, maxGas) =>
+  GAS_LIMIT_TOO_HIGH: (gasLimit, maxGas): JsonRpcError =>
     new JsonRpcError({
       code: -32005,
       message: `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${maxGas}'`,
     }),
-  GAS_LIMIT_TOO_LOW: (gasLimit, requiredGas) =>
+  GAS_LIMIT_TOO_LOW: (gasLimit, requiredGas): JsonRpcError =>
     new JsonRpcError({
       code: -32003,
       message: `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required '${requiredGas}'`,
     }),
-  GAS_PRICE_TOO_LOW: (gasPrice, minGasPrice) =>
+  GAS_PRICE_TOO_LOW: (gasPrice, minGasPrice): JsonRpcError =>
     new JsonRpcError({
       code: -32009,
       message: `Gas price '${gasPrice}' is below configured minimum gas price '${minGasPrice}'`,
@@ -72,12 +72,12 @@ export const predefined = {
     code: -32000,
     message: 'Insufficient funds for transfer',
   }),
-  INTERNAL_ERROR: (message = '') =>
+  INTERNAL_ERROR: (message = ''): JsonRpcError =>
     new JsonRpcError({
       code: -32603,
       message: message === '' || undefined ? 'Unknown error invoking RPC' : `Error invoking RPC: ${message}`,
     }),
-  INVALID_PARAMETER: (index: number | string, message: string) =>
+  INVALID_PARAMETER: (index: number | string, message: string): JsonRpcError =>
     new JsonRpcError({
       code: -32602,
       message: `Invalid parameter ${index}: ${message}`,
@@ -90,7 +90,7 @@ export const predefined = {
     code: -32600,
     message: 'Invalid request',
   }),
-  IP_RATE_LIMIT_EXCEEDED: (methodName: string) =>
+  IP_RATE_LIMIT_EXCEEDED: (methodName: string): JsonRpcError =>
     new JsonRpcError({
       code: -32605,
       message: `IP Rate limit exceeded on ${methodName}`,
@@ -99,17 +99,17 @@ export const predefined = {
     code: -32011,
     message: 'Provided toBlock parameter without specifying fromBlock',
   }),
-  MISSING_REQUIRED_PARAMETER: (index: number | string) =>
+  MISSING_REQUIRED_PARAMETER: (index: number | string): JsonRpcError =>
     new JsonRpcError({
       code: -32602,
       message: `Missing value for required parameter ${index}`,
     }),
-  NONCE_TOO_LOW: (nonce, currentNonce) =>
+  NONCE_TOO_LOW: (nonce, currentNonce): JsonRpcError =>
     new JsonRpcError({
       code: 32001,
       message: `Nonce too low. Provided nonce: ${nonce}, current nonce: ${currentNonce}`,
     }),
-  NONCE_TOO_HIGH: (nonce, currentNonce) =>
+  NONCE_TOO_HIGH: (nonce, currentNonce): JsonRpcError =>
     new JsonRpcError({
       code: 32002,
       message: `Nonce too high. Provided nonce: ${nonce}, current nonce: ${currentNonce}`,
@@ -122,17 +122,22 @@ export const predefined = {
     code: -32700,
     message: 'Unable to parse JSON',
   }),
-  RANGE_TOO_LARGE: (blockRange: number) =>
+  RANGE_TOO_LARGE: (blockRange: number): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `Exceeded maximum block range: ${blockRange}`,
     }),
-  TIMESTAMP_RANGE_TOO_LARGE: (fromBlock: string, fromTimestamp: number, toBlock: string, toTimestamp: number) =>
+  TIMESTAMP_RANGE_TOO_LARGE: (
+    fromBlock: string,
+    fromTimestamp: number,
+    toBlock: string,
+    toTimestamp: number,
+  ): JsonRpcError =>
     new JsonRpcError({
       code: -32004,
       message: `The provided fromBlock and toBlock contain timestamps that exceed the maximum allowed duration of 7 days (604800 seconds): fromBlock: ${fromBlock} (${fromTimestamp}), toBlock: ${toBlock} (${toTimestamp})`,
     }),
-  REQUEST_BEYOND_HEAD_BLOCK: (requested: number, latest: number) =>
+  REQUEST_BEYOND_HEAD_BLOCK: (requested: number, latest: number): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `Request beyond head block: requested ${requested}, head ${latest}`,
@@ -141,7 +146,7 @@ export const predefined = {
     code: -32010,
     message: 'Request timeout. Please try again.',
   }),
-  RESOURCE_NOT_FOUND: (message = '') =>
+  RESOURCE_NOT_FOUND: (message = ''): JsonRpcError =>
     new JsonRpcError({
       code: -32001,
       message: `Requested resource not found. ${message}`,
@@ -150,7 +155,7 @@ export const predefined = {
     code: -32007,
     message: 'Historical balance data is available only after 15 minutes.',
   }),
-  UNSUPPORTED_CHAIN_ID: (requested: string | number, current: string | number) =>
+  UNSUPPORTED_CHAIN_ID: (requested: string | number, current: string | number): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `ChainId (${requested}) not supported. The correct chainId is ${current}`,
@@ -159,7 +164,7 @@ export const predefined = {
     code: -32601,
     message: 'Unsupported JSON-RPC method',
   }),
-  METHOD_NOT_FOUND: (methodName: string) =>
+  METHOD_NOT_FOUND: (methodName: string): JsonRpcError =>
     new JsonRpcError({
       code: -32601,
       message: `Method ${methodName} not found`,
@@ -176,7 +181,7 @@ export const predefined = {
     code: -32602,
     message: "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
   }),
-  INVALID_CONTRACT_ADDRESS: (address) => {
+  INVALID_CONTRACT_ADDRESS: (address): JsonRpcError => {
     let message = `Invalid Contract Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected length of 42 chars but was ${address.length}.`;
@@ -187,7 +192,7 @@ export const predefined = {
       message: message,
     });
   },
-  NON_EXISTING_CONTRACT: (address) => {
+  NON_EXISTING_CONTRACT: (address): JsonRpcError => {
     let message = `Non Existing Contract Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected a Contract or Token Address.`;
@@ -198,7 +203,7 @@ export const predefined = {
       message: message,
     });
   },
-  NON_EXISTING_ACCOUNT: (address) => {
+  NON_EXISTING_ACCOUNT: (address): JsonRpcError => {
     let message = `Non Existing Account Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected an Account Address.`;
@@ -209,7 +214,7 @@ export const predefined = {
       message: message,
     });
   },
-  COULD_NOT_SIMULATE_TRANSACTION: (errMessage: string) => {
+  COULD_NOT_SIMULATE_TRANSACTION: (errMessage: string): JsonRpcError => {
     return new JsonRpcError({
       code: -32000,
       message: `Error occurred during transaction simulation: ${errMessage}`,
@@ -223,34 +228,34 @@ export const predefined = {
     code: -32608,
     message: 'Exceeded maximum allowed subscriptions',
   }),
-  UNSUPPORTED_HISTORICAL_EXECUTION: (blockId: string) =>
+  UNSUPPORTED_HISTORICAL_EXECUTION: (blockId: string): JsonRpcError =>
     new JsonRpcError({
       code: -32609,
       message: `Unsupported historical block identifier encountered: ${blockId}`,
     }),
-  UNSUPPORTED_OPERATION: (message: string) =>
+  UNSUPPORTED_OPERATION: (message: string): JsonRpcError =>
     new JsonRpcError({
       code: -32610,
       message: `Unsupported operation. ${message}`,
     }),
-  PAGINATION_MAX: (count: number) =>
+  PAGINATION_MAX: (count: number): JsonRpcError =>
     new JsonRpcError({
       code: -32011,
       message: `Exceeded maximum mirror node pagination count: ${count}`,
     }),
-  MAX_BLOCK_SIZE: (count: number) =>
+  MAX_BLOCK_SIZE: (count: number): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `Exceeded max transactions that can be returned in a block: ${count}`,
     }),
-  MIRROR_NODE_UPSTREAM_FAIL: (errCode: number, errMessage: string) => {
+  MIRROR_NODE_UPSTREAM_FAIL: (errCode: number, errMessage: string): JsonRpcError => {
     return new JsonRpcError({
       code: -32020,
       message: `Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`,
       data: errCode, // Preserving the Mirror Node HTTP status for potential exposure/debugging
     });
   },
-  UNKNOWN_BLOCK: (msg?: string | null) =>
+  UNKNOWN_BLOCK: (msg?: string | null): JsonRpcError =>
     new JsonRpcError({
       code: -39012,
       message: msg || 'Unknown block',
@@ -267,12 +272,12 @@ export const predefined = {
     code: -32001,
     message: 'Filter not found',
   }),
-  TRANSACTION_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+  TRANSACTION_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number): JsonRpcError =>
     new JsonRpcError({
       code: -32201,
       message: `Oversized data: transaction size ${actualSize}, transaction limit ${expectedSize}`,
     }),
-  CALL_DATA_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+  CALL_DATA_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number): JsonRpcError =>
     new JsonRpcError({
       code: -32201,
       message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
@@ -281,7 +286,7 @@ export const predefined = {
     code: -32202,
     message: 'Batch requests are disabled',
   }),
-  BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED: (amount: number, max: number) =>
+  BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED: (amount: number, max: number): JsonRpcError =>
     new JsonRpcError({
       code: -32203,
       message: `Batch request amount ${amount} exceeds max ${max}`,
@@ -290,7 +295,7 @@ export const predefined = {
     code: -32205,
     message: 'WS batch requests are disabled',
   }),
-  WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED: (amount: number, max: number) =>
+  WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED: (amount: number, max: number): JsonRpcError =>
     new JsonRpcError({
       code: -32206,
       message: `Batch request amount ${amount} exceeds max ${max}`,
@@ -299,17 +304,17 @@ export const predefined = {
     code: -32207,
     message: 'WS Subscriptions are disabled',
   }),
-  INVALID_ARGUMENTS: (message: string) =>
+  INVALID_ARGUMENTS: (message: string): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `Invalid arguments: ${message}`,
     }),
-  CONSENSUS_NODE_ERROR: (statusName: string, statusCode: number, message: string) =>
+  CONSENSUS_NODE_ERROR: (statusName: string, statusCode: number, message: string): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
       message: `Consensus node error: ${statusName} (${statusCode}): ${message}`,
     }),
-  TRANSACTION_REJECTED: (status: string, errorMessage?: string) =>
+  TRANSACTION_REJECTED: (status: string, errorMessage?: string): JsonRpcError =>
     new JsonRpcError({
       code: -32003,
       message: `Transaction rejected: ${status}${errorMessage ? ` - ${errorMessage}` : ''}`,

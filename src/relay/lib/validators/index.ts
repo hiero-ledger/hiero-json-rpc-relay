@@ -57,7 +57,7 @@ export function rpcParamValidationRules(validationRules: Record<number, IParamVa
   };
 }
 
-export function validateParams(params: any[], indexes: { [index: number]: IParamValidation }) {
+export function validateParams(params: any[], indexes: { [index: number]: IParamValidation }): void {
   if (params.length > Object.keys(indexes).length) {
     throw predefined.INVALID_PARAMETERS;
   }

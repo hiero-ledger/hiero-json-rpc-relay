@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '../../../config-service/services';
-import { type MethodRateLimitConfiguration } from '../types';
+import type { MethodRateLimit, MethodRateLimitConfiguration } from '../types';
 
 // Lazy getter function that reads config at call time (not module load time)
 // This allows test environment overrides to work properly
@@ -193,7 +193,7 @@ export function getMethodConfiguration(): MethodRateLimitConfiguration {
 // A Proxy is used for lazy evaluation to ensure test configuration overrides work correctly
 // (ConfigService is read at access time, not module load time).
 export const methodConfiguration = new Proxy({} as MethodRateLimitConfiguration, {
-  get(target, prop) {
+  get(target, prop): MethodRateLimit {
     return getMethodConfiguration()[prop as keyof MethodRateLimitConfiguration];
   },
 });

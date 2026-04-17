@@ -301,7 +301,7 @@ export class HbarSpendingPlanConfigService {
    *
    * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig) {
+  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     for (const evmAddress of planConfig.evmAddresses || []) {
       const exists = await this.evmAddressHbarSpendingPlanRepository.existsByAddress(evmAddress);
       if (exists) {
@@ -326,7 +326,7 @@ export class HbarSpendingPlanConfigService {
    *
    * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig) {
+  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     for (const ipAddress of planConfig.ipAddresses || []) {
       const exists = await this.ipAddressHbarSpendingPlanRepository.existsByAddress(ipAddress);
       if (exists) {

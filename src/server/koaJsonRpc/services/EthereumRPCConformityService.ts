@@ -59,7 +59,7 @@ export default class EthereumRPCConformityService {
    *
    * @param {IResponseContext & ParameterizedContext} ctx - Koa context containing status and body.
    */
-  ensureEthereumJsonRpcCompliance(ctx: IResponseContext & ParameterizedContext) {
+  ensureEthereumJsonRpcCompliance(ctx: IResponseContext & ParameterizedContext): void {
     if (!this.makeSureBodyExistsAndCanBeChecked(ctx)) return;
     if (ctx.status === 400) {
       if (!ctx.body.error?.code) ctx.body.error = structuredClone(this.fallbackResponseBody.error);
@@ -74,7 +74,7 @@ export default class EthereumRPCConformityService {
    * @param {IResponseContext} ctx
    * @private
    */
-  private makeSureBodyExistsAndCanBeChecked(ctx: IResponseContext) {
+  private makeSureBodyExistsAndCanBeChecked(ctx: IResponseContext): boolean {
     if (ctx.status === 200) return false;
 
     if (!ctx.body) {

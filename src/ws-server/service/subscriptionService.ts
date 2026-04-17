@@ -62,17 +62,17 @@ export class SubscriptionService {
     });
   }
 
-  private createHash(data: string) {
+  private createHash(data: string): string {
     return crypto.createHash('sha256').update(data.toString()).digest('hex');
   }
 
   // Generates a random 16 byte hex string
-  public generateId() {
+  public generateId(): string {
     return generateRandomHex();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  public subscribe(connection, event: string, filters?: {}) {
+  public subscribe(connection, event: string, filters?: {}): string {
     let tag: any = { event };
     if (filters && Object.keys(filters).length) {
       tag.filters = filters;
@@ -108,7 +108,7 @@ export class SubscriptionService {
     return subId;
   }
 
-  public unsubscribe(connection, subId?: string) {
+  public unsubscribe(connection, subId?: string): number {
     const { id } = connection;
 
     if (subId) {
@@ -145,7 +145,7 @@ export class SubscriptionService {
     return subCount;
   }
 
-  public notifySubscribers(tag, data) {
+  public notifySubscribers(tag, data): void {
     if (this.subscriptions[tag] && this.subscriptions[tag].length) {
       this.subscriptions[tag].forEach((sub) => {
         const subscriptionData = {

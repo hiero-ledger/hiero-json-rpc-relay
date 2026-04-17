@@ -9,11 +9,11 @@ import constants from './lib/constants';
 
 const EMPTY_HEX = '0x';
 
-const hashNumber = (num) => {
+const hashNumber = (num): string => {
   return EMPTY_HEX + num.toString(16);
 };
 
-const generateRandomHex = (bytesLength = 16) => {
+const generateRandomHex = (bytesLength = 16): string => {
   return '0x' + crypto.randomBytes(bytesLength).toString('hex');
 };
 
@@ -165,9 +165,9 @@ const trimPrecedingZeros = (input: unknown): string | null => {
   return trimmed === '' ? '0' : trimmed;
 };
 
-function stripLeadingZeroForSignatures(signature: string) {
-  const remove0x = (signature) => (signature.startsWith('0x') ? signature.substring(2) : signature);
-  const remove0 = (signature) => (signature.startsWith('0') ? signature.substring(1) : signature);
+function stripLeadingZeroForSignatures(signature: string): string {
+  const remove0x = (signature: string): string => (signature.startsWith('0x') ? signature.substring(2) : signature);
+  const remove0 = (signature: string): string => (signature.startsWith('0') ? signature.substring(1) : signature);
 
   return '0x' + [remove0x, remove0].reduce((acc, fn) => fn(acc), signature);
 }
@@ -250,7 +250,7 @@ const isHex = (value: string): boolean => {
   return hexRegex.test(value);
 };
 
-const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false) => {
+const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false): number | bigint | null => {
   if (value && value < 0) {
     // negative amount can be received only by CONTRACT_NEGATIVE_VALUE revert
     // e.g. tx https://hashscan.io/mainnet/transaction/1735241436.856862230

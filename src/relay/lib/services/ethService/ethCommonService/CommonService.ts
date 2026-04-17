@@ -59,7 +59,7 @@ export class CommonService implements ICommonService {
   /**
    * @private
    */
-  private static getLogsBlockRangeLimit() {
+  private static getLogsBlockRangeLimit(): number {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
@@ -132,7 +132,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
     } else {
@@ -218,7 +218,11 @@ export class CommonService implements ICommonService {
     return true;
   }
 
-  public async validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails) {
+  public async validateBlockRange(
+    fromBlock: string,
+    toBlock: string,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
     let fromBlockNumber: any = null;
     let toBlockNumber: any = null;
 
@@ -333,7 +337,7 @@ export class CommonService implements ICommonService {
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
   }
 
-  public genericErrorHandler(error: any, logMessage?: string) {
+  public genericErrorHandler(error: any, logMessage?: string): void {
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -352,7 +356,7 @@ export class CommonService implements ICommonService {
     blockHash: string,
     requestDetails: RequestDetails,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
       if (block) {
@@ -382,7 +386,7 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null) {
+  public addTopicsToParams(params: any, topics: any[] | null): void {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
         if (!_.isNil(topics[i])) {
@@ -590,11 +594,11 @@ export class CommonService implements ICommonService {
     );
   };
 
-  private isBlockNumValid = (num: string) => {
+  private isBlockNumValid = (num: string): boolean => {
     return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
   };
 
-  public isBlockParamValid = (tag: string | null) => {
+  public isBlockParamValid = (tag: string | null): boolean => {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
 

@@ -90,6 +90,13 @@ export default defineConfig([
     },
   },
 
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'error',
+    },
+  },
+
   // SPDX header required only on source and test files
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],

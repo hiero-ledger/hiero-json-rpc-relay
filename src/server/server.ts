@@ -59,7 +59,11 @@ export const logger = mainLogger.child({ name: 'rpc-server' });
  */
 export const register = RegistryFactory.getInstance(true);
 
-export async function initializeServer(sharedRelay?: Relay, sharedRegister?: Registry, redisClient?: RedisClientType) {
+export async function initializeServer(
+  sharedRelay?: Relay,
+  sharedRegister?: Registry,
+  redisClient?: RedisClientType,
+): Promise<{ app: any; relay: Relay }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger.child({ name: 'relay' }), register));
   if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {

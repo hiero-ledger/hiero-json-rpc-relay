@@ -12,8 +12,8 @@ import type WsMetricRegistry from '../metrics/wsMetricRegistry';
 import { type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from './constants';
 
-const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
-const getRequestIdIsOptional = () => {
+const hasOwnProperty = (obj: any, prop: any): boolean => Object.prototype.hasOwnProperty.call(obj, prop);
+const getRequestIdIsOptional = (): boolean => {
   return ConfigService.get('REQUEST_ID_IS_OPTIONAL');
 };
 
@@ -31,7 +31,7 @@ export const handleConnectionClose = async (
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
   startTime: [number, number],
-) => {
+): Promise<void> => {
   // unsubcribe subscriptions
   subscriptionService.unsubscribe(ctx.websocket);
 
@@ -66,7 +66,7 @@ export const sendToClient = (
   request: IJsonRpcRequest | IJsonRpcRequest[],
   response: IJsonRpcResponse | IJsonRpcResponse[],
   logger: Logger,
-) => {
+): void => {
   logger.trace(`Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(request)}`);
 
   connection.send(JSON.stringify(response));

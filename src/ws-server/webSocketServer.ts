@@ -61,7 +61,7 @@ export async function initializeWsServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
   redisClient?: RedisClientType,
-) {
+): Promise<{ app: any; httpApp: any }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger, register));
   if (!redisClient && !sharedRelay) {
