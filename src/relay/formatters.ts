@@ -185,7 +185,7 @@ const nanOrNumberTo0x = (input: number | BigNumber | bigint | null): string => {
 };
 
 const nanOrNumberInt64To0x = (input: number | string | BigNumber | bigint | null): string => {
-  if (input == null) return nanOrNumberTo0x(null);
+  if (input == null) return constants.ZERO_HEX;
   const normalized = typeof input === 'string' ? BigInt(input) : input;
   // converting to string and then back to int is fixing a typescript warning
   if (Number(normalized) < 0) {
