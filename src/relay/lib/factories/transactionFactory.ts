@@ -17,9 +17,9 @@ import {
 } from '../../formatters';
 import constants from '../constants';
 import {
-  AccessListEntry,
-  AuthorizationListEntry,
-  Log,
+  type AccessListEntry,
+  type AuthorizationListEntry,
+  type Log,
   Transaction,
   Transaction1559,
   Transaction2930,

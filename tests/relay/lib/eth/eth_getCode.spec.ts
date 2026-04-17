@@ -319,7 +319,7 @@ describe('@ethGetCode using MirrorNode', async function () {
 
     it('should return empty bytecode when delegation_address is present but invalid', async () => {
       restMock.onGet(`contracts/${DELEGATED_EOA_ADDRESS}`).reply(404, null);
-      restMock.onGet(new RegExp(`tokens/0\\.0\\.\\d+`)).reply(404, null);
+      restMock.onGet(/tokens\/0\.0\.\d+/).reply(404, null);
       restMock.onGet(new RegExp(`accounts/${DELEGATED_EOA_ADDRESS}\\?`)).reply(
         200,
         JSON.stringify({

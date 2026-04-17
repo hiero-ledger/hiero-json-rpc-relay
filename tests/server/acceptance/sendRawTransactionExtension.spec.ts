@@ -142,7 +142,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,
-              storageKeys: [prepend0x('00'.repeat(31)) + '01'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`],
             },
           ],
         },
@@ -151,7 +151,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,
-              storageKeys: [prepend0x('00'.repeat(31)) + '01'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`],
             },
           ],
         },
@@ -160,7 +160,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,
-              storageKeys: [prepend0x('00'.repeat(31)) + '01', prepend0x('00'.repeat(31)) + '02'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`, `${prepend0x('00'.repeat(31))}02`],
             },
           ],
         },
@@ -169,11 +169,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,
-              storageKeys: [prepend0x('00'.repeat(31)) + '01', prepend0x('00'.repeat(31)) + '02'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`, `${prepend0x('00'.repeat(31))}02`],
             },
             {
               address: ACCESS_LIST_TEST_ADDRESS_2,
-              storageKeys: [prepend0x('00'.repeat(31)) + '03', prepend0x('00'.repeat(31)) + '04'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}03`, `${prepend0x('00'.repeat(31))}04`],
             },
           ],
         },
@@ -195,7 +195,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,
-              storageKeys: [prepend0x('00'.repeat(31)) + '03'],
+              storageKeys: [`${prepend0x('00'.repeat(31))}03`],
             },
             {
               address: ACCESS_LIST_TEST_ADDRESS_2,
@@ -232,14 +232,14 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
           const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
           expect(block).to.have.property('transactions').that.is.an('array');
-          const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
+          const transactionInBlock = block.transactions.find(({ hash }) => hash === transactionHash);
           expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
           expect(transactionInBlock.accessList).to.not.be.empty;
           expect(transactionInBlock.accessList).to.deep.equal(tx.accessList);
         });
       });
 
-      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async () => {
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
