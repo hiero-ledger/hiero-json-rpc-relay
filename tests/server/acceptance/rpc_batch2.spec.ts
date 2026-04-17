@@ -246,7 +246,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         ],
       },
     ].forEach(({ accessListLabel, accessList }) => {
-      it(`should execute "eth_estimateGas" with to, from, value, ${accessListLabel} and gas field`, async function () {
+      it(`should execute "eth_estimateGas" with to, from, value, ${accessListLabel} and gas field`, async () => {
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
           {
             from: accounts[0].address,
