@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 

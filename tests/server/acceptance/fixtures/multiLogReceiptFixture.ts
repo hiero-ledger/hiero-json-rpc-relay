@@ -12,7 +12,7 @@ import {
   TokenSupplyType,
   TokenType,
   TransferTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 
 import MirrorClient from '../../clients/mirrorClient';
 

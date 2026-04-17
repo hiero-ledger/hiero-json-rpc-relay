@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+import { Status } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';

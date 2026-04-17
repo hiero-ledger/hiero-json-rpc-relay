@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
+import { ContractId, Hbar, HbarUnit } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
