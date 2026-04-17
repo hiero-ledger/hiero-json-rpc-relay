@@ -61,6 +61,7 @@ export class TransactionFactory {
 
   /**
    * Creates a transaction object from a log entry. All the synthetic transactions are treated as legacy transactions.
+   * @param chainId Chain id
    * @param log The log entry containing transaction data
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
@@ -99,14 +100,14 @@ export class TransactionFactory {
  *
  * Additional unknown properties on each authorization item are preserved.
  *
- * @param {any} authorizationList - The raw authorization list.
+ * @param {unknown} authorizationList - The raw authorization list.
  * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
  */
-const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry[] =>
+const formatAuthorizationList = (authorizationList: unknown): AuthorizationListEntry[] =>
   authorizationList && Array.isArray(authorizationList)
     ? authorizationList
-        .filter((item: any) => item !== null && typeof item === 'object')
-        .map((item: any) => ({
+        .filter((item) => item !== null && typeof item === 'object')
+        .map((item) => ({
           ...item, // additional properties remain allowed for authorization list items
           chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
           nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),

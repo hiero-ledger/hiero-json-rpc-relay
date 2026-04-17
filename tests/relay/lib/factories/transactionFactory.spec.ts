@@ -9,7 +9,13 @@ import {
   createTransactionFromContractResult,
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
-import { AccessListEntry, AuthorizationListEntry, Log, Transaction } from '../../../../src/relay/lib/model';
+import type {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+} from '../../../../src/relay/lib/model';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -344,29 +350,31 @@ describe('TransactionFactory', () => {
      * access list as produced by the internal formatter.
      */
     const formatAccessList = (input: any): AccessListEntry[] =>
-      createTransactionFromContractResult({
-        amount: 0,
-        from: '0x05fba803be258049a27b820088bab1cad2058871',
-        function_parameters: '0x08090033',
-        gas_used: 400000,
-        gas_limit: 500_000,
-        to: '0x0000000000000000000000000000000000000409',
-        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
-        block_hash:
-          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
-        block_number: 528,
-        transaction_index: 9,
-        chain_id: '0x12a',
-        gas_price: '0x',
-        max_fee_per_gas: '0x59',
-        max_priority_fee_per_gas: '0x',
-        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
-        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
-        type: 2,
-        v: 1,
-        nonce: 2,
-        access_list: input,
-      })!['accessList'];
+      (
+        createTransactionFromContractResult({
+          amount: 0,
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          function_parameters: '0x08090033',
+          gas_used: 400000,
+          gas_limit: 500_000,
+          to: '0x0000000000000000000000000000000000000409',
+          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+          block_hash:
+            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+          block_number: 528,
+          transaction_index: 9,
+          chain_id: '0x12a',
+          gas_price: '0x',
+          max_fee_per_gas: '0x59',
+          max_priority_fee_per_gas: '0x',
+          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+          type: 2,
+          v: 1,
+          nonce: 2,
+          access_list: input,
+        }) as Transaction1559
+      ).accessList;
 
     const hexToBytes = (value: string): Uint8Array => {
       let hex = strip0x(value);
@@ -375,10 +383,10 @@ describe('TransactionFactory', () => {
       return Uint8Array.from(Buffer.from(hex, 'hex'));
     };
 
-    const encodeAccessListRlpStream = (entries: any[]): string => {
+    const encodeAccessListRlpStream = (entries: unknown[]): string => {
       const encodedItems = entries
         .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
-        .map((entry) =>
+        .map((entry: AccessListEntry) =>
           Buffer.from(
             RLP.encode([
               hexToBytes(entry.address ?? ''),
