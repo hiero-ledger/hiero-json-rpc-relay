@@ -184,9 +184,11 @@ const nanOrNumberTo0x = (input: number | BigNumber | bigint | null): string => {
   return input == null || Number.isNaN(input) ? numberTo0x(0) : numberTo0x(input);
 };
 
-const nanOrNumberInt64To0x = (input: number | BigNumber | bigint | null): string => {
+const nanOrNumberInt64To0x = (input: number | string | BigNumber | bigint | null): string => {
+  if (input == null) return nanOrNumberTo0x(null);
+  const normalized = typeof input === 'string' ? BigInt(input) : input;
   // converting to string and then back to int is fixing a typescript warning
-  if (input && Number(input) < 0) {
+  if (Number(normalized) < 0) {
     // the hex of a negative number can be obtained from the binary value of that number positive value
     // the binary value needs to be negated and then to be incremented by 1
 
@@ -212,10 +214,10 @@ const nanOrNumberInt64To0x = (input: number | BigNumber | bigint | null): string
     // then: (BigInt(input.toString()) + (BigInt(1) << BigInt(bits))) = -10 + 2^64 = 18446744073709551606
     // this effectively represents -10 in an unsigned 64-bit representation:18446744073709551606 = 0xFFFFFFFFFFFFFFF6
     // finally, the modulo operation: % (1 << 64)
-    return numberTo0x((BigInt(input.toString()) + (BigInt(1) << BigInt(bits))) % (BigInt(1) << BigInt(bits)));
+    return numberTo0x((BigInt(normalized.toString()) + (BigInt(1) << BigInt(bits))) % (BigInt(1) << BigInt(bits)));
   }
 
-  return nanOrNumberTo0x(input);
+  return nanOrNumberTo0x(normalized);
 };
 
 const toHash32 = (value: string): string => {
