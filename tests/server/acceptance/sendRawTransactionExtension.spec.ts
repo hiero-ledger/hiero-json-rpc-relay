@@ -2,7 +2,7 @@
 
 // External resources
 import { expect } from 'chai';
-import { Transaction } from 'ethers';
+import type { Transaction } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 // Other imports
@@ -115,7 +115,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const ACCESS_LIST_TEST_ADDRESS_1 = '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69';
       const ACCESS_LIST_TEST_ADDRESS_2 = '0xc37f417fA09933335240FCA72DD257BFBdE9C275';
 
-      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and tx type = 0', async function () {
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and tx type = 0', async () => {
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 0,

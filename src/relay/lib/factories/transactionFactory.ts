@@ -140,8 +140,8 @@ function* decodeStream(hex: string) {
  * @param {any} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] =>
-  accessList && isHex(accessList)
+const formatAccessList = (accessList: unknown): AccessListEntry[] =>
+  typeof accessList === 'string' && isHex(accessList)
     ? [...decodeStream(accessList)]
         .filter((data) => data && data.length === 2)
         .map(([address, storageKeys]) => ({
@@ -158,8 +158,8 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
  * @param {any} address - The value received.
  * @returns {string} - The formatted address as a 0x-prefixed hex string with a length of 40 characters.
  */
-const formatAddress = (address: any): string => {
-  if (!address) return constants.ZERO_ADDRESS_HEX;
+const formatAddress = (address: unknown): string => {
+  if (typeof address !== 'string' || !address) return constants.ZERO_ADDRESS_HEX;
   return prepend0x(
     address
       .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
