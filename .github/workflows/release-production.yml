@@ -48,10 +48,8 @@ jobs:
               mirrors = ["https://hub.mirror.docker.lat.ope.eng.hashgraph.io"]
 
       - name: Build and push images
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: step-security/docker-build-push-action@a8c3d08b23f8be6aeed43eb1a14ce6fe51284438 # v6.18.0
         with:
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64, linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository }}:${{env.TAG}}
