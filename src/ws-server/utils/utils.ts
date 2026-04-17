@@ -52,6 +52,9 @@ export const handleConnectionClose = async (
   if (ctx.websocket?.pingIntervalId) {
     clearInterval(ctx.websocket.pingIntervalId);
   }
+  if (ctx.websocket?.inactivityTTL) {
+    clearInterval(ctx.websocket.inactivityTTL);
+  }
 
   // terminate connection
   ctx.websocket.terminate();
