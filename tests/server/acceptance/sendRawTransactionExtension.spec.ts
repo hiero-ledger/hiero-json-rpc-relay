@@ -178,7 +178,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           ],
         },
         {
-          label: 'non-empty access list with multiple addresses and multiple storage keys',
+          label: 'non-empty access list with multiple addresses and no storage keys',
           accessList: [
             {
               address: ACCESS_LIST_TEST_ADDRESS_1,

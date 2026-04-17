@@ -685,7 +685,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       throw predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 
-    expect(ethImpl.estimateGas(transaction, null, requestDetails)).to.eventually.be.rejected.and.satisfy(
+    await expect(ethImpl.estimateGas(transaction, null, requestDetails)).to.eventually.be.rejected.and.satisfy(
       (error: JsonRpcError) => {
         expect(error.code).to.equal(-32603);
         expect(error.message).to.contain('Test error for estimateGas');

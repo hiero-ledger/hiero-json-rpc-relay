@@ -125,7 +125,7 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
  */
 function* decodeStream(hex: string) {
   let rest: string | Uint8Array = hex;
-  while (rest) {
+  while (rest.length > 0) {
     const { data, remainder } = RLP.decode(rest, true);
     yield data;
     rest = remainder;
@@ -134,23 +134,41 @@ function* decodeStream(hex: string) {
 
 /**
  * Formats an access list by normalizing and sanitizing its fields.
- * FIXME (mirror-node#13343): this code fragment has to be reverted to the previous version when mirror node
- * starts returning the correct access list format. For now it returns it as hex rlp encoded string.
  *
  * @param {any} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: unknown): AccessListEntry[] =>
-  typeof accessList === 'string' && isHex(accessList)
-    ? [...decodeStream(accessList)]
-        .filter((data) => data && data.length === 2)
-        .map(([address, storageKeys]) => ({
-          address: formatAddress(address instanceof Uint8Array ? toHexString(address) : null),
-          storageKeys: Array.isArray(storageKeys)
-            ? storageKeys.filter((item) => item instanceof Uint8Array).map((key) => prepend0x(toHexString(key)))
-            : [],
+const formatAccessList = (accessList: any): AccessListEntry[] => {
+  if (typeof accessList === 'string' && isHex(accessList)) return formatEncodedAccessList(accessList);
+  return accessList && Array.isArray(accessList)
+    ? accessList
+        .filter((item: any) => item !== null && typeof item === 'object')
+        .map((item: any) => ({
+          address: formatAddress(item.address),
+          storageKeys: item.storageKeys ?? [],
         }))
     : [];
+};
+
+/**
+ * Formats an rlp encoded access list hex string.
+ * FIXME (mirror-node#13343): this code fragment has to be removed when mirror node
+ * starts returning the correct access list format. For now it returns it as hex rlp encoded string.
+ *
+ * @param {string} accessList - The raw rlp encoded access list.
+ * @returns {AccessListEntry[]} A normalized access list.
+ */
+const formatEncodedAccessList = (accessList: string): AccessListEntry[] =>
+  [...decodeStream(accessList)]
+    .filter((data) => Array.isArray(data) && data.length === 2)
+    .map(([address, storageKeys]) => ({
+      address: formatAddress(address instanceof Uint8Array ? toHexString(address) : null),
+      storageKeys: Array.isArray(storageKeys)
+        ? storageKeys
+            .filter((item) => item instanceof Uint8Array)
+            .map((key) => prepend0x(toHexString(key).padStart(64, '0')))
+        : [],
+    }));
 
 /**
  * Formats an address by normalizing and sanitizing its format.
