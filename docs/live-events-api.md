@@ -24,11 +24,10 @@ The server expects to receive messages that are JSON encoded strings of data wit
 }
 ```
 
-The allowed methods are: 
+The WebSocket server supports all standard JSON-RPC methods available on the HTTP relay (see [rpc-api.md](./rpc-api.md)), plus the following WebSocket-specific methods for real-time subscriptions:
 
 - `eth_subscribe`
 - `eth_unsubscribe`
-- `eth_chainId`
 
 Upon receiving a message with a valid `method` and `params` the server will emit a message with a stringified JSON-RPC format:
   
@@ -104,17 +103,6 @@ Terminates an active subscription. Expects `params[0]` to have the value of the 
   }
 ```
 
-
-### eth_chainID
-
-Returns the chain id:
-```js
-  {
-    "id": 1,
-    "jsonrpc": "2.0",
-    "result": CHAIN_ID
-  }
-```
 
 ### newHeads
 ```js

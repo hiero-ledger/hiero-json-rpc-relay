@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -460,20 +460,7 @@ export class CommonService implements ICommonService {
 
     const logs: Log[] = [];
     for (const log of logResults as MirrorNodeContractLog[]) {
-      logs.push(
-        new Log({
-          address: log.address,
-          blockTimestamp: numberTo0x(Number(log.timestamp.split('.')[0])),
-          blockHash: toHash32(log.block_hash),
-          blockNumber: numberTo0x(log.block_number),
-          data: log.data,
-          logIndex: numberTo0x(log.index),
-          removed: false,
-          topics: log.topics,
-          transactionHash: toHash32(log.transaction_hash),
-          transactionIndex: numberTo0x(log.transaction_index),
-        }),
-      );
+      logs.push(Log.fromMirrorNodeContractLog(log));
     }
 
     return logs;

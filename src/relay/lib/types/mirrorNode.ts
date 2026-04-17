@@ -155,7 +155,7 @@ export interface LatestBlockNumberTimestamp {
 
 export interface MirrorNodeBlock {
   count: number;
-  gas_used: number;
+  gas_used?: number;
   hapi_version: string;
   hash: string;
   logs_bloom: string;

@@ -99,6 +99,7 @@ export default {
   TX_CREATE_EXTRA: 32_000,
 
   STANDARD_TOKEN_COST: 4,
+
   // EIP-7623: Calldata floor pricing constants
   TOTAL_COST_FLOOR_PER_TOKEN: 10,
 
@@ -115,7 +116,6 @@ export default {
   ACCESS_LIST_ADDRESS_COST: 2_400,
 
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
-  MAX_MIRROR_NODE_PAGINATION: 20,
   NEXT_LINK_PREFIX: '/api/v1/',
   QUERY_COST_INCREMENTATION_STEP: 1.1,
 

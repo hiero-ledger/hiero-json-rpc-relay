@@ -38,7 +38,6 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   let mainContractAddress: string;
   let HTSTokenContractAddress: string;
   let NftHTSTokenContractAddress: string;
-  let HTSTokenContract: ethers.Contract;
   let mainContract: ethers.Contract;
   let mainContractOwner: ethers.Contract;
   let mainContractReceiverWalletFirst: ethers.Contract;
@@ -79,7 +78,6 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     HTSTokenContractAddress = await createHTSToken();
     NftHTSTokenContractAddress = await createNftHTSToken();
 
-    HTSTokenContract = new ethers.Contract(HTSTokenContractAddress, ERC20MockJson.abi, accounts[0].wallet);
     mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
 
     mainContractOwner = mainContract;
@@ -301,7 +299,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           NftSerialNumber,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
       }
@@ -314,10 +312,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           Constants.GAS.LIMIT_1_000_000,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         const { tokenInfo } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
         expect(tokenInfo).to.exist;
@@ -332,7 +330,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           Constants.GAS.LIMIT_50_000,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
       }

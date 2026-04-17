@@ -19,7 +19,6 @@ import { formatTransactionId, numberTo0x, prepend0x } from '../../../src/relay/f
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
@@ -34,7 +33,7 @@ import logsContractJson from '../contracts/Logs.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
 // Assertions from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { computeExpectedCumulativeGasUsed } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
@@ -1006,13 +1005,14 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               nonce: (await relay.getAccountNonce(accounts[1].address)) + 2,
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
-            await relay.sendRawTransaction(signedTx);
-
-            await new Promise((r) => setTimeout(r, 5000));
+            const txHash = await relay.sendRawTransaction(signedTx);
+            await relay.pollForValidTransactionReceipt(txHash);
+            const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
+            expect(mnResult.result).to.equal('WRONG_NONCE');
             expect(nonceLatest).to.equal(noncePending);
           });
 
@@ -1022,7 +1022,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               ...defaultLondonTransactionData,
               to: null,
               data: basicContractJson.bytecode,
-              nonce: accountNonce,
+              nonce: accountNonce + 2,
             };
             const tx2 = {
               ...defaultLondonTransactionData,
@@ -1034,7 +1034,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               ...defaultLondonTransactionData,
               to: null,
               data: basicContractJson.bytecode,
-              nonce: accountNonce + 1,
+              nonce: accountNonce + 3,
             };
             tx3.gasLimit = prepend0x(Precheck.transactionIntrinsicGasCost(tx3 as unknown as Transaction).toString(16));
 
@@ -1062,9 +1062,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult1.result).to.equal('INSUFFICIENT_GAS');
+            expect(mnResult1.result).to.equal('WRONG_NONCE');
             expect(mnResult2.result).to.equal('SUCCESS');
-            expect(mnResult3.result).to.equal('INSUFFICIENT_GAS');
+            expect(mnResult3.result).to.equal('WRONG_NONCE');
             expect(nonceLatest).to.equal(noncePending);
           });
 
@@ -1220,19 +1220,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             // wait for at least one block time
             await new Promise((r) => setTimeout(r, 2100));
 
-            // currently, there is no way to fetch WRONG_NONCE transactions via MN or on `eth_getTransactionReceipt` by evm hash
-            // eth_sendRawTransaction returns always an evm hash, so as end-users we don't have the transaction id
-
-            // the WRONG_NONCE transactions are filtered out from MN /api/v1/contract/results/<evm_tx_hash>
-            // and /api/v1/transactions/<evm_hash> doesn't exist (only /api/v1/transactions/<transaction_id>
-
-            // the only thing we can rely on right now is the "not found" status that is returned on /api/v1/contracts/results/<evm_hash> by evm tx hash
-            const receipts = await Promise.allSettled(
-              txHashes.map((hash) => mirrorNode.get(`/contracts/results/${hash}`)),
-            );
-            const rejected = receipts.filter((receipt) => receipt.status === 'rejected');
-            expect(rejected).to.not.be.empty;
-            rejected.forEach((reject) => expect(reject.reason.response.status).to.equal(404));
+            // WRONG_NONCE transactions are recorded in /api/v1/contracts/results/<evm_tx_hash>
+            // with result: 'WRONG_NONCE'
+            const results = await Promise.all(txHashes.map((hash) => mirrorNode.get(`/contracts/results/${hash}`)));
+            const wrongNonceResults = results.filter((result) => result.result === 'WRONG_NONCE');
+            expect(wrongNonceResults).to.not.be.empty;
           });
         });
 
@@ -1261,9 +1253,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
                 // wait for at least one block time
                 await new Promise((r) => setTimeout(r, 2100));
 
-                await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
-                  (err: any) => err.response.status === 404,
-                );
+                const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
+                expect(mnResult.result).to.equal('WRONG_NONCE');
               });
             });
           });
@@ -1396,8 +1387,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [legacyTxHash]);
         const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of London transaction', async function () {
@@ -1420,31 +1412,45 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
         const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of 2930 transaction', async function () {
         const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
-        const transaction = {
-          ...defaultLegacy2930TransactionData,
-          to: parentContractAddress,
-          nonce: await relay.getAccountNonce(accounts[2].address),
-          gasPrice: gasPriceWithDeviation,
-        };
 
-        const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-        // Since the transactionId is not available in this context
-        // Wait for the transaction to be processed and imported in the mirror node with axios-retry
+        // Use all 4 accounts so companion transactions have independent nonces and can be sent
+        // simultaneously without ordering constraints. accounts[2] sends the test transaction.
+        const signers = [accounts[0], accounts[1], accounts[2], accounts[3]];
+        const nonces = await Promise.all(signers.map((a) => relay.getAccountNonce(a.address)));
+
+        const signedTxs = await Promise.all(
+          signers.map((signer, i) =>
+            signer.wallet.signTransaction({
+              ...defaultLegacy2930TransactionData,
+              to: parentContractAddress,
+              nonce: nonces[i],
+              gasPrice: gasPriceWithDeviation,
+            }),
+          ),
+        );
+
+        const allHashes = await Promise.all(signedTxs.map((signed) => relay.sendRawTransaction(signed)));
+        const transactionHash = allHashes[2]; // accounts[2] is the test subject
+
+        await Promise.all(allHashes.map((h) => relay.pollForValidTransactionReceipt(h)));
+
         const mirrorResult = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         mirrorResult.from = accounts[2].wallet.address;
         mirrorResult.to = parentContractAddress;
 
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
         const currentPrice = await relay.gasPrice();
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release should fail to execute "eth_getTransactionReceipt" for hash of London transaction', async function () {
@@ -2444,14 +2450,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash1]);
           const currentPrice = await relay.gasPrice();
-          Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+          const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+          Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
           const error = predefined.NONCE_TOO_LOW(nonce, nonce + 1);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
         });
 
         if (!useAsyncTxProcessing) {
-          it('@release fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with a higher nonce', async function () {
+          it('fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with a higher nonce and async tx processing is disabled', async function () {
             const nonce = await relay.getAccountNonce(accounts[2].address);
 
             const transaction = {

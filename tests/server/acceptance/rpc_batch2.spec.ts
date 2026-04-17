@@ -23,7 +23,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import storageContractJson from '../contracts/Storage.json';
 import TokenCreateJson from '../contracts/TokenCreateContract.json';
 // Assertions from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { computeExpectedCumulativeGasUsed } from '../helpers/assertions';
 // Helper functions/constants from local resources
 import RelayCalls from '../helpers/constants';
 import Helper from '../helpers/constants';
@@ -1395,9 +1395,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       mirrorResult.from = accounts[0].wallet.address;
       mirrorResult.to = accounts[1].wallet.address;
       const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
       Assertions.transaction(txByHash, mirrorResult);
-      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
 
       Assertions.evmAddress(txByHash.from);
       Assertions.evmAddress(txByHash.to);
@@ -1420,9 +1421,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       mirrorResult.from = accounts[0].wallet.address;
       mirrorResult.to = relayContract.target;
       const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
       Assertions.transaction(txByHash, mirrorResult);
-      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
 
       Assertions.evmAddress(txByHash.from);
       Assertions.evmAddress(txByHash.to);
@@ -1448,9 +1450,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       mirrorResult.from = accounts[0].wallet.address;
       mirrorResult.to = parentContractLongZeroAddress;
       const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
       Assertions.transaction(txByHash, mirrorResult);
-      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
 
       Assertions.evmAddress(txByHash.from);
       Assertions.longZeroAddress(txByHash.to);
@@ -1472,9 +1475,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       receipt.logs = [];
       mirrorResult.logs = [];
       const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
       Assertions.transaction(txByHash, mirrorResult);
-      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
 
       Assertions.evmAddress(txByHash.from);
       Assertions.longZeroAddress(txByHash.to);
