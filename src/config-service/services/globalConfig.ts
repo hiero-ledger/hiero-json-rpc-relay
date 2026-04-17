@@ -736,6 +736,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  LOCK_MAX_QUEUE_TIME_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
+  },
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,

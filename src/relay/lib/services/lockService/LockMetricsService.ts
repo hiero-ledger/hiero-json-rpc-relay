@@ -69,6 +69,13 @@ export class LockMetricsService {
    */
   private readonly redisLockErrors: Counter;
 
+  /**
+   * Counter tracking queue rejoins. Non-zero means a waiter found itself missing
+   * from the Redis queue (restart / failover / eviction / zombie cleanup after an
+   * event-loop stall) and re-pushed itself rather than looping forever.
+   */
+  private readonly queueRejoinsCounter: Counter;
+
   constructor(register: Registry) {
     // Remove existing metrics if they exist (for hot reloading scenarios)
     const metricNames = [
@@ -80,6 +87,7 @@ export class LockMetricsService {
       'rpc_relay_lock_zombie_cleanups_total',
       'rpc_relay_lock_active_count',
       'rpc_relay_lock_redis_errors_total',
+      'rpc_relay_lock_queue_rejoins_total',
     ];
     metricNames.forEach((name) => register.removeSingleMetric(name));
 
@@ -137,6 +145,13 @@ export class LockMetricsService {
       name: 'rpc_relay_lock_redis_errors_total',
       help: 'Redis Lock Service errors',
       labelNames: ['operation'],
+      registers: [register],
+    });
+
+    this.queueRejoinsCounter = new Counter({
+      name: 'rpc_relay_lock_queue_rejoins_total',
+      help: 'Times a waiter found itself missing from the lock queue and rejoined. Non-zero indicates Redis resets, failovers, evictions, or event-loop stalls causing zombie cleanup of live waiters.',
+      labelNames: ['strategy'],
       registers: [register],
     });
   }
@@ -235,5 +250,15 @@ export class LockMetricsService {
    */
   incrementRedisLockErrors(operation: RedisOperationLabel): void {
     this.redisLockErrors.labels(operation).inc();
+  }
+
+  /**
+   * Records a queue rejoin event — a waiter discovered it was no longer in the Redis
+   * queue and pushed itself back on. Should be zero on a healthy cluster.
+   *
+   * @param strategy - The lock strategy type ('local' or 'redis').
+   */
+  recordQueueRejoin(strategy: LockStrategyLabel): void {
+    this.queueRejoinsCounter.labels(strategy).inc();
   }
 }

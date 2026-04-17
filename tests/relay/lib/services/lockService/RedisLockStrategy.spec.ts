@@ -30,12 +30,17 @@ describe('RedisLockStrategy Test Suite', function () {
     mockRedisClient = {
       lPush: sinon.stub(),
       lIndex: sinon.stub(),
+      lPos: sinon.stub(),
       set: sinon.stub(),
       lRem: sinon.stub(),
       lLen: sinon.stub(),
       eval: sinon.stub(),
       exists: sinon.stub(),
     } as any;
+
+    // Default: session is present in the queue (at position 0). Individual tests
+    // override with `.resolves(null)` to exercise the rejoin path.
+    mockRedisClient.lPos.resolves(0);
 
     // Create a mock metrics service
     mockMetricsService = {
@@ -49,6 +54,7 @@ describe('RedisLockStrategy Test Suite', function () {
       incrementActiveCount: sinon.stub(),
       decrementActiveCount: sinon.stub(),
       incrementRedisLockErrors: sinon.stub(),
+      recordQueueRejoin: sinon.stub(),
     } as sinon.SinonStubbedInstance<LockMetricsService>;
 
     redisLockStrategy = new RedisLockStrategy(
@@ -550,6 +556,96 @@ describe('RedisLockStrategy Test Suite', function () {
       // Should not record metrics since we weren't tracking this lock
       expect(mockMetricsService.recordHoldDuration.called).to.be.false;
       expect(mockMetricsService.decrementActiveCount.called).to.be.false;
+    });
+  });
+
+  describe('Queue membership verification (rejoin path)', () => {
+    it('should rejoin the queue when lPos reports the session is missing', async () => {
+      const sessionKey = 'test-session-key';
+
+      mockRedisClient.lPush.resolves(1);
+      // First iteration: session is missing, rejoin. Second iteration: present at head.
+      mockRedisClient.lPos.onFirstCall().resolves(null).onSecondCall().resolves(0);
+      mockRedisClient.lIndex.resolves(sessionKey);
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      const result = await redisLockStrategy.acquireLock(testAddress);
+
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
+
+      // Should have pushed twice. Once to join, once to rejoin
+      expect(mockRedisClient.lPush.callCount).to.equal(2);
+      expect(mockMetricsService.recordQueueRejoin.calledOnceWith('redis')).to.be.true;
+    });
+
+    it('should rejoin multiple times if the queue keeps being reset', async () => {
+      const sessionKey = 'test-session-key';
+
+      mockRedisClient.lPush.resolves(1);
+      // Two consecutive "not in queue" responses, then present
+      mockRedisClient.lPos.onCall(0).resolves(null).onCall(1).resolves(null).onCall(2).resolves(0);
+      mockRedisClient.lIndex.resolves(sessionKey);
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      const result = await redisLockStrategy.acquireLock(testAddress);
+
+      expect(result).to.not.be.undefined;
+      expect(mockRedisClient.lPush.callCount).to.equal(3);
+      expect(mockMetricsService.recordQueueRejoin.callCount).to.equal(2);
+    });
+
+    it('should not record a rejoin when lPos returns a valid position', async () => {
+      const sessionKey = 'test-session-key';
+
+      mockRedisClient.lPush.resolves(1);
+      mockRedisClient.lPos.resolves(0);
+      mockRedisClient.lIndex.resolves(sessionKey);
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      await redisLockStrategy.acquireLock(testAddress);
+
+      expect(mockMetricsService.recordQueueRejoin.called).to.be.false;
+      expect(mockRedisClient.lPush.callCount).to.equal(1);
+    });
+  });
+
+  describe('LOCK_MAX_QUEUE_TIME_MS safety deadline', () => {
+    it('should throw and cleanup when elapsed time exceeds the deadline', async () => {
+      const sessionKey = 'test-session-key';
+
+      mockRedisClient.lPush.resolves(1);
+      mockRedisClient.lRem.resolves(1);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      // Force the deadline check to trip on the very first iteration
+      Object.defineProperty(redisLockStrategy, 'maxQueueTimeMs', { value: -1 });
+
+      const result = await redisLockStrategy.acquireLock(testAddress);
+
+      // acquireLock catches the error and fails open
+      expect(result).to.be.undefined;
+
+      // Gauge must be decremented and queue row removed
+      expect(mockMetricsService.decrementWaitingTxns.calledWith('redis')).to.be.true;
+      expect(mockRedisClient.lRem.calledWith(`lock:queue:${normalizedAddress}`, 1, sessionKey)).to.be.true;
+
+      // Failure path metrics fired
+      expect(mockMetricsService.recordAcquisition.calledWith('redis', 'fail')).to.be.true;
+      expect(mockMetricsService.incrementRedisLockErrors.calledWith('acquire')).to.be.true;
     });
   });
 });
