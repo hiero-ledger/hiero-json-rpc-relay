@@ -87,9 +87,7 @@ export class RedisLockStrategy implements LockStrategy {
           if (position === null) {
             await this.redisClient.lPush(queueKey, sessionKey);
             this.lockMetricsService.recordQueueRejoin(this.type);
-            if (this.logger.isLevelEnabled('debug')) {
-              this.logger.debug(`Session not in queue; rejoined: address=${address}, sessionKey=${sessionKey}`);
-            }
+            this.logger.debug('Session not in queue; rejoined: address=%s, sessionKey=%s', address, sessionKey);
           }
         }
 
