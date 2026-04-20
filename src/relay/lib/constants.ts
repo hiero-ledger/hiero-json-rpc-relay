@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from 'bignumber.js';
-
 import { ConfigService } from '../../config-service/services';
 
 enum CACHE_KEY {
@@ -148,10 +146,10 @@ export default {
   },
 
   HBAR_RATE_LIMIT_DURATION: ConfigService.get('HBAR_RATE_LIMIT_DURATION'),
-  HBAR_RATE_LIMIT_TOTAL: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')),
-  HBAR_RATE_LIMIT_BASIC: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_BASIC')),
-  HBAR_RATE_LIMIT_EXTENDED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_EXTENDED')),
-  HBAR_RATE_LIMIT_PRIVILEGED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED')),
+  HBAR_RATE_LIMIT_TOTAL: BigInt(ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')),
+  HBAR_RATE_LIMIT_BASIC: BigInt(ConfigService.get('HBAR_RATE_LIMIT_BASIC')),
+  HBAR_RATE_LIMIT_EXTENDED: BigInt(ConfigService.get('HBAR_RATE_LIMIT_EXTENDED')),
+  HBAR_RATE_LIMIT_PRIVILEGED: BigInt(ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED')),
   GAS_PRICE_TINY_BAR_BUFFER: ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER'),
   WEB_SOCKET_PORT: ConfigService.get('WEB_SOCKET_PORT'),
   WEB_SOCKET_HTTP_PORT: ConfigService.get('WEB_SOCKET_HTTP_PORT'),
