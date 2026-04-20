@@ -35,7 +35,7 @@ chai.use(chaiAsPromised);
 describe('HBAR Rate Limit Service', function () {
   const logger = pino({ level: 'silent' });
   const register = new Registry();
-  const totalBudgetInTinybars = constants.HBAR_RATE_LIMIT_TOTAL.toNumber();
+  const totalBudgetInTinybars = Number(constants.HBAR_RATE_LIMIT_TOTAL);
   const limitDuration = constants.HBAR_RATE_LIMIT_DURATION;
   const mode = constants.EXECUTION_MODE.TRANSACTION;
   const methodName = 'testMethod';
