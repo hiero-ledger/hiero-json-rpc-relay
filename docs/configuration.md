@@ -21,6 +21,10 @@ These properties are noted below and should be custom set per deployment.
 
 **Note**: The default logging level in the TypeScript application is set to trace.
 
+> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.151.0** or later.
+> Older versions do not support the `hbar` query parameter and return HTTP 400 on contract
+> result endpoints. The relay always logs a compatibility warning at startup.
+
 ## Relay
 
 The following table lists the available properties along with their default values for the [Relay package](/packages/relay/).
