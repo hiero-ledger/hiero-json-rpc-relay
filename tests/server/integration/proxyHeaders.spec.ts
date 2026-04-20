@@ -54,8 +54,8 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
   before(async function () {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'waitForMirrorNode').resolves();
     const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
@@ -84,7 +84,7 @@ describe('Proxy Headers Integration Tests', function () {
     });
   }
 
-  function createRequestWithIP(id: string, ip: string) {
+  function createRequestWithIP(id: string, _ip?: string) {
     return {
       id: id,
       jsonrpc: '2.0',
@@ -94,7 +94,7 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithForwardedIP(ip: string, id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ip), {
+    return testClient.post('/', createRequestWithIP(id), {
       headers: {
         'X-Forwarded-For': ip,
       },
@@ -102,11 +102,11 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithoutForwardedIP(id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ''));
+    return testClient.post('/', createRequestWithIP(id));
   }
 
   async function makeRequestWithForwardedHeader(forwardedValue: string, id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ''), {
+    return testClient.post('/', createRequestWithIP(id), {
       headers: {
         Forwarded: forwardedValue,
       },

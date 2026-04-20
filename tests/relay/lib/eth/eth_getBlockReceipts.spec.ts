@@ -64,17 +64,17 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
   });
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     extractBlockNumberOrTagStub = sinon
-      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
+      .stub(ethImpl['contractService'] as any, 'extractBlockNumberOrTag')
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
     restMock.reset();
   });
 
@@ -109,6 +109,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       expect(receipts).to.exist;
+      // @ts-ignore
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
@@ -124,6 +125,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
       expect(receipts).to.exist;
+      // @ts-ignore
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
@@ -139,6 +141,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts('latest', requestDetails);
       expect(receipts).to.exist;
+      // @ts-ignore
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
@@ -156,6 +159,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts('earliest', requestDetails);
       expect(receipts).to.exist;
+      // @ts-ignore
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
@@ -184,10 +188,13 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
         // Verify only one receipt was returned (the non-reverted one)
         expect(receipts).to.exist;
+        // @ts-ignore
         expect(receipts.length).to.equal(2);
+        // @ts-ignore
         expect(receipts[0].transactionHash).to.equal(results[0].hash);
+        // @ts-ignore
         expect(receipts[1].transactionHash).to.equal(results[1].hash);
-
+        // @ts-ignore
         expectValidReceipt(receipts[0], results[0], results[0].gas_used);
       });
     });
@@ -205,6 +212,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      // @ts-ignore
       expect(receipts[0]).to.include.all.keys([
         'blockHash',
         'blockNumber',
@@ -230,7 +238,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         [CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2]: { logs: defaultLogs1 },
       });
 
-      const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
+      const receipts = (await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails))!;
 
       expect(receipts[0].logs.length).to.equal(0);
       expect(receipts[1].logs.length).to.equal(defaultLogs1.length);
@@ -261,7 +269,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       const resolveEvmAddressStub = sinon.stub(commonService, 'resolveEvmAddress');
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
 
-      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      const receipts = (await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails))!;
 
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(1);
@@ -294,9 +302,10 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const resolveEvmAddressStub = sinon.stub(commonService, 'resolveEvmAddress');
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
+      // @ts-ignore
       resolveEvmAddressStub.withArgs(undefined, sinon.match.any).resolves(null);
 
-      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      const receipts = (await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails))!;
 
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(1);
@@ -332,7 +341,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
       resolveEvmAddressStub.withArgs(originalToAddress, sinon.match.any).resolves(resolvedToAddress);
 
-      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      const receipts = (await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails))!;
 
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(1);
@@ -351,7 +360,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
-
+      // @ts-ignore
       expect(receipts.length).to.equal(0);
     });
 

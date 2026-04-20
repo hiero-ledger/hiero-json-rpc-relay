@@ -198,7 +198,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('When JSON is invalid, expect INVALID_REQUEST Error message', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response: any = {};
       webSocket.on('message', function incoming(data) {
         response = JSON.parse(data);
       });
@@ -230,6 +230,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
+              // eslint-disable-next-line eqeqeq
               if (subscriptionId == '') {
                 subscriptionId = parsed.result;
               } else {
@@ -258,20 +259,20 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect('1: ' + latestEventFromSubscription.params.subscription).to.be.eq('1: ' + subscriptionId);
 
           // create event on contract 2
-          const tx2 = await logContractSigner2.log1(200, gasOptions);
+          const tx2 = await (logContractSigner2 as any).log1(200, gasOptions);
           await tx2.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
           expect('2: ' + latestEventFromSubscription.params.result.address).to.be.eq(
-            '2: ' + logContractSigner2.target.toLowerCase(),
+            '2: ' + (logContractSigner2.target as string).toLowerCase(),
           );
           expect('2: ' + latestEventFromSubscription.params.subscription).to.be.eq('2: ' + subscriptionId);
 
           // create event on contract 3
-          const tx3 = await logContractSigner3.log1(300, gasOptions);
+          const tx3 = await (logContractSigner3 as any).log1(300, gasOptions);
           await tx3.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
           expect('3: ' + latestEventFromSubscription.params.result.address).to.be.eq(
-            '3: ' + logContractSigner3.target.toLowerCase(),
+            '3: ' + (logContractSigner3.target as string).toLowerCase(),
           );
           expect('3: ' + latestEventFromSubscription.params.subscription).to.be.eq('3: ' + subscriptionId);
 
@@ -349,7 +350,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('Expect Unsupported Method Error message when subscribing for newPendingTransactions method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response: any = {};
       webSocket.on('message', function incoming(data) {
         response = JSON.parse(data);
       });
@@ -369,7 +370,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('@release Expect Unsupported Method Error message when subscribing for "other" method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response: any = {};
       webSocket.on('message', function incoming(data) {
         response = JSON.parse(data);
       });
@@ -722,10 +723,10 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
   describe('Subscribes to hts tokens and listens for synthetic log events', async function () {
     // eslint-disable-next-line prefer-const
-    let htsAccounts = [];
+    let htsAccounts: AliasAccount[] = [];
     let htsToken,
       wsHtsProvider,
-      htsEventsReceived = [];
+      htsEventsReceived: any[] = [];
 
     before(async function () {
       htsAccounts[0] = await servicesNode.createAliasAccount(400, relay.provider, requestId);
@@ -913,7 +914,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
           let closeEventHandled = false;
 
-          provider.websocket.on('close', (code, message) => {
+          (provider.websocket as any).on('close', (code, message) => {
             closeEventHandled = true;
             expect(code).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.code);
             expect(message.toString('utf8')).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.message);
@@ -981,8 +982,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
 
             await wsProvider.send('eth_unsubscribe', [subId]);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e: any) {
+          } catch {
             errorsHandled++;
           }
         }

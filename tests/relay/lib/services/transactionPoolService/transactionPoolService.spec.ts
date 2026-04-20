@@ -31,8 +31,11 @@ describe('TransactionPoolService Test Suite', function () {
     data: '0x',
     to: testAddress,
     from: testAddress,
+    // @ts-ignore
     value: 0n,
+    // @ts-ignore
     gasLimit: 21000n,
+    // @ts-ignore
     gasPrice: 1000000000n,
     nonce: 1,
   } as Transaction;

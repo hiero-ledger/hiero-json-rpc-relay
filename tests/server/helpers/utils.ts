@@ -666,7 +666,7 @@ export class Utils {
    * restarting the application.
    */
   public static reloadPaymasterConfigs() {
-    const { relayImpl } = global;
+    const { relayImpl } = global as any;
 
     // @ts-ignore
     CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());

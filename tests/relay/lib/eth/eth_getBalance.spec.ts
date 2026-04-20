@@ -5,12 +5,12 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
+import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
+import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import constants from '../../../../src/relay/lib/constants';
 import { EthImpl } from '../../../../src/relay/lib/eth';
+import { CommonService } from '../../../../src/relay/lib/services/';
 import { RequestDetails } from '../../../../src/relay/lib/types';
-import type { ICacheClient } from '../../../../src/relay/services/cache';
-import { CommonService } from '../../../../src/relay/services/commonService';
-import { MirrorNodeClient } from '../../../../src/relay/services/mirrorNodeClient';
 import { buildCryptoTransferTransaction, mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_TIMESTAMP,
@@ -54,12 +54,12 @@ describe('@ethGetBalance using MirrorNode', async function () {
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
   });
 
   beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));

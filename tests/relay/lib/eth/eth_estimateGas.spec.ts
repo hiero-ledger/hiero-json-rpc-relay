@@ -11,7 +11,6 @@ import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../../src/relay/lib/eth';
 import {
   LocalPendingTransactionStorage,
@@ -635,6 +634,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
     const originalEstimateGas = contractService.estimateGas;
+    // @ts-ignore
     contractService.estimateGas = async () => {
       return predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
@@ -642,8 +642,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const result = await ethImpl.estimateGas(transaction, null, requestDetails);
 
     expect(result).to.be.an('error');
-    expect((result as JsonRpcError).code).to.equal(-32603);
-    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
+    expect((result as unknown as JsonRpcError).code).to.equal(-32603);
+    expect((result as unknown as JsonRpcError).message).to.contain('Test error for estimateGas');
 
     contractService.estimateGas = originalEstimateGas;
   });

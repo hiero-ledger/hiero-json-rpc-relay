@@ -24,6 +24,7 @@ describe('@web-socket-batch-1 eth_call', async function () {
 
   const TOKEN_NAME = Utils.randomString(10);
   const TOKEN_SYMBOL = Utils.randomString(5);
+  // @ts-ignore
   const TOKEN_INIT_SUPPLY = 10000n;
 
   const VALID_DATA = [
@@ -130,7 +131,7 @@ describe('@web-socket-batch-1 eth_call', async function () {
         try {
           await ethersWsProvider.send(METHOD_NAME, params);
           expect(true).to.eq(false);
-        } catch (error) {
+        } catch (error: any) {
           expect(error).to.exist;
           expect(error.argument).to.eq('address');
           expect(error.code).to.eq('INVALID_ARGUMENT');

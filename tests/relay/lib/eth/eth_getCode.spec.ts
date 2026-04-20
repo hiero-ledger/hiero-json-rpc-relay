@@ -6,7 +6,6 @@ import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
-import { ContractService } from '../../../../src/relay/lib/services';
 import { CommonService } from '../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
@@ -46,7 +45,7 @@ describe('@ethGetCode using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));

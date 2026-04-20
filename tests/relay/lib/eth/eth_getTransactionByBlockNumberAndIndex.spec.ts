@@ -68,10 +68,10 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
@@ -151,6 +151,7 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
 
   it('eth_getTransactionByBlockNumberAndIndex should throw for internal error', async function () {
     const defaultContractResultsWithNullableFrom = _.cloneDeep(defaultContractResults);
+    // @ts-ignore
     defaultContractResultsWithNullableFrom.results[0].from = null;
     const randomBlock = {
       number: 5644,

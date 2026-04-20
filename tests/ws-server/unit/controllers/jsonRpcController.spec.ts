@@ -28,7 +28,7 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as Koa.Context;
 }
 
 describe('JSON Rpc Controller', function () {
@@ -47,7 +47,7 @@ describe('JSON Rpc Controller', function () {
       isLevelEnabled: sinon.stub().returns(true),
     };
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
-    stubWsMetricRegistry.getCounter.returns({
+    (stubWsMetricRegistry.getCounter as sinon.SinonStub).returns({
       labels: () => {
         return { inc: sinon.stub() };
       },
@@ -69,7 +69,7 @@ describe('JSON Rpc Controller', function () {
   });
 
   describe('getRequestResult', async function () {
-    let defaultRequestParams: any;
+    let defaultRequestParams: Parameters<typeof getRequestResult>;
 
     beforeEach(() => {
       defaultRequestParams = [
@@ -103,7 +103,7 @@ describe('JSON Rpc Controller', function () {
     });
 
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
-      stubConnectionLimiter.shouldRateLimitOnMethod.returns(true);
+      (stubConnectionLimiter.shouldRateLimitOnMethod as sinon.SinonStub).returns(true);
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32605);
@@ -111,7 +111,7 @@ describe('JSON Rpc Controller', function () {
     });
 
     it('should throw Max Subscription error if subscription limit is reached', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(false);
+      (stubConnectionLimiter.validateSubscriptionLimit as sinon.SinonStub).returns(false);
       defaultRequestParams[3] = {
         id: '2',
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
@@ -124,7 +124,7 @@ describe('JSON Rpc Controller', function () {
     });
     withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
       it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
+        (stubConnectionLimiter.validateSubscriptionLimit as sinon.SinonStub).returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
@@ -137,7 +137,7 @@ describe('JSON Rpc Controller', function () {
       });
 
       it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
+        (stubConnectionLimiter.validateSubscriptionLimit as sinon.SinonStub).returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
@@ -152,14 +152,14 @@ describe('JSON Rpc Controller', function () {
 
     it('should be able to execute `eth_chainId` and get a proper response', async function () {
       const chainId = '0x12a';
-      stubRelay.executeRpcMethod.returns(chainId);
+      (stubRelay.executeRpcMethod as sinon.SinonStub).returns(chainId);
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.result).to.equal(chainId);
     });
 
     it('should be able to handle the error as JsonRpcError if an internal error is thrown within the relay execution', async function () {
-      stubRelay.executeRpcMethod.throws(predefined.INTERNAL_ERROR);
+      (stubRelay.executeRpcMethod as sinon.SinonStub).throws(predefined.INTERNAL_ERROR);
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32603);
@@ -169,7 +169,7 @@ describe('JSON Rpc Controller', function () {
     it('should transform every error to JsonRpcError`', async function () {
       delete mockLogger.isLevelEnabled;
 
-      stubRelay.executeRpcMethod.throws(new Error('custom error'));
+      (stubRelay.executeRpcMethod as sinon.SinonStub).throws(new Error('custom error'));
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32603);

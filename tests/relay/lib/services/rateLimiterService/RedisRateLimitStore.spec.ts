@@ -8,7 +8,6 @@ import * as sinon from 'sinon';
 
 import { RedisRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../../src/relay/lib/types/rateLimiter';
-import { RequestDetails } from '../../../../../src/relay/lib/types/RequestDetails';
 
 describe('RedisRateLimitStore Test Suite', function () {
   this.timeout(10000);
@@ -21,7 +20,6 @@ describe('RedisRateLimitStore Test Suite', function () {
   const testDuration = 5000;
   const testKey = new RateLimitKey('127.0.0.1', 'eth_chainId');
   const testLimit = 5;
-  const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '127.0.0.1' });
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });
@@ -166,7 +164,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       const testLogger = pino({ level: 'error' });
       // Stub child to return the same logger instance so we can spy on it
-      sinon.stub(testLogger, 'child').returns(testLogger);
+      sinon.stub(testLogger, 'child').returns(testLogger as any);
       const loggerSpy = sinon.spy(testLogger, 'error');
 
       const store = new RedisRateLimitStore(

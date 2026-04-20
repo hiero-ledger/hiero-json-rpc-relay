@@ -113,6 +113,7 @@ describe('TransactionReceiptFactory', () => {
       expect(BigInt(decodedHex)).to.equal(BigInt(receipt.cumulativeGasUsed));
       expect(cumulativeGasUsed.length).to.be.greaterThan(0);
       expect(cumulativeGasUsed[0]).to.not.equal(0x00);
+      // @ts-ignore
       expect(BigInt(decodedHex)).to.equal(1n);
     });
 

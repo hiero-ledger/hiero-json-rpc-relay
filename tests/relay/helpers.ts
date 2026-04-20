@@ -981,6 +981,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
 
   before(async () => {
     redisInMemoryServer = await startRedisInMemoryServer(logger, port);
+    // @ts-ignore
     RedisClientManager['client'] = null;
   });
 
@@ -1128,7 +1129,7 @@ export const verifyResult = async <T>(
   }
 };
 
-export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheService) => {
+export const mockWorkersPool = async (mirrorNodeInstance, commonService) => {
   const deps = {
     '../../../clients/mirrorNodeClient': {
       MirrorNodeClient: class {

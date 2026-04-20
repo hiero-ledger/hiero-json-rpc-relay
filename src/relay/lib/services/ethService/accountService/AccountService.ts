@@ -264,15 +264,15 @@ export class AccountService implements IAccountService {
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (blockNumOrTag == constants.BLOCK_PENDING) {
+      if (blockNumOrTag === constants.BLOCK_PENDING) {
         return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
       }
       return mnNonce;
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
-    } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {
+    } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {
       return await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-    } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
+    } else if (blockNumOrTag.length === constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
       return await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
     }
 

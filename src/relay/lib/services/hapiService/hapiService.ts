@@ -133,7 +133,7 @@ export default class HAPIService {
    *  Decrement transaction counter. If 0 is reached, reset the client. Check also if resetDuration has been reached and reset the client, if yes.
    */
   private decrementTransactionCounter() {
-    if (this.transactionCount == 0) {
+    if (this.transactionCount === 0) {
       return;
     }
 

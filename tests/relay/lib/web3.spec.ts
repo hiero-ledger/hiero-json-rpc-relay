@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import pino from 'pino';
-import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
@@ -11,15 +9,11 @@ import { Web3Impl } from '../../../src/relay/lib/web3';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
 const web3Impl = new Web3Impl();
-const logger = pino({ level: 'silent' });
 
 describe('Web3', function () {
-  let relay: Relay;
-
   before(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
-    relay = await Relay.init(logger, new Registry());
+    sinon.stub(Relay.prototype, <keyof Relay>'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'waitForMirrorNode').resolves();
   });
 
   after(() => {

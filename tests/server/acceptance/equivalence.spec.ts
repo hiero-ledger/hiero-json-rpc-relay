@@ -4,19 +4,15 @@ import { hexToBytes } from '@ethereumjs/util';
 import { ContractFunctionParameters } from '@hashgraph/sdk';
 import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
-import pino from 'pino';
 
 import { hexToASCII } from '../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
 import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
-
-const logger = pino({ level: 'silent' });
 
 enum CallTypes {
   Call = 'Call',
@@ -61,7 +57,6 @@ describe('Equivalence tests', async function () {
   const { servicesNode, mirrorNode, relay }: any = global;
   const servicesClient = servicesNode as ServicesClient;
   const mirrorNodeClient = mirrorNode as MirrorNodeClient;
-  let precheck: Precheck;
 
   const SUCCESS = 'SUCCESS';
   const STATUS_SUCCESS = '0x1';
@@ -89,7 +84,6 @@ describe('Equivalence tests', async function () {
   const ADDRESS_0_0_359 = '0.0.359';
   const ADDRESS_0_0_360 = '0.0.360';
   const ADDRESS_0_0_361 = '0.0.361';
-  const ADDRESS_0_0_362 = '0.0.362';
   const ADDRESS_0_0_556 = '0.0.556';
   const ADDRESS_0_0_750 = '0.0.750';
   const ADDRESS_0_0_751 = '0.0.751';
@@ -168,12 +162,11 @@ describe('Equivalence tests', async function () {
     );
     equivalenceContractId = equivalenceContractReceipt.contractId.toString();
 
-    const contractMirror = await mirrorNodeClient.get(`/contracts/${estimatePrecompileSolidityAddress}`);
+    const contractMirror = await (mirrorNodeClient as any).get(`/contracts/${estimatePrecompileSolidityAddress}`);
 
     accounts[0] = await servicesClient.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
     tokenAddress = await createFungibleToken();
-    precheck = new Precheck(mirrorNodeClient, logger, '0x12a');
   });
 
   const getTestSummaryAmount = (amount: number): string => {
@@ -388,7 +381,7 @@ describe('Equivalence tests', async function () {
           EMPTY_FUNCTION_PARAMS,
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output, Constants.EMPTY_HEX);
         return;
@@ -411,7 +404,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Error, INVALID_FEE_SUBMITTED);
         return;
@@ -432,7 +425,7 @@ describe('Equivalence tests', async function () {
           EMPTY_FUNCTION_PARAMS,
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output, Constants.EMPTY_HEX);
         return;
@@ -455,7 +448,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[0], CallTypes.Call, Outcomes.Output);
         return;
@@ -490,7 +483,7 @@ describe('Equivalence tests', async function () {
         EMPTY_FUNCTION_PARAMS,
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -549,7 +542,7 @@ describe('Equivalence tests', async function () {
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
         Constants.AMOUNT.AMOUNT_100,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -576,7 +569,7 @@ describe('Equivalence tests', async function () {
         Constants.GAS_AS_NUMBER.LIMIT_1_000_000,
         Constants.AMOUNT.AMOUNT_100,
       );
-    } catch (e) {
+    } catch (e: any) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
       assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
@@ -681,7 +674,7 @@ describe('Equivalence tests', async function () {
               Constants.GAS_AS_NUMBER.LIMIT_500_000,
               test.amount,
             );
-          } catch (e) {
+          } catch (e: any) {
             const contractActions = await getContractActions(getTransactionIdFromException(e));
             validateContractActions(contractActions.actions[1], callType, test.outcome, test.message);
             return;
@@ -811,7 +804,7 @@ describe('Equivalence tests', async function () {
           Constants.GAS_AS_NUMBER.LIMIT_500_000,
           Constants.AMOUNT.AMOUNT_100,
         );
-      } catch (e) {
+      } catch (e: any) {
         const contractActions = await getContractActions(getTransactionIdFromException(e));
         validateContractActions(contractActions.actions[1], CallTypes.Call, Outcomes.Error, INVALID_FEE_SUBMITTED);
         return;

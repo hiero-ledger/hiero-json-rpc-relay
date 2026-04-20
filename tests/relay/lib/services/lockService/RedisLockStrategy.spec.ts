@@ -353,6 +353,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // Each heartbeat SET should have PX (TTL in ms)
       heartbeatCalls.forEach((call) => {
         expect(call.args[2]).to.have.property('PX');
+        // @ts-ignore
         expect(call.args[2].PX).to.be.a('number');
       });
     });
@@ -384,6 +385,7 @@ describe('RedisLockStrategy Test Suite', function () {
         // TTL should be pollIntervalMs * LOCK_HEARTBEAT_MISSED_COUNT
         const expectedTtl =
           ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS') * ConfigService.get('LOCK_HEARTBEAT_MISSED_COUNT');
+        // @ts-ignore
         expect(options.PX).to.equal(expectedTtl);
       });
     });

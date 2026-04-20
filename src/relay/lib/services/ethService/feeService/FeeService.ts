@@ -77,7 +77,7 @@ export class FeeService implements IFeeService {
     try {
       const latestBlockNumber = await this.common.translateBlockTag(constants.BLOCK_LATEST, requestDetails);
       const newestBlockNumber =
-        newestBlock == constants.BLOCK_LATEST || newestBlock == constants.BLOCK_PENDING
+        newestBlock === constants.BLOCK_LATEST || newestBlock === constants.BLOCK_PENDING
           ? latestBlockNumber
           : await this.common.translateBlockTag(newestBlock, requestDetails);
 

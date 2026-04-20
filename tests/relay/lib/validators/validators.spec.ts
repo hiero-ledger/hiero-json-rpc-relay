@@ -20,7 +20,7 @@ describe('Validator', async () => {
   }
 
   describe('validates Address type correctly', async () => {
-    const validation = { 0: { type: 'address' } };
+    const validation = { 0: { type: 'address' as keyof typeof TYPES, required: true } } as any;
 
     it('throws an error if address hash is smaller than 20bytes', async () => {
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
@@ -63,7 +63,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Array type correctly', async () => {
-    const validation = { 0: { type: 'array' } };
+    const validation = { 0: { type: 'array' as keyof typeof TYPES, required: true } } as any;
     const error = TYPES['array'].error;
 
     it('throws an error if the param is not an array', async () => {
@@ -81,7 +81,7 @@ describe('Validator', async () => {
   });
 
   describe('validates blockHash type correctly', async () => {
-    const validation = { 0: { type: 'blockHash' } };
+    const validation = { 0: { type: 'blockHash' as keyof typeof TYPES, required: true } } as any;
 
     it('throws an error if block hash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xdec54931fcfe'], validation)).to.throw(
@@ -132,7 +132,7 @@ describe('Validator', async () => {
   });
 
   describe('validates blockNumber type correctly', async () => {
-    const validation = { 0: { type: 'blockNumber' } };
+    const validation = { 0: { type: 'blockNumber' as keyof typeof TYPES, required: true } } as any;
 
     it('throws error if block number is decimal', async () => {
       expect(() => validateParams([123], validation)).to.throw(
@@ -187,7 +187,7 @@ describe('Validator', async () => {
     });
 
     it('does not throw error when block number is valid tag', async () => {
-      const validation = { 0: { type: 'blockNumber' } };
+      const validation = { 0: { type: 'blockNumber' } } as any;
 
       expect(validateParams(['earliest'], validation)).to.eq(undefined);
       expect(validateParams(['pending'], validation)).to.eq(undefined);
@@ -196,7 +196,7 @@ describe('Validator', async () => {
   });
 
   describe('validates boolean type correctly', async () => {
-    const validation = { 0: { type: 'boolean', required: true } };
+    const validation = { 0: { type: 'boolean' as keyof typeof TYPES, required: true } } as any;
     const error = TYPES['boolean'].error;
 
     it('throws an error if param is string', async () => {
@@ -218,7 +218,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Filter Object type correctly', async () => {
-    const validation = { 0: { type: 'filter', required: true } };
+    const validation = { 0: { type: 'filter' as keyof typeof TYPES, required: true } } as any;
     const error = TYPES['filter'].error;
     const name = 'FilterObject';
 
@@ -302,7 +302,7 @@ describe('Validator', async () => {
   });
 
   describe('validates topics type correctly', async () => {
-    const validation = { 0: { type: 'topics' } };
+    const validation = { 0: { type: 'topics' as keyof typeof TYPES, required: true } } as any;
     const topicsError = TYPES['topics'].error;
     it('throws an error if topics contains hash smaller than 32bytes', async () => {
       expect(() =>
@@ -433,7 +433,7 @@ describe('Validator', async () => {
   });
 
   describe('validates topicHash type correctly', async () => {
-    const validation = { 0: { type: 'topicHash' } };
+    const validation = { 0: { type: 'topicHash' as keyof typeof TYPES, required: true } } as any;
 
     it('throws an error if topic hash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xddf252ad1be2c89'], validation)).to.throw(
@@ -484,7 +484,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Transaction Object type correctly', async () => {
-    const validation = { 0: { type: 'transaction', required: true } };
+    const validation = { 0: { type: 'transaction' as keyof typeof TYPES, required: true } } as any;
     const error = TYPES['transaction'].error;
     const name = 'TransactionObject';
 
@@ -527,7 +527,7 @@ describe('Validator', async () => {
   });
 
   describe('validates transactionHash type correctly', async () => {
-    const validation = { 0: { type: 'transactionHash' } };
+    const validation = { 0: { type: 'transactionHash' as keyof typeof TYPES, required: true } } as any;
 
     it('throws an error if transactionHash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xdec54931fcfe'], validation)).to.throw(
@@ -770,7 +770,7 @@ describe('Validator', async () => {
 
   describe('Other error cases', async () => {
     it('throws an error if validation type is wrong', async () => {
-      const validation = { 0: { type: 'wrongType' } };
+      const validation = { 0: { type: 'wrongType' as keyof typeof TYPES, required: false } } as any;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'wrongType'",
@@ -778,7 +778,7 @@ describe('Validator', async () => {
     });
 
     it('throws an error if validation type is missing', async () => {
-      const validation = { 0: { type: undefined as unknown as string } };
+      const validation = { 0: { type: undefined as unknown as string, required: false } } as any;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'undefined'",
@@ -786,13 +786,13 @@ describe('Validator', async () => {
     });
 
     it('throws an error if passed params are more than defined validations', async () => {
-      const validation = { 0: { type: 'boolean' } };
+      const validation = { 0: { type: 'boolean' as keyof typeof TYPES, required: false } } as any;
 
       expect(() => validateParams(['true', null], validation)).to.throw('Invalid params');
     });
 
     it('throws an error if validation type is unknown', async () => {
-      const validation = { 0: { type: 'unknownType' } };
+      const validation = { 0: { type: 'unknownType' as keyof typeof TYPES, required: false } } as any;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'unknownType'",
@@ -800,7 +800,7 @@ describe('Validator', async () => {
     });
 
     it('throws an error if Filter Object param contains unexpected param', async () => {
-      const validation = { 0: { type: 'filter' } };
+      const validation = { 0: { type: 'filter' as keyof typeof TYPES, required: false } } as any;
 
       expect(() => validateParams([{ formBlock: '0x1' }], validation)).to.throw(
         expectUnknownParam('formBlock', 'FilterObject', 'Unknown parameter'),
@@ -808,14 +808,14 @@ describe('Validator', async () => {
     });
 
     it('does NOT throw an error if Transaction Object param contains unexpected param', async () => {
-      const validation = { 0: { type: 'transaction' } };
+      const validation = { 0: { type: 'transaction' as keyof typeof TYPES, required: false } } as any;
 
       expect(() => validateParams([{ form: '0x1' }], validation)).to.not.throw;
     });
 
     it('deletes unknown properties of Transaction Object param', async () => {
       const transactionParam = { form: '0x1' };
-      const validation = { 0: { type: 'transaction' } };
+      const validation = { 0: { type: 'transaction' as keyof typeof TYPES, required: false } } as any;
 
       validateParams([transactionParam], validation);
       expect(transactionParam).not.to.haveOwnProperty('form');
@@ -928,7 +928,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -942,7 +942,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: [],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -956,7 +956,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: undefined,
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -969,7 +969,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -982,7 +982,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: ['0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816', '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816'],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1000,7 +1000,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1035,16 +1035,16 @@ describe('Validator', async () => {
     });
 
     it('returns false for non-object values', () => {
-      expect(TYPES.tracerConfig.test(null)).to.be.false;
-      expect(TYPES.tracerConfig.test(undefined)).to.be.false;
-      expect(TYPES.tracerConfig.test(123)).to.be.false;
-      expect(TYPES.tracerConfig.test('string')).to.be.false;
+      expect(TYPES.tracerConfig.test(null as any)).to.be.false;
+      expect(TYPES.tracerConfig.test(undefined as any)).to.be.false;
+      expect(TYPES.tracerConfig.test(123 as any)).to.be.false;
+      expect(TYPES.tracerConfig.test('string' as any)).to.be.false;
     });
   });
 
   function describeTests(type: string, tests: { validCases: any[]; invalidCases: { input: any; error: any }[] }) {
     describe(`validates ${type} correctly`, async () => {
-      const validation = { 0: { type, required: true } };
+      const validation = { 0: { type: type as keyof typeof TYPES, required: true } } as any;
 
       tests.invalidCases.forEach(({ input, error }) => {
         it(`throws an error for input: ${JSON.stringify(input)}`, async () => {

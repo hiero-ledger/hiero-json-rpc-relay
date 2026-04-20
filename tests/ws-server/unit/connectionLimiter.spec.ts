@@ -215,8 +215,8 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getBalance';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 50;
-      // eslint-disable-next-line no-import-assign
-      methodConfigModule.methodConfiguration = {
+
+      (methodConfigModule as any).methodConfiguration = {
         eth_getBalance: { total: 50 },
       };
 
@@ -233,8 +233,8 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getLogs';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 25;
-      // eslint-disable-next-line no-import-assign
-      methodConfigModule.methodConfiguration = {
+
+      (methodConfigModule as any).methodConfiguration = {
         eth_getLogs: { total: 25 },
       };
 
@@ -270,7 +270,10 @@ describe('Connection Limiter', function () {
       };
 
       const clearTimeoutSpy = sinon.spy(global, 'clearTimeout');
-      const startInactivityTTLTimerSpy = sinon.spy(connectionLimiter, 'startInactivityTTLTimer');
+      const startInactivityTTLTimerSpy = sinon.spy(
+        connectionLimiter,
+        <keyof ConnectionLimiter>'startInactivityTTLTimer',
+      );
       connectionLimiter.resetInactivityTTLTimer(mockWebsocket);
 
       sinon.assert.calledOnce(clearTimeoutSpy);

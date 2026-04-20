@@ -163,6 +163,7 @@ describe('HbarSpendingPlanConfigService', function () {
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
       if (RedisClientManager.isRedisEnabled()) {
+        // @ts-ignore
         RedisClientManager['client'] = null;
         redisClient = await RedisClientManager.getClient(logger);
       } else {
