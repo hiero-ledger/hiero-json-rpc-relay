@@ -175,14 +175,14 @@ jobs:
           path: test-*.xml
 
       - name: Upload coverage report
-        if: ${{ !cancelled() && always() }}
+        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
         run: bash .github/scripts/codecov-upload.sh
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish Test Report
         uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
-        if: ${{ !cancelled() }}
+        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() }}
         with:
           check_name: '' # Set to empty to disable check run
           comment_mode: off

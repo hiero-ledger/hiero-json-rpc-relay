@@ -54,7 +54,7 @@ jobs:
 
   publish_results:
     name: Publish Results
-    if: ${{ !cancelled() }}
+    if: ${{ github.actor != 'dependabot[bot]' && !cancelled() }}
     needs: [acceptance_tests]
     runs-on: hiero-smart-contracts-linux-medium
     steps:
