@@ -44,11 +44,24 @@ describe('TransactionFactory', () => {
       expect(tx).to.not.have.property('accessList');
     });
 
-    it('should create an access list (type 1) Transaction2930 with empty accessList', () => {
+    it('should create an access list (type 1) Transaction2930 with provided accessList', () => {
+      const accessList = [{ address: '0x1234567890abcdef1234567890abcdef12345678', storageKeys: [] }];
       const tx = TransactionFactory.createTransactionByType(1, {
         ...baseFields,
         type: '0x1',
-        accessList: ['should be ignored'],
+        accessList,
+      });
+
+      expect(tx).to.not.equal(null);
+      expect(tx!.type).to.equal('0x1');
+      expect(tx).to.have.property('accessList').that.deep.eq(accessList);
+      expect(tx!.from).to.equal(baseFields.from);
+    });
+
+    it('should create an access list (type 1) Transaction2930 with empty accessList when none provided', () => {
+      const tx = TransactionFactory.createTransactionByType(1, {
+        ...baseFields,
+        type: '0x1',
       });
 
       expect(tx).to.not.equal(null);
@@ -57,11 +70,27 @@ describe('TransactionFactory', () => {
       expect(tx!.from).to.equal(baseFields.from);
     });
 
-    it('should create an EIP-1559 (type 2) Transaction1559 with sanitized fees and empty accessList', () => {
+    it('should create an EIP-1559 (type 2) Transaction1559 with provided accessList and sanitized fees', () => {
+      const accessList = [{ address: '0x1234567890abcdef1234567890abcdef12345678', storageKeys: ['0xabc'] }];
       const tx = TransactionFactory.createTransactionByType(2, {
         ...baseFields,
         type: '0x2',
-        accessList: ['should be ignored'],
+        accessList,
+        maxPriorityFeePerGas: null,
+        maxFeePerGas: '0x00000059',
+      });
+
+      expect(tx).to.not.equal(null);
+      expect(tx!.type).to.equal('0x2');
+      expect(tx).have.property('accessList').that.deep.eq(accessList);
+      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxFeePerGas').that.equals('0x59');
+    });
+
+    it('should create an EIP-1559 (type 2) Transaction1559 with empty accessList when none provided', () => {
+      const tx = TransactionFactory.createTransactionByType(2, {
+        ...baseFields,
+        type: '0x2',
         maxPriorityFeePerGas: null,
         maxFeePerGas: '0x00000059',
       });
@@ -470,6 +499,156 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out).to.have.property('extraField').equal('keep-me');
+    });
+  });
+
+  describe('formatAccessList', () => {
+    /**
+     * Test helper that exposes the private formatAccessList logic.
+     *
+     * Routes the provided `input` through `createTransactionFromContractResult`
+     * using a mocked EIP-1559 transaction payload (type = 2), then extracts
+     * the resulting `accessList`.
+     */
+    const formatAccessList = (input: any): any =>
+      createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: '0x08090033',
+        gas_used: 400000,
+        gas_limit: 500_000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+        block_hash:
+          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+        block_number: 528,
+        transaction_index: 9,
+        chain_id: '0x12a',
+        gas_price: '0x',
+        max_fee_per_gas: '0xcf38224400',
+        max_priority_fee_per_gas: '0x',
+        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+        type: 2,
+        v: 1,
+        nonce: 2,
+        access_list: input,
+      })!['accessList'];
+
+    it('returns empty array for "0x" (empty hex string)', () => {
+      const out = formatAccessList('0x');
+      expect(out).to.deep.equal([]);
+    });
+
+    it('returns empty array for null', () => {
+      const out = formatAccessList(null);
+      expect(out).to.deep.equal([]);
+    });
+
+    it('returns empty array for undefined', () => {
+      const out = formatAccessList(undefined);
+      expect(out).to.deep.equal([]);
+    });
+
+    it('returns empty array for empty array', () => {
+      const out = formatAccessList([]);
+      expect(out).to.deep.equal([]);
+    });
+
+    it('returns empty array for non-empty hex string (unsupported encoded format)', () => {
+      const out = formatAccessList('0xf87cf87a940000000000000000000000000000000000000409');
+      expect(out).to.deep.equal([]);
+    });
+
+    it('normalizes unencoded format with snake_case storage_keys to camelCase storageKeys', () => {
+      const input = [
+        {
+          address: '0x0000000000000000000000000000000000000409',
+          storage_keys: [
+            '0x0000000000000000000000000000000000000000000000000000000000000001',
+            '0x0000000000000000000000000000000000000000000000000000000000000002',
+          ],
+        },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0]).to.deep.equal({
+        address: '0x0000000000000000000000000000000000000409',
+        storageKeys: [
+          '0x0000000000000000000000000000000000000000000000000000000000000001',
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
+        ],
+      });
+    });
+
+    it('passes through already-normalized camelCase storageKeys', () => {
+      const input = [
+        {
+          address: '0x0000000000000000000000000000000000000409',
+          storageKeys: ['0x0000000000000000000000000000000000000000000000000000000000000001'],
+        },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0]).to.deep.equal({
+        address: '0x0000000000000000000000000000000000000409',
+        storageKeys: ['0x0000000000000000000000000000000000000000000000000000000000000001'],
+      });
+    });
+
+    it('filters out null, undefined, and non-object items from array', () => {
+      const input = [
+        null,
+        undefined,
+        123,
+        'abc',
+        true,
+        { address: '0x0000000000000000000000000000000000000409', storage_keys: [] },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000000409');
+    });
+
+    it('falls back to zero address and empty storageKeys for missing fields', () => {
+      const input = [{}];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000000000');
+      expect(out[0].storageKeys).to.deep.equal([]);
+    });
+
+    it('handles multiple entries with mixed formats', () => {
+      const input = [
+        {
+          address: '0x1111111111111111111111111111111111111111',
+          storage_keys: ['0xaaa'],
+        },
+        {
+          address: '0x2222222222222222222222222222222222222222',
+          storageKeys: ['0xbbb'],
+        },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(2);
+      expect(out[0]).to.deep.equal({
+        address: '0x1111111111111111111111111111111111111111',
+        storageKeys: ['0xaaa'],
+      });
+      expect(out[1]).to.deep.equal({
+        address: '0x2222222222222222222222222222222222222222',
+        storageKeys: ['0xbbb'],
+      });
     });
   });
 });

@@ -11,7 +11,15 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
+import {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+  Transaction2930,
+  Transaction7702,
+} from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
@@ -22,19 +30,19 @@ export class TransactionFactory {
       case 1:
         return new Transaction2930({
           ...fields,
-          accessList: [],
+          accessList: fields.accessList ?? [],
         }); // eip 2930 fields
       case 2:
         return new Transaction1559({
           ...fields,
-          accessList: [],
+          accessList: fields.accessList ?? [],
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
         }); // eip 1559 fields
       case 4:
         return new Transaction7702({
           ...fields,
-          accessList: [],
+          accessList: fields.accessList ?? [],
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
           authorizationList: formatAuthorizationList(fields.authorizationList),
@@ -109,6 +117,44 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
     : [];
 
 /**
+ * Normalizes the MirrorNode access_list field into the standard AccessListEntry[] format.
+ *
+ * Handles both the current encoded format and the future unencoded format:
+ *   - Encoded (string): "0x" → [], non-empty hex strings → [] (not decoded; real EIP-2930
+ *     access lists are rejected by Hedera as NOT_YET_IMPLEMENTED, so this case should not
+ *     occur in practice)
+ *   - Unencoded (array): [{address, storage_keys}] → [{address, storageKeys}]
+ *     (normalizes MirrorNode snake_case to the standard camelCase format)
+ *   - Null/undefined: → []
+ *
+ * @param {any} accessList - The raw access_list field from the MirrorNode contract result.
+ * @returns {AccessListEntry[]} A normalized access list. Returns an empty array if input is
+ *          null, undefined, an empty hex string, or an unrecognized format.
+ */
+const formatAccessList = (accessList: any): AccessListEntry[] => {
+  // Null, undefined, or empty hex string → empty array
+  if (!accessList || accessList === '0x') return [];
+
+  // Already an array (unencoded format from MirrorNode)
+  if (Array.isArray(accessList)) {
+    return accessList
+      .filter((entry: any) => entry !== null && entry !== undefined && typeof entry === 'object')
+      .map((entry: any) => ({
+        address: entry.address ?? constants.ZERO_ADDRESS_HEX,
+        // MirrorNode uses snake_case "storage_keys", normalize to camelCase "storageKeys"
+        storageKeys: entry.storageKeys ?? entry.storage_keys ?? [],
+      }));
+  }
+
+  // String but not "0x" — an RLP-encoded access list.
+  // Real EIP-2930 access lists are rejected by Hedera (NOT_YET_IMPLEMENTED),
+  // so non-empty encoded strings should not occur in practice. Return [].
+  if (typeof accessList === 'string') return [];
+
+  return [];
+};
+
+/**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
  * @param {any} gasFee - The raw gas price value (hex or number).
@@ -153,6 +199,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
 
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
+    accessList: formatAccessList(cr.access_list),
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,

@@ -260,8 +260,16 @@ export interface MirrorNodeContractResult {
   status: string;
   /** The failed contract init code, if applicable, otherwise null. */
   failed_initcode: string | null;
-  /** The access list for EIP-2930 transactions. */
-  access_list: string;
+  /**
+   * The access list for EIP-2930 transactions.
+   *
+   * May be returned in one of two formats:
+   *   - Encoded (current): An RLP-encoded hex string (e.g., "0x")
+   *   - Unencoded (future): An array of objects with address and storage_keys
+   *
+   * @see https://github.com/hiero-ledger/hiero-mirror-node/issues/13343
+   */
+  access_list: string | Array<{ address: string; storage_keys: string[] }> | null;
   /** The total gas used in the block. */
   block_gas_used: number;
   /** The chain ID of the network. */
