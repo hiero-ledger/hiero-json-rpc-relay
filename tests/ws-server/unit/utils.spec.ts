@@ -191,6 +191,7 @@ describe('Utilities unit tests', async function () {
       let startTime: [number, number];
       let subscriptionService: SubscriptionService;
       let clearIntervalSpy: sinon.SinonSpy;
+      let clearTimeoutSpy: sinon.SinonSpy;
 
       beforeEach(() => {
         relayStub = sinon.createStubInstance(Relay);
@@ -205,10 +206,12 @@ describe('Utilities unit tests', async function () {
         startTime = process.hrtime();
         subscriptionService = new SubscriptionService(relayStub, logger, registry);
         clearIntervalSpy = sinon.spy(global, 'clearInterval');
+        clearTimeoutSpy = sinon.spy(global, 'clearTimeout');
       });
 
       afterEach(() => {
         clearIntervalSpy.restore();
+        clearTimeoutSpy.restore();
       });
 
       it('should clear the ping interval when closing a connection', async () => {
@@ -228,7 +231,7 @@ describe('Utilities unit tests', async function () {
       });
 
       it('should clear the inactivity TTL when closing a connection', async () => {
-        const inactivityTTL = setInterval(() => {}, 100000);
+        const inactivityTTL = setTimeout(() => {}, 100000);
         const ctxWithInactivityTTL = {
           websocket: {
             id: 'mock-id',
@@ -245,13 +248,13 @@ describe('Utilities unit tests', async function () {
           startTime,
         );
 
-        expect(clearIntervalSpy.calledWith(inactivityTTL)).to.be.true;
+        expect(clearTimeoutSpy.calledWith(inactivityTTL)).to.be.true;
         expect(ctxWithInactivityTTL.websocket.terminate.calledOnce).to.be.true;
       });
 
       it('should clear both ping interval and inactivity TTL when closing a connection', async () => {
         const pingIntervalId = setInterval(() => {}, 100000);
-        const inactivityTTL = setInterval(() => {}, 100000);
+        const inactivityTTL = setTimeout(() => {}, 100000);
         const ctxWithBothTimers = {
           websocket: {
             id: 'mock-id',
@@ -270,7 +273,7 @@ describe('Utilities unit tests', async function () {
         );
 
         expect(clearIntervalSpy.calledWith(pingIntervalId)).to.be.true;
-        expect(clearIntervalSpy.calledWith(inactivityTTL)).to.be.true;
+        expect(clearTimeoutSpy.calledWith(inactivityTTL)).to.be.true;
         expect(ctxWithBothTimers.websocket.terminate.calledOnce).to.be.true;
       });
 
