@@ -154,6 +154,8 @@ const formatAccessList = (accessList: any): AccessListEntry[] => {
 /**
  * Formats an rlp encoded access list hex string.
  * FIXME (mirror-node#13343): this code fragment has to be removed when mirror node
+ * MN issue: https://github.com/hiero-ledger/hiero-mirror-node/issues/13343
+ * Tracking issue on our board: https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5293
  * starts returning the correct access list format. For now it returns it as hex rlp encoded string.
  *
  * @param {string} accessList - The raw rlp encoded access list.
