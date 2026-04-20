@@ -31,7 +31,7 @@ export class RedisLockStrategy implements LockStrategy {
   private readonly maxLockHoldMs: number;
   private readonly pollIntervalMs: number;
   private readonly heartbeatTtlMs: number;
-  private readonly maxQueueTimeMs: number;
+  private readonly membershipCheckIntervalMs: number;
   private readonly keyPrefix = 'lock';
 
   constructor(redisClient: RedisClientType, logger: Logger, lockMetricsService: LockMetricsService) {
@@ -40,7 +40,7 @@ export class RedisLockStrategy implements LockStrategy {
     this.lockMetricsService = lockMetricsService;
     this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
     this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS');
-    this.maxQueueTimeMs = ConfigService.get('LOCK_MAX_QUEUE_TIME_MS');
+    this.membershipCheckIntervalMs = ConfigService.get('LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS');
 
     // Heartbeat TTL is LOCK_HEARTBEAT_MISSED_COUNT times the poll interval.
     // A process must miss this many consecutive heartbeats to be considered dead.
@@ -60,6 +60,7 @@ export class RedisLockStrategy implements LockStrategy {
     const queueKey = this.getQueueKey(address);
     const heartbeatKey = this.getHeartbeatKey(sessionKey);
     const startTime = process.hrtime.bigint();
+    let lastMembershipCheckAt = startTime;
     let joinedQueue = false;
 
     try {
@@ -74,28 +75,22 @@ export class RedisLockStrategy implements LockStrategy {
 
       // Poll until first in queue and can acquire lock
       while (true) {
-        const elapsedMs = Number(process.hrtime.bigint() - startTime) / 1e6;
-        if (elapsedMs > this.maxQueueTimeMs) {
-          throw new Error(
-            `Lock acquisition exceeded LOCK_MAX_QUEUE_TIME_MS (${this.maxQueueTimeMs}ms): address=${address}, sessionKey=${sessionKey}`,
-          );
-        }
-
         // Refresh own heartbeat of the active waiter (Proof of Life)
         // note: `1` is just a placeholder value and doesn't matter, only TTL matters
         await this.redisClient.set(heartbeatKey, '1', { PX: this.heartbeatTtlMs });
 
-        // Verify membership - do not assume we are still queued. Redis may have
-        // been restarted/failover'd/evicted, or another waiter may have
-        // zombie-cleaned this session after an event-loop stall.
-        const position = await this.redisClient.lPos(queueKey, sessionKey);
-        if (position === null) {
-          await this.redisClient.lPush(queueKey, sessionKey);
-          this.lockMetricsService.recordQueueRejoin(this.type);
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(`Session not in queue; rejoined: address=${address}, sessionKey=${sessionKey}`);
+        // Periodically verify queue membership.
+        const now = process.hrtime.bigint();
+        if (Number(now - lastMembershipCheckAt) / 1e6 >= this.membershipCheckIntervalMs) {
+          lastMembershipCheckAt = now;
+          const position = await this.redisClient.lPos(queueKey, sessionKey);
+          if (position === null) {
+            await this.redisClient.lPush(queueKey, sessionKey);
+            this.lockMetricsService.recordQueueRejoin(this.type);
+            if (this.logger.isLevelEnabled('debug')) {
+              this.logger.debug(`Session not in queue; rejoined: address=${address}, sessionKey=${sessionKey}`);
+            }
           }
-          continue;
         }
 
         // Check if first in line

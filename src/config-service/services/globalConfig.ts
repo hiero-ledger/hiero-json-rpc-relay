@@ -736,10 +736,10 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
-  LOCK_MAX_QUEUE_TIME_MS: {
+  LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS: {
     type: 'number',
     required: false,
-    defaultValue: 300000,
+    defaultValue: 10000,
   },
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
