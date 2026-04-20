@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  isHex,
   nanOrNumberInt64To0x,
   nanOrNumberTo0x,
   nullableNumberTo0x,
   numberTo0x,
   prepend0x,
   stripLeadingZeroForSignatures,
-  tinybarsToWeibars,
   toHash32,
   trimPrecedingZeros,
 } from '../../formatters';
@@ -113,10 +111,6 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
- * @TODO There is a known issue with this algorithm, track fix in:
- *       https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4901
- *       The value should be returned in weibars, not tinybars, as it is currently.
- *
  * @param {any} gasFee - The raw gas price value (hex or number).
  * @returns {string} The formatted gas fee as a 0x-prefixed hex string.
  */
@@ -133,12 +127,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     return null;
   }
 
-  const gasPrice =
-    cr.gas_price === null || cr.gas_price === '0x'
-      ? '0x0'
-      : isHex(cr.gas_price)
-        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-        : nanOrNumberTo0x(cr.gas_price);
+  const gasPrice = formatGasFee(cr.gas_price);
 
   const commonFields = {
     blockHash: toHash32(cr.block_hash),
@@ -155,7 +144,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     transactionIndex: nullableNumberTo0x(cr.transaction_index),
     type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
     v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-    value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
+    value: nanOrNumberInt64To0x(cr.amount),
     // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
     //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
     //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
