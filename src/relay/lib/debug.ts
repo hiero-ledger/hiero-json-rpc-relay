@@ -15,7 +15,7 @@ import {
   tinybarsToWeibars,
   toHexString,
 } from '../formatters';
-import { type Debug, JsonRpcError } from '../index';
+import type { Debug, JsonRpcError } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -544,10 +544,10 @@ export class DebugImpl implements Debug {
    * Returns an address' evm equivalence.
    *
    * @async
-   * @param {string} address - The address to be resolved.
+   * @param {string | null} address - The address to be resolved.
    * @param {[string]} types - The possible types of the address.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<string>} The address returned as an EVM address.
+   * @returns {Promise<string | null>} The address returned as an EVM address.
    */
   async resolveAddress(
     address: string | null,
@@ -577,7 +577,7 @@ export class DebugImpl implements Debug {
 
   async resolveMultipleAddresses(
     from: string,
-    to: string,
+    to: string | null,
     requestDetails: RequestDetails,
   ): Promise<{ resolvedFrom: string; resolvedTo: string | null }> {
     const [resolvedFrom, resolvedTo] = await Promise.all([
@@ -589,7 +589,8 @@ export class DebugImpl implements Debug {
       this.resolveAddress(to, requestDetails, [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT]),
     ]);
 
-    return { resolvedFrom: resolvedFrom!, resolvedTo };
+    // @ts-ignore - resolvedFrom should never be null since every transaction must have a sender
+    return { resolvedFrom: resolvedFrom, resolvedTo };
   }
 
   /**
@@ -994,6 +995,7 @@ export class DebugImpl implements Debug {
   /**
    * Returns an empty/minimal tracer result object for a given tracer type.
    * Used for pre-execution validation failures and synthetic transactions that have no EVM execution.
+   * When resolvedTo params is null - the type is CREATE and when not null it is type CALL
    *
    * @private
    * @param tracer - The tracer type to build the empty object for.
