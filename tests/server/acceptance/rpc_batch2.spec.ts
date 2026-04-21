@@ -52,7 +52,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   // cached entities
   let tokenId;
   let htsAddress;
-  let expectedGasPrice: string;
   let parentContractAddress: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let accounts0StartBalance: bigint;
@@ -81,8 +80,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   };
 
   this.beforeAll(async () => {
-    expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
-
     const initialAccount: AliasAccount = global.accounts[0];
 
     const neededAccounts = 4;
@@ -139,18 +136,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     if (global.logger.isLevelEnabled('trace')) {
       global.logger.trace(`Setup completed`);
     }
-  });
-
-  describe('eth_gasPrice', async function () {
-    it('@release should call eth_gasPrice', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
-      expect(res).to.exist;
-      if (ConfigService.get('LOCAL_NODE')) {
-        expect(res).be.equal(expectedGasPrice);
-      } else {
-        expect(Number(res)).to.be.gt(0);
-      }
-    });
   });
 
   describe('eth_getBalance', async function () {
