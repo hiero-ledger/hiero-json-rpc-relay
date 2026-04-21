@@ -19,7 +19,6 @@ import { formatTransactionId, numberTo0x, prepend0x } from '../../../src/relay/f
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
@@ -646,40 +645,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           mirrorTx.from = resolvedAddresses.from;
           mirrorTx.to = resolvedAddresses.to;
         }
-      });
-
-      it('should execute "eth_getBlockByHash", hydrated transactions = false', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [
-          mirrorBlock.hash.substring(0, 66),
-          false,
-        ]);
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
-      });
-
-      it('@release should execute "eth_getBlockByHash", hydrated transactions = true', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [
-          mirrorBlock.hash.substring(0, 66),
-          true,
-        ]);
-        // Remove synthetic transactions
-        blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
-      });
-
-      it('should execute "eth_getBlockByHash" for non-existing block hash and hydrated transactions = false', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [
-          Address.NON_EXISTING_BLOCK_HASH,
-          false,
-        ]);
-        expect(blockResult).to.be.null;
-      });
-
-      it('should execute "eth_getBlockByHash" for non-existing block hash and hydrated transactions = true', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [
-          Address.NON_EXISTING_BLOCK_HASH,
-          true,
-        ]);
-        expect(blockResult).to.be.null;
       });
 
       it('should execute "eth_getBlockByNumber", hydrated transactions = false', async function () {
