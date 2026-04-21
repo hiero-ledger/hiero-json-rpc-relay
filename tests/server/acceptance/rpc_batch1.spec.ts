@@ -778,23 +778,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
-      it('should execute "eth_getBlockTransactionCountByNumber"', async function () {
-        it('@release should execute "eth_blockNumber"', async function () {
-          const mirrorBlocks = await mirrorNode.get(`blocks`);
-          expect(mirrorBlocks).to.have.property('blocks');
-          expect(mirrorBlocks.blocks.length).to.gt(0);
-          const mirrorBlockNumber = mirrorBlocks.blocks[0].number;
-
-          const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
-          const blockNumber = Number(res);
-          expect(blockNumber).to.exist;
-
-          // In some rare occasions, the relay block might be equal to the mirror node block + 1
-          // due to the mirror node block updating after it was retrieved and before the relay.call completes
-          expect(blockNumber).to.be.oneOf([mirrorBlockNumber, mirrorBlockNumber + 1]);
-        });
-      });
-
       it('should execute "eth_getBlockByNumber", hydrated transactions = true for a block that contains a call with CONTRACT_NEGATIVE_VALUE status', async function () {
         let transactionId;
         let hasContractNegativeValueError = false;
