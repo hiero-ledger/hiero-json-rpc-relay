@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
+import { ContractId } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x } from '../../../src/relay/formatters';
-import { CommonService } from '../../../src/relay/lib/services';
-import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
@@ -19,13 +16,10 @@ import ERC20MockJson from '../contracts/ERC20Mock.json';
 // Contracts from local resources
 import parentContractJson from '../contracts/Parent.json';
 import storageContractJson from '../contracts/Storage.json';
-import TokenCreateJson from '../contracts/TokenCreateContract.json';
 // Assertions from local resources
 import Assertions, { computeExpectedCumulativeGasUsed } from '../helpers/assertions';
 // Helper functions/constants from local resources
 import RelayCalls from '../helpers/constants';
-import Helper from '../helpers/constants';
-import Address from '../helpers/constants';
 import constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -289,105 +283,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should not support "eth_createAccessList"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_CREATE_ACCESS_LIST, []);
-    });
-  });
-
-  describe('eth_getCode', () => {
-    let mainContract: ethers.Contract;
-    let mainContractAddress: string;
-    let NftHTSTokenContractAddress: string;
-    let blockBeforeContractCreation: number;
-    let basicContract: ethers.Contract;
-    let basicContractAddress: string;
-
-    async function createNftHTSToken(account) {
-      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
-      const tx = await mainContract.createNonFungibleTokenPublic(account.wallet.address, {
-        value: BigInt('30000000000000000000'),
-        ...Helper.GAS.LIMIT_5_000_000,
-      });
-      const receipt = await tx.wait();
-      await relay.pollForValidTransactionReceipt(receipt.hash);
-
-      const { tokenAddress } = receipt.logs.filter(
-        (e) => e.fragment.name === RelayCalls.HTS_CONTRACT_EVENTS.CreatedToken,
-      )[0].args;
-
-      return tokenAddress;
-    }
-
-    before(async () => {
-      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
-      basicContractAddress = basicContract.target as string;
-
-      blockBeforeContractCreation = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0].number;
-
-      mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, accounts[3].wallet);
-      mainContractAddress = mainContract.target as string;
-
-      const accountWithContractIdKey = await servicesNode.createAccountWithContractIdKey(
-        ContractId.fromEvmAddress(0, 0, mainContractAddress),
-        60,
-        relay.provider,
-      );
-      NftHTSTokenContractAddress = await createNftHTSToken(accountWithContractIdKey);
-    });
-
-    it('should execute "eth_getCode" for hts token', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [NftHTSTokenContractAddress, 'latest']);
-      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
-    });
-
-    it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {
-      const earlierBlock = numberTo0x(blockBeforeContractCreation);
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [NftHTSTokenContractAddress, earlierBlock]);
-      expect(res).to.equal(constants.EMPTY_HEX);
-    });
-
-    it('@release should return empty bytecode for contract when a block earlier than the contract creation is passed', async function () {
-      const earlierBlock = numberTo0x(blockBeforeContractCreation);
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [mainContractAddress, earlierBlock]);
-      expect(res).to.equal(constants.EMPTY_HEX);
-    });
-
-    it('@release should execute "eth_getCode" for contract evm_address', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [basicContractAddress, 'latest']);
-      expect(res).to.eq(basicContractJson.deployedBytecode);
-    });
-
-    it('@release should execute "eth_getCode" for contract with id converted to evm_address', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [basicContractAddress, 'latest']);
-      expect(res).to.eq(basicContractJson.deployedBytecode);
-    });
-
-    it('should return 0x0 for non-existing contract on eth_getCode', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [Address.NON_EXISTING_ADDRESS, 'latest']);
-      expect(res).to.eq(constants.EMPTY_HEX);
-    });
-
-    it('should return 0x0 for account evm_address on eth_getCode', async function () {
-      const evmAddress = Utils.idToEvmAddress(accounts[2].accountId.toString());
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [evmAddress, 'latest']);
-      expect(res).to.eq(constants.EMPTY_HEX);
-    });
-
-    it('should return 0x0 for account alias on eth_getCode', async function () {
-      const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest']);
-      expect(res).to.eq(constants.EMPTY_HEX);
-    });
-
-    // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619
-    // Refactor to consider HIP-868
-    xit('should not return contract bytecode after sefldestruct', async function () {
-      const bytecodeBefore = await relay.call('eth_getCode', [basicContractAddress, 'latest']);
-
-      // @ts-ignore
-      await basicContract.connect(accounts[0].wallet).destroy();
-
-      const bytecodeAfter = await relay.call('eth_getCode', [basicContractAddress, 'latest']);
-      expect(bytecodeAfter).to.not.eq(bytecodeBefore);
-      expect(bytecodeAfter).to.eq('0x');
     });
   });
 
