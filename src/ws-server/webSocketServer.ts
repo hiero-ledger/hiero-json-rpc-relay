@@ -267,7 +267,7 @@ export async function initializeWsServer(
     });
 
     if (pingInterval > 0) {
-      setInterval(async () => {
+      ctx.websocket.pingIntervalId = setInterval(async () => {
         ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
       }, pingInterval);
     }
