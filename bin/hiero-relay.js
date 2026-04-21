@@ -65,11 +65,7 @@ function run(argvInput = process.argv, deps = {}) {
           }
 
           if (!argv['rpc-http-enabled'] && !argv['rpc-ws-enabled']) {
-            parser.showHelp();
-            consoleDep.log(
-              '\nError: At least one transport must be enabled (--rpc-http-enabled or --rpc-ws-enabled)'
-            );
-            return;
+            throw new Error('Error: At least one transport must be enabled (--rpc-http-enabled or --rpc-ws-enabled)');
           }
 
           const readOnlyEnvs = CliHelperDep.populateEnvBaseOnReadOnlyOption(argv);
