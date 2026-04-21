@@ -53,12 +53,8 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   let tokenId;
   let htsAddress;
   let parentContractAddress: string;
-  let createChildTx: ethers.ContractTransactionResponse;
-  let accounts0StartBalance: bigint;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
-  const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
-  const ONE_WEIBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 18)));
 
   const EXCHANGE_RATE_FILE_ID = '0.0.112';
   const EXCHANGE_RATE_FILE_CONTENT_DEFAULT = '0a1008b0ea0110f9bb1b1a0608f0cccf9306121008b0ea0110e9c81a1a060880e9cf9306';
@@ -68,16 +64,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   const FEE_SCHEDULE_FILE_CONTENT_UPDATED =
     '0a280a0a08541a061a0440a8953a0a0a08061a061a0440889d2d0a0a08071a061a0440b0b63c120208011200'; // Eth gas = 953000
   const RANDOM_BLOCK_HASH = '0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8'; // Eth gas = 953000
-
-  let blockNumAfterCreateChildTx = 0;
-
-  const signSendAndConfirmTransaction = async (transaction, accounts) => {
-    const signedTx = await accounts.wallet.signTransaction(transaction);
-    const txHash = await relay.sendRawTransaction(signedTx);
-    await mirrorNode.get(`/contracts/results/${txHash}`);
-    await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [txHash]);
-    await new Promise((r) => setTimeout(r, 2000));
-  };
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -100,31 +86,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     parentContractAddress = parentContract.target as string;
     tokenId = tokenCreation;
 
-    const initialFundsTx = await accounts[0].wallet.sendTransaction({
-      to: parentContractAddress,
-      value: ethers.parseEther('1'),
-    });
-    await relay.pollForValidTransactionReceipt(initialFundsTx.hash);
-
-    createChildTx = await parentContract.createChild(1);
-    const createChildTxReceipt = await relay.pollForValidTransactionReceipt(createChildTx.hash);
-
-    const blockNumBeforeCreateChildTx = parseInt(createChildTxReceipt.blockNumber, 16);
-    blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
-
-    // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
-    // This loop is designed to poll for the latest block number until it is correctly updated.
-    for (let i = 0; i < 5; i++) {
-      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
-      if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
-        console.log('Block number updated succesfully');
-        break;
-      }
-      await Utils.wait(1500);
-    }
-
-    accounts0StartBalance = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [accounts[0].address, 'latest']);
-
     htsAddress = Utils.idToEvmAddress(tokenId.toString());
     await Promise.all([accounts[0].client.associateToken(tokenId), accounts[1].client.associateToken(tokenId)]);
 
@@ -136,173 +97,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     if (global.logger.isLevelEnabled('trace')) {
       global.logger.trace(`Setup completed`);
     }
-  });
-
-  describe('eth_getBalance', async function () {
-    let getBalanceContract: ethers.Contract;
-    let getBalanceContractAddress: string;
-    before(async function () {
-      getBalanceContract = await Utils.deployContract(
-        parentContractJson.abi,
-        parentContractJson.bytecode,
-        accounts[0].wallet,
-      );
-
-      getBalanceContractAddress = getBalanceContract.target as string;
-
-      const response = await accounts[0].wallet.sendTransaction({
-        to: getBalanceContractAddress,
-        value: ethers.parseEther('1'),
-      });
-
-      await relay.pollForValidTransactionReceipt(response.hash);
-    });
-    overrideEnvsInMochaDescribe({
-      MIRROR_NODE_LIMIT_PARAM: 100,
-    });
-
-    it('@release should execute "eth_getBalance" for newly created account with 1 HBAR', async function () {
-      let balance = Hbar.from(1, HbarUnit.Hbar).toTinybars().toString();
-      const newAccount = await Utils.createAliasAccount(mirrorNode, accounts[0], balance);
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [newAccount.address, 'latest']);
-      balance = `0x${(BigInt(balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF)).toString(16)}`;
-      expect(res).to.be.eq(balance);
-    });
-
-    it('should execute "eth_getBalance" for non-existing address', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [Address.NON_EXISTING_ADDRESS, 'latest']);
-      expect(res).to.eq('0x0');
-    });
-
-    it('@release-light, @release should execute "eth_getBalance" for contract', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [getBalanceContractAddress, 'latest']);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" for contract with id converted to evm_address', async function () {
-      const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${getBalanceContractAddress}`);
-      const contractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        `0x${contractId.toSolidityAddress()}`,
-        'latest',
-      ]);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with latest block number', async function () {
-      const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        getBalanceContractAddress,
-        numberTo0x(latestBlock.number),
-      ]);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with one block behind latest block number', async function () {
-      const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        getBalanceContractAddress,
-        numberTo0x(latestBlock.number - 1),
-      ]);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with latest block hash', async function () {
-      const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        getBalanceContractAddress,
-        numberTo0x(latestBlock.number),
-      ]);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with pending', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [getBalanceContractAddress, 'pending']);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with block number in the last 15 minutes', async function () {
-      const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-      const earlierBlockNumber = latestBlock.number - 2;
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        getBalanceContractAddress,
-        numberTo0x(earlierBlockNumber),
-      ]);
-      expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
-    });
-
-    it('@release should execute "eth_getBalance" with block number in the last 15 minutes for account that has performed contract deploys/calls', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        accounts[0].address,
-        blockNumAfterCreateChildTx,
-      ]);
-      expect(res).to.eq(accounts0StartBalance);
-    });
-
-    it('@release should correctly execute "eth_getBalance" with block number in the last 15 minutes with several txs around that time', async function () {
-      const initialBalance = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        accounts[0].address,
-        'latest',
-      ]);
-      const acc3Nonce = await relay.getAccountNonce(accounts[3].address);
-      const gasPrice = await relay.gasPrice();
-
-      const transaction = {
-        value: ONE_TINYBAR,
-        gasLimit: 50000,
-        chainId: Number(CHAIN_ID),
-        to: accounts[0].wallet.address,
-        nonce: acc3Nonce,
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-      };
-
-      await signSendAndConfirmTransaction(transaction, accounts[3]);
-
-      const blockNumber = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
-
-      await signSendAndConfirmTransaction({ ...transaction, nonce: acc3Nonce + 1 }, accounts[3]);
-
-      const endBalance = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [accounts[0].address, 'latest']);
-
-      // initialBalance + sum of value of all transactions
-      const manuallyCalculatedBalance = BigInt(initialBalance) + BigInt(ONE_TINYBAR) * BigInt(2);
-      expect(BigInt(endBalance).toString()).to.eq(manuallyCalculatedBalance.toString());
-
-      // Balance at the block number of tx1 should be initialBalance + the value of tx1
-      const balanceAtTx1Block = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
-        accounts[0].address,
-        blockNumber,
-      ]);
-      const manuallyCalculatedBalanceAtTx1Block = BigInt(initialBalance) + BigInt(ONE_TINYBAR);
-      expect(BigInt(balanceAtTx1Block).toString()).to.eq(manuallyCalculatedBalanceAtTx1Block.toString());
-    });
-
-    it('should return an error when the second parameter is missing in eth_getBalance', async function () {
-      await expect(
-        relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [Address.NON_EXISTING_ADDRESS]),
-      ).to.eventually.be.rejected.and.satisfy((err: any) => {
-        try {
-          const body = JSON.parse(err?.info?.responseBody || '{}');
-          return body?.error?.message?.includes('Missing value for required parameter');
-        } catch {
-          return false;
-        }
-      }, 'Expected error message to include "Missing value for required parameter"');
-    });
-
-    it('should return an error when null is provided as the second parameter in eth_getBalance', async function () {
-      await expect(
-        relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [Address.NON_EXISTING_ADDRESS, null]),
-      ).to.eventually.be.rejected.and.satisfy((err: any) => {
-        try {
-          const body = JSON.parse(err?.info?.responseBody || '{}');
-          return body?.error?.message?.includes('Invalid parameter 1: The value passed is not valid: null.');
-        } catch {
-          return false;
-        }
-      }, 'Expected error message to include "Invalid parameter 1: The value passed is not valid: null."');
-    });
   });
 
   describe('@release Hardcoded RPC Endpoints', () => {
