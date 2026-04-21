@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 
-import MirrorClient from '../server/clients/mirrorClient';
+import type MirrorClient from '../server/clients/mirrorClient';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
 describe('@release @protocol-acceptance eth_blockNumber', async () => {
