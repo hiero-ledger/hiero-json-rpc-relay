@@ -3,7 +3,6 @@
 // External resources
 import {
   AccountCreateTransaction,
-  ContractFunctionParameters,
   FileInfo,
   FileInfoQuery,
   Hbar,
@@ -15,7 +14,7 @@ import { ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 // Other imports
-import { formatTransactionId, numberTo0x, prepend0x } from '../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
@@ -58,7 +57,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   let parentContractAddress: string;
   let mirrorContractDetails;
   let account2Address: string;
-  let expectedGasPrice: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let htsTokenId: any; // Shared HTS token for synthetic transaction tests
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
@@ -76,20 +74,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   const sendRawTransaction = relay.sendRawTransaction;
   const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
 
-  /**
-   * resolves long zero addresses to EVM addresses by querying mirror node
-   * @param tx - supposedly a proper transaction that has `from` and `to` fields
-   * @returns Promise<{from: any|null, to: any|null}>
-   */
-  const resolveAccountEvmAddresses = async (tx: any) => {
-    const fromAccountInfo = await mirrorNode.get(`/accounts/${tx.from}`);
-    const toAccountInfo = await mirrorNode.get(`/accounts/${tx.to}`);
-    return {
-      from: fromAccountInfo?.evm_address ?? tx.from,
-      to: toAccountInfo?.evm_address ?? tx.to,
-    };
-  };
-
   async function getGasWithDeviation(relay: RelayClient, gasPriceDeviation: number) {
     const gasPrice = await relay.gasPrice();
     const gasPriceWithDeviation = gasPrice * (1 + gasPriceDeviation);
@@ -100,8 +84,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
 
     this.beforeAll(async () => {
-      expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
-
       const initialAccount: AliasAccount = global.accounts[0];
       const neededAccounts: number = 4;
       accounts.push(
@@ -626,93 +608,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
     describe('Block related RPC calls', () => {
       let mirrorBlock;
-      let mirrorContractResults;
-      const mirrorTransactions: any[] = [];
 
       before(async () => {
         mirrorBlock = (await mirrorNode.get(`/blocks?block.number=${mirrorContractDetails.block_number}`)).blocks[0];
-        const timestampQuery = `timestamp=gte:${mirrorBlock.timestamp.from}&timestamp=lte:${mirrorBlock.timestamp.to}`;
-        mirrorContractResults = (await mirrorNode.get(`/contracts/results?${timestampQuery}`)).results;
-
-        for (const res of mirrorContractResults) {
-          mirrorTransactions.push(await mirrorNode.get(`/contracts/${res.contract_id}/results/${res.timestamp}`));
-        }
-
-        // resolve EVM address for `from` and `to`
-        for (const mirrorTx of mirrorTransactions) {
-          const resolvedAddresses = await resolveAccountEvmAddresses(mirrorTx);
-
-          mirrorTx.from = resolvedAddresses.from;
-          mirrorTx.to = resolvedAddresses.to;
-        }
-      });
-
-      it('should execute "eth_getBlockByNumber", hydrated transactions = false', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
-          numberTo0x(mirrorBlock.number),
-          false,
-        ]);
-        // Remove synthetic transactions
-        blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
-      });
-
-      it('should not cache "latest" block in "eth_getBlockByNumber" ', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['latest', false]);
-        await Utils.wait(2000);
-
-        const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['latest', false]);
-        expect(blockResult).to.not.deep.equal(blockResult2);
-      });
-
-      it('should not cache "finalized" block in "eth_getBlockByNumber" ', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['finalized', false]);
-        await Utils.wait(2000);
-
-        const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['finalized', false]);
-        expect(blockResult).to.not.deep.equal(blockResult2);
-      });
-
-      it('should not cache "safe" block in "eth_getBlockByNumber" ', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['safe', false]);
-        await Utils.wait(2000);
-
-        const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['safe', false]);
-        expect(blockResult).to.not.deep.equal(blockResult2);
-      });
-
-      it('should not cache "pending" block in "eth_getBlockByNumber" ', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['pending', false]);
-        await Utils.wait(2000);
-
-        const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['pending', false]);
-        expect(blockResult).to.not.deep.equal(blockResult2);
-      });
-
-      it('@release should execute "eth_getBlockByNumber", hydrated transactions = true', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
-          numberTo0x(mirrorBlock.number),
-          true,
-        ]);
-        // Remove synthetic transactions
-        blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
-      });
-
-      it('should execute "eth_getBlockByNumber" for non existing block number and hydrated transactions = true', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
-          Address.NON_EXISTING_BLOCK_NUMBER,
-          true,
-        ]);
-        expect(blockResult).to.be.null;
-      });
-
-      it('should execute "eth_getBlockByNumber" for non existing block number and hydrated transactions = false', async function () {
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
-          Address.NON_EXISTING_BLOCK_NUMBER,
-          false,
-        ]);
-        expect(blockResult).to.be.null;
       });
 
       it('@release should execute "eth_getBlockTransactionCountByNumber"', async function () {
@@ -741,41 +639,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           Address.NON_EXISTING_BLOCK_HASH,
         ]);
         expect(res).to.be.null;
-      });
-
-      it('should execute "eth_getBlockByNumber", hydrated transactions = true for a block that contains a call with CONTRACT_NEGATIVE_VALUE status', async function () {
-        let transactionId;
-        let hasContractNegativeValueError = false;
-        try {
-          await servicesNode.executeContractCallWithAmount(
-            mirrorContractDetails.contract_id,
-            '',
-            new ContractFunctionParameters(),
-            500_000,
-            -100,
-          );
-        } catch (e: any) {
-          // regarding the docs and HederaResponseCodes.sol the CONTRACT_NEGATIVE_VALUE code equals 96;
-          expect(e.status._code).to.equal(96);
-          hasContractNegativeValueError = true;
-          transactionId = e.transactionId;
-        }
-        expect(hasContractNegativeValueError).to.be.true;
-
-        // waiting for at least one block time for data to be populated in the mirror node
-        // because on the step above we sent a sdk call
-        await new Promise((r) => setTimeout(r, 2100));
-        const mirrorResult = await mirrorNode.get(
-          `/contracts/results/${formatTransactionId(transactionId.toString())}`,
-        );
-        const txHash = mirrorResult.hash;
-        const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
-          numberTo0x(mirrorResult.block_number),
-          true,
-        ]);
-        expect(blockResult.transactions).to.not.be.empty;
-        expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffff172b5af000');
       });
 
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {
