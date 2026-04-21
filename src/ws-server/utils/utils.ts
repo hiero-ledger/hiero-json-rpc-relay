@@ -48,6 +48,14 @@ export const handleConnectionClose = async (
   // Update the connection duration histogram with the calculated duration
   wsMetricRegistry.getHistogram('connectionDuration').observe(durationInSeconds);
 
+  // clear timers to prevent orphaned resources
+  if (ctx.websocket?.pingIntervalId) {
+    clearInterval(ctx.websocket.pingIntervalId);
+  }
+  if (ctx.websocket?.inactivityTTL) {
+    clearTimeout(ctx.websocket.inactivityTTL);
+  }
+
   // terminate connection
   ctx.websocket.terminate();
 };
