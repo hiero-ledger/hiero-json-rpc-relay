@@ -46,7 +46,7 @@
     "start": "react-scripts start --openssl-legacy-provider",
     "build": "react-scripts build --openssl-legacy-provider",
     "bootstrap": "env-cmd node tests/e2e/bootstrap.js",
-    "test": "env-cmd npx synpress run --config synpress.js",
+    "test": "env-cmd npx synpress run",
     "start-prod": "http-server build -p 3000 -a localhost",
     "eject": "react-scripts eject",
     "test:ci": "npm ci && npm run bootstrap && npm run build && start-server-and-test 'start' http-get://localhost:3000 'npm run test'"
