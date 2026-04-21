@@ -3,11 +3,12 @@ import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
-import { Eth, Relay } from '../../relay';
+import { Eth, JsonRpcError, predefined, Relay } from '../../relay';
 import { RequestDetails } from '../../relay/lib/types';
 import { Utils } from '../../relay/utils';
+import { AbstractLockableService, type ILockableResource } from './lockableService';
 
-export interface Poll {
+export interface Poll extends ILockableResource {
   tag: string;
   callback: (...args: unknown[]) => unknown;
   lastPolled?: string;
@@ -15,9 +16,9 @@ export interface Poll {
 
 const LOGGER_PREFIX = 'Poller:';
 
-export class PollerService {
+export class PollerService extends AbstractLockableService {
   private readonly eth: Eth;
-  private readonly logger: Logger;
+  protected readonly logger: Logger;
   private polls: Poll[];
   private interval?: NodeJS.Timer;
   private latestBlock?: string;
@@ -29,6 +30,7 @@ export class PollerService {
   private NEW_HEADS_EVENT = 'newHeads';
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
+    super();
     this.eth = relay.eth();
     this.logger = logger;
     this.polls = [];
@@ -57,10 +59,9 @@ export class PollerService {
    */
   private poll() {
     this.polls.forEach(async (poll) => {
+      if (!this.lock(poll) || (this.latestBlock && poll.lastPolled === this.latestBlock)) return;
       try {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`${LOGGER_PREFIX} Fetching data for tag: ${poll.tag}`);
-        }
+        this.logger.debug('%s Fetching data for tag: %s', LOGGER_PREFIX, poll.tag);
 
         const { event, filters } = JSON.parse(poll.tag);
         let data;
@@ -87,35 +88,52 @@ export class PollerService {
           data.jsonrpc = '2.0';
           poll.lastPolled = this.latestBlock;
         } else {
-          this.logger.error(`${LOGGER_PREFIX} Polling for unsupported event: ${event}. Tag: ${poll.tag}`);
+          this.logger.error('%s Polling for unsupported event: %s. Tag: %s', LOGGER_PREFIX, event, poll.tag);
         }
 
         if (Array.isArray(data)) {
           if (data.length) {
-            if (this.logger.isLevelEnabled('trace')) {
-              this.logger.trace(`${LOGGER_PREFIX} Received ${data.length} results from tag: ${poll.tag}`);
-            }
+            this.logger.trace(`%s Received %d results from tag: %s`, LOGGER_PREFIX, data.length, poll.tag);
             data.forEach((d) => {
               poll.callback(d);
             });
           }
         } else {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`${LOGGER_PREFIX} Received 1 result from tag: ${poll.tag}`);
-          }
+          this.logger.trace('%s Received 1 result from tag: %s', LOGGER_PREFIX, poll.tag);
           poll.callback(data);
         }
       } catch (error) {
-        this.logger.error(error, `Poller error`);
+        if (this.wasRequestMalformed(error)) {
+          poll.callback(error);
+        } else {
+          this.logger.error(error, `Poller error`);
+        }
       }
+      this.release(poll);
     });
+  }
+
+  /**
+   * Detect if the error was caused by malformed request that there is no need to ever repeat.
+   *
+   * @param error
+   * @private
+   */
+  private wasRequestMalformed(error: unknown) {
+    if (!(error instanceof JsonRpcError)) return false;
+    return [
+      -32012, // INVALID_CONTRACT_ADDRESS
+      -32000 - // INVALID_ARGUMENTS
+        32602, // INVALID_PARAMETER
+      -32011, // MISSING_FROM_BLOCK_PARAM
+    ].includes(error.code);
   }
 
   /**
    * Starts the polling process.
    */
   public start() {
-    this.logger.info(`${LOGGER_PREFIX} Starting polling with interval=${this.pollingInterval}`);
+    this.logger.info('%s Starting polling with interval=%d', LOGGER_PREFIX, this.pollingInterval);
     this.interval = setInterval(async () => {
       this.latestBlock = await this.eth.blockNumber(
         new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
@@ -128,7 +146,7 @@ export class PollerService {
    * Stops the polling process.
    */
   public stop() {
-    this.logger.info(`${LOGGER_PREFIX} Stopping polling`);
+    this.logger.info('%s Stopping polling', LOGGER_PREFIX);
     if (this.isPolling()) {
       clearInterval(this.interval as NodeJS.Timeout);
       delete this.interval;
@@ -164,7 +182,7 @@ export class PollerService {
    * @param tag - The tag to remove.
    */
   public remove(tag: string) {
-    this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
+    this.logger.info('%s Tag %s removed from polling list', LOGGER_PREFIX, tag);
     const pollsAtStart = this.polls.length;
     this.polls = this.polls.filter((p) => p.tag !== tag);
 
@@ -178,7 +196,7 @@ export class PollerService {
     }
 
     if (!this.polls.length) {
-      this.logger.info(`${LOGGER_PREFIX} No active polls.`);
+      this.logger.info('%s No active polls.', LOGGER_PREFIX);
       this.stop();
     }
   }
