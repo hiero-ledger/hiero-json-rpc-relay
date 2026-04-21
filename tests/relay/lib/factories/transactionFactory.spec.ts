@@ -491,6 +491,15 @@ describe('TransactionFactory', () => {
         expect(formatAccessList('0x')).to.deep.equal([]);
       });
 
+      it('returns an empty array for malformed input', () => {
+        expect(formatAccessList('0x31321213')).to.deep.equal([]);
+        expect(formatAccessList('0xtest')).to.deep.equal([]);
+        expect(formatAccessList('test')).to.deep.equal([]);
+
+        const correct = encodeAccessListRlpStream([{ address: '0x1234', storageKeys: [] }, { storageKeys: [] }]);
+        expect(formatAccessList(correct.replace(correct[1], `${correct[1]}99`))).to.deep.equal([]);
+      });
+
       it('decodes valid entries from an RLP stream', () => {
         const input = encodeAccessListRlpStream([{ address: '0x1234', storageKeys: [] }, { storageKeys: [] }]);
 

@@ -119,6 +119,24 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
     : [];
 
 /**
+ * Ensure rlp decode will return proper format or the result indicating the parsing should be stopped otherwise.
+ *
+ * @param part
+ */
+const safeDecode = (part: string | Uint8Array) => {
+  try {
+    return RLP.decode(part, true);
+  } catch {
+    return {
+      // For now, the standard procedure for handling malformed data from the Mirror Node
+      // is to sanitize it into a valid format. In this case, we should simply skip parsing the input.
+      data: new Uint8Array(0),
+      remainder: new Uint8Array(0),
+    };
+  }
+};
+
+/**
  * Decodes a hex string into an array of RLP-encoded items. Since the MirrorNode does NOT return the full RLP encoding,
  * with root included, we need to decode the data we get from them, streaming it part by part.
  * @param hex
@@ -127,7 +145,7 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
 function* decodeStream(hex: string) {
   let rest: string | Uint8Array = hex;
   while (rest.length > 0) {
-    const { data, remainder } = RLP.decode(rest, true);
+    const { data, remainder } = safeDecode(rest);
     yield data;
     rest = remainder;
   }
@@ -136,14 +154,14 @@ function* decodeStream(hex: string) {
 /**
  * Formats an access list by normalizing and sanitizing its fields.
  *
- * @param {any} accessList - The raw access list.
+ * @param {unknown} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] => {
+const formatAccessList = (accessList: unknown): AccessListEntry[] => {
   if (typeof accessList === 'string' && isHex(accessList)) return formatEncodedAccessList(accessList);
   return accessList && Array.isArray(accessList)
     ? accessList
-        .filter((item: any) => item !== null && typeof item === 'object')
+        .filter((item: unknown) => item !== null && typeof item === 'object')
         .map((item: any) => ({
           address: formatAddress(item.address),
           storageKeys: item.storageKeys ?? [],
