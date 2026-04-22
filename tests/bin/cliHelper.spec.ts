@@ -147,8 +147,7 @@ describe('CliHelper', () => {
 
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'linux' });
-
-      CliHelper.gracefulStop(child);
+      CliHelper.gracefulStop(child, sinon.spy(), process.pid);
 
       expect(child.on.calledWith('close')).to.be.true;
       expect(child.kill.calledWith('SIGTERM')).to.be.true;
@@ -167,7 +166,7 @@ describe('CliHelper', () => {
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
 
-      CliHelper.gracefulStop(child, spawn);
+      CliHelper.gracefulStop(child, spawn, process.pid);
 
       expect(spawn.calledWith('taskkill', ['/pid', 456, '/T', '/F'])).to.be.true;
 
