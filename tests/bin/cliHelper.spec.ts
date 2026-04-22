@@ -147,6 +147,7 @@ describe('CliHelper', () => {
 
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'linux' });
+
       CliHelper.gracefulStop(child, sinon.spy(), process.pid);
 
       expect(child.on.calledWith('close')).to.be.true;
