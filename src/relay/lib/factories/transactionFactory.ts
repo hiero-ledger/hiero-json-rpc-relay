@@ -3,6 +3,7 @@
 import { RLP } from '@ethereumjs/rlp';
 
 import {
+  isHex,
   nanOrNumberInt64To0x,
   nanOrNumberTo0x,
   nullableNumberTo0x,
