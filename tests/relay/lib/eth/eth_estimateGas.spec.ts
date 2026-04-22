@@ -686,10 +686,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
 
     await expect(ethImpl.estimateGas(transaction, null, requestDetails)).to.eventually.be.rejected.and.satisfy(
-      (error: JsonRpcError) => {
-        expect(error.code).to.equal(-32603);
-        expect(error.message).to.contain('Test error for estimateGas');
-      },
+      (error: JsonRpcError) => error.code === -32603 && error.message.includes('Test error for estimateGas'),
     );
 
     contractService.estimateGas = originalEstimateGas;

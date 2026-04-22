@@ -94,7 +94,7 @@
     "start": "node dist/index.js",
     "start:ws": "RPC_HTTP_ENABLED=false RPC_WS_ENABLED=true node dist/index.js",
     "start:docker": "docker run --name hedera-relay -d -p 7546:7546 ${npm_package_name}:latest",
-    "test": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' './tests/bin/*.spec.ts' --exit",
     "test:bin": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' --exit",
     "test:relay": "c8 ts-mocha --recursive './tests/relay/**/*.spec.ts' --exit",
     "test:server": "c8 ts-mocha --recursive './tests/server/integration/**/*.spec.ts' --exit",
