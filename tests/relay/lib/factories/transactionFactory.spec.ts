@@ -374,7 +374,7 @@ describe('TransactionFactory', () => {
           nonce: 2,
           access_list: input,
         }) as Transaction1559
-      ).accessList;
+      ).accessList || [];
 
     const hexToBytes = (value: string): Uint8Array => {
       let hex = strip0x(value);
@@ -386,11 +386,13 @@ describe('TransactionFactory', () => {
     const encodeAccessListRlpStream = (entries: unknown[]): string => {
       const encodedItems = entries
         .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
-        .map((entry: AccessListEntry) =>
+        .map((entry) =>
           Buffer.from(
             RLP.encode([
-              hexToBytes(entry.address ?? ''),
-              Array.isArray(entry.storageKeys) ? entry.storageKeys.map((key: string) => hexToBytes(key)) : [],
+              hexToBytes((entry as AccessListEntry).address ?? ''),
+              Array.isArray((entry as AccessListEntry).storageKeys)
+                ? (entry as AccessListEntry).storageKeys.map((key: string) => hexToBytes(key))
+                : [],
             ]),
           ).toString('hex'),
         );
