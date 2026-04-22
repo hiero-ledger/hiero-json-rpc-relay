@@ -5,7 +5,7 @@ import type { Server } from 'node:http';
 import path from 'node:path';
 import { GCProfiler } from 'node:v8';
 
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';

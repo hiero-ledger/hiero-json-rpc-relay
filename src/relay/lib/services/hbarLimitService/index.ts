@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
@@ -18,10 +18,10 @@ import { IHbarLimitService } from './IHbarLimitService';
 
 export class HbarLimitService implements IHbarLimitService {
   static readonly TIER_LIMITS: Record<SubscriptionTier, Hbar> = {
-    BASIC: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_BASIC),
-    EXTENDED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_EXTENDED),
-    PRIVILEGED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_PRIVILEGED),
-    OPERATOR: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_TOTAL),
+    BASIC: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_BASIC.toString()),
+    EXTENDED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_EXTENDED.toString()),
+    PRIVILEGED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_PRIVILEGED.toString()),
+    OPERATOR: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_TOTAL.toString()),
   };
 
   /**

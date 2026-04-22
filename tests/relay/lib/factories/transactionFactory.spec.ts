@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { RLP } from '@ethereumjs/rlp';
 import { expect } from 'chai';
 
-import { numberTo0x } from '../../../../src/relay/formatters';
+import { numberTo0x, prepend0x, strip0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import {
   createTransactionFromContractResult,
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
-import { AuthorizationListEntry, Log, Transaction } from '../../../../src/relay/lib/model';
+import type {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+} from '../../../../src/relay/lib/model';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -317,6 +324,244 @@ describe('TransactionFactory', () => {
     it('Should return null when contract result type is undefined', async function () {
       const formattedResult = createTransactionFromContractResult({ ...contractResult, type: undefined });
       expect(formattedResult).to.be.null;
+    });
+  });
+
+  describe('formatAccessList', () => {
+    /**
+     * Test helper that exposes a private method's formatAccessList logic.
+     *
+     * This function intentionally routes the provided `input` through
+     * `createTransactionFromContractResult` using a mocked transaction payload,
+     * and then extracts the resulting `accessList`.
+     *
+     * It allows unit tests to validate the behavior of the private
+     * `formatAccessList` implementation without exporting or
+     * directly accessing it.
+     *
+     * The surrounding transaction fields are static, deterministic values
+     * and are irrelevant to the assertions, only the transformation of
+     * `access_list` is under test.
+     *
+     * @param {any} input - Raw access list input (may contain nulls,
+     *                      malformed items).
+     *
+     * @returns {AccessListEntry[]} The normalized and sanitized
+     * access list as produced by the internal formatter.
+     */
+    const formatAccessList = (input: any): AccessListEntry[] =>
+      (
+        createTransactionFromContractResult({
+          amount: 0,
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          function_parameters: '0x08090033',
+          gas_used: 400000,
+          gas_limit: 500_000,
+          to: '0x0000000000000000000000000000000000000409',
+          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+          block_hash:
+            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+          block_number: 528,
+          transaction_index: 9,
+          chain_id: '0x12a',
+          gas_price: '0x',
+          max_fee_per_gas: '0x59',
+          max_priority_fee_per_gas: '0x',
+          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+          type: 2,
+          v: 1,
+          nonce: 2,
+          access_list: input,
+        }) as Transaction1559
+      ).accessList;
+
+    const hexToBytes = (value: string): Uint8Array => {
+      let hex = strip0x(value);
+      hex = hex.length % 2 === 0 ? hex : `0${hex}`;
+      if (!hex) return new Uint8Array(0);
+      return Uint8Array.from(Buffer.from(hex, 'hex'));
+    };
+
+    const encodeAccessListRlpStream = (entries: unknown[]): string => {
+      const encodedItems = entries
+        .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
+        .map((entry: AccessListEntry) =>
+          Buffer.from(
+            RLP.encode([
+              hexToBytes(entry.address ?? ''),
+              Array.isArray(entry.storageKeys) ? entry.storageKeys.map((key: string) => hexToBytes(key)) : [],
+            ]),
+          ).toString('hex'),
+        );
+      return prepend0x(encodedItems.map((p) => p).join(''));
+    };
+
+    describe('array input', () => {
+      it('returns an empty array for nullish/non-array input', () => {
+        expect(formatAccessList(null)).to.deep.equal([]);
+        expect(formatAccessList(undefined)).to.deep.equal([]);
+        expect(formatAccessList('not-an-array')).to.deep.equal([]);
+        expect(formatAccessList(123)).to.deep.equal([]);
+        expect(formatAccessList({})).to.deep.equal([]);
+      });
+
+      it('filters out null items and non-object items', () => {
+        const input = [null, undefined, 123, 'abc', true, () => ({}), { address: '0x1234' }, { storageKeys: [] }];
+
+        const out = formatAccessList(input);
+
+        expect(out).to.have.length(2);
+        expect(out[0]).to.have.property('address').equal('0x0000000000000000000000000000000000001234');
+        expect(out[1]).to.have.property('storageKeys').deep.equal([]);
+      });
+
+      it('falls back to zero defaults for missing/falsy fields', () => {
+        const input = [
+          {
+            address: '',
+            storageKeys: null,
+          },
+        ];
+
+        const [out] = formatAccessList(input);
+
+        expect(out.address).to.equal(constants.ZERO_ADDRESS_HEX);
+        expect(out.storageKeys).to.deep.equal([]);
+      });
+
+      it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
+        const input = [
+          { address: '0x1234', storageKeys: [] },
+          { address: '1234', storageKeys: [] },
+          { address: `0x${'a'.repeat(60)}`, storageKeys: [] },
+        ];
+
+        const out = formatAccessList(input);
+
+        expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out[1].address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out[2].address).to.equal(`0x${'a'.repeat(60).slice(-40)}`);
+      });
+
+      it('keeps storageKeys as an array when provided', () => {
+        const input = [
+          {
+            address: '0x1234',
+            storageKeys: [`0x${'00'.repeat(31)}01`, `0x${'00'.repeat(31)}02`],
+          },
+        ];
+
+        const [out] = formatAccessList(input);
+
+        expect(out.storageKeys).to.deep.equal([`0x${'00'.repeat(31)}01`, `0x${'00'.repeat(31)}02`]);
+      });
+
+      it('falls back to empty array when storageKeys is malformed', () => {
+        const input = [
+          { address: '0x1234', storageKeys: null },
+          { address: '0x1234', storageKeys: undefined },
+        ];
+
+        const out = formatAccessList(input);
+
+        expect(out[0].storageKeys).to.deep.equal([]);
+        expect(out[1].storageKeys).to.deep.equal([]);
+      });
+
+      it('does NOT preserve extra properties on items', () => {
+        const item: any = {
+          address: '0x1234',
+          storageKeys: ['0x1'],
+          extraField: 'keep-me',
+        };
+
+        const [out] = formatAccessList([item]);
+
+        expect(out.address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out.storageKeys).to.deep.equal(['0x1']);
+        expect(out).to.not.have.property('extraField').equal('keep-me');
+      });
+    });
+
+    describe('hex RLP stream input', () => {
+      it('returns an empty array for nullish/empty input', () => {
+        expect(formatAccessList(null)).to.deep.equal([]);
+        expect(formatAccessList(undefined)).to.deep.equal([]);
+        expect(formatAccessList('0x')).to.deep.equal([]);
+      });
+
+      it('returns an empty array for malformed input', () => {
+        expect(formatAccessList('0x31321213')).to.deep.equal([]);
+        expect(formatAccessList('0xtest')).to.deep.equal([]);
+        expect(formatAccessList('test')).to.deep.equal([]);
+
+        const correct = encodeAccessListRlpStream([{ address: '0x1234', storageKeys: [] }, { storageKeys: [] }]);
+        expect(formatAccessList(correct.replace(correct[1], `${correct[1]}99`))).to.deep.equal([]);
+      });
+
+      it('decodes valid entries from an RLP stream', () => {
+        const input = encodeAccessListRlpStream([{ address: '0x1234', storageKeys: [] }, { storageKeys: [] }]);
+
+        const out = formatAccessList(input);
+
+        expect(out).to.have.length(2);
+        expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out[1].storageKeys).to.deep.equal([]);
+      });
+
+      it('falls back to zero defaults for missing/falsy fields', () => {
+        const input = encodeAccessListRlpStream([
+          {
+            address: '',
+            storageKeys: null,
+          },
+        ]);
+
+        const [out] = formatAccessList(input);
+
+        expect(out.address).to.equal(constants.ZERO_ADDRESS_HEX);
+        expect(out.storageKeys).to.deep.equal([]);
+      });
+
+      it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
+        const input = encodeAccessListRlpStream([
+          { address: '0x1234', storageKeys: [] },
+          { address: '1234', storageKeys: [] },
+          { address: `0x${'a'.repeat(60)}`, storageKeys: [] },
+        ]);
+
+        const out = formatAccessList(input);
+
+        expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out[1].address).to.equal('0x0000000000000000000000000000000000001234');
+        expect(out[2].address).to.equal(`0x${'a'.repeat(60).slice(-40)}`);
+      });
+
+      it('keeps storageKeys as an array when provided', () => {
+        const input = encodeAccessListRlpStream([
+          {
+            address: '0x1234',
+            storageKeys: ['0x1', '0x2'],
+          },
+        ]);
+
+        const [out] = formatAccessList(input);
+
+        expect(out.storageKeys).to.deep.equal([`0x${'00'.repeat(31)}01`, `0x${'00'.repeat(31)}02`]);
+      });
+
+      it('falls back to empty array when storageKeys is not an array-equivalent field', () => {
+        const input = encodeAccessListRlpStream([
+          { address: '0x1234', storageKeys: null },
+          { address: '0x1234', storageKeys: undefined },
+        ]);
+
+        const out = formatAccessList(input);
+
+        expect(out[0].storageKeys).to.deep.equal([]);
+        expect(out[1].storageKeys).to.deep.equal([]);
+      });
     });
   });
 

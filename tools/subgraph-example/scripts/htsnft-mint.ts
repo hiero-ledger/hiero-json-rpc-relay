@@ -6,7 +6,7 @@ import {
   LocalProvider,
   Wallet,
   TokenMintTransaction,
-} from "@hashgraph/sdk";
+} from "@hiero-ledger/sdk";
 
 export async function mintHtsNft(receiver: string, hre: any) {
   const networks = await import("../subgraph/networks.json");

@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256, Transaction } from 'ethers';
+import { AbiCoder, keccak256, type Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -491,7 +491,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
-    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
+    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async () => {
       const originalEstimateGas = contractService.estimateGas;
       contractService.estimateGas = async () => {
         return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
@@ -505,7 +505,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     });
   });
 
-  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async function () {
+  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async () => {
     await mockContractCall(
       transaction,
       true,
@@ -680,18 +680,17 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
     const originalEstimateGas = contractService.estimateGas;
-    // @ts-ignore
+
     contractService.estimateGas = async () => {
-      return predefined.INTERNAL_ERROR('Test error for estimateGas');
+      throw predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 
-    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
-
-    expect(result).to.be.an('error');
-    // @ts-ignore
-    expect((result as JsonRpcError).code).to.equal(-32603);
-    // @ts-ignore
-    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
+    await expect(ethImpl.estimateGas(transaction, null, requestDetails)).to.eventually.be.rejected.and.satisfy(
+      (error: JsonRpcError) => {
+        expect(error.code).to.equal(-32603);
+        expect(error.message).to.contain('Test error for estimateGas');
+      },
+    );
 
     contractService.estimateGas = originalEstimateGas;
   });

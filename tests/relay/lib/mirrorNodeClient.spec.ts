@@ -2,7 +2,6 @@
 
 import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { BigNumber } from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
@@ -981,8 +980,8 @@ describe('MirrorNodeClient', async function () {
     error_message: null,
     from: '0x0000000000000000000000000000000000001f41',
     function_parameters: '0x0707',
-    gas_limit: BigNumber('9223372036854775807'),
-    gas_used: BigNumber('9223372036854775806'),
+    gas_limit: BigInt('9223372036854775807'),
+    gas_used: BigInt('9223372036854775806'),
     timestamp: '987654.000123456',
     to: '0x0000000000000000000000000000000000001389',
   };

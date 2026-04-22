@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { keccak256 } from '@ethersproject/keccak256';
-import { PrivateKey } from '@hashgraph/sdk';
+import { PrivateKey } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import pino from 'pino';
 

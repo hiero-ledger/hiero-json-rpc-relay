@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { RLP } from '@ethereumjs/rlp';
+
 import {
   nanOrNumberInt64To0x,
   nanOrNumberTo0x,
@@ -8,13 +10,14 @@ import {
   prepend0x,
   stripLeadingZeroForSignatures,
   toHash32,
+  toHexString,
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
 import {
-  AccessListEntry,
-  AuthorizationListEntry,
-  Log,
+  type AccessListEntry,
+  type AuthorizationListEntry,
+  type Log,
   Transaction,
   Transaction1559,
   Transaction2930,
@@ -56,6 +59,7 @@ export class TransactionFactory {
 
   /**
    * Creates a transaction object from a log entry. All the synthetic transactions are treated as legacy transactions.
+   * @param chainId Chain id
    * @param log The log entry containing transaction data
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
@@ -94,14 +98,14 @@ export class TransactionFactory {
  *
  * Additional unknown properties on each authorization item are preserved.
  *
- * @param {any} authorizationList - The raw authorization list.
+ * @param {unknown} authorizationList - The raw authorization list.
  * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
  */
-const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry[] =>
+const formatAuthorizationList = (authorizationList: unknown): AuthorizationListEntry[] =>
   authorizationList && Array.isArray(authorizationList)
     ? authorizationList
-        .filter((item: any) => item !== null && typeof item === 'object')
-        .map((item: any) => ({
+        .filter((item) => item !== null && typeof item === 'object')
+        .map((item) => ({
           ...item, // additional properties remain allowed for authorization list items
           chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
           nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
@@ -113,20 +117,77 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
     : [];
 
 /**
+ * Ensure rlp decode will return proper format or the result indicating the parsing should be stopped otherwise.
+ *
+ * @param part
+ */
+const safeDecode = (part: string | Uint8Array) => {
+  try {
+    return RLP.decode(part, true);
+  } catch {
+    return {
+      // For now, the standard procedure for handling malformed data from the Mirror Node
+      // is to sanitize it into a valid format. In this case, we should simply skip parsing the input.
+      data: new Uint8Array(0),
+      remainder: new Uint8Array(0),
+    };
+  }
+};
+
+/**
+ * Decodes a hex string into an array of RLP-encoded items. Since the MirrorNode does NOT return the full RLP encoding,
+ * with root included, we need to decode the data we get from them, streaming it part by part.
+ * @param hex
+ * @return decoded stream
+ */
+function* decodeStream(hex: string) {
+  let rest: string | Uint8Array = hex;
+  while (rest.length > 0) {
+    const { data, remainder } = safeDecode(rest);
+    yield data;
+    rest = remainder;
+  }
+}
+
+/**
  * Formats an access list by normalizing and sanitizing its fields.
  *
- * @param {any} accessList - The raw access list.
+ * @param {unknown} accessList - The raw access list.
  * @returns {AccessListEntry[]} A normalized access list.
  */
-const formatAccessList = (accessList: any): AccessListEntry[] =>
-  accessList && Array.isArray(accessList)
+const formatAccessList = (accessList: unknown): AccessListEntry[] => {
+  if (typeof accessList === 'string' && isHex(accessList)) return formatEncodedAccessList(accessList);
+  return accessList && Array.isArray(accessList)
     ? accessList
-        .filter((item: any) => item !== null && typeof item === 'object')
+        .filter((item: unknown) => item !== null && typeof item === 'object')
         .map((item: any) => ({
           address: formatAddress(item.address),
           storageKeys: item.storageKeys ?? [],
         }))
     : [];
+};
+
+/**
+ * Formats an rlp encoded access list hex string.
+ * FIXME (mirror-node#13343): this code fragment has to be removed when mirror node
+ * MN issue: https://github.com/hiero-ledger/hiero-mirror-node/issues/13343
+ * Tracking issue on our board: https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5293
+ * starts returning the correct access list format. For now it returns it as hex rlp encoded string.
+ *
+ * @param {string} accessList - The raw rlp encoded access list.
+ * @returns {AccessListEntry[]} A normalized access list.
+ */
+const formatEncodedAccessList = (accessList: string): AccessListEntry[] =>
+  [...decodeStream(accessList)]
+    .filter((data) => Array.isArray(data) && data.length === 2)
+    .map(([address, storageKeys]) => ({
+      address: formatAddress(address instanceof Uint8Array ? toHexString(address) : null),
+      storageKeys: Array.isArray(storageKeys)
+        ? storageKeys
+            .filter((item) => item instanceof Uint8Array)
+            .map((key) => prepend0x(toHexString(key).padStart(64, '0')))
+        : [],
+    }));
 
 /**
  * Formats an address by normalizing and sanitizing its format.
@@ -134,8 +195,8 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
  * @param {any} address - The value received.
  * @returns {string} - The formatted address as a 0x-prefixed hex string with a length of 40 characters.
  */
-const formatAddress = (address: any): string => {
-  if (!address) return constants.ZERO_ADDRESS_HEX;
+const formatAddress = (address: unknown): string => {
+  if (typeof address !== 'string' || !address) return constants.ZERO_ADDRESS_HEX;
   return prepend0x(
     address
       .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
