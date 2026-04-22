@@ -343,13 +343,13 @@ describe('TransactionFactory', () => {
      * and are irrelevant to the assertions, only the transformation of
      * `access_list` is under test.
      *
-     * @param {any} input - Raw access list input (may contain nulls,
+     * @param {unknown} input - Raw access list input (may contain nulls,
      *                      malformed items).
      *
      * @returns {AccessListEntry[]} The normalized and sanitized
      * access list as produced by the internal formatter.
      */
-    const formatAccessList = (input: any): AccessListEntry[] =>
+    const formatAccessList = (input: unknown): AccessListEntry[] =>
       (
         createTransactionFromContractResult({
           amount: 0,
