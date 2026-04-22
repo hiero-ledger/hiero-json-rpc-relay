@@ -15,6 +15,8 @@ import type {
   Log,
   Transaction,
   Transaction1559,
+  Transaction2930,
+  Transaction7702,
 } from '../../../../src/relay/lib/model';
 
 describe('TransactionFactory', () => {
@@ -349,32 +351,33 @@ describe('TransactionFactory', () => {
      * @returns {AccessListEntry[]} The normalized and sanitized
      * access list as produced by the internal formatter.
      */
-    const formatAccessList = (input: unknown): AccessListEntry[] =>
-      (
-        createTransactionFromContractResult({
-          amount: 0,
-          from: '0x05fba803be258049a27b820088bab1cad2058871',
-          function_parameters: '0x08090033',
-          gas_used: 400000,
-          gas_limit: 500_000,
-          to: '0x0000000000000000000000000000000000000409',
-          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
-          block_hash:
-            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
-          block_number: 528,
-          transaction_index: 9,
-          chain_id: '0x12a',
-          gas_price: '0x',
-          max_fee_per_gas: '0x59',
-          max_priority_fee_per_gas: '0x',
-          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
-          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
-          type: 2,
-          v: 1,
-          nonce: 2,
-          access_list: input,
-        }) as Transaction1559
-      ).accessList || [];
+    const formatAccessList = (input: unknown): AccessListEntry[] => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: '0x08090033',
+        gas_used: 400000,
+        gas_limit: 500_000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+        block_hash:
+          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+        block_number: 528,
+        transaction_index: 9,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: '0x59',
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+        type: 2,
+        v: 1,
+        nonce: 2,
+        access_list: input,
+      }) as Transaction1559 | null;
+
+      return result?.accessList ?? [];
+    };
 
     const hexToBytes = (value: string): Uint8Array => {
       let hex = strip0x(value);
@@ -584,15 +587,15 @@ describe('TransactionFactory', () => {
      * and are irrelevant to the assertions, only the transformation of
      * `authorization_list` is under test.
      *
-     * @param {any} input - Raw authorization list input (may contain nulls,
-     *                      malformed items, non-0x-prefixed values, oversized
-     *                      signatures, or extra properties).
+     * @param {unknown} input - Raw authorization list input (may contain nulls,
+     *                          malformed items, non-0x-prefixed values, oversized
+     *                          signatures, or extra properties).
      *
      * @returns {AuthorizationListEntry[]} The normalized and sanitized
      * authorization list as produced by the internal formatter.
      */
-    const formatAuthorizationList = (input: any): AuthorizationListEntry[] =>
-      createTransactionFromContractResult({
+    const formatAuthorizationList = (input: unknown): AuthorizationListEntry[] =>
+      (createTransactionFromContractResult({
         amount: 0,
         from: '0x05fba803be258049a27b820088bab1cad2058871',
         function_parameters: '0x08090033',
@@ -605,16 +608,16 @@ describe('TransactionFactory', () => {
         block_number: 528,
         transaction_index: 9,
         chain_id: '0x12a',
-        gas_price: '0x',
+        gas_price: constants.EMPTY_HEX,
         max_fee_per_gas: '0x59',
-        max_priority_fee_per_gas: '0x',
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
         r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
         s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
         type: 4,
         v: 1,
         authorization_list: input,
         nonce: 2,
-      })!['authorizationList'];
+      })?.authorizationList as AuthorizationListEntry[]) ?? [];
 
     it('filters out null items and non-object items', () => {
       const input = [null, undefined, 123, 'abc', true, () => ({}), { chainId: '1' }, { nonce: '2' }];
@@ -702,13 +705,13 @@ describe('TransactionFactory', () => {
     });
 
     it('preserves extra properties on items', () => {
-      const item: any = {
+      const item: AuthorizationListEntry & { extraField: string } = {
         chainId: '1',
         nonce: '2',
         address: '0x1234',
         yParity: '1',
-        r: '0x' + '00'.repeat(32),
-        s: '0x' + '00'.repeat(32),
+        r: prepend0x('00'.repeat(32)),
+        s: prepend0x('00'.repeat(32)),
         extraField: 'keep-me',
       };
 
@@ -717,6 +720,469 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out).to.have.property('extraField').equal('keep-me');
+    });
+  });
+
+  describe('formatAccessList', () => {
+    /**
+     * Test helper that exposes the private formatAccessList logic.
+     *
+     * This function routes the provided `input` through
+     * `createTransactionFromContractResult` using a mocked EIP-1559
+     * transaction payload (type = 2), and then extracts the resulting
+     * `accessList`.
+     * @param {unknown} input - Raw access list input.
+     * @returns {AccessListEntry[]} The normalized and sanitized access list.
+     */
+    const formatAccessList = (input: unknown): AccessListEntry[] => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: '0x08090033',
+        gas_used: 400000,
+        gas_limit: 500_000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+        block_hash:
+          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+        block_number: 528,
+        transaction_index: 9,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: '0x59',
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+        type: 2,
+        v: 1,
+        nonce: 2,
+        access_list: input,
+      }) as Transaction1559 | null;
+
+      return result?.accessList ?? [];
+    };
+
+    it('returns empty array for null input', () => {
+      const out = formatAccessList(null);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for undefined input', () => {
+      const out = formatAccessList(undefined);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for non-array input (string)', () => {
+      const out = formatAccessList('0xdeadbeef');
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for non-array input (number)', () => {
+      const out = formatAccessList(123);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for empty array input', () => {
+      const out = formatAccessList([]);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('filters out null and non-object items from the array', () => {
+      const input = [null, undefined, 123, 'abc', true, { address: '0x1234' }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0]).to.have.property('address').that.equals('0x0000000000000000000000000000000000001234');
+    });
+
+    it('normalizes a valid access list entry with address and storageKeys', () => {
+      const input = [
+        {
+          address: '0x0000000000000000000000000000000000000409',
+          storageKeys: [
+            '0x0000000000000000000000000000000000000000000000000000000000000001',
+            '0x0000000000000000000000000000000000000000000000000000000000000002',
+          ],
+        },
+      ];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000000409');
+      expect(out[0].storageKeys).to.have.length(2);
+      expect(out[0].storageKeys[0]).to.equal('0x0000000000000000000000000000000000000000000000000000000000000001');
+      expect(out[0].storageKeys[1]).to.equal('0x0000000000000000000000000000000000000000000000000000000000000002');
+    });
+
+    it('defaults storageKeys to empty array when missing', () => {
+      const input = [{ address: '0x0000000000000000000000000000000000000409' }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].storageKeys).to.deep.eq([]);
+    });
+
+    it('defaults storageKeys to empty array when null', () => {
+      const input = [{ address: '0x0000000000000000000000000000000000000409', storageKeys: null }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].storageKeys).to.deep.eq([]);
+    });
+
+    it('defaults address to ZERO_ADDRESS_HEX when missing', () => {
+      const input = [{ storageKeys: [] }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('defaults address to ZERO_ADDRESS_HEX when null', () => {
+      const input = [{ address: null, storageKeys: [] }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('normalizes short addresses by left-padding with zeros', () => {
+      const input = [{ address: '0x1234', storageKeys: [] }];
+      const out = formatAccessList(input);
+
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('normalizes addresses without 0x prefix', () => {
+      const input = [{ address: '0000000000000000000000000000000000000409', storageKeys: [] }];
+      const out = formatAccessList(input);
+
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000000409');
+    });
+
+    it('truncates oversized addresses to last 40 hex chars', () => {
+      const input = [{ address: `0x${'a'.repeat(60)}`, storageKeys: [] }];
+      const out = formatAccessList(input);
+
+      expect(out[0].address).to.equal(`0x${'a'.repeat(40)}`);
+    });
+
+    it('handles multiple entries with mixed valid and invalid items', () => {
+      const input = [
+        { address: '0x0000000000000000000000000000000000000001', storageKeys: ['0xabc'] },
+        null,
+        42,
+        { address: '0x0000000000000000000000000000000000000002', storageKeys: ['0xdef', '0x123'] },
+      ];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(2);
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000000001');
+      expect(out[0].storageKeys).to.deep.eq(['0xabc']);
+      expect(out[1].address).to.equal('0x0000000000000000000000000000000000000002');
+      expect(out[1].storageKeys).to.deep.eq(['0xdef', '0x123']);
+    });
+
+    it('does NOT preserve extra properties on access list items (unlike authorization list)', () => {
+      const input = [
+        {
+          address: '0x0000000000000000000000000000000000000409',
+          storageKeys: [],
+          extraField: 'should-be-dropped',
+        },
+      ];
+      const out = formatAccessList(input);
+
+      expect(out[0]).to.not.have.property('extraField');
+      expect(Object.keys(out[0])).to.have.members(['address', 'storageKeys']);
+    });
+
+    it('returns empty array for false input', () => {
+      const out = formatAccessList(false);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for empty string input', () => {
+      const out = formatAccessList('');
+      expect(out).to.deep.eq([]);
+    });
+
+    it('returns empty array for EMPTY_HEX ("0x") input — current mirror node format', () => {
+      const out = formatAccessList(constants.EMPTY_HEX);
+      expect(out).to.deep.eq([]);
+    });
+
+    it('treats nested arrays as valid objects (typeof [] === "object") — address/storageKeys default', () => {
+      // Arrays pass the filter (typeof [] === 'object' && [] !== null)
+      // but array[0].address → undefined and array[0].storageKeys → undefined
+      const input = [['0x0000000000000000000000000000000000000001']];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].address).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(out[0].storageKeys).to.deep.eq([]);
+    });
+
+    it('defaults storageKeys to empty array when explicitly set to undefined', () => {
+      const input = [{ address: '0x0000000000000000000000000000000000000409', storageKeys: undefined }];
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(1);
+      expect(out[0].storageKeys).to.deep.eq([]);
+    });
+
+    it('propagates access_list through createTransactionFromContractResult for type 1 (EIP-2930)', () => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: constants.EMPTY_HEX,
+        gas_used: 21000,
+        gas_limit: 21000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: prepend0x('aa'.repeat(32)),
+        block_hash: prepend0x('bb'.repeat(48)),
+        block_number: 1,
+        transaction_index: 0,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: constants.EMPTY_HEX,
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: prepend0x('11'.repeat(32)),
+        s: prepend0x('22'.repeat(32)),
+        type: 1,
+        v: 1,
+        nonce: 0,
+        access_list: [
+          {
+            address: '0x0000000000000000000000000000000000000409',
+            storageKeys: ['0x0000000000000000000000000000000000000000000000000000000000000001'],
+          },
+        ],
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.type).to.equal('0x1');
+      const accessList = (result as Transaction2930 | null)?.accessList ?? [];
+      expect(accessList).to.have.length(1);
+      expect(accessList[0].address).to.equal('0x0000000000000000000000000000000000000409');
+      expect(accessList[0].storageKeys).to.deep.eq([
+        '0x0000000000000000000000000000000000000000000000000000000000000001',
+      ]);
+    });
+
+    it('propagates access_list through createTransactionFromContractResult for type 4 (EIP-7702)', () => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: constants.EMPTY_HEX,
+        gas_used: 21000,
+        gas_limit: 21000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: prepend0x('aa'.repeat(32)),
+        block_hash: prepend0x('bb'.repeat(48)),
+        block_number: 1,
+        transaction_index: 0,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: constants.EMPTY_HEX,
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: prepend0x('11'.repeat(32)),
+        s: prepend0x('22'.repeat(32)),
+        type: 4,
+        v: 1,
+        nonce: 0,
+        authorization_list: [],
+        access_list: [
+          {
+            address: '0x0000000000000000000000000000000000000001',
+            storageKeys: [],
+          },
+        ],
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.type).to.equal('0x4');
+      const accessList = (result as Transaction7702 | null)?.accessList ?? [];
+      expect(accessList).to.have.length(1);
+      expect(accessList[0].address).to.equal('0x0000000000000000000000000000000000000001');
+    });
+
+    it('returns empty accessList when access_list is absent from contract result', () => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: constants.EMPTY_HEX,
+        gas_used: 21000,
+        gas_limit: 21000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: prepend0x('aa'.repeat(32)),
+        block_hash: prepend0x('bb'.repeat(48)),
+        block_number: 1,
+        transaction_index: 0,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: constants.EMPTY_HEX,
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: prepend0x('11'.repeat(32)),
+        s: prepend0x('22'.repeat(32)),
+        type: 2,
+        v: 1,
+        nonce: 0,
+        // access_list intentionally omitted
+      });
+
+      expect(result).to.not.be.null;
+      expect((result as Transaction1559).accessList).to.deep.eq([]);
+    });
+  });
+
+  describe('formatAddress (via formatAccessList)', () => {
+    /**
+     * Helper that tests the formatAddress behavior by passing an address
+     * through the access list formatting pipeline.
+     */
+    const formatAddress = (address: unknown): string => {
+      const result = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: '0x08090033',
+        gas_used: 400000,
+        gas_limit: 500_000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+        block_hash:
+          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+        block_number: 528,
+        transaction_index: 9,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: '0x59',
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+        type: 2,
+        v: 1,
+        nonce: 2,
+        access_list: [{ address, storageKeys: [] }],
+      });
+      return (result as Transaction1559)?.accessList?.[0]?.address ?? constants.ZERO_ADDRESS_HEX;
+    };
+
+    it('returns ZERO_ADDRESS_HEX for null', () => {
+      expect(formatAddress(null)).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns ZERO_ADDRESS_HEX for undefined', () => {
+      expect(formatAddress(undefined)).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns ZERO_ADDRESS_HEX for empty string', () => {
+      expect(formatAddress('')).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns ZERO_ADDRESS_HEX for 0', () => {
+      expect(formatAddress(0)).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('normalizes a full 40-char hex address with 0x prefix', () => {
+      expect(formatAddress('0x0000000000000000000000000000000000000409')).to.equal(
+        '0x0000000000000000000000000000000000000409',
+      );
+    });
+
+    it('normalizes a full 40-char hex address without 0x prefix', () => {
+      expect(formatAddress('0000000000000000000000000000000000000409')).to.equal(
+        '0x0000000000000000000000000000000000000409',
+      );
+    });
+
+    it('left-pads short addresses to 40 hex chars', () => {
+      expect(formatAddress('0x1234')).to.equal('0x0000000000000000000000000000000000001234');
+      expect(formatAddress('abc')).to.equal('0x0000000000000000000000000000000000000abc');
+    });
+
+    it('keeps last 40 hex chars from oversized addresses', () => {
+      const oversized = prepend0x('f'.repeat(60));
+      expect(formatAddress(oversized)).to.equal(prepend0x('f'.repeat(40)));
+    });
+
+    it('strips EMPTY_HEX (0x) prefix before normalizing', () => {
+      // "0x" prefix is stripped, then '1a2b' is left-padded to 40 chars
+      expect(formatAddress('0x1a2b')).to.equal('0x0000000000000000000000000000000000001a2b');
+    });
+
+    it('returns ZERO_ADDRESS_HEX for false', () => {
+      expect(formatAddress(false)).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns ZERO_ADDRESS_HEX for exactly EMPTY_HEX ("0x")', () => {
+      // formatAddress strips the "0x" prefix via regex, leaving empty string
+      // empty string → padStart(40, '0') → ZERO_ADDRESS
+      expect(formatAddress(constants.EMPTY_HEX)).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('preserves mixed-case hex characters in address', () => {
+      // formatAddress does NOT lowercase — it preserves the input casing
+      expect(formatAddress('0xAbCdEf0000000000000000000000000000001234')).to.equal(
+        '0xAbCdEf0000000000000000000000000000001234',
+      );
+    });
+
+    it('produces consistent results through both formatAccessList and formatAuthorizationList', () => {
+      // Verify both formatters use the same formatAddress logic
+      const testAddress = '0xabcd';
+
+      // Through access list (type 2)
+      const accessListResult = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: constants.EMPTY_HEX,
+        gas_used: 21000,
+        gas_limit: 21000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: prepend0x('aa'.repeat(32)),
+        block_hash: prepend0x('bb'.repeat(48)),
+        block_number: 1,
+        transaction_index: 0,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: constants.EMPTY_HEX,
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: prepend0x('11'.repeat(32)),
+        s: prepend0x('22'.repeat(32)),
+        type: 2,
+        v: 1,
+        nonce: 0,
+        access_list: [{ address: testAddress, storageKeys: [] }],
+      });
+
+      // Through authorization list (type 4)
+      const authListResult = createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: constants.EMPTY_HEX,
+        gas_used: 21000,
+        gas_limit: 21000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: prepend0x('aa'.repeat(32)),
+        block_hash: prepend0x('bb'.repeat(48)),
+        block_number: 1,
+        transaction_index: 0,
+        chain_id: '0x12a',
+        gas_price: constants.EMPTY_HEX,
+        max_fee_per_gas: constants.EMPTY_HEX,
+        max_priority_fee_per_gas: constants.EMPTY_HEX,
+        r: prepend0x('11'.repeat(32)),
+        s: prepend0x('22'.repeat(32)),
+        type: 4,
+        v: 1,
+        nonce: 0,
+        authorization_list: [{ address: testAddress, chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' }],
+      });
+
+      expect((accessListResult as Transaction1559)?.accessList?.[0].address).to.equal(
+        (authListResult as Transaction7702)?.authorizationList?.[0].address,
+      );
     });
   });
 });

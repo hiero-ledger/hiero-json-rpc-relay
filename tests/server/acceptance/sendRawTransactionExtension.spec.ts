@@ -260,7 +260,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
       });
 
-      it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
+      it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async () => {
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
