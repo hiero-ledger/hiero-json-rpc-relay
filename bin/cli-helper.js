@@ -96,9 +96,9 @@ export class CliHelper {
    *
    * @param child
    * @param spawn
-   * @param keepParentPid pid of the parent process that we do NOT want to kill as a fallback
+   * @param parentPid pid of the parent process that we do NOT want to kill as a fallback
    */
-  static gracefulStop = (child, spawn, keepParentPid) => {
+  static gracefulStop = (child, spawn, parentPid) => {
     if (!child) {
       process.exit(0);
       return;
@@ -110,7 +110,7 @@ export class CliHelper {
     });
 
     setTimeout(() => {
-      if (keepParentPid !== process.pid) process.exit(0);
+      if (parentPid !== process.pid) process.exit(0);
     }, 10_000).unref();
 
     const { pid } = child;
