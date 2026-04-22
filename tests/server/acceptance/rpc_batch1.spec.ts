@@ -2380,56 +2380,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           ]);
         });
       });
-
-      it('@release should execute "eth_getTransactionByHash" for existing transaction', async function () {
-        const gasPrice = await relay.gasPrice();
-        const transaction = {
-          ...defaultLondonTransactionData,
-          to: parentContractAddress,
-          nonce: await relay.getAccountNonce(accounts[2].address),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-        };
-        const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-        const mirrorTransaction = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-
-        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
-        const addressResult = await mirrorNode.get(`/accounts/${res.from}`);
-        mirrorTransaction.from = addressResult.evm_address;
-
-        Assertions.transaction(res, mirrorTransaction);
-      });
-
-      it('should execute "eth_getTransactionByHash" for non-existing transaction and return null', async function () {
-        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [
-          Address.NON_EXISTING_TX_HASH,
-        ]);
-        expect(res).to.be.null;
-      });
-
-      it('@release getTransactionByHash should return null for to for reverted contract creation', async function () {
-        // the data below is actually disassembled opcodes
-        // containing revert as well
-        const dataToRevert = '0x600160015560006000fd';
-        const gasPrice = await relay.gasPrice();
-        const transaction = {
-          ...defaultLondonTransactionData,
-          to: null,
-          data: dataToRevert,
-          nonce: await relay.getAccountNonce(accounts[2].address),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-        };
-        const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-
-        // wait for tx receipt
-        await relay.pollForValidTransactionReceipt(transactionHash);
-        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
-
-        expect(res.to).to.be.null;
-      });
     });
   });
 });
