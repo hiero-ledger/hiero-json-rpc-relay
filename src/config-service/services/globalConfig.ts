@@ -79,6 +79,11 @@ export interface ConfigProperty {
  * its type, whether it is required, and its default value.
  */
 const _CONFIG = {
+  ADDRESS_RESOLUTION_BATCH_SIZE: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
   BATCH_REQUESTS_DISALLOWED_METHODS: {
     type: 'strArray',
     required: false,

@@ -15,6 +15,8 @@ import constants from '../../../src/relay/lib/constants';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../../src/relay/lib/model';
 import { __test__ } from '../../../src/relay/lib/services/ethService/blockService/blockWorker';
+import { CommonService } from '../../../src/relay/lib/services/ethService/ethCommonService/CommonService';
+import { MirrorNodeContractResult, RequestDetails } from '../../../src/relay/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);
@@ -350,6 +352,254 @@ describe('eth_getBlockBy', async function () {
 
       // Loose bound to avoid flakiness but still catch superlinear behavior.
       expect(ratio).to.be.lessThan(2.5);
+    });
+  });
+
+  describe('resolveUniqueAddresses', () => {
+    const requestDetails = new RequestDetails({ requestId: 'resolveUniqueAddressesTest', ipAddress: '0.0.0.0' });
+
+    it('deduplicates shared from/to addresses and resolves each unique address once', async function () {
+      const resolveStub = sinon.stub();
+      resolveStub.callsFake(async (addr: string) => `resolved_${addr}`);
+      const fakeCommon = { resolveEvmAddress: resolveStub } as unknown as CommonService;
+
+      const contractResults = [
+        { from: '0xAAA', to: '0xBBB', hash: 'h1', transaction_index: 0 },
+        { from: '0xAAA', to: '0xCCC', hash: 'h2', transaction_index: 1 },
+        { from: '0xBBB', to: '0xAAA', hash: 'h3', transaction_index: 2 },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const resolved = await __test__.__private.resolveUniqueAddresses(contractResults, requestDetails, fakeCommon);
+
+      // 0xAAA (from), 0xBBB (from + to, but from wins), 0xCCC (to-only) = 3 unique addresses
+      expect(resolved.size).to.equal(3);
+      expect(resolved.get('0xAAA')).to.equal('resolved_0xAAA');
+      expect(resolved.get('0xBBB')).to.equal('resolved_0xBBB');
+      expect(resolved.get('0xCCC')).to.equal('resolved_0xCCC');
+
+      // 'from' addresses get TYPE_ACCOUNT, 'to-only' addresses get default types
+      const fromCalls = resolveStub.getCalls().filter((c) => c.args[2]?.[0] === constants.TYPE_ACCOUNT);
+      expect(fromCalls.length).to.equal(2); // 0xAAA, 0xBBB
+    });
+
+    it('handles empty contract results', async function () {
+      const fakeCommon = {
+        resolveEvmAddress: sinon.stub().resolves('resolved'),
+      } as unknown as CommonService;
+
+      const resolved = await __test__.__private.resolveUniqueAddresses(
+        [] as unknown as MirrorNodeContractResult[],
+        requestDetails,
+        fakeCommon,
+      );
+      expect(resolved.size).to.equal(0);
+    });
+
+    it('handles contract results with null to addresses', async function () {
+      const resolveStub = sinon.stub();
+      resolveStub.callsFake(async (addr: string) => `resolved_${addr}`);
+      const fakeCommon = { resolveEvmAddress: resolveStub } as unknown as CommonService;
+
+      const contractResults = [
+        { from: '0xAAA', to: null, hash: 'h1', transaction_index: 0 },
+        { from: '0xBBB', to: '0xCCC', hash: 'h2', transaction_index: 1 },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const resolved = await __test__.__private.resolveUniqueAddresses(contractResults, requestDetails, fakeCommon);
+
+      // 0xAAA (from), 0xBBB (from), 0xCCC (to-only) = 3 unique; null is skipped
+      expect(resolved.size).to.equal(3);
+      expect(resolved.has('0xAAA')).to.be.true;
+      expect(resolved.has('0xBBB')).to.be.true;
+      expect(resolved.has('0xCCC')).to.be.true;
+    });
+
+    it('correctly classifies toOnly regardless of record order (order-independent)', async function () {
+      const resolveStub = sinon.stub();
+      resolveStub.callsFake(async (addr: string) => `resolved_${addr}`);
+      const fakeCommon = { resolveEvmAddress: resolveStub } as unknown as CommonService;
+
+      // In this sequence, "b", "c", "d" appear as 'to' before they appear as 'from' in later records.
+      // Only "e" should be classified as toOnly.
+      const contractResults = [
+        { from: '0xA', to: '0xB', hash: 'h1', transaction_index: 0 },
+        { from: '0xB', to: '0xC', hash: 'h2', transaction_index: 1 },
+        { from: '0xC', to: '0xD', hash: 'h3', transaction_index: 2 },
+        { from: '0xD', to: '0xE', hash: 'h4', transaction_index: 3 },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const resolved = await __test__.__private.resolveUniqueAddresses(contractResults, requestDetails, fakeCommon);
+
+      // All 5 unique addresses should be resolved
+      expect(resolved.size).to.equal(5);
+      expect(resolved.get('0xA')).to.equal('resolved_0xA');
+      expect(resolved.get('0xB')).to.equal('resolved_0xB');
+      expect(resolved.get('0xC')).to.equal('resolved_0xC');
+      expect(resolved.get('0xD')).to.equal('resolved_0xD');
+      expect(resolved.get('0xE')).to.equal('resolved_0xE');
+
+      // 'from' addresses (0xA, 0xB, 0xC, 0xD) should be resolved with TYPE_ACCOUNT
+      const fromCalls = resolveStub.getCalls().filter((c) => c.args[2]?.[0] === constants.TYPE_ACCOUNT);
+      expect(fromCalls.length).to.equal(4);
+
+      // Only 0xE should be resolved without TYPE_ACCOUNT (toOnly)
+      const toOnlyCalls = resolveStub.getCalls().filter((c) => !c.args[2]);
+      expect(toOnlyCalls.length).to.equal(1);
+      expect(toOnlyCalls[0].args[0]).to.equal('0xE');
+    });
+
+    it('returns empty toOnly when all to addresses also appear as from', async function () {
+      const resolveStub = sinon.stub();
+      resolveStub.callsFake(async (addr: string) => `resolved_${addr}`);
+      const fakeCommon = { resolveEvmAddress: resolveStub } as unknown as CommonService;
+
+      // Circular: every address appears in both from and to
+      const contractResults = [
+        { from: '0xA', to: '0xB', hash: 'h1', transaction_index: 0 },
+        { from: '0xB', to: '0xA', hash: 'h2', transaction_index: 1 },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const resolved = await __test__.__private.resolveUniqueAddresses(contractResults, requestDetails, fakeCommon);
+
+      // 2 unique addresses, both resolved as 'from' (TYPE_ACCOUNT)
+      expect(resolved.size).to.equal(2);
+
+      // All calls should use TYPE_ACCOUNT since there are no toOnly addresses
+      const fromCalls = resolveStub.getCalls().filter((c) => c.args[2]?.[0] === constants.TYPE_ACCOUNT);
+      expect(fromCalls.length).to.equal(2);
+
+      const toOnlyCalls = resolveStub.getCalls().filter((c) => !c.args[2]);
+      expect(toOnlyCalls.length).to.equal(0);
+    });
+  });
+
+  describe('prepareTransactionArray', () => {
+    const requestDetails = new RequestDetails({ requestId: 'prepareTransactionArrayTest', ipAddress: '0.0.0.0' });
+
+    it('returns only hashes when showDetails is false', async function () {
+      const fakeCommon = {
+        resolveEvmAddress: sinon.stub().resolves('0xResolved'),
+      } as unknown as CommonService;
+
+      const contractResults = [
+        { hash: '0xhash1', from: '0xA', to: '0xB', transaction_index: 0 },
+        { hash: '0xhash2', from: '0xC', to: '0xD', transaction_index: 1 },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const result = await __test__.__private.prepareTransactionArray(
+        contractResults,
+        false,
+        requestDetails,
+        '0x12a',
+        fakeCommon,
+      );
+
+      expect(result).to.deep.equal(['0xhash1', '0xhash2']);
+      // Should not call resolveEvmAddress when showDetails is false
+      expect(fakeCommon.resolveEvmAddress.called).to.be.false;
+    });
+
+    it('sorts contract results by transaction_index when showDetails is true', async function () {
+      const resolveStub = sinon.stub();
+      resolveStub.callsFake(async (addr: string) => addr);
+      const fakeCommon = { resolveEvmAddress: resolveStub } as unknown as CommonService;
+
+      const contractResults = [
+        {
+          ...defaultDetailedContractResults,
+          hash: '0xhash_b',
+          from: '0xA',
+          to: '0xB',
+          transaction_index: 2,
+          chain_id: '0x12a',
+        },
+        {
+          ...defaultDetailedContractResults,
+          hash: '0xhash_a',
+          from: '0xC',
+          to: '0xD',
+          transaction_index: 1,
+          chain_id: '0x12a',
+        },
+      ] as unknown as MirrorNodeContractResult[];
+
+      const result = (await __test__.__private.prepareTransactionArray(
+        contractResults,
+        true,
+        requestDetails,
+        '0x12a',
+        fakeCommon,
+      )) as Transaction[];
+
+      // Should be sorted by transaction_index: index 1 first, then index 2
+      expect(result.length).to.be.greaterThan(0);
+      if (result.length === 2) {
+        expect(result[0].hash).to.equal('0xhash_a');
+        expect(result[1].hash).to.equal('0xhash_b');
+      }
+    });
+  });
+
+  describe('buildReceiptRootHashes', () => {
+    it('returns empty array for no tx hashes', function () {
+      const receipts = __test__.__private.buildReceiptRootHashes([], [] as unknown as MirrorNodeContractResult[], []);
+      expect(receipts).to.deep.equal([]);
+    });
+
+    it('builds receipts sorted by transaction index', function () {
+      const cr1 = {
+        hash: '0xhash1',
+        gas_used: 100,
+        transaction_index: 2,
+        type: 2,
+        root: '0x01',
+        status: '0x1',
+        bloom: '0x00',
+      } as unknown as MirrorNodeContractResult;
+      const cr2 = {
+        hash: '0xhash2',
+        gas_used: 200,
+        transaction_index: 1,
+        type: 2,
+        root: '0x01',
+        status: '0x1',
+        bloom: '0x00',
+      } as unknown as MirrorNodeContractResult;
+
+      const receipts = __test__.__private.buildReceiptRootHashes(['0xhash1', '0xhash2'], [cr1, cr2], []);
+
+      expect(receipts.length).to.equal(2);
+      // index 1 should come before index 2
+      expect(receipts[0].transactionIndex).to.equal('0x1');
+      expect(receipts[1].transactionIndex).to.equal('0x2');
+    });
+
+    it('accumulates cumulative gas correctly', function () {
+      const cr1 = {
+        hash: '0xhash1',
+        gas_used: 100,
+        transaction_index: 1,
+        type: 0,
+        root: '0x01',
+        status: '0x1',
+        bloom: '0x00',
+      } as unknown as MirrorNodeContractResult;
+      const cr2 = {
+        hash: '0xhash2',
+        gas_used: 250,
+        transaction_index: 2,
+        type: 0,
+        root: '0x01',
+        status: '0x1',
+        bloom: '0x00',
+      } as unknown as MirrorNodeContractResult;
+
+      const receipts = __test__.__private.buildReceiptRootHashes(['0xhash1', '0xhash2'], [cr1, cr2], []);
+
+      expect(receipts.length).to.equal(2);
+      // First receipt: cumulative = 100, Second: cumulative = 100 + 250 = 350
+      expect(receipts[0].cumulativeGasUsed).to.equal('0x64'); // 100
+      expect(receipts[1].cumulativeGasUsed).to.equal('0x15e'); // 350
     });
   });
 });

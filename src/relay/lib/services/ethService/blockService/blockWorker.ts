@@ -21,7 +21,13 @@ import {
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
-import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
+import {
+  IContractResultsParams,
+  ITransactionReceipt,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../types';
 import { IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
@@ -45,6 +51,9 @@ const mirrorNodeClient = new MirrorNodeClient(
   undefined,
 );
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+
+/** Maximum number of address resolutions to run concurrently to avoid overwhelming the mirror node. */
+const ADDRESS_RESOLUTION_BATCH_SIZE: number = ConfigService.get('ADDRESS_RESOLUTION_BATCH_SIZE');
 
 interface IReceiptRootHashLog {
   address: string;
@@ -152,7 +161,11 @@ function populateSyntheticTransactions(
  * @param logs - Log entries returned by the mirror node for the block.
  * @returns An array of receipt objects, sorted by transaction index.
  */
-function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
+function buildReceiptRootHashes(
+  txHashes: string[],
+  contractResults: MirrorNodeContractResult[],
+  logs: Log[],
+): IReceiptRootHash[] {
   const items: {
     transactionIndex: number;
     logsPerTx: Log[];
@@ -167,7 +180,7 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
     logsByTxHash.set(log.transactionHash, list);
   }
 
-  const contractResultByHash = new Map<string, any>(contractResults.map((cr) => [cr.hash, cr]));
+  const contractResultByHash = new Map<string, MirrorNodeContractResult>(contractResults.map((cr) => [cr.hash, cr]));
 
   for (const txHash of txHashes) {
     const logsPerTx = logsByTxHash.get(txHash) ?? [];
@@ -285,22 +298,76 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
   return prepend0x(Buffer.from(trie.root()).toString('hex'));
 }
 
+async function resolveUniqueAddresses(
+  contractResults: MirrorNodeContractResult[],
+  requestDetails: RequestDetails,
+  commonService: CommonService,
+): Promise<Map<string, string>> {
+  const fromAddresses = new Set<string>();
+  const toAddresses = new Set<string>();
+
+  for (const cr of contractResults) {
+    if (cr.from) fromAddresses.add(cr.from);
+    if (cr.to) toAddresses.add(cr.to);
+  }
+
+  // Compute toOnly as addresses that appear only in 'to' and never in 'from'.
+  // Uses a loop instead of Array.from().filter() to avoid allocating an intermediate array.
+  const toOnly = new Set<string>();
+  for (const addr of toAddresses) {
+    if (!fromAddresses.has(addr)) toOnly.add(addr);
+  }
+
+  // Resolve all unique addresses in parallel
+  const resolvedMap = new Map<string, string>();
+
+  const makeResolveTask = (addr: string, types?: string[]) => async () => {
+    resolvedMap.set(addr, await commonService.resolveEvmAddress(addr, requestDetails, types));
+  };
+
+  const tasks: Array<() => Promise<void>> = [
+    ...Array.from(fromAddresses, (addr) => makeResolveTask(addr, [constants.TYPE_ACCOUNT])),
+    ...Array.from(toOnly, (addr) => makeResolveTask(addr)),
+  ];
+
+  // Process in batches to avoid overwhelming the mirror node with too many concurrent requests
+  for (let i = 0; i < tasks.length; i += ADDRESS_RESOLUTION_BATCH_SIZE) {
+    await Promise.all(tasks.slice(i, i + ADDRESS_RESOLUTION_BATCH_SIZE).map((task) => task()));
+  }
+
+  return resolvedMap;
+}
+
 async function prepareTransactionArray(
-  contractResults: any[],
+  contractResults: MirrorNodeContractResult[],
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
   commonService: CommonService,
 ): Promise<Transaction[] | string[]> {
-  const txArray: Transaction[] | string[] = [];
-  for (const contractResult of contractResults) {
-    [contractResult.from, contractResult.to] = await Promise.all([
-      commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      commonService.resolveEvmAddress(contractResult.to, requestDetails),
-    ]);
+  // When showDetails is false, we only need transaction hashes — skip address resolution entirely
+  if (!showDetails) {
+    return contractResults.map((contractResult) => contractResult.hash);
+  }
 
+  // Sort contract results by transaction_index to align with receipt ordering,
+  // ensuring txArray stays consistent with the calculated receipts root
+  contractResults.sort((a, b) => (a.transaction_index ?? 0) - (b.transaction_index ?? 0));
+
+  // Deduplicate address resolution: resolve unique addresses once
+  const resolvedAddresses = await resolveUniqueAddresses(contractResults, requestDetails, commonService);
+
+  // Apply resolved addresses and build transaction array in a single pass
+  const txArray: Transaction[] = [];
+  for (const contractResult of contractResults) {
+    contractResult.from = resolvedAddresses.get(contractResult.from) ?? contractResult.from;
+    contractResult.to =
+      contractResult.to === null ? null : (resolvedAddresses.get(contractResult.to) ?? contractResult.to);
     contractResult.chain_id = contractResult.chain_id || chain;
-    txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
+    const tx = createTransactionFromContractResult(contractResult);
+    if (tx !== null) {
+      txArray.push(tx);
+    }
   }
 
   return txArray;
@@ -621,5 +688,8 @@ function createSyntheticReceiptRlpInput(syntheticLogs: Log[]): IReceiptRlpInput 
 export const __test__ = {
   __private: {
     populateSyntheticTransactions,
+    resolveUniqueAddresses,
+    prepareTransactionArray,
+    buildReceiptRootHashes,
   },
 };
