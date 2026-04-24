@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const hre = require('hardhat');
+import { network } from 'hardhat';
 
-module.exports = async () => {
+export default async () => {
+  const hre = await network.create();
+
   const [walletClient] = await hre.viem.getWalletClients();
   const publicClient = await hre.viem.getPublicClient();
   const balance = await publicClient.getBalance({

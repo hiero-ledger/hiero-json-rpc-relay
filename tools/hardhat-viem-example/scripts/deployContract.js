@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const hre = require('hardhat');
+import { network } from 'hardhat';
 
-module.exports = async () => {
+export default async () => {
+  const hre = await network.create();
+
   //Deploy contract providing
   //name of contract as first parameter
   //array with constructor parameters from our contract as the second one
