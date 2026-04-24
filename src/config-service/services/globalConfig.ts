@@ -561,6 +561,16 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 3000,
+  },
   PAYMASTER_ENABLED: {
     type: 'boolean',
     required: false,
