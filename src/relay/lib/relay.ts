@@ -485,11 +485,11 @@ export class Relay {
   }
 
   private async ensureOperatorHasBalance(): Promise<void> {
-    const maxAttempts = ConfigService.get('OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS');
+    const maxAttempts = ConfigService.get('OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS') || 1;
     const delayMs = ConfigService.get('OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS');
     const operator = this.operatorAccountId!.toString();
 
-    for (let attempt = 1; attempt <= maxAttempts + 1; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
         if (balance === BigInt(0)) {
