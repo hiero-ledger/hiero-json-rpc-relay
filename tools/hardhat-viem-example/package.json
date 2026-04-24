@@ -3,20 +3,17 @@
   "version": "1.0.0",
   "description": "This is a example hardhat viem project",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "npx hardhat test"
   },
   "dependencies": {
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^3.0.0",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.4",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.4",
+    "@nomicfoundation/hardhat-viem": "^3.0.6",
     "hardhat": "^3.4.1"
-  },
-  "overrides": {
-    "elliptic": "^6.6.1",
-    "ws": "^8.17.1",
-    "cookie": "^0.7.0"
   }
 }
