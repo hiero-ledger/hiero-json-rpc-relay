@@ -19,7 +19,7 @@ export interface RpcProtocolClient {
     method: string,
     params: unknown[],
     options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }>;
+  ): Promise<{ result?: unknown; error?: { code: number; message: string; name?: string }; status?: number }>;
 }
 
 type TestGlobal = typeof globalThis & {
@@ -40,7 +40,7 @@ class HttpProtocolClient implements RpcProtocolClient {
     method: string,
     params: unknown[],
     options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+  ): Promise<{ result?: unknown; error?: { code: number; message: string; name?: string }; status?: number }> {
     const url: string = (global as TestGlobal).relay.provider._getConnection().url;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (options?.ip) {
@@ -51,7 +51,7 @@ class HttpProtocolClient implements RpcProtocolClient {
       headers,
       body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
     });
-    return resp.json();
+    return { ...(await resp.json()), status: resp.status };
   }
 }
 
@@ -70,7 +70,7 @@ class WsProtocolClient implements RpcProtocolClient {
     method: string,
     params: unknown[],
     options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+  ): Promise<{ result?: unknown; error?: { code: number; message: string; name?: string }; status?: number }> {
     if (options?.ip) {
       return WsTestHelper.sendRequestWithIp(method, params, options.ip);
     }
