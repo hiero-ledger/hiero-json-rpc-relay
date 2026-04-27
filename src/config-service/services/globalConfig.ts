@@ -569,7 +569,7 @@ const _CONFIG = {
   OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS: {
     type: 'number',
     required: false,
-    defaultValue: 3000,
+    defaultValue: 1000,
   },
   PAYMASTER_ENABLED: {
     type: 'boolean',
