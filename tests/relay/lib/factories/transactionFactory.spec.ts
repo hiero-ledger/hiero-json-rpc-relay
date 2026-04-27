@@ -214,7 +214,7 @@ describe('TransactionFactory', () => {
       expect(formattedResult.hash).to.equal('0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd');
       expect(formattedResult.input).to.equal('0x08090033');
       expect(formattedResult.maxPriorityFeePerGas).to.equal(expectedValues.maxPriorityFeePerGas ?? '0x0');
-      expect(formattedResult.maxFeePerGas).to.equal(expectedValues.maxFeePerGas ?? '0x59');
+      expect(formattedResult.maxFeePerGas).to.equal(expectedValues.maxFeePerGas ?? '0xcf38224400');
       expect(formattedResult.nonce).to.equal(expectedValues.nonce ?? '0x2');
       expect(formattedResult.r).to.equal(
         expectedValues.r ?? '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
@@ -244,7 +244,7 @@ describe('TransactionFactory', () => {
       transaction_index: 9,
       chain_id: '0x12a',
       gas_price: '0x',
-      max_fee_per_gas: '0x59',
+      max_fee_per_gas: '0xcf38224400',
       max_priority_fee_per_gas: '0x',
       r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
       s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
