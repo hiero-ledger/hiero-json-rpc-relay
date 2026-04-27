@@ -183,6 +183,17 @@ describe('Relay', () => {
             await expect(relay.initializeRelay()).to.not.be.rejected;
             expect(getAccountPageLimitStub.callCount).to.equal(3);
           });
+
+          it('should throw an error if the balance can not be obtained after the last attempt', async function () {
+            getAccountPageLimitStub.resolves({
+              account: operatorId,
+              balance: { balance: 0 },
+              transactions: [],
+              links: {},
+            });
+
+            await expect(relay.initializeRelay()).to.be.rejectedWith(`Operator account '${operatorId}' has no balance`);
+          });
         },
       );
 
