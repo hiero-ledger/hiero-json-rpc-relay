@@ -485,15 +485,16 @@ export class Relay {
   }
 
   private async ensureOperatorHasBalance(): Promise<void> {
+    const operator = this.operatorAccountId!.toString();
+    const operatorBalanceErrorMsg = `Operator account '${operator}' has no balance`;
     const maxAttempts = ConfigService.get('OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS') || 1;
     const delayMs = ConfigService.get('OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS');
-    const operator = this.operatorAccountId!.toString();
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
         if (balance === BigInt(0)) {
-          throw new Error(`Operator account '${operator}' has no balance`);
+          throw new Error(operatorBalanceErrorMsg);
         }
 
         this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
@@ -501,8 +502,9 @@ export class Relay {
         return;
       } catch (error: unknown) {
         const isLastAttempt = attempt >= maxAttempts;
+        const retryable = error instanceof Error && error.message === operatorBalanceErrorMsg;
 
-        if (isLastAttempt) {
+        if (!retryable || isLastAttempt) {
           this.logger.error(
             { err: error },
             'Can not obtain operator balance after %d attempt(s). Aborting startup.',
