@@ -14,6 +14,7 @@ import { ConfigKey } from '../../src/config-service/services/globalConfig';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import constants from '../../src/relay/lib/constants';
+import type { WorkerTask } from '../../src/relay/lib/services/workersService/workers';
 import { WorkersPool } from '../../src/relay/lib/services/workersService/WorkersPool';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { RedisInMemoryServer } from './redisInMemoryServer';
@@ -1148,6 +1149,16 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService) => {
   const blockWorker = proxyquire('../../src/relay/lib/services/ethService/blockService/blockWorker', deps);
   const commonWorker = proxyquire('../../src/relay/lib/services/ethService/ethCommonService/commonWorker', deps);
   const accountWorker = proxyquire('../../src/relay/lib/services/ethService/accountService/accountWorker', deps);
+
+  if (!WorkersPool['_innerRun']) WorkersPool['_innerRun'] = WorkersPool['run'];
+  WorkersPool['run'] = ConfigService.get('WORKERS_POOL_ENABLED')
+    ? WorkersPool['_innerRun']
+    : async (options: WorkerTask) => {
+        ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
+        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance);
+        ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
+        return result;
+      };
 
   WorkersPool['instance'] = {
     run: async (task: any) => {
