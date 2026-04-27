@@ -14,6 +14,7 @@ import { ConfigKey } from '../../src/config-service/services/globalConfig';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import constants from '../../src/relay/lib/constants';
+import type { WorkerTask } from '../../src/relay/lib/services/workersService/workers';
 import { WorkersPool } from '../../src/relay/lib/services/workersService/WorkersPool';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { RedisInMemoryServer } from './redisInMemoryServer';
@@ -786,7 +787,7 @@ export const expectedTx = {
 };
 
 export const defaultDetailedContractResultByHash = {
-  amount: 2000000000,
+  amount: 20000000000000000000,
   bloom:
     '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
   call_result: '0x0606',
@@ -828,9 +829,9 @@ export const defaultDetailedContractResultByHash = {
   access_list: [],
   block_gas_used: 50000000,
   chain_id: '0x12a',
-  gas_price: '0x4a817c80',
-  max_fee_per_gas: '0x55',
-  max_priority_fee_per_gas: '0x43',
+  gas_price: '0xad78ebc5ac620000',
+  max_fee_per_gas: '0xc5e7f2b400',
+  max_priority_fee_per_gas: '0x9bff1cac00',
   r: '0xd693b532a80fed6392b428604171fb32fdbf953728a3a7ecc7d4062b1652c042',
   s: '0x24e9c602ac800b983b035700a14b23f78a253ab762deab5dc27e3555a750b354',
   type: 2,
@@ -1148,6 +1149,16 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
   const blockWorker = proxyquire('../../src/relay/lib/services/ethService/blockService/blockWorker', deps);
   const commonWorker = proxyquire('../../src/relay/lib/services/ethService/ethCommonService/commonWorker', deps);
   const accountWorker = proxyquire('../../src/relay/lib/services/ethService/accountService/accountWorker', deps);
+
+  if (!WorkersPool['_innerRun']) WorkersPool['_innerRun'] = WorkersPool['run'];
+  WorkersPool['run'] = ConfigService.get('WORKERS_POOL_ENABLED')
+    ? WorkersPool['_innerRun']
+    : async (options: WorkerTask) => {
+        ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
+        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance, cacheService);
+        ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
+        return result;
+      };
 
   WorkersPool['instance'] = {
     run: async (task: any) => {

@@ -9,6 +9,7 @@ import {
   decodeErrorMessage,
   isHex,
   mapKeysAndValues,
+  nanOrNumberInt64To0x,
   numberTo0x,
   prepend0x,
   strip0x,
@@ -725,7 +726,7 @@ export class DebugImpl implements Debug {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const value = numberTo0x(tinybarsToWeibars(amount) ?? 0);
+      const value = nanOrNumberInt64To0x(amount);
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {
