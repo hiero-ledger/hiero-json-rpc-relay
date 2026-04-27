@@ -44,6 +44,7 @@ spec:
             name: {{ .Values.ports.name  }}
         livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
         readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+        startupProbe: {{- toYaml .Values.startupProbe | nindent 12 }}
         resources: {{- toYaml .Values.resources | nindent 12 }}      
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

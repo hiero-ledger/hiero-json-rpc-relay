@@ -10,6 +10,10 @@ on:
         required: false
         default: false
         type: boolean
+      test_rate_limits:
+        required: false
+        default: false
+        type: boolean
       on_valid_json_rpc_http_response_status_code:
         required: false
         default: 400
@@ -28,6 +32,9 @@ on:
         required: false
         type: string
       relayTag:
+        required: false
+        type: string
+      soloVersion:
         required: false
         type: string
     secrets:
@@ -54,8 +61,19 @@ jobs:
           if [ -n "${{ inputs.operator_id }}" ]; then
             echo "OPERATOR_ID_MAIN=${{ inputs.operator_id }}" >> $GITHUB_ENV
           fi
+
+      - name: Set rate limiting variables
+        if: ${{ inputs.test_rate_limits == true }}
+        run: |
+          echo "RATE_LIMIT_DISABLED=false" >> $GITHUB_ENV
+          echo "DEFAULT_RATE_LIMIT=200" >> $GITHUB_ENV
+          echo "TIER_1_RATE_LIMIT=100" >> $GITHUB_ENV
+          echo "TIER_2_RATE_LIMIT=800" >> $GITHUB_ENV
+          echo "TIER_3_RATE_LIMIT=1600" >> $GITHUB_ENV
+          echo "LIMIT_DURATION=60000" >> $GITHUB_ENV
+
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
         with:
           egress-policy: audit
 
@@ -63,7 +81,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
 
@@ -77,19 +95,53 @@ jobs:
         run: npm ci
 
       - name: Create .env file
-        run: cp ./packages/server/tests/${{ inputs.envfile }} .env
+        run: cp ./tests/server/${{ inputs.envfile }} .env
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
-      - name: Install hedera local
-        run: npm install @hashgraph/hedera-local -g
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --values-file: .github/mirror-node-values.yaml
+          EOF
 
-      - name: Run hedera local
-        run: npx hedera restart -d --verbose=trace --network-tag=${{ inputs.networkTag }} --mirror-tag=${{ inputs.mirrorTag }}
+      - name: Setup Kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
 
-      - name: Stop relay
-        run: docker stop json-rpc-relay json-rpc-relay-ws
+      - name: Start the solo node
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --deploy-explorer=false \
+            --deploy-relay=false
+        timeout-minutes: 15
+
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
       - name: Run acceptance tests
         run: |
@@ -109,7 +161,7 @@ jobs:
 
       - name: Upload Heap Snapshots
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Heap Snapshots
           path: '**/*.heapsnapshot'
@@ -117,20 +169,20 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Test Results (${{ inputs.testfilter }}) ${{ inputs.on_valid_json_rpc_http_response_status_code}}
           path: test-*.xml
 
       - name: Upload coverage report
-        if: ${{ !cancelled() && always() }}
+        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
         run: bash .github/scripts/codecov-upload.sh
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish Test Report
         uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
-        if: ${{ !cancelled() }}
+        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() }}
         with:
           check_name: '' # Set to empty to disable check run
           comment_mode: off

@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { ConfigService } from '../../../../config-service/services';
+import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types';
+
+/**
+ * Service that manages transaction ordering through distributed locking.
+ * Uses a strategy pattern to support both local (in-memory) and distributed (Redis) locking.
+ */
+export class LockService {
+  /**
+   * The underlying lock strategy implementation (Local or Redis).
+   */
+  private readonly strategy: LockStrategy;
+
+  /**
+   * Creates a new LockService instance.
+   *
+   * @param strategy - The lock strategy implementation to use.
+   */
+  constructor(strategy: LockStrategy) {
+    this.strategy = strategy;
+  }
+
+  /**
+   * Acquires a lock for the specified address.
+   * Blocks until the lock is available (no timeout on waiting).
+   *
+   * @param address - The sender address to acquire the lock for.
+   * @returns A promise that resolves to a LockAcquisitionResult, or undefined if acquisition fails (fail open).
+   */
+  async acquireLock(address: string): Promise<LockAcquisitionResult | undefined> {
+    if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
+      return await this.strategy.acquireLock(address);
+    }
+  }
+
+  /**
+   * Releases a lock for the specified address.
+   * Only succeeds if the session key matches the current lock holder.
+   *
+   * @param address - The sender address to release the lock for.
+   * @param sessionKey - The session key obtained during lock acquisition.
+   * @param acquiredAt - The timestamp when the lock was acquired (for metrics calculation).
+   */
+  async releaseLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void> {
+    if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
+      await this.strategy.releaseLock(address, sessionKey, acquiredAt);
+    }
+  }
+
+  /**
+   * Normalizes an address to lowercase for consistent key generation across lock strategies.
+   *
+   * @param address - The address to normalize.
+   * @returns The normalized address.
+   */
+  static normalizeAddress(address: string): string {
+    return address.toLowerCase();
+  }
+
+  /**
+   * Returns the type of the underlying lock strategy implementation.
+   *
+   * @returns The lock strategy label ('local' or 'redis').
+   */
+  getStrategyType(): LockStrategyLabel {
+    return this.strategy.type;
+  }
+}

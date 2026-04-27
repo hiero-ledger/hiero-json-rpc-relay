@@ -7,7 +7,7 @@ Simple implementation of React + Metamask + Hedera Hashgraph
 You must have running:
 
 - JSON-RPC Relay on port :7546
-- Hedera Local Node
+- Local node Hiero network (can be started using [Solo](https://solo.hiero.org))
 
 ## Configuration
 

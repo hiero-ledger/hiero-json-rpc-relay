@@ -11,8 +11,19 @@ on:
       tag:
         description: 'Tag to use'
         required: true
-        default: 'v0.40.0'    
-
+        default: 'v0.40.0'
+      networkTag:
+        description: 'Network tag'
+        required: false
+        type: string
+      mirrorTag:
+        description: 'MirrorNode tag'
+        required: false
+        type: string
+      soloVersion:
+        description: 'Solo version'
+        required: false
+        type: string
 permissions:
   contents: read
   
@@ -24,7 +35,7 @@ jobs:
       actions: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
         with:
           egress-policy: audit
 
@@ -49,7 +60,7 @@ jobs:
           echo "OPERATOR_KEY_MAIN=${PRIVATE_KEY}" >> $GITHUB_ENV
 
       - name: Setup node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
          node-version: 22
     
@@ -63,26 +74,60 @@ jobs:
         run: npm ci
     
       - name: Create .env file
-        run: cp ./packages/server/tests/testnetAcceptance.env .env    
+        run: cp ./tests/server/testnetAcceptance.env .env    
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
-      - name: Install hedera local
-        run: npm install @hashgraph/hedera-local -g        
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --values-file: .github/mirror-node-values.yaml
+          EOF
+
+      - name: Setup Kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
+
+      - name: Start the solo node
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --deploy-explorer=false \
+            --deploy-relay=false
+        timeout-minutes: 15
+
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
       - name: Run acceptance tests
         run: npm run acceptancetest:release
 
-      - name: Run hedera local
-        run: hedera restart -d
-  
-      - name: Stop  relay
-        run: docker stop json-rpc-relay json-rpc-relay-ws
-
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Test Results
           path: test-*.xml

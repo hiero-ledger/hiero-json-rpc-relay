@@ -10,6 +10,10 @@ autoscaling:
 
 # For reference see .env.ws.example
 config:
+  # Transport Selection
+  RPC_HTTP_ENABLED: false
+  RPC_WS_ENABLED: true
+
   # ========== REQUIRED CONFIGURATION ==========
   # Network Configuration
   CHAIN_ID: ''
@@ -111,7 +115,6 @@ livenessProbe:
   httpGet:
     path: /health/liveness
     port: metrics
-  initialDelaySeconds: 20
   periodSeconds: 10
   timeoutSeconds: 5
 
@@ -173,8 +176,15 @@ readinessProbe:
   httpGet:
     path: /health/readiness
     port: metrics
-  initialDelaySeconds: 20
   timeoutSeconds: 5
+
+startupProbe:
+  failureThreshold: 20
+  httpGet:
+    path: /health/readiness
+    port: metrics
+  periodSeconds: 1
+  timeoutSeconds: 1
 
 terminationGracePeriodSeconds: 60
 

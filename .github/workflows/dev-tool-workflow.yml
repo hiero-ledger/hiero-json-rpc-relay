@@ -9,6 +9,15 @@ on:
       directory:
         required: true
         type: string
+      networkTag:
+        required: false
+        type: string
+      mirrorTag:
+        required: false
+        type: string
+      soloVersion:
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +30,7 @@ jobs:
       actions: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
         with:
           egress-policy: audit
 
@@ -29,7 +38,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y make gcc g++
 
       - name: Setup node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
 
@@ -37,7 +46,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: "1.24.0"
 
@@ -47,19 +56,59 @@ jobs:
       - name: Create .env file
         run: |
           cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
-          cp ./packages/server/tests/localAcceptance.env .env
+          cp ./tests/server/localAcceptance.env .env
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
-      - name: Start the hedera local node
-        run: npx hedera start -d
+      - name: Setup Kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
 
-      - name: Stop the local node's relay
-        run: docker stop json-rpc-relay
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --values-file: .github/mirror-node-values.yaml
+          EOF
 
-      - name: Start the local relay
+      - name: Start the solo node
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --deploy-explorer=false \
+            --deploy-relay=false
+        timeout-minutes: 15
+
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
+
+      - name: Start the local relay http server
         run: npm run start &
+
+      - name: Start the local relay ws server
+        run: npm run start:ws &
 
       - name: Install dependencies
         run: cd ${{ inputs.directory }}/ && npm ci

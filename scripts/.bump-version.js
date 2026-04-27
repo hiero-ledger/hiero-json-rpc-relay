@@ -35,11 +35,7 @@ replace({
   replacement: `"version": "${newVersion}"`,
   paths: [
     "package.json",
-    "packages/config-service/package.json",
-    "packages/relay/package.json",
-    "packages/server/package.json",
     "docs/openrpc.json",
-    "packages/ws-server/package.json",
   ],
   recursive: false,
   silent: false,

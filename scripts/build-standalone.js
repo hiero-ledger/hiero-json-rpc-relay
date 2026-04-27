@@ -13,8 +13,7 @@ async function buildStandalone() {
   const root = process.cwd();
   const dest = path.join(root, '.standalone');
   const entries = [
-    'packages/server/dist/index.js',
-    'packages/ws-server/dist/index.js',
+    'dist/index.js',
     // nft cannot trace dynamic pino transports; pino-pretty must be provided as a root entry to be bundled
     require.resolve('pino-pretty'),
   ];

@@ -23,5 +23,5 @@ RECEIVER_PRIVATE_KEY=
 In the project directory:
 
 1. Run `npm install`
-2. Run `npx @hashgraph/hedera-local start -d`
+2. Run `npx @hashgraph/solo one-shot single deploy --dev`
 3. Run `npx hardhat test`

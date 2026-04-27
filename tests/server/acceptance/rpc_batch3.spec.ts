@@ -1,0 +1,2314 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// External resources
+import { ContractId } from '@hashgraph/sdk';
+import Axios from 'axios';
+import chai, { expect } from 'chai';
+import chaiExclude from 'chai-exclude';
+import { BaseContract, ethers } from 'ethers';
+
+import { ConfigService } from '../../../src/config-service/services';
+import { predefined } from '../../../src/relay';
+import { numberTo0x } from '../../../src/relay/formatters';
+import Constants from '../../../src/relay/lib/constants';
+import { TracerType } from '../../../src/relay/lib/constants';
+// Helper functions/constants from local resources
+import { TYPES } from '../../../src/relay/lib/validators';
+import RelayAssertions from '../../relay/assertions';
+import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
+import { GAS_LIMIT } from '../../relay/lib/eth/eth-config';
+import MirrorClient from '../clients/mirrorClient';
+import RelayClient from '../clients/relayClient';
+import ServicesClient from '../clients/servicesClient';
+import basicContractJson from '../contracts/Basic.json';
+import callerContractJson from '../contracts/Caller.json';
+import DeployerContractJson from '../contracts/Deployer.json';
+import EstimateGasContract from '../contracts/EstimateGasContract.json';
+import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
+// Contracts and JSON files from local resources
+import reverterContractJson from '../contracts/Reverter.json';
+// Assertions and constants from local resources
+import Assertions, { requestIdRegex } from '../helpers/assertions';
+import RelayCall from '../helpers/constants';
+import Helper from '../helpers/constants';
+import Address from '../helpers/constants';
+import RelayCalls from '../helpers/constants';
+import { Utils } from '../helpers/utils';
+import { AliasAccount } from '../types/AliasAccount';
+
+chai.use(chaiExclude);
+
+describe('@api-batch-3 RPC Server Acceptance Tests', function () {
+  this.timeout(240 * 1000); // 240 seconds
+
+  const accounts: AliasAccount[] = [];
+
+  // @ts-ignore
+  const {
+    servicesNode,
+    mirrorNode,
+    relay,
+  }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient } = global;
+  let mirrorPrimaryAccount: ethers.Wallet;
+  let mirrorSecondaryAccount: ethers.Wallet;
+
+  const CHAIN_ID = ConfigService.get('CHAIN_ID');
+  const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
+
+  let reverterContract: ethers.Contract;
+  let reverterEvmAddress: string;
+  let requestId: string;
+  const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
+  const BASIC_CONTRACT_PING_RESULT = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const RESULT_TRUE = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const PURE_METHOD_CALL_DATA = '0xb2e0100c';
+  const VIEW_METHOD_CALL_DATA = '0x90e9b875';
+  const PAYABLE_METHOD_CALL_DATA = '0xd0efd7ef';
+  const PURE_METHOD_ERROR_DATA =
+    '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010526576657274526561736f6e5075726500000000000000000000000000000000';
+  const VIEW_METHOD_ERROR_DATA =
+    '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010526576657274526561736f6e5669657700000000000000000000000000000000';
+  const PAYABLE_METHOD_ERROR_DATA =
+    '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013526576657274526561736f6e50617961626c6500000000000000000000000000';
+  const PURE_METHOD_ERROR_MESSAGE = 'RevertReasonPure';
+  const VIEW_METHOD_ERROR_MESSAGE = 'RevertReasonView';
+  const errorMessagePrefixedStr =
+    'Expected 0x prefixed string representing the hash (32 bytes) in object, 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"';
+  const TOPICS = [
+    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
+    '0x000000000000000000000000000000000000000000000000000000000000042d',
+  ];
+  const ONE_THOUSAND_TINYBARS = Utils.add0xPrefix(Utils.toHex(Constants.TINYBAR_TO_WEIBAR_COEF * 1000));
+
+  beforeEach(async () => {
+    requestId = Utils.generateRequestId();
+  });
+
+  before(async () => {
+    requestId = Utils.generateRequestId();
+    const initialAccount: AliasAccount = global.accounts[0];
+
+    const initialBalance = '10000000000';
+    const neededAccounts: number = 4;
+    accounts.push(
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
+    );
+    global.accounts.push(...accounts);
+
+    reverterContract = await Utils.deployContract(
+      reverterContractJson.abi,
+      reverterContractJson.bytecode,
+      accounts[0].wallet,
+    );
+
+    reverterEvmAddress = reverterContract.target as string;
+
+    mirrorPrimaryAccount = accounts[0].wallet;
+    mirrorSecondaryAccount = accounts[1].wallet;
+  });
+
+  describe('eth_call', () => {
+    let basicContract: ethers.Contract;
+    let basicContractAddress: string;
+    let deploymentBlockNumber: number;
+    let deploymentBlockHash: string;
+
+    before(async () => {
+      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
+      basicContractAddress = basicContract.target as string;
+
+      const basicContractTxHash = basicContract.deploymentTransaction()?.hash;
+      expect(basicContractTxHash).to.not.be.null;
+
+      const transactionReceipt = await accounts[0].wallet.provider?.getTransactionReceipt(basicContractTxHash!);
+      expect(transactionReceipt).to.not.be.null;
+
+      if (transactionReceipt) {
+        deploymentBlockNumber = transactionReceipt.blockNumber;
+        deploymentBlockHash = transactionReceipt.blockHash;
+      }
+    });
+
+    it('@release should execute "eth_call" request to Basic contract', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('@release should execute "eth_call" request to simulate deploying a contract with `to` field being null', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: null,
+        data: basicContractJson.bytecode,
+      };
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(basicContractJson.deployedBytecode);
+    });
+
+    it('@release should execute "eth_call" request to simulate deploying a contract with `to` field being empty/undefined', async function () {
+      const callData = {
+        from: accounts[0].address,
+        data: basicContractJson.bytecode,
+      };
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(basicContractJson.deployedBytecode);
+    });
+
+    it('should fail "eth_call" request without data field', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq('0x'); // confirm no error
+    });
+
+    it('"eth_call" for non-existing contract address returns 0x', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: Address.NON_EXISTING_ADDRESS,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq('0x'); // confirm no error
+    });
+
+    it('should execute "eth_call" without from field', async function () {
+      const callData = {
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should execute "eth_call" without gas field', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should execute "eth_call" with correct block number', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // deploymentBlockNumber to HEX
+      const block = numberTo0x(deploymentBlockNumber);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, block]);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should execute "eth_call" with incorrect block number, SC should not exist yet', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // deploymentBlockNumber - 1 to HEX
+      const block = numberTo0x(deploymentBlockNumber - 1);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, block]);
+      expect(res).to.eq('0x');
+    });
+
+    it('should execute "eth_call" with incorrect block number as an object, SC should not exist yet', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // deploymentBlockNumber - 1 to HEX
+      const block = numberTo0x(deploymentBlockNumber - 1);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockNumber: block }]);
+      expect(res).to.eq('0x');
+    });
+
+    it('should execute "eth_call" with incorrect block hash object, SC should not exist yet', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // get block hash before deployment
+      const blockNumber = deploymentBlockNumber - 1;
+      const nextBlockHash = (await mirrorNode.get(`/blocks/${blockNumber}`)).hash;
+      const truncatedHash = nextBlockHash.slice(0, 66);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockHash: truncatedHash }]);
+      expect(res).to.eq('0x');
+    });
+
+    it('should execute "eth_call" with correct block hash object', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const truncatedHash = deploymentBlockHash.slice(0, 66);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockHash: truncatedHash }]);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should execute "eth_call" with correct block number object', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // deploymentBlockNumber to HEX
+      const block = numberTo0x(deploymentBlockNumber);
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockNumber: block }]);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should execute "eth_call" with both data and input fields', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+        input: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      // deploymentBlockNumber to HEX
+      const block = numberTo0x(deploymentBlockNumber);
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockNumber: block }]);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('should fail to execute "eth_call" with wrong block tag', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+      const errorType = predefined.INVALID_PARAMETER(1, `${errorMessagePrefixedStr}, value: newest`);
+      const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'newest'], requestId];
+
+      await Assertions.assertPredefinedRpcError(errorType, relay.call, false, relay, args);
+    });
+
+    it('should fail to execute "eth_call" with wrong block number', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+      const errorType = predefined.INVALID_PARAMETER(1, `${errorMessagePrefixedStr}, value: 123`);
+      const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, '123'], requestId];
+
+      await Assertions.assertPredefinedRpcError(errorType, relay.call, false, relay, args);
+    });
+
+    it('should fail to execute "eth_call" with wrong block hash object', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+      const errorType = predefined.INVALID_PARAMETER(
+        `'blockHash' for BlockHashObject`,
+        'Expected 0x prefixed string representing the hash (32 bytes) of a block, value: 0x123',
+      );
+      const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockHash: '0x123' }], requestId];
+
+      await Assertions.assertPredefinedRpcError(errorType, relay.call, false, relay, args);
+    });
+
+    it('should fail to execute "eth_call" with wrong block number object', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+      const errorType = predefined.INVALID_PARAMETER(
+        `'blockNumber' for BlockNumberObject`,
+        `Expected 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending", value: invalid_block_number`,
+      );
+      const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, { blockNumber: 'invalid_block_number' }], requestId];
+
+      await Assertions.assertPredefinedRpcError(errorType, relay.call, false, relay, args);
+    });
+
+    describe('Caller contract', () => {
+      let callerContract: ethers.Contract;
+      let callerAddress: string;
+      let defaultCallData: any;
+      let activeAccount: AliasAccount;
+      let activeAccountAddress: string;
+
+      const describes = [
+        {
+          title: 'With long-zero address',
+          beforeFunc: async function () {
+            activeAccount = accounts[0];
+            activeAccountAddress = accounts[0].wallet.address.replace('0x', '').toLowerCase();
+            callerContract = await Utils.deployContract(
+              callerContractJson.abi,
+              callerContractJson.bytecode,
+              activeAccount.wallet,
+            );
+            const callerMirror = await mirrorNode.get(`/contracts/${callerContract.target}`);
+
+            const callerContractId = ContractId.fromString(callerMirror.contract_id);
+            callerAddress = `0x${callerContractId.toSolidityAddress()}`;
+
+            defaultCallData = {
+              from: activeAccount.address,
+              to: callerAddress,
+              gas: `0x7530`,
+            };
+          },
+        },
+        {
+          title: 'With evm address',
+          beforeFunc: async function () {
+            activeAccount = accounts[1];
+            activeAccountAddress = accounts[1].wallet.address.replace('0x', '').toLowerCase();
+            callerContract = (await Utils.deployContractWithEthers(
+              [],
+              callerContractJson,
+              activeAccount.wallet,
+              relay,
+            )) as ethers.Contract;
+            // Wait for creation to propagate
+            const callerMirror = await mirrorNode.get(`/contracts/${callerContract.target}`);
+            callerAddress = callerMirror.evm_address;
+            defaultCallData = {
+              from: activeAccount.address,
+              to: callerAddress,
+              gas: `0x7530`,
+            };
+          },
+        },
+      ];
+
+      for (const desc of describes) {
+        describe(desc.title, () => {
+          before(desc.beforeFunc);
+
+          it('001 Should call pureMultiply', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0x0ec1551d',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
+
+          it('002 Should call msgSender', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xd737d0c7',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq(`0x${activeAccountAddress.padStart(64, '0')}`);
+          });
+
+          it('003 Should call txOrigin', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xf96757d1',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq(`0x${activeAccountAddress.padStart(64, '0')}`);
+          });
+
+          it('004 Should call msgSig', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xec3e88cf',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0xec3e88cf00000000000000000000000000000000000000000000000000000000');
+          });
+
+          it('005 Should call addressBalance', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0x0ec1551d',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
+
+          it("006 'data' from request body with wrong method signature", async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0x3ec4de3800000000000000000000000067d8d32e9bf1a9968a5ff53b87d777aa8ebbee69',
+            };
+
+            await relay.callFailing(
+              RelayCall.ETH_ENDPOINTS.ETH_CALL,
+              [callData, 'latest'],
+              predefined.CONTRACT_REVERT(),
+            );
+          });
+
+          it("007 'data' from request body with wrong encoded parameter", async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0x3ec4de350000000000000000000000000000000000000000000000000000000000000000',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000000');
+          });
+
+          it("008 should work for missing 'from' field", async function () {
+            const callData = {
+              to: callerAddress,
+              data: '0x0ec1551d',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
+
+          it("009 should work for missing 'to' field", async function () {
+            const callData = {
+              from: accounts[0].address,
+              data: basicContractJson.bytecode,
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq(basicContractJson.deployedBytecode);
+          });
+
+          it('010 Should call msgValue', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: ONE_THOUSAND_TINYBARS,
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
+          });
+
+          // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
+          xit('011 Should fail when calling msgValue with more value than available balance', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: '0x3e80000000',
+            };
+            const errorType = predefined.CONTRACT_REVERT();
+            const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId];
+
+            await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
+          });
+
+          it("012 should work for wrong 'from' field", async function () {
+            const callData = {
+              from: '0x0000000000000000000000000000000000000000',
+              to: callerAddress,
+              data: '0x0ec1551d',
+            };
+
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
+        });
+      }
+    });
+
+    it('eth_call contract revert returns 200 http status', async function () {
+      // preparing the contract data needed for a REVERT
+      const activeAccount = accounts[1];
+      const callerContract = await Utils.deployContractWithEthers([], callerContractJson, activeAccount.wallet, relay);
+      // Wait for creation to propagate
+      const callerMirror = await mirrorNode.get(`/contracts/${callerContract.target}`);
+      const callerAddress = callerMirror.evm_address;
+      const defaultCallData = {
+        from: activeAccount.address,
+        to: callerAddress,
+        gas: `0x7530`,
+      };
+      const callData = {
+        ...defaultCallData,
+        data: '0x3ec4de3800000000000000000000000067d8d32e9bf1a9968a5ff53b87d777aa8ebbee69',
+      };
+      const data = {
+        id: '2',
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CALL,
+        params: [callData, 'latest'],
+      };
+
+      // Since we want the http status code, we need to perform the call using a client http request instead of using the relay instance directly
+      const testClientPort = ConfigService.get('E2E_SERVER_PORT');
+      const testClient = Axios.create({
+        baseURL: 'http://localhost:' + testClientPort,
+        responseType: 'json' as const,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+        timeout: 30 * 1000,
+      });
+
+      // Performing the call
+      const response = await testClient.post('/', data);
+
+      // Asserting the response
+      expect(response).to.exist;
+      expect(response.status).to.be.equal(200);
+      expect(response.data).to.exist;
+      expect(response.data.error).to.exist;
+      expect(response.data.error.code).to.be.equal(3);
+      expect(response.data.error.message).to.contain('execution reverted: CONTRACT_REVERT_EXECUTED');
+      expect(response.data.error.name).to.undefined;
+    });
+  });
+
+  describe('Get revert details via eth_call for', async () => {
+    async function sendAndRevertCall({ value = 0, data }) {
+      const signedTx = await accounts[0].wallet.signTransaction({
+        value,
+        gasLimit: '0x186a0', // 100_000
+        chainId: Number(CHAIN_ID),
+        to: reverterEvmAddress,
+        nonce: await relay.getAccountNonce(accounts[0].address),
+        maxFeePerGas: await relay.gasPrice(),
+        data,
+      });
+      const txHash = await relay.sendRawTransaction(signedTx);
+      const receipt = await relay.pollForValidTransactionReceipt(txHash);
+
+      try {
+        await relay.call('eth_call', [
+          {
+            from: receipt.from,
+            to: receipt.to,
+            data,
+          },
+          receipt.blockNumber,
+        ]);
+
+        Assertions.expectedError();
+      } catch (e) {
+        return e.info.error;
+      }
+    }
+
+    it('revert: payable function', async () => {
+      const err = await sendAndRevertCall({
+        value: ONE_TINYBAR,
+        data: '0xd0efd7ef', // revertPayable()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('RevertReasonPayable');
+      expect(err.data).to.include('08c379a0'); // Error(string) selector
+      expect(err.data).to.include('526576657274526561736f6e50617961626c65'); // "RevertReasonPayable" as hex
+    });
+
+    it('revert: empty revert()', async () => {
+      const err = await sendAndRevertCall({
+        data: '0xfe0a3dd7', // revertWithNothing()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.equal('0x');
+    });
+
+    it('revert: require(false, "Some revert message")', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x0323d234', // revertWithString()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('Some revert message');
+      expect(err.data).to.include('08c379a0'); // Error(string) selector
+      expect(err.data).to.include('536f6d6520726576657274206d657373616765'); // "Some revert message" as hex
+    });
+
+    it('revert: custom error', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x46fc4bb1', // revertWithCustomError()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.include('0bd3d39c'); // SomeCustomError() selector
+    });
+
+    it('revert: panic error', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x33fe3fbd', // revertWithPanic()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.include('4e487b71'); // Panic(uint256) selector
+    });
+  });
+
+  describe('Contract call reverts', async () => {
+    it('Returns revert message for pure methods', async () => {
+      const callData = {
+        from: accounts[0].address,
+        to: reverterEvmAddress,
+        gas: numberTo0x(30000),
+        data: PURE_METHOD_CALL_DATA,
+      };
+
+      await relay.callFailing(
+        RelayCall.ETH_ENDPOINTS.ETH_CALL,
+        [callData, 'latest'],
+        predefined.CONTRACT_REVERT(PURE_METHOD_ERROR_MESSAGE, PURE_METHOD_ERROR_DATA),
+      );
+    });
+
+    it('Returns revert message for view methods', async () => {
+      const callData = {
+        from: accounts[0].address,
+        to: reverterEvmAddress,
+        gas: numberTo0x(30000),
+        data: VIEW_METHOD_CALL_DATA,
+      };
+
+      await relay.callFailing(
+        RelayCall.ETH_ENDPOINTS.ETH_CALL,
+        [callData, 'latest'],
+        predefined.CONTRACT_REVERT(VIEW_METHOD_ERROR_MESSAGE, VIEW_METHOD_ERROR_DATA),
+      );
+    });
+
+    it('Returns revert reason in receipt for payable methods', async () => {
+      const transaction = {
+        value: ONE_TINYBAR,
+        gasLimit: numberTo0x(30000),
+        chainId: Number(CHAIN_ID),
+        to: reverterEvmAddress,
+        nonce: await relay.getAccountNonce(accounts[0].address),
+        maxFeePerGas: await relay.gasPrice(),
+        data: PAYABLE_METHOD_CALL_DATA,
+      };
+      const signedTx = await accounts[0].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+
+      // Wait until receipt is available in mirror node
+      await mirrorNode.get(`/contracts/results/${transactionHash}`);
+
+      const receipt = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
+      expect(receipt?.revertReason).to.exist;
+      expect(receipt.revertReason).to.eq(PAYABLE_METHOD_ERROR_DATA);
+    });
+
+    describe('eth_call for reverted pure contract calls', async function () {
+      beforeEach(async () => {
+        requestId = Utils.generateRequestId();
+      });
+
+      const pureMethodsData = [
+        {
+          data: '0x2dac842f',
+          method: 'revertWithNothingPure',
+          message: '',
+          errorData: '0x',
+        },
+        {
+          data: '0x8b153371',
+          method: 'revertWithStringPure',
+          message: 'Some revert message',
+          errorData:
+            '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013536f6d6520726576657274206d65737361676500000000000000000000000000',
+        },
+        {
+          data: '0x35314694',
+          method: 'revertWithCustomErrorPure',
+          message: '',
+          errorData: '0x0bd3d39c',
+        },
+        {
+          data: '0x83889056',
+          method: 'revertWithPanicPure',
+          message: '',
+          errorData: '0x4e487b710000000000000000000000000000000000000000000000000000000000000012',
+        },
+      ];
+
+      for (const element of pureMethodsData) {
+        it(`Pure method ${element.method} returns tx receipt`, async function () {
+          const callData = {
+            from: accounts[0].address,
+            to: reverterEvmAddress,
+            gas: numberTo0x(30000),
+            data: element.data,
+          };
+
+          await relay.callFailing(
+            RelayCall.ETH_ENDPOINTS.ETH_CALL,
+            [callData, 'latest'],
+            predefined.CONTRACT_REVERT(element.message, element.errorData),
+          );
+        });
+      }
+    });
+  });
+
+  describe('eth_call with contract that calls precompiles', async () => {
+    const TOKEN_NAME = Utils.randomString(10);
+    const TOKEN_SYMBOL = Utils.randomString(5);
+    const INITIAL_SUPPLY = 100000;
+    const IS_TOKEN_ADDRESS_SIGNATURE = '0xbff9834f000000000000000000000000';
+
+    let htsImpl: BaseContract;
+    let tokenAddress: string;
+
+    before(async () => {
+      const htsResult = await servicesNode.createHTS({
+        tokenName: TOKEN_NAME,
+        symbol: TOKEN_SYMBOL,
+        treasuryAccountId: accounts[1].accountId.toString(),
+        initialSupply: INITIAL_SUPPLY,
+        adminPrivateKey: accounts[1].privateKey,
+      });
+
+      tokenAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId!.toString());
+
+      // Deploy a contract implementing HederaTokenService
+      const HederaTokenServiceImplFactory = new ethers.ContractFactory(
+        HederaTokenServiceImplJson.abi,
+        HederaTokenServiceImplJson.bytecode,
+        accounts[1].wallet,
+      );
+      htsImpl = await HederaTokenServiceImplFactory.deploy(Helper.GAS.LIMIT_15_000_000);
+    });
+
+    it('Function calling HederaTokenService.isToken(token)', async () => {
+      const callData = {
+        from: accounts[1].address,
+        to: htsImpl.target,
+        gas: numberTo0x(30000),
+        data: IS_TOKEN_ADDRESS_SIGNATURE + tokenAddress.replace('0x', ''),
+      };
+
+      const res = await Utils.ethCallWRetries(relay, callData, 'latest');
+      expect(res).to.eq(RESULT_TRUE);
+    });
+  });
+
+  describe('eth_getTransactionByHash', async function () {
+    let defaultTransactionFields: any;
+    let deployerContract: ethers.Contract;
+    let deployerContractAddress: string;
+
+    before(async () => {
+      const defaultGasPrice = await relay.gasPrice();
+      defaultTransactionFields = {
+        to: null,
+        from: accounts[0].address,
+        gasPrice: defaultGasPrice,
+        chainId: Number(CHAIN_ID),
+        gasLimit: GAS_LIMIT,
+        type: 2,
+        maxFeePerGas: defaultGasPrice,
+        maxPriorityFeePerGas: defaultGasPrice,
+      };
+
+      deployerContract = await Utils.deployContract(
+        DeployerContractJson.abi,
+        DeployerContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      deployerContractAddress = deployerContract.target.toLowerCase() as string;
+    });
+
+    it('should return to = null for contract deployment tx', async () => {
+      const { hash } = deployerContract.deploymentTransaction();
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash]);
+      expect(res.to).to.be.null;
+    });
+
+    it('should return to = target contract for a transaction that executes CREATE', async () => {
+      const transactionHash = await relay.sendRawTransaction(
+        await accounts[0].wallet.signTransaction({
+          ...defaultTransactionFields,
+          to: deployerContractAddress,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          data: '0x6e6662b9', // deployViaCreate() selector
+        }),
+      );
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+      expect(res.to).to.equal(deployerContractAddress);
+    });
+
+    it('should return to = target contract for a transaction that executes CREATE2', async () => {
+      const transactionHash = await relay.sendRawTransaction(
+        await accounts[0].wallet.signTransaction({
+          ...defaultTransactionFields,
+          to: deployerContractAddress,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          data: '0xdbb6f04a', // deployViaCreate2()
+        }),
+      );
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+      expect(res.to).to.equal(deployerContractAddress);
+    });
+  });
+
+  describe('eth_getTransactionCount', async function () {
+    let deployerContract: ethers.Contract;
+    let deployerContractTx: ethers.TransactionReceipt;
+    let deployerContractAddress: string;
+    let contractId: ContractId;
+    let primaryAccountNonce: number | null;
+    let secondaryAccountNonce: number | null;
+
+    const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
+    const defaultGasLimit = numberTo0x(3_000_000);
+    const defaultTransaction = {
+      value: ONE_TINYBAR,
+      chainId: Number(CHAIN_ID),
+      maxPriorityFeePerGas: defaultGasPrice,
+      maxFeePerGas: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      type: 2,
+    };
+
+    before(async () => {
+      deployerContract = await Utils.deployContract(
+        DeployerContractJson.abi,
+        DeployerContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      deployerContractAddress = deployerContract.target as string;
+
+      const deployerContractTxHash = deployerContract.deploymentTransaction()?.hash;
+      expect(deployerContractTxHash).to.not.be.null;
+
+      deployerContractTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+        deployerContractTxHash,
+      ]);
+
+      // get contract details
+      const mirrorContract = await mirrorNode.get(`/contracts/${deployerContractAddress}`);
+      contractId = ContractId.fromString(mirrorContract.contract_id);
+
+      primaryAccountNonce = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        accounts[0].address,
+        'latest',
+      ]);
+      secondaryAccountNonce = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        accounts[1].address,
+        'latest',
+      ]);
+    });
+
+    it('@release should execute "eth_getTransactionCount" primary', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        mirrorPrimaryAccount.address,
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal(primaryAccountNonce);
+    });
+
+    it('should execute "eth_getTransactionCount" secondary', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        mirrorSecondaryAccount.address,
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal(secondaryAccountNonce);
+    });
+
+    it('@release should execute "eth_getTransactionCount" historic', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        deployerContractAddress,
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal('0x2');
+    });
+
+    it('@release should execute "eth_getTransactionCount" contract latest', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        deployerContractAddress,
+        Constants.BLOCK_LATEST,
+      ]);
+      expect(res).to.be.equal('0x2');
+    });
+
+    it('@release should execute "eth_getTransactionCount" with block hash', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        deployerContractAddress,
+        deployerContractTx.blockHash.slice(0, 66),
+      ]);
+      expect(res).to.be.equal('0x2');
+    });
+
+    it('@release should execute "eth_getTransactionCount" for account with id converted to evm_address', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        mirrorPrimaryAccount.address,
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal(primaryAccountNonce);
+    });
+
+    it('@release should execute "eth_getTransactionCount" contract with id converted to evm_address historic', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        Utils.idToEvmAddress(contractId.toString()),
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal('0x2');
+    });
+
+    it('@release should execute "eth_getTransactionCount" contract with id converted to evm_address latest', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        Utils.idToEvmAddress(contractId.toString()),
+        Constants.BLOCK_LATEST,
+      ]);
+      expect(res).to.be.equal('0x2');
+    });
+
+    it('should execute "eth_getTransactionCount" for non-existing address', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        Address.NON_EXISTING_ADDRESS,
+        deployerContractTx.blockNumber,
+      ]);
+      expect(res).to.be.equal('0x0');
+    });
+
+    it('should execute "eth_getTransactionCount" from hollow account', async function () {
+      const hollowAccount = ethers.Wallet.createRandom();
+      const resBeforeCreation = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        hollowAccount.address,
+        'latest',
+      ]);
+      expect(resBeforeCreation).to.be.equal('0x0');
+
+      const gasPrice = await relay.gasPrice();
+      const signedTxHollowAccountCreation = await accounts[1].wallet.signTransaction({
+        ...defaultTransaction,
+        value: '10000000000000000000', // 10 HBARs
+        to: hollowAccount.address,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+      });
+      const txHashHAC = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_SEND_RAW_TRANSACTION, [
+        signedTxHollowAccountCreation,
+      ]);
+      await mirrorNode.get(`/contracts/results/${txHashHAC}`);
+
+      const signTxFromHollowAccount = await hollowAccount.signTransaction({
+        ...defaultTransaction,
+        to: deployerContractAddress,
+        nonce: await relay.getAccountNonce(hollowAccount.address),
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+      });
+      const txHashHA = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_SEND_RAW_TRANSACTION, [signTxFromHollowAccount]);
+      await mirrorNode.get(`/contracts/results/${txHashHA}`);
+
+      const resAfterCreation = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        hollowAccount.address,
+        'latest',
+      ]);
+      expect(resAfterCreation).to.be.equal('0x1');
+    });
+
+    it('should execute "eth_getTransactionCount" for account with non-zero nonce', async function () {
+      const account = await Utils.createAliasAccount(mirrorNode, accounts[0]);
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        ...defaultTransaction,
+        to: deployerContractAddress,
+        nonce: await relay.getAccountNonce(account.address),
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+      };
+
+      const signedTx = await account.wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      // Since the transactionId is not available in this context
+      // Wait for the transaction to be processed and imported in the mirror node with axios-retry
+      await mirrorNode.get(`/contracts/results/${transactionHash}`);
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [account.address, 'latest']);
+      expect(res).to.be.equal('0x1');
+    });
+
+    it('nonce for contract correctly increments', async function () {
+      const nonceBefore = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        deployerContract.target,
+        'latest',
+      ]);
+      expect(nonceBefore).to.be.equal('0x2');
+
+      const newContractReceipt = await deployerContract.deployViaCreate();
+      await newContractReceipt.wait();
+
+      const nonceAfter = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
+        deployerContract.target,
+        'latest',
+      ]);
+      expect(nonceAfter).to.be.equal('0x3');
+    });
+  });
+
+  describe('Filter API Test Suite', () => {
+    const nonExstingFilter = '0x111222331';
+
+    describe('Positive', async function () {
+      it('@release should be able to create a log filter', async function () {
+        const currentBlock = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
+        expect(
+          RelayAssertions.validateUint(
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
+              {
+                fromBlock: currentBlock,
+                toBlock: 'latest',
+              },
+            ]),
+          ),
+        ).to.eq(true, 'from current block to latest');
+
+        expect(
+          RelayAssertions.validateUint(
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
+              {
+                fromBlock: currentBlock,
+                toBlock: 'latest',
+                address: reverterEvmAddress,
+              },
+            ]),
+          ),
+        ).to.eq(true, 'from current block to latest and specified address');
+
+        expect(
+          RelayAssertions.validateUint(
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
+              {
+                fromBlock: currentBlock,
+                toBlock: 'latest',
+                address: reverterEvmAddress,
+                topics: TOPICS,
+              },
+            ]),
+          ),
+        ).to.eq(true, 'with all params');
+      });
+
+      it('@release should be able to create a newBlock filter', async function () {
+        expect(RelayAssertions.validateUint(await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_BLOCK_FILTER, []))).to.eq(
+          true,
+        );
+      });
+
+      it('should be able to uninstall existing log filter', async function () {
+        const currentBlock = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
+        const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
+          {
+            fromBlock: currentBlock,
+            toBlock: 'latest',
+          },
+        ]);
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_UNINSTALL_FILTER, [filterId]);
+        expect(result).to.eq(true);
+      });
+
+      it('should be able to uninstall existing newBlock filter', async function () {
+        const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_BLOCK_FILTER, []);
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_UNINSTALL_FILTER, [filterId]);
+        expect(result).to.eq(true);
+      });
+
+      it('@release should be able to call eth_getFilterChanges for NEW_BLOCK filter', async function () {
+        const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_BLOCK_FILTER, []);
+
+        await new Promise((r) => setTimeout(r, 4000));
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_FILTER_CHANGES, [filterId]);
+        expect(result).to.exist;
+        expect(result.length).to.gt(0, 'returns the latest block hashes');
+
+        result.forEach((hash: string) => {
+          expect(RelayAssertions.validateHash(hash, 64)).to.eq(true);
+        });
+
+        await new Promise((r) => setTimeout(r, 2000));
+        const result2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_FILTER_CHANGES, [filterId]);
+        expect(result2).to.exist;
+        expect(result2.length).to.be.greaterThanOrEqual(1);
+        expect(RelayAssertions.validateHash(result2[0], 64)).to.eq(true);
+      });
+    });
+
+    describe('Negative', async function () {
+      it('should not be able to uninstall not existing filter', async function () {
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_UNINSTALL_FILTER, [nonExstingFilter]);
+        expect(result).to.eq(false);
+      });
+
+      it('should not be able to call eth_getFilterChanges for not existing filter', async function () {
+        await relay.callFailing(
+          RelayCall.ETH_ENDPOINTS.ETH_GET_FILTER_CHANGES,
+          [nonExstingFilter],
+          predefined.FILTER_NOT_FOUND,
+        );
+      });
+
+      it('should not support "eth_newPendingTransactionFilter"', async function () {
+        await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_NEW_PENDING_TRANSACTION_FILTER, []);
+      });
+    });
+  });
+
+  describe('Debug API Test Suite', async function () {
+    type ILegacyTransaction = {
+      to: null;
+      from: string;
+      gasPrice: number;
+      chainId: number;
+      gasLimit: string;
+      type: number;
+    };
+
+    let requestId: string;
+    let estimateGasContractAddress: { address: string };
+    let transactionTypeLegacy: ILegacyTransaction;
+    let transactionType2930: ILegacyTransaction & { accessList: never[] };
+    let reverterContract: ethers.Contract;
+    let reverterContractAddress: string;
+    let transactionType2: ILegacyTransaction & { maxFeePerGas: number; maxPriorityFeePerGas: number };
+    const defaultGasLimit = numberTo0x(3_000_000);
+    const bytecode = EstimateGasContract.bytecode;
+    const tracerConfigTrue = { onlyTopCall: true };
+    const tracerConfigFalse = { onlyTopCall: false };
+    const tracerConfigInvalid = { onlyTopCall: 'invalid' };
+    const callTracer: TracerType = TracerType.CallTracer;
+
+    before(async () => {
+      const defaultGasPrice = await relay.gasPrice();
+      requestId = Utils.generateRequestId();
+      reverterContract = await Utils.deployContract(
+        reverterContractJson.abi,
+        reverterContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      reverterContractAddress = reverterContract.target as string;
+
+      const defaultTransactionFields = {
+        to: null,
+        from: accounts[0].address,
+        gasPrice: defaultGasPrice,
+        chainId: Number(CHAIN_ID),
+        gasLimit: defaultGasLimit,
+      };
+
+      transactionTypeLegacy = {
+        ...defaultTransactionFields,
+        type: 0,
+      };
+
+      transactionType2930 = {
+        ...defaultTransactionFields,
+        accessList: [],
+        type: 1,
+      };
+
+      transactionType2 = {
+        ...defaultTransactionFields,
+        type: 2,
+        maxFeePerGas: defaultGasPrice,
+        maxPriorityFeePerGas: defaultGasPrice,
+      };
+
+      //deploy estimate gas contract
+      const transaction = {
+        ...transactionTypeLegacy,
+        data: bytecode,
+        nonce: await relay.getAccountNonce(accounts[0].address),
+      };
+
+      const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTransaction);
+      await relay.pollForValidTransactionReceipt(transactionHash);
+      estimateGasContractAddress = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+    });
+
+    describe('Positive scenarios', async function () {
+      const defaultResponseFields = {
+        type: 'CREATE',
+        from: '0x0000000000000000000000000000000000000948',
+        to: '0x000000000000000000000000000000000000094f',
+        value: '0x0',
+        gas: '0x2dc6c0',
+        gasUsed: '0x249f00',
+        input: '',
+        output: '',
+        calls: [],
+      };
+      const successResultCreateWithDepth = {
+        ...defaultResponseFields,
+        calls: [
+          {
+            type: 'CREATE',
+            from: '0xb3b6559bb61da201659b0c6be96ad6826ca0ad80',
+            to: '0x40d5306d1a607292ceec43965ef053224db76129',
+            gas: '0x2b7339',
+            gasUsed: '0x4b',
+            input: '0x',
+            output: '0x',
+            value: '0x0',
+          },
+        ],
+      };
+      const successResultCall = {
+        ...defaultResponseFields,
+        type: 'CALL',
+        calls: [],
+      };
+      const successResultCallWithDepth = {
+        ...successResultCall,
+        calls: [
+          {
+            type: 'STATICCALL',
+            from: '0xd2a8204468e18bb242e6dcbf1700b09e95400b3b',
+            to: '0x5c33384ca47ccc712231c3ea271d334eeafc36a3',
+            gas: '0xc350',
+            gasUsed: '0x94',
+            input: '0x38cc4831',
+            output: '0x0000000000000000000000005c33384ca47ccc712231c3ea271d334eeafc36a3',
+            value: '0x0',
+          },
+        ],
+      };
+      const failingResultCreate = {
+        ...defaultResponseFields,
+        error: 'CONTRACT_EXECUTION_EXCEPTION',
+        revertReason: 'INSUFFICIENT_STACK_ITEMS',
+        gasUsed: '0x2dc6c0',
+        calls: [],
+      };
+      const failingResultCall = {
+        ...defaultResponseFields,
+        type: 'CALL',
+        error: 'CONTRACT_REVERT_EXECUTED',
+        revertReason: 'Some revert message',
+        calls: [],
+      };
+
+      describe('Test transactions of type 0', async function () {
+        //onlyTopCall:false
+        it('should be able to debug a successful CREATE transaction of type Legacy with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            chainId: Number(CHAIN_ID),
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          successResultCreateWithDepth.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
+            successResultCreateWithDepth,
+          );
+          expect(resultDebug.calls).to.have.lengthOf(1);
+        });
+
+        it('should be able to debug a successful CALL transaction of type Legacy with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            from: accounts[0].address,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xbbbfb986',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          successResultCallWithDepth.input = '0xbbbfb986';
+          successResultCallWithDepth.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            ['to', 'from', 'output', 'input', 'gasUsed'],
+            successResultCallWithDepth,
+          );
+          expect(resultDebug.calls).to.have.lengthOf(1);
+        });
+
+        it('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            chainId: Number(CHAIN_ID),
+            from: accounts[0].address,
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCreate.from = accounts[0].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('should be able to debug a failing CALL transaction with revert reason of type Legacy with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            from: accounts[0].address,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCall.from = accounts[0].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+
+        //onlyTopCall:true
+        it('should be able to debug a successful CREATE transaction of type Legacy with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            chainId: Number(CHAIN_ID),
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          defaultResponseFields.from = accounts[0].address;
+          defaultResponseFields.input = bytecode;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
+        });
+
+        it('should be able to debug a successful CALL transaction of type Legacy with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            from: accounts[0].address,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xc648049d0000000000000000000000000000000000000000000000000000000000000001',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
+          successResultCall.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
+        });
+
+        it('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            chainId: Number(CHAIN_ID),
+            from: accounts[0].address,
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCreate.from = accounts[0].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('should be able to debug a failing CALL transaction of type Legacy with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionTypeLegacy,
+            from: accounts[0].address,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCall.from = accounts[0].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+      });
+
+      describe('Test transaction of type 1', async function () {
+        //onlyTopCall:false
+        it('should be able to debug a successful CREATE transaction of type 2930 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2930,
+            chainId: Number(CHAIN_ID),
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          successResultCreateWithDepth.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
+            successResultCreateWithDepth,
+          );
+          expect(resultDebug.calls).to.have.lengthOf(1);
+        });
+
+        //onlyTopCall:false
+        it('should be able to debug a successful CALL transaction of type 2930 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2930,
+            from: accounts[0].address,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xc648049d0000000000000000000000000000000000000000000000000000000000000001',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          defaultResponseFields.type = 'CALL';
+          defaultResponseFields.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
+          defaultResponseFields.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
+        });
+
+        it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2930,
+            nonce: await relay.getAccountNonce(accounts[2].address),
+            chainId: Number(CHAIN_ID),
+            from: accounts[2].address,
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[2].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCreate.from = accounts[2].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('should be able to debug a failing CALL transaction of type 2930 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2930,
+            from: accounts[0].address,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCall.from = accounts[0].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+
+        //onlyTopCall:true
+        it('should be able to debug a successful CREATE transaction of type 2930 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2930,
+            chainId: Number(CHAIN_ID),
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          defaultResponseFields.from = accounts[0].address;
+          defaultResponseFields.input = bytecode;
+          defaultResponseFields.type = 'CREATE';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'input', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
+        });
+
+        it('should be able to debug a successful CALL transaction of type 2930 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2930,
+            from: accounts[0].address,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xc648049d0000000000000000000000000000000000000000000000000000000000000001',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
+          successResultCall.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
+        });
+
+        it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2930,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            chainId: Number(CHAIN_ID),
+            from: accounts[0].address,
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCreate.from = accounts[0].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('should be able to debug a failing CALL transaction of type 2930 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2930,
+            from: accounts[1].address,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[1].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[1].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCall.from = accounts[1].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+      });
+
+      describe('Test transactions of type: 2', async function () {
+        //onlyTopCall:false
+        it('should be able to debug a successful CREATE transaction of type 1559 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2,
+            chainId: Number(CHAIN_ID),
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          successResultCreateWithDepth.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
+            successResultCreateWithDepth,
+          );
+          expect(resultDebug.calls).to.have.lengthOf(1);
+        });
+
+        it('should be able to debug a successful CALL transaction of type 1559 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xc648049d0000000000000000000000000000000000000000000000000000000000000001',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+          defaultResponseFields.type = 'CALL';
+          defaultResponseFields.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
+          defaultResponseFields.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gas', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
+        });
+
+        it('@release should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2,
+            nonce: await relay.getAccountNonce(accounts[2].address),
+            chainId: CHAIN_ID,
+            from: accounts[2].address,
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[2].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCreate.from = accounts[2].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('@release should be able to debug a failing CALL transaction of type 1559 with call depth and onlyTopCall false', async function () {
+          const transaction = {
+            ...transactionType2,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          ]);
+
+          failingResultCall.from = accounts[0].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+
+        //onlyTopCall:true
+        it('@release should be able to debug a successful CREATE transaction of type 1559 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2,
+            chainId: CHAIN_ID,
+            data: bytecode,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          defaultResponseFields.from = accounts[0].address;
+          defaultResponseFields.input = bytecode;
+          defaultResponseFields.type = 'CREATE';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'input', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
+        });
+
+        it('@release should be able to debug a successful CALL transaction of type 1559 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2,
+            to: estimateGasContractAddress.address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0xc648049d0000000000000000000000000000000000000000000000000000000000000001',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
+          successResultCall.from = accounts[0].address;
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
+        });
+
+        it('should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            chainId: Number(CHAIN_ID),
+            gasPrice: await relay.gasPrice(),
+            data: '0x01121212',
+          };
+
+          const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCreate.from = accounts[0].address;
+          failingResultCreate.input = '0x01121212';
+
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
+        });
+
+        it('should be able to debug a failing CALL transaction of type 1559 with call depth and onlyTopCall true', async function () {
+          const transaction = {
+            ...transactionType2,
+            from: accounts[1].address,
+            to: reverterContractAddress,
+            nonce: await relay.getAccountNonce(accounts[1].address),
+            gasPrice: await relay.gasPrice(),
+            data: '0x0323d234',
+          };
+
+          const signedTransaction = await accounts[1].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTransaction);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const resultDebug = await relay.call(RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION, [
+            transactionHash,
+            { tracer: callTracer, tracerConfig: tracerConfigTrue },
+          ]);
+
+          failingResultCall.from = accounts[1].address;
+          failingResultCall.input = '0x0323d234';
+
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
+        });
+      });
+    });
+
+    describe('Negative scenarios', async function () {
+      it('should return 400 error for non-existing transaction hash', async function () {
+        const nonExistentTransactionHash = '0xb8a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+        const expectedError = predefined.RESOURCE_NOT_FOUND(
+          `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
+        );
+        const args = [
+          RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION,
+          [nonExistentTransactionHash, { tracer: callTracer, tracerConfig: tracerConfigTrue }],
+          requestId,
+        ];
+
+        await Assertions.assertPredefinedRpcError(expectedError, relay.call, false, relay, args);
+      });
+
+      it('should fail to debug a transaction with invalid onlyTopCall value type', async function () {
+        const transaction = {
+          ...transactionTypeLegacy,
+          chainId: Number(CHAIN_ID),
+          data: bytecode,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          gasPrice: await relay.gasPrice(),
+        };
+
+        const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTransaction);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const expectedError = predefined.INVALID_PARAMETER(
+          "'tracerConfig' for TracerConfigWrapper",
+          `${TYPES.tracerConfig.error}, value: ${JSON.stringify(tracerConfigInvalid)}`,
+        );
+        const args = [
+          RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION,
+          [transactionHash, { tracer: callTracer, tracerConfig: tracerConfigInvalid }],
+          requestId,
+        ];
+
+        await Assertions.assertPredefinedRpcError(expectedError, relay.call, false, relay, args);
+      });
+
+      it('should fail to debug a transaction with invalid tracer type', async function () {
+        const transaction = {
+          ...transactionTypeLegacy,
+          chainId: Number(CHAIN_ID),
+          data: bytecode,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          gasPrice: await relay.gasPrice(),
+        };
+
+        const signedTransaction = await accounts[0].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTransaction);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+        const expectedError = predefined.INVALID_PARAMETER(
+          "'tracer' for TracerConfigWrapper",
+          `${TYPES.tracerType.error}, value: invalidTracer`,
+        );
+        const args = [
+          RelayCalls.ETH_ENDPOINTS.DEBUG_TRACE_TRANSACTION,
+          [transactionHash, { tracer: 'invalidTracer', tracerConfig: tracerConfigTrue }],
+          requestId,
+        ];
+
+        await Assertions.assertPredefinedRpcError(expectedError, relay.call, false, relay, args);
+      });
+    });
+  });
+
+  describe('Batch Request Test Suite BATCH_REQUESTS_ENABLED = true', async function () {
+    overrideEnvsInMochaDescribe({ BATCH_REQUESTS_ENABLED: true });
+
+    it('@release Should return errors for blacklisted methods', async function () {
+      const disallowedMethods = ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS');
+      const payload: any[] = [];
+      for (let index = 0; index < disallowedMethods.length; index++) {
+        payload.push({
+          id: index,
+          method: disallowedMethods[index],
+          params: [],
+        });
+      }
+
+      const res = await relay.callBatch(payload);
+      expect(res.length).to.equal(disallowedMethods.length);
+      for (let index = 0; index < disallowedMethods.length; index++) {
+        expect(res[index]).to.haveOwnProperty('error');
+        expect(res[index].id).to.equal(index);
+        expect(res[index].error.code).to.equal(-32007);
+        expect(res[index].error.message).to.match(
+          requestIdRegex(`Method ${disallowedMethods[index]} is not permitted as part of batch requests`),
+        );
+      }
+    });
+
+    it('Should return a batch of requests', async function () {
+      const testAccount = await Utils.createAliasAccount(mirrorNode, accounts[0]);
+
+      {
+        const payload = [
+          {
+            id: 1,
+            method: RelayCall.ETH_ENDPOINTS.ETH_CHAIN_ID,
+            params: [],
+          },
+          {
+            id: 2,
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
+            params: [testAccount.address, 'latest'],
+          },
+          {
+            id: 3,
+            method: RelayCall.ETH_ENDPOINTS.ETH_GAS_PRICE,
+            params: [],
+          },
+        ];
+
+        const res = await relay.callBatch(payload);
+        expect(res).to.have.length(payload.length);
+        expect(res.filter((r) => r.id === 1)[0].result).to.be.equal(CHAIN_ID);
+        expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x0');
+        expect(res.filter((r) => r.id === 3)[0].result).to.be.equal('0x' + Assertions.defaultGasPrice.toString(16));
+      }
+
+      let transactionHash: string;
+      {
+        const deployerContract = await Utils.deployContract(
+          DeployerContractJson.abi,
+          DeployerContractJson.bytecode,
+          testAccount.wallet,
+        );
+        const deployContractAddress = deployerContract.target;
+
+        const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
+        const defaultGasLimit = numberTo0x(3_000_000);
+        const defaultTransaction = {
+          value: ONE_TINYBAR,
+          chainId: Number(CHAIN_ID),
+          maxPriorityFeePerGas: defaultGasPrice,
+          maxFeePerGas: defaultGasPrice,
+          gasLimit: defaultGasLimit,
+          type: 2,
+        };
+
+        const account = accounts[3].wallet;
+
+        const gasPrice = await relay.gasPrice();
+        const signedTx = await account.signTransaction({
+          ...defaultTransaction,
+          to: deployContractAddress,
+          nonce: await relay.getAccountNonce(account.address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+        });
+        transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [account.address, 'latest']);
+        expect(res).to.be.equal('0x1');
+      }
+
+      {
+        const payload = [
+          {
+            id: 2,
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
+            params: [testAccount.address, 'latest'],
+          },
+          {
+            id: 3,
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT,
+            params: [transactionHash],
+          },
+        ];
+
+        const res = await relay.callBatch(payload);
+        expect(res).to.have.length(payload.length);
+        expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x1');
+        expect(res.filter((r) => r.id === 3)[0].result.transactionHash).to.be.equal(transactionHash);
+      }
+    });
+  });
+
+  describe('Shard Blob Transactions', async function () {
+    let defaultLondonTransactionData, defaultGasPrice, defaultGasLimit;
+    const defaultBlobVersionedHashes = ['0x6265617665726275696c642e6f7267476265617665726275696c642e6f726747'];
+
+    before(() => {
+      defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
+      defaultGasLimit = numberTo0x(3_000_000);
+
+      defaultLondonTransactionData = {
+        value: ONE_TINYBAR,
+        chainId: Number(CHAIN_ID),
+        maxPriorityFeePerGas: defaultGasPrice,
+        maxFeePerGas: defaultGasPrice,
+        gasLimit: defaultGasLimit,
+      };
+    });
+
+    it('Type 3 transactions are not supported for eth_sendRawTransaction', async () => {
+      const transaction = {
+        ...defaultLondonTransactionData,
+        type: 3,
+        maxFeePerBlobGas: defaultGasPrice,
+        blobVersionedHashes: defaultBlobVersionedHashes,
+      };
+
+      const signedTx = await accounts[0].wallet.signTransaction(transaction);
+      await Assertions.assertPredefinedRpcError(
+        predefined.UNSUPPORTED_TRANSACTION_TYPE_3,
+        relay.sendRawTransaction,
+        false,
+        relay,
+        [signedTx, requestId],
+      );
+    });
+  });
+
+  describe('Validate length of the rpc parameters array', async function () {
+    const testClient = Axios.create({
+      baseURL: 'http://localhost:' + ConfigService.get('E2E_SERVER_PORT'),
+      responseType: 'json' as const,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      timeout: 30 * 1000,
+    });
+
+    const generateTest = (method, params) => {
+      it(method, async () => {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method,
+            params,
+          });
+
+          Assertions.expectedError();
+        } catch (e: any) {
+          const res = e.response;
+          expect(res.status).to.equal(400);
+          Assertions.jsonRpcError(res.data.error, predefined.INVALID_PARAMETERS);
+        }
+      });
+    };
+
+    const TEST_SUITES = {
+      eth_getBalance: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getCode: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getBlockByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', false, null],
+      eth_getBlockByNumber: ['0x4cc9a7', false, null],
+      eth_getBlockTransactionCountByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getBlockTransactionCountByNumber: ['0x4cc9a779', null],
+      eth_getTransactionByBlockHashAndIndex: [
+        '0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99',
+        '0x1',
+        null,
+      ],
+      eth_getTransactionByBlockNumberAndIndex: ['0x4cc9a77', '0x1', null],
+      eth_getTransactionCount: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x13455', null],
+      eth_sendRawTransaction: [
+        '0xf86a018203e882520894f17f52151ebef6c7334fad080c5704d77216b732896c6b935b8bbd400000801ba093129415f03b4794fd1512e79ee7f097e4271f66721020f8407aac92179893a5a0451b875d89721ec98be55201092980b0a87bb1c48507fccb86da713596b2a09e',
+        null,
+      ],
+      eth_call: [
+        {
+          to: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          data: '0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE',
+        },
+        'latest',
+        {},
+        null,
+      ],
+      eth_getTransactionByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getTransactionReceipt: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getLogs: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getBlockReceipts: ['0x5661236', null],
+      eth_newFilter: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getFilterLogs: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_getFilterChanges: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_uninstallFilter: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+    };
+
+    for (const [method, params] of Object.entries(TEST_SUITES)) {
+      generateTest(method, params);
+    }
+  });
+});

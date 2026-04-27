@@ -86,17 +86,17 @@ export const computeLatestLogParameters = (configuration) =>
   });
 
 export const setDefaultValuesForEnvParameters = () => {
-  __ENV['MIRROR_BASE_URL'] = __ENV['MIRROR_BASE_URL'] || 'http://localhost:5551';
-  __ENV['RELAY_BASE_URL'] = __ENV['RELAY_BASE_URL'] || 'http://localhost:7546';
-  __ENV['DEFAULT_DURATION'] = __ENV['DEFAULT_DURATION'] || '120s';
-  __ENV['DEFAULT_VUS'] = __ENV['DEFAULT_VUS'] || 10;
-  __ENV['DEFAULT_LIMIT'] = __ENV['DEFAULT_LIMIT'] || 100;
-  __ENV['DEFAULT_PASS_RATE'] = __ENV['DEFAULT_PASS_RATE'] || 0.95;
-  __ENV['DEFAULT_MAX_DURATION'] = __ENV['DEFAULT_MAX_DURATION'] || 500;
-  __ENV['STRESS_TEST_TARGET_TOTAL_RPS'] = __ENV['STRESS_TEST_TARGET_TOTAL_RPS'] || 100;
+  __ENV.MIRROR_BASE_URL ||= 'http://localhost:5551';
+  __ENV.RELAY_BASE_URL ||= 'http://localhost:7546';
+  __ENV.DEFAULT_DURATION ||= '120s';
+  __ENV.DEFAULT_VUS ||= 10;
+  __ENV.DEFAULT_LIMIT ||= 100;
+  __ENV.DEFAULT_PASS_RATE ||= 0.95;
+  __ENV.DEFAULT_MAX_DURATION ||= 500;
+  __ENV.STRESS_TEST_TARGET_TOTAL_RPS ||= 100;
 
   // Staged RPS phase durations for ramping-arrival-rate executor
-  __ENV['RAMP_UP_DURATION'] = __ENV['RAMP_UP_DURATION'] || '2m';
-  __ENV['STABLE_DURATION'] = __ENV['STABLE_DURATION'] || '20m';
-  __ENV['RAMP_DOWN_DURATION'] = __ENV['RAMP_DOWN_DURATION'] || '1m';
+  __ENV.RAMP_UP_DURATION ||= '2m';
+  __ENV.STABLE_DURATION ||= '20m';
+  __ENV.RAMP_DOWN_DURATION ||= '1m';
 };
