@@ -590,8 +590,11 @@ export class DebugImpl implements Debug {
       this.resolveAddress(to, requestDetails, [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT]),
     ]);
 
-    // @ts-ignore - resolvedFrom should never be null since every transaction must have a sender
-    return { resolvedFrom: resolvedFrom, resolvedTo };
+    if (resolvedFrom == null) {
+      throw predefined.INTERNAL_ERROR('Missing resolved sender address');
+    }
+
+    return { resolvedFrom, resolvedTo };
   }
 
   /**
