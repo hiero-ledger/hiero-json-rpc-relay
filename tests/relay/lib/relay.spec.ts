@@ -10,7 +10,6 @@ import sinon from 'sinon';
 import { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients/mirrorNodeClient';
 import { MirrorNodeClientError } from '../../../src/relay/lib/errors/MirrorNodeClientError';
-import { EthImpl } from '../../../src/relay/lib/eth';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
@@ -163,7 +162,6 @@ describe('Relay', () => {
           });
 
           it('should be able to get operator balance on third attempt', async function () {
-            const error = new Error('network error');
             getAccountPageLimitStub.onCall(0).resolves({
               account: operatorId,
               balance: { balance: 0 },
