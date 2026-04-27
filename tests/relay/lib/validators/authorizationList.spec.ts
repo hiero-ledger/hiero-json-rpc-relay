@@ -10,8 +10,8 @@ describe('validateAuthorizationList', () => {
     chainId: '0x12a',
     address: contractAddress1,
     nonce: '0x0',
-    r: '0x' + 'aa'.repeat(32),
-    s: '0x' + 'bb'.repeat(32),
+    r: `0x${'aa'.repeat(32)}`,
+    s: `0x${'bb'.repeat(32)}`,
     yParity: '0x0',
   } as unknown as AuthorizationListEntry;
 
