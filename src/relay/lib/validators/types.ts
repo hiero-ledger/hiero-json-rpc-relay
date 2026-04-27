@@ -167,9 +167,10 @@ export const TYPES = {
   },
   authorizationListEntry: {
     test: (param: any) => {
-      if (Object.prototype.toString.call(param) !== '[object Object]') return false;
-      validateSchema(OBJECTS_VALIDATIONS.authorizationListEntry, param);
-      return true;
+      if (param && typeof param === 'object') {
+        return validateSchema(OBJECTS_VALIDATIONS.authorizationListEntry, param);
+      }
+      return false;
     },
     error: 'Expected valid AuthorizationListEntry object',
   },
