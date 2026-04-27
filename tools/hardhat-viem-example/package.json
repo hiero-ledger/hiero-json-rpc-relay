@@ -11,8 +11,8 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
-    "hardhat": "^2.28.6"
+    "@nomicfoundation/hardhat-chai-matchers": "^3.0.0",
+    "hardhat": "^3.4.1"
   },
   "overrides": {
     "elliptic": "^6.6.1",
