@@ -32,7 +32,7 @@ export const RECEIVER_ADDRESS = '0x5b98Ce3a4D1e1AC55F15Da174D5CeFcc5b8FB994';
 export const WRONG_CONTRACT_ADDRESS = '0x00000000000000000000000000000000055e';
 export const LATEST_BLOCK_QUERY = 'blocks?limit=1&order=desc';
 export const CONTRACT_QUERY =
-  'contracts/results?timestamp=gte:1713966020.010306294&timestamp=lte:1713966021.974483904&limit=100&order=asc';
+  'contracts/results?timestamp=gte:1713966020.010306294&timestamp=lte:1713966021.974483904&limit=100&order=asc&hbar=false';
 export const LOG_QUERY =
   'contracts/results/logs?timestamp=gte:1713966020.010306294&timestamp=lte:1713966021.974483904&limit=100&order=asc';
 
@@ -615,9 +615,7 @@ export const BLOCK_BY_HASH_FROM_RELAY = {
 };
 export const CONTRACT_EVM_ADDRESS = '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9';
 export const DEFAULT_TX_HASH = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392';
-const DEFAULT_TRANSACTION_VALUE = nanOrNumberTo0x(
-  defaultDetailedContractResultByHash.amount * constants.TINYBAR_TO_WEIBAR_COEF,
-);
+const DEFAULT_TRANSACTION_VALUE = nanOrNumberTo0x(defaultDetailedContractResultByHash.amount);
 export const DEFAULT_TRANSACTION = {
   accessList: [],
   blockHash: '0xd693b532a80fed6392b428604171fb32fdbf953728a3a7ecc7d4062b1652c042',
@@ -693,7 +691,7 @@ export const DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH = {
   access_list: '0x',
   block_gas_used: 50000000,
   chain_id: '0x12a',
-  gas_price: '0x4a817c80',
+  gas_price: '0xad78ebc5ac620000',
   max_fee_per_gas: '0x',
   max_priority_fee_per_gas: '0x',
   r: '0xd693b532a80fed6392b428604171fb32fdbf953728a3a7ecc7d4062b1652c042',
@@ -713,15 +711,15 @@ export const DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED = {
 };
 
 // URLS:
-export const CONTRACT_RESULTS_WITH_FILTER_URL = `contracts/results?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
-export const CONTRACT_RESULTS_WITH_FILTER_URL_2 = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`;
+export const CONTRACT_RESULTS_WITH_FILTER_URL = `contracts/results?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc&hbar=false`;
+export const CONTRACT_RESULTS_WITH_FILTER_URL_2 = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc&hbar=false`;
 export const CONTRACTS_LOGS_WITH_FILTER = `contracts/${CONTRACT_ADDRESS_1}/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
 export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL = `contracts/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
 export const BLOCKS_LIMIT_ORDER_URL = 'blocks?limit=1&order=desc';
-export const CONTRACTS_RESULTS_NEXT_URL = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`; // just flip the timestamp parameters for simplicity
+export const CONTRACTS_RESULTS_NEXT_URL = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc&hbar=false`; // just flip the timestamp parameters for simplicity
 export const ACCOUNT_WITHOUT_TRANSACTIONS = `accounts/${LONG_ZERO_ADDRESS}?transactions=false`;
 export const contractByEvmAddress = (evmAddress: string) => `contracts/${evmAddress}`;
-export const CONTRACTS_RESULTS_BLOCK_NUMBER_URL = `contracts/results?block.number=${DEFAULT_BLOCK.number}&limit=100&order=asc`;
+export const CONTRACTS_RESULTS_BLOCK_NUMBER_URL = `contracts/results?block.number=${DEFAULT_BLOCK.number}&limit=100&order=asc&hbar=false`;
 export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2 = `contracts/results/logs?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`;
 
 export const MOCK_ACCOUNT_WITHOUT_TRANSACTIONS = {

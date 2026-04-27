@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId } from '@hashgraph/sdk';
+import { AccountId } from '@hiero-ledger/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
@@ -271,6 +271,11 @@ export class Relay {
     // 3. Confirm Mirror Node is reachable before proceeding; applies in all modes
     //    because Mirror Node is required for both read-only and read-write operation.
     await this.waitForMirrorNode();
+
+    this.logger.warn(
+      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.151.0. ' +
+        'If you encounter HTTP 400 errors from the mirror node, please verify your mirror node version is compatible.',
+    );
 
     // 4. Validate operator balance (requires ethImpl to be initialized)
     if (!ConfigService.get('READ_ONLY')) {

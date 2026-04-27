@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
@@ -35,7 +35,7 @@ chai.use(chaiAsPromised);
 describe('HBAR Rate Limit Service', function () {
   const logger = pino({ level: 'silent' });
   const register = new Registry();
-  const totalBudgetInTinybars = constants.HBAR_RATE_LIMIT_TOTAL.toNumber();
+  const totalBudgetInTinybars = Number(constants.HBAR_RATE_LIMIT_TOTAL);
   const limitDuration = constants.HBAR_RATE_LIMIT_DURATION;
   const mode = constants.EXECUTION_MODE.TRANSACTION;
   const methodName = 'testMethod';

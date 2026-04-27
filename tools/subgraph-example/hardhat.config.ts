@@ -24,7 +24,7 @@ import {
   TokenSupplyType,
   TokenType,
   Wallet,
-} from "@hashgraph/sdk";
+} from "@hiero-ledger/sdk";
 
 dotenv.config();
 

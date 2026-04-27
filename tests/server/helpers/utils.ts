@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '@hashgraph/sdk';
+import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '@hiero-ledger/sdk';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import http from 'http';

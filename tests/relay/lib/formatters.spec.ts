@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber as BN } from 'bignumber.js';
 import { expect } from 'chai';
 import { AbiCoder, keccak256 } from 'ethers';
 
@@ -23,7 +22,6 @@ import {
   tinybarsToWeibars,
   toHash32,
   toHexString,
-  toNullableBigNumber,
   toNullIfEmptyHex,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
@@ -259,6 +257,12 @@ describe('Formatters', () => {
     it('should return 0x0 for NaN input', () => {
       expect(nanOrNumberInt64To0x(NaN)).to.equal('0x0');
     });
+    it('should convert a positive string input', () => {
+      expect(nanOrNumberInt64To0x('100')).to.equal('0x64');
+    });
+    it('should convert a negative string input', () => {
+      expect(nanOrNumberInt64To0x('-10')).to.equal('0xfffffffffffffff6');
+    });
 
     for (const [testName, testValues] of Object.entries({
       '2 digits': ['-10', '0xfffffffffffffff6'],
@@ -303,29 +307,6 @@ describe('Formatters', () => {
     it('should format exactly 32 bytes hash to 32 bytes', () => {
       const hash32bytes = '0x92b761fa12ed062122c962dd84fce75ed6659e5bca328b6bb08077ff249682a';
       expect(toHash32(hash32bytes)).to.equal(hash32bytes);
-    });
-  });
-
-  describe('toNullableBigNumber', () => {
-    it('should return null for null input', () => {
-      expect(toNullableBigNumber(null)).to.equal(null);
-    });
-    it('should convert a valid hex to BigNumber', () => {
-      const bigNumberString =
-        '0x9af1252ea00af08c2ebc78f35a6071a3736795dc53027ea746d710c46b0ef011dc4460630cf109972dafa76c4a56f530';
-      expect(toNullableBigNumber(bigNumberString)).to.equal(new BN(bigNumberString).toString());
-    });
-
-    it('should return null for undefined input', () => {
-      expect(toNullableBigNumber(undefined as any)).to.equal(null);
-    });
-
-    it('should return null for non-string input', () => {
-      expect(toNullableBigNumber(123 as any)).to.equal(null);
-    });
-
-    it('should convert decimal string to BigNumber', () => {
-      expect(toNullableBigNumber('123456789')).to.equal('123456789');
     });
   });
 
@@ -718,14 +699,6 @@ describe('Formatters', () => {
       expect(isValidEthereumAddress('not-an-address')).to.equal(false);
     });
 
-    it('should handle toNullableBigNumber with various input types', () => {
-      expect(toNullableBigNumber('0x123')).to.equal('291');
-      expect(toNullableBigNumber('456')).to.equal('456');
-      expect(toNullableBigNumber(null)).to.equal(null);
-      expect(toNullableBigNumber(undefined as any)).to.equal(null);
-      expect(toNullableBigNumber(123 as any)).to.equal(null);
-    });
-
     it('should handle formatTransactionId regex validation - precise failing cases', () => {
       // These should specifically fail the TRANSACTION_ID_REGEX: /\d{1}\.\d{1}\.\d{1,10}\@\d{1,10}\.\d{1,9}/
       expect(formatTransactionId('invalid-format')).to.eq(null);
@@ -811,19 +784,6 @@ describe('Formatters', () => {
       // Test the specific condition: return input == null ? null : numberTo0x(input);
       expect(nullableNumberTo0x(null)).to.equal(null);
       expect(nullableNumberTo0x(undefined as any)).to.equal(null);
-    });
-
-    it('should test toNullableBigNumber with string input', () => {
-      // Test the specific condition: if (typeof value === 'string') { return new BN(value).toString(); }
-      expect(toNullableBigNumber('0x1a')).to.equal('26');
-      expect(toNullableBigNumber('100')).to.equal('100');
-    });
-
-    it('should test toNullableBigNumber with non-string input', () => {
-      // Test the fallback condition: return null;
-      expect(toNullableBigNumber(123 as any)).to.equal(null);
-      expect(toNullableBigNumber(true as any)).to.equal(null);
-      expect(toNullableBigNumber([] as any)).to.equal(null);
     });
 
     it('should test toNullIfEmptyHex with empty hex', () => {

@@ -9,7 +9,7 @@ import {
   Hbar,
   PrivateKey,
   TransferTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -826,7 +826,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         expect(blockResult.transactions).to.not.be.empty;
         expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffffffffffff9c');
+        expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffff172b5af000');
       });
 
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {

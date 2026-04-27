@@ -710,7 +710,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const originalEstimateGas = contractService.estimateGas;
     // @ts-ignore
     contractService.estimateGas = async () => {
-      return predefined.INTERNAL_ERROR('Test error for estimateGas');
+      throw predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 
     const result = await ethImpl.estimateGas(transaction, null, requestDetails);

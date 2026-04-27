@@ -294,7 +294,7 @@ export class Precheck {
    * @returns The intrinsic gas cost (maximum of standard cost and floor price).
    */
   public static transactionIntrinsicGasCost(tx: Transaction): number {
-    const calldata = tx.data.replace('0x', '');
+    const calldata = tx.data?.replace('0x', '') || '';
 
     // Count zero and non-zero bytes in calldata
     let zeroBytes = 0;
