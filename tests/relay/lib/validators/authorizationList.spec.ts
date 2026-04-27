@@ -29,19 +29,19 @@ describe('validateAuthorizationList', () => {
     });
 
     it('should throw for type 2 tx with authorizationList', () => {
-      expect(() => validateAuthorizationList(2, [authEntry])).to.throw('not supported for non-type-4 transactions');
+      expect(() => validateAuthorizationList(2, [authEntry])).to.throw('not supported for non-EIP-7702 transaction');
     });
 
     it('should throw for type 1 tx with authorizationList', () => {
-      expect(() => validateAuthorizationList(1, [authEntry])).to.throw('not supported for non-type-4 transactions');
+      expect(() => validateAuthorizationList(1, [authEntry])).to.throw('not supported for non-EIP-7702 transaction');
     });
 
     it('should throw for type 0 tx with authorizationList', () => {
-      expect(() => validateAuthorizationList(0, [authEntry])).to.throw('not supported for non-type-4 transactions');
+      expect(() => validateAuthorizationList(0, [authEntry])).to.throw('not supported for non-EIP-7702 transaction');
     });
 
     it('should throw for type 2 tx with empty authorizationList array', () => {
-      expect(() => validateAuthorizationList(2, [])).to.throw('not supported for non-type-4 transactions');
+      expect(() => validateAuthorizationList(2, [])).to.throw('not supported for non-EIP-7702 transaction');
     });
   });
 
@@ -51,15 +51,15 @@ describe('validateAuthorizationList', () => {
     });
 
     it('should throw for type 4 tx without authorizationList', () => {
-      expect(() => validateAuthorizationList(4, undefined)).to.throw('must be set for type 4 transactions');
+      expect(() => validateAuthorizationList(4, undefined)).to.throw('EIP-7702 transaction with missing auth list');
     });
 
     it('should throw for type 4 tx with null authorizationList', () => {
-      expect(() => validateAuthorizationList(4, null)).to.throw('must be set for type 4 transactions');
+      expect(() => validateAuthorizationList(4, null)).to.throw('EIP-7702 transaction with missing auth list');
     });
 
     it('should throw for type 4 tx with empty authorizationList', () => {
-      expect(() => validateAuthorizationList(4, [])).to.throw('cannot be empty');
+      expect(() => validateAuthorizationList(4, [])).to.throw('EIP-7702 transaction with empty auth list');
     });
   });
 });
