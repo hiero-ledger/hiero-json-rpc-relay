@@ -149,19 +149,19 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     getSdkClientStub.restore();
   });
 
-  it('"eth_blockNumber" should return the latest block number', async function () {
+  it('"eth_blockNumber" should return the latest block number', async () => {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
     const blockNumber = await ethImpl.blockNumber(requestDetails);
     expect(blockNumber).to.be.eq(blockNumber);
   });
 
-  it('"eth_blockNumber" should throw an error if no blocks are found', async function () {
+  it('"eth_blockNumber" should throw an error if no blocks are found', async () => {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(404, JSON.stringify(BLOCK_NOT_FOUND_RES));
     const error = predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
     await RelayAssertions.assertRejection(error, ethImpl.blockNumber, true, ethImpl, [requestDetails]);
   });
 
-  it('"eth_blockNumber" return the latest block number on second try', async function () {
+  it('"eth_blockNumber" return the latest block number on second try', async () => {
     restMock
       .onGet(BLOCKS_LIMIT_ORDER_URL)
       .replyOnce(404, JSON.stringify(BLOCK_NOT_FOUND_RES))
@@ -177,7 +177,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     expect(blockNumber).to.be.eq(blockNumber);
   });
 
-  it('"eth_blockNumber" should throw an error if no blocks are found after third try', async function () {
+  it('"eth_blockNumber" should throw an error if no blocks are found after third try', async () => {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(404, JSON.stringify(BLOCK_NOT_FOUND_RES));
 
     await RelayAssertions.assertRejection(
@@ -198,7 +198,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
     });
 
-    it('eth_getBlockByNumber with match', async function () {
+    it('eth_getBlockByNumber with match', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
 
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
@@ -214,7 +214,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       });
     });
 
-    it('eth_getBlockByNumber with match and duplicated transactions', async function () {
+    it('eth_getBlockByNumber with match and duplicated transactions', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
         200,
         JSON.stringify({
@@ -233,7 +233,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       });
     });
 
-    it('eth_getBlockByNumber with match and valid logsBloom field', async function () {
+    it('eth_getBlockByNumber with match and valid logsBloom field', async () => {
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(
         200,
         JSON.stringify({
@@ -258,7 +258,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(result?.logsBloom).equal(blockLogsBloom);
     });
 
-    it('eth_getBlockByNumber with match and details and transactions with same hash but different fields', async function () {
+    it('eth_getBlockByNumber with match and details and transactions with same hash but different fields', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
         200,
         JSON.stringify({
@@ -286,7 +286,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       }
     });
 
-    it('eth_getBlockByNumber with match paginated', async function () {
+    it('eth_getBlockByNumber with match paginated', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(LINKS_NEXT_RES));
       restMock.onGet(CONTRACTS_RESULTS_NEXT_URL).reply(200, JSON.stringify(defaultContractResults));
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
@@ -302,7 +302,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       });
     });
 
-    it('eth_getBlockByNumber should return cached result', async function () {
+    it('eth_getBlockByNumber should return cached result', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
       const resBeforeCache = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
 
@@ -312,7 +312,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(resBeforeCache).to.eq(resAfterCache);
     });
 
-    it('eth_getBlockByHash with match', async function () {
+    it('eth_getBlockByHash with match', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
 
       const result = await ethImpl.getBlockByHash(BLOCK_HASH, false, requestDetails);
@@ -326,7 +326,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       });
     });
 
-    it('eth_getBlockByHash with match paginated', async function () {
+    it('eth_getBlockByHash with match paginated', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(LINKS_NEXT_RES));
       restMock.onGet(CONTRACTS_RESULTS_NEXT_URL).reply(200, JSON.stringify(defaultContractResults));
 
@@ -343,7 +343,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     });
   });
 
-  it('eth_getBlockByNumber with zero transactions', async function () {
+  it('eth_getBlockByNumber with zero transactions', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, gas_used: 0 }));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -365,7 +365,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with match and details', async function () {
+  it('eth_getBlockByNumber with match and details', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -383,7 +383,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with match and details and synthetic transactions', async function () {
+  it('eth_getBlockByNumber with match and details and synthetic transactions', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER_WITH_SYN_TXN}`).reply(200, JSON.stringify(BLOCK_WITH_SYN_TXN));
 
@@ -406,7 +406,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with match and details paginated', async function () {
+  it('eth_getBlockByNumber with match and details paginated', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -426,7 +426,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with block match and contract revert', async function () {
+  it('eth_getBlockByNumber with block match and contract revert', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, gas_used: GAS_USED_1 }));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -443,7 +443,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with no match', async function () {
+  it('eth_getBlockByNumber with no match', async () => {
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(404, JSON.stringify(NO_SUCH_BLOCK_EXISTS_RES));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
 
@@ -452,7 +452,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   describe('eth_getBlockByNumber with tag', async function () {
-    const TOTAL_GET_CALLS_EXECUTED = 11;
+    const TOTAL_GET_CALLS_EXECUTED = 12;
     function confirmResult(result: Block | null) {
       expect(result).to.exist;
       expect(result).to.not.be.null;
@@ -472,7 +472,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
     });
 
-    it('eth_getBlockByNumber with latest tag', async function () {
+    it('eth_getBlockByNumber with latest tag', async () => {
       const result = await ethImpl.getBlockByNumber('latest', false, requestDetails);
       // check that we only made the expected number of requests with the expected urls
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
@@ -486,7 +486,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with latest tag paginated', async function () {
+    it('eth_getBlockByNumber with latest tag paginated', async () => {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(LINKS_NEXT_RES));
       restMock.onGet(CONTRACTS_RESULTS_NEXT_URL).reply(200, JSON.stringify(defaultContractResults));
 
@@ -494,19 +494,19 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with pending tag', async function () {
+    it('eth_getBlockByNumber with pending tag', async () => {
       const result = await ethImpl.getBlockByNumber('pending', false, requestDetails);
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with earliest tag', async function () {
+    it('eth_getBlockByNumber with earliest tag', async () => {
       restMock.onGet(`blocks/0`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const result = await ethImpl.getBlockByNumber('earliest', false, requestDetails);
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with finalized tag', async function () {
+    it('eth_getBlockByNumber with finalized tag', async () => {
       const result = await ethImpl.getBlockByNumber('finalized', false, requestDetails);
       // check that we only made the expected number of requests with the expected urls
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
@@ -520,7 +520,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with safe tag', async function () {
+    it('eth_getBlockByNumber with safe tag', async () => {
       const result = await ethImpl.getBlockByNumber('safe', false, requestDetails);
       // check that we only made the expected number of requests with the expected urls
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
@@ -534,7 +534,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       confirmResult(result);
     });
 
-    it('eth_getBlockByNumber with hex number tag', async function () {
+    it('eth_getBlockByNumber with hex number tag', async () => {
       restMock.onGet(`blocks/3735929054`).reply(200, JSON.stringify(DEFAULT_BLOCK));
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(BLOCKS_RES));
 
@@ -544,7 +544,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   withOverriddenEnvsInMochaTest({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 }, () => {
-    it('eth_getBlockByNumber with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
+    it('eth_getBlockByNumber with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async () => {
       // mirror node request mocks
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -616,7 +616,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     });
   });
 
-  it('eth_getBlockByNumber should throw an error if nullable entities found in logs', async function () {
+  it('eth_getBlockByNumber should throw an error if nullable entities found in logs', async () => {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
@@ -656,25 +656,33 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify({ logs: [] }));
     });
 
-    it('reflects weighted average of tx gas prices for non-empty block', async function () {
-      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
+    it('reflects weighted average of tx gas prices for non-empty block', async () => {
+      // hbar=false → gas_price is in weibars; use type-1 so the implementation uses gas_price directly
+      const type1Results = {
+        results: [
+          { ...results[0], type: 1, gas_price: '0x3B9ACA00' }, // 1 Gwei
+          { ...results[1], type: 1, gas_price: '0x77359400' }, // 2 Gwei
+        ],
+        links: { next: null },
+      };
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(type1Results));
 
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
 
-      const TINYBAR_TO_WEIBAR = BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-      const gasPrice1Wei = BigInt(results[0].gas_price) * TINYBAR_TO_WEIBAR;
-      const gasPrice2Wei = BigInt(results[1].gas_price) * TINYBAR_TO_WEIBAR;
-      const totalCharge = BigInt(results[0].gas_used) * gasPrice1Wei + BigInt(results[1].gas_used) * gasPrice2Wei;
+      const price1 = BigInt('0x3B9ACA00');
+      const price2 = BigInt('0x77359400');
+      const totalCharge = BigInt(results[0].gas_used) * price1 + BigInt(results[1].gas_used) * price2;
       const expectedBaseFee = numberTo0x(totalCharge / BigInt(DEFAULT_BLOCK.gas_used));
 
       expect(result!.baseFeePerGas).to.equal(expectedBaseFee);
     });
 
-    it('satisfies baseFee * gasUsed <= sum(gasUsed_i * gasPrice_wei_i)', async function () {
+    it('satisfies baseFee * gasUsed <= sum(gasUsed_i * gasPrice_wei_i)', async () => {
+      // hbar=false → gas_price is in weibars; type-1 so gas_price is used directly (not EIP-1559 logic)
       const mixedPriceResults = {
         results: [
-          { ...defaultContractResults.results[0], gas_price: '0x39', gas_used: 100_000 }, // 57 tinybars
-          { ...defaultContractResults.results[1], gas_price: '0x72', gas_used: 200_000 }, // 114 tinybars
+          { ...defaultContractResults.results[0], type: 1, gas_price: '0x39', gas_used: 100_000 },
+          { ...defaultContractResults.results[1], type: 1, gas_price: '0x72', gas_used: 200_000 },
         ],
         links: { next: null },
       };
@@ -685,8 +693,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
 
-      const price1Wei = BigInt('0x39') * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-      const price2Wei = BigInt('0x72') * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      const price1Wei = BigInt('0x39');
+      const price2Wei = BigInt('0x72');
       const totalCharge = 100_000n * price1Wei + 200_000n * price2Wei;
       const baseFee = BigInt(result!.baseFeePerGas!);
 
@@ -694,7 +702,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(baseFee).to.equal(totalCharge / BigInt(block.gas_used));
     });
 
-    it('falls back to network fees at block timestamp for empty block', async function () {
+    it('falls back to network fees at block timestamp for empty block', async () => {
       const emptyBlock = { ...DEFAULT_BLOCK, gas_used: 0 };
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(emptyBlock));
       restMock

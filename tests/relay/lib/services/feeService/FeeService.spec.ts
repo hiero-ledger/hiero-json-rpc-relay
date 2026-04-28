@@ -383,7 +383,9 @@ describe('FeeService', function () {
 
         // Must be exactly [blockFee, nextFee]
         expect(feeHistory.baseFeePerGas).to.have.length(2);
-        feeHistory.baseFeePerGas!.forEach((v) => expect(v).to.be.a('string'));
+        feeHistory.baseFeePerGas!.forEach((v) => {
+          expect(v).to.be.a('string');
+        });
       });
     });
   });

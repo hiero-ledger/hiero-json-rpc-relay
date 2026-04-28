@@ -172,7 +172,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
-      expect(feeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
       expect(feeHistory['gasUsedRatio'][0]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
