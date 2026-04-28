@@ -7,7 +7,6 @@ import { JsonRpcError } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import constants from '../../src/relay/lib/constants';
 import { Block, Transaction } from '../../src/relay/lib/model';
-import { BASE_FEE_PER_GAS_DEFAULT } from './lib/eth/eth-config';
 
 chai.use(chaiAsPromised);
 
