@@ -184,8 +184,8 @@ export class FeeService implements IFeeService {
     const oldestBlockNumber = Math.max(0, newestBlockNumber - blockCount + 1);
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
     const feeHistory: IFeeHistory = {
-      baseFeePerGas: [] as string[],
-      gasUsedRatio: [] as number[],
+      baseFeePerGas: new Array<string>(blockCount) as string[],
+      gasUsedRatio: new Array<number>(blockCount) as number[],
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 

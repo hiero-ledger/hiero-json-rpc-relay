@@ -365,7 +365,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await commonService.computeBlockBaseFeePerGas(contractResults, blockResponse, requestDetails);
+    const gasPrice = await commonService.computeGasWeightedAvgFeePerGas(contractResults, blockResponse, requestDetails);
 
     // Log the error here rather than inside BlockFactory to preserve its static-only design.
     // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,

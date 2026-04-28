@@ -14,7 +14,7 @@ export interface ICommonService {
 
   blockTagIsLatestOrPending(tag: any): boolean;
 
-  computeBlockBaseFeePerGas(
+  computeGasWeightedAvgFeePerGas(
     contractResults: MirrorNodeContractResult[],
     block: MirrorNodeBlock,
     requestDetails: RequestDetails,
@@ -31,8 +31,6 @@ export interface ICommonService {
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
   getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number>;
-
-  getGasUsedRatioForBlock(block: MirrorNodeBlock): number;
 
   getHistoricalBlockResponse(
     requestDetails: RequestDetails,

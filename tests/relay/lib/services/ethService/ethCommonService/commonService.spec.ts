@@ -112,7 +112,7 @@ describe('CommonService', () => {
     });
   });
 
-  describe('computeBlockBaseFeePerGas', async () => {
+  describe('computeGasWeightedAvgFeePerGas', async () => {
     let commonService: CommonService;
     let getGasPriceStub: sinon.SinonStub;
     const requestDetails = new RequestDetails({ requestId: uuid(), ipAddress: '0.0.0.0' });
@@ -154,14 +154,14 @@ describe('CommonService', () => {
 
     describe('Empty or zero-gas blocks', () => {
       it('empty contractResults: returns network fee anchored to block timestamp', async () => {
-        const result = await commonService.computeBlockBaseFeePerGas([], block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas([], block, requestDetails);
 
         expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
         sinon.assert.calledOnceWithMatch(getGasPriceStub, requestDetails, `lte:${block.timestamp.to}`);
       });
 
       it('block.gas_used === 0: returns network fee anchored to block timestamp', async () => {
-        const result = await commonService.computeBlockBaseFeePerGas(
+        const result = await commonService.computeGasWeightedAvgFeePerGas(
           [{ gas_price: toHex(100), gas_used: 0, type: 1 } as MirrorNodeContractResult],
           { ...block, gas_used: 0 },
           requestDetails,
@@ -184,7 +184,7 @@ describe('CommonService', () => {
         // @ts-ignore
         const expected = (toWei(90) * 400n + toWei(100) * 600n) / 1000n;
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(expected));
         sinon.assert.notCalled(getGasPriceStub);
@@ -200,7 +200,7 @@ describe('CommonService', () => {
         // @ts-ignore
         const expected = (toWei(94) * 300n + toWei(100) * 700n) / 1000n;
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(expected));
         sinon.assert.notCalled(getGasPriceStub);
@@ -212,7 +212,7 @@ describe('CommonService', () => {
           { gas_price: toHex(94), gas_used: 500, type: 1 },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
         // @ts-ignore
         expect(result).to.equal(numberTo0x(toWei(94)));
         sinon.assert.notCalled(getGasPriceStub);
@@ -224,7 +224,7 @@ describe('CommonService', () => {
           { gas_price: toHex(100), gas_used: 500, type: 1 },
         ] as MirrorNodeContractResult[];
 
-        await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         sinon.assert.notCalled(getGasPriceStub);
       });
@@ -242,7 +242,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 4, max_fee_per_gas: toHex(120), max_priority_fee_per_gas: toHex(0) },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
         sinon.assert.calledOnceWithMatch(getGasPriceStub, requestDetails, `lte:${block.timestamp.to}`);
@@ -256,7 +256,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 4, max_fee_per_gas: toHex(95), max_priority_fee_per_gas: toHex(95) },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(toWei(95)));
         sinon.assert.calledOnce(getGasPriceStub);
@@ -271,7 +271,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 4, max_fee_per_gas: toHex(130), max_priority_fee_per_gas: toHex(10) },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(toWei(94 + 10))); // networkFee + priorityFee
         sinon.assert.calledOnce(getGasPriceStub);
@@ -285,7 +285,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 4, max_fee_per_gas: toHex(95), max_priority_fee_per_gas: toHex(10) },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(toWei(95)));
         sinon.assert.calledOnce(getGasPriceStub);
@@ -302,7 +302,7 @@ describe('CommonService', () => {
         // @ts-ignore
         const expected = (toWei(104) * 500n + toWei(95) * 500n) / 1000n;
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(expected));
         sinon.assert.calledOnce(getGasPriceStub); // fetched once, shared by type 2 and type 4
@@ -319,7 +319,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 2, max_fee_per_gas: toHex(130), max_priority_fee_per_gas: toHex(0) },
         ] as MirrorNodeContractResult[];
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
         sinon.assert.calledOnce(getGasPriceStub);
@@ -336,7 +336,7 @@ describe('CommonService', () => {
         // @ts-ignore
         const expected = (toWei(94) * 500n + toWei(104) * 500n) / 1000n;
 
-        const result = await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         expect(result).to.equal(numberTo0x(expected));
         sinon.assert.calledOnce(getGasPriceStub);
@@ -349,7 +349,7 @@ describe('CommonService', () => {
           { gas_price: '0x', gas_used: 500, type: 4, max_fee_per_gas: toHex(95), max_priority_fee_per_gas: toHex(95) },
         ] as MirrorNodeContractResult[];
 
-        await commonService.computeBlockBaseFeePerGas(contractResults, block, requestDetails);
+        await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
 
         sinon.assert.calledOnce(getGasPriceStub);
       });

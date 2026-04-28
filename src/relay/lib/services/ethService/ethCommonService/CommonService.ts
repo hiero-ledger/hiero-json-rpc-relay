@@ -575,7 +575,7 @@ export class CommonService implements ICommonService {
 
   /**
    * Computes the `baseFeePerGas` for a block as a gas-weighted average of the effective
-   * gas price paid across all transactions in that block.
+   * gas price paid across all transactions in that block. It's not the Ethereum base fee.
    *
    * Transaction types are handled as follows:
    * - **Type 0 / Type 1**: carry an explicit `gas_price` in tinybars — used directly.
@@ -589,12 +589,12 @@ export class CommonService implements ICommonService {
    * @param requestDetails - Request metadata for logging and mirror node calls.
    * @returns The computed `baseFeePerGas` as a `0x`-prefixed hex string in weibars.
    */
-  public async computeBlockBaseFeePerGas(
+  public async computeGasWeightedAvgFeePerGas(
     contractResults: MirrorNodeContractResult[],
     block: MirrorNodeBlock,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (contractResults.length === 0 || block.gas_used === 0) {
+    if (contractResults.length === 0 || block.gas_used === 0 || block.gas_used == null) {
       const fee = await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
       return numberTo0x(fee);
     }
@@ -606,18 +606,17 @@ export class CommonService implements ICommonService {
       : BigInt(0);
 
     const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
-      if (!cr.gas_price) return acc;
+      if (!cr.gas_price || cr.gas_price === '0x') return acc;
       // cr.gas_price | cr.max_*_fee_per_gas are in tinybars; convert it to wei
       if (cr.type === 2 || cr.type === 4) {
-        const maxGasFee = BigInt(tinybarsToWeibars(Number(cr.max_fee_per_gas))!);
-        const priorityGasFee = BigInt(tinybarsToWeibars(Number(cr.max_priority_fee_per_gas))!);
+        const maxGasFee = BigInt(Number(cr.max_fee_per_gas));
+        const priorityGasFee = BigInt(Number(cr.max_priority_fee_per_gas));
         const baseFeeWithTip = networkBaseGasFee + priorityGasFee;
         const effectiveGasFeeWei = baseFeeWithTip < maxGasFee ? baseFeeWithTip : maxGasFee;
         return acc + BigInt(effectiveGasFeeWei) * BigInt(cr.gas_used);
       }
       // Only transactions type pre-EIP1559 carry an explicit gas_price field.
-      const gasPriceWei = tinybarsToWeibars(Number(cr.gas_price))!;
-      return acc + BigInt(gasPriceWei) * BigInt(cr.gas_used);
+      return acc + BigInt(Number(cr.gas_price)) * BigInt(cr.gas_used);
     }, BigInt(0));
 
     const baseFee = totalChargeWei / BigInt(block.gas_used);
