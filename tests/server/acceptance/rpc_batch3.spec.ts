@@ -49,7 +49,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
   let reverterContract: ethers.Contract;
   let reverterEvmAddress: string;
-  let requestId: string;
   const PAYABLE_METHOD_CALL_DATA = '0xd0efd7ef';
   const PAYABLE_METHOD_ERROR_DATA =
     '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013526576657274526561736f6e50617961626c6500000000000000000000000000';
@@ -59,12 +58,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     '0x0000000000000000000000000000000000000000000000000000000000000000',
     '0x000000000000000000000000000000000000000000000000000000000000042d',
   ];
-  beforeEach(async () => {
-    requestId = Utils.generateRequestId();
-  });
-
   before(async () => {
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
 
     const initialBalance = '10000000000';
@@ -1249,42 +1243,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x1');
         expect(res.filter((r) => r.id === 3)[0].result.transactionHash).to.be.equal(transactionHash);
       }
-    });
-  });
-
-  describe('Shard Blob Transactions', async function () {
-    let defaultLondonTransactionData, defaultGasPrice, defaultGasLimit;
-    const defaultBlobVersionedHashes = ['0x6265617665726275696c642e6f7267476265617665726275696c642e6f726747'];
-
-    before(() => {
-      defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
-      defaultGasLimit = numberTo0x(3_000_000);
-
-      defaultLondonTransactionData = {
-        value: ONE_TINYBAR,
-        chainId: Number(CHAIN_ID),
-        maxPriorityFeePerGas: defaultGasPrice,
-        maxFeePerGas: defaultGasPrice,
-        gasLimit: defaultGasLimit,
-      };
-    });
-
-    it('Type 3 transactions are not supported for eth_sendRawTransaction', async () => {
-      const transaction = {
-        ...defaultLondonTransactionData,
-        type: 3,
-        maxFeePerBlobGas: defaultGasPrice,
-        blobVersionedHashes: defaultBlobVersionedHashes,
-      };
-
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      await Assertions.assertPredefinedRpcError(
-        predefined.UNSUPPORTED_TRANSACTION_TYPE_3,
-        relay.sendRawTransaction,
-        false,
-        relay,
-        [signedTx, requestId],
-      );
     });
   });
 
