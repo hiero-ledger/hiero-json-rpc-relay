@@ -356,7 +356,7 @@ export default class ServicesClient {
     try {
       const network = JSON.parse(this.network);
       return Client.forNetwork(network);
-    } catch (e) {
+    } catch {
       // network config is a string and not a valid JSON
       return Client.forName(this.network);
     }
