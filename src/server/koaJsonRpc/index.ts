@@ -80,7 +80,7 @@ export default class KoaJsonRpc {
       let body: unknown | unknown[];
       try {
         body = await parse.json(ctx, { limit: this.limit });
-      } catch (err) {
+      } catch {
         ctx.body = jsonRespError(null, spec.ParseError, requestId);
         ctx.status = 400;
         return;

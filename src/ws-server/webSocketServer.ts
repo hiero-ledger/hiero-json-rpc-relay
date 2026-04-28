@@ -106,7 +106,7 @@ export async function initializeWsServer(
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
-    next();
+    void next();
   });
 
   app.ws.use(async (ctx: Koa.Context) => {
@@ -151,7 +151,7 @@ export async function initializeWsServer(
         connectionId: ctx.websocket.id,
       });
 
-      context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+      await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
         // Increment the total messages counter for each message received
         wsMetricRegistry.getCounter('totalMessageCounter').inc();
 

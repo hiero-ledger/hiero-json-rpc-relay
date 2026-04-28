@@ -7,7 +7,6 @@ import sinon from 'sinon';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import type { ContractService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
