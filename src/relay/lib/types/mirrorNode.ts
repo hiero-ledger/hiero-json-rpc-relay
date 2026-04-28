@@ -245,7 +245,7 @@ export interface MirrorNodeContractResult {
   /** The consensus timestamp of the transaction. */
   timestamp: string;
   /** The address of the contract being called. */
-  to: string;
+  to: string | null;
   /** The transaction hash. */
   hash: string;
   /** The hash of the block containing the transaction. */
