@@ -6,7 +6,7 @@ import {
     AccountBalanceQuery,
     AccountInfoQuery,
     TransferTransaction, TokenCreateTransaction, TokenAssociateTransaction,
-} from "@hashgraph/sdk";
+} from "@hiero-ledger/sdk";
 
 import dotenv from "dotenv";
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
+import { ContractId, Hbar, HbarUnit } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x } from '../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
@@ -231,19 +231,34 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.not.be.equal('0x0');
     });
 
-    it('should execute "eth_estimateGas" with to, from, value, accessList and gas field', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
-        {
-          from: accounts[0].address,
-          to: accounts[1].address,
-          value: '0x1',
-          gas: '0xd97010',
-          accessList: [],
-        },
-      ]);
-      expect(res).to.contain('0x');
-      expect(res).to.not.be.equal('0x');
-      expect(res).to.not.be.equal('0x0');
+    [
+      {
+        accessListLabel: 'accessList',
+        accessList: [],
+      },
+      {
+        accessListLabel: 'non-empty accessList',
+        accessList: [
+          {
+            address: prepend0x('11'.repeat(20)),
+            storageKeys: [prepend0x('00'.repeat(32))],
+          },
+        ],
+      },
+    ].forEach(({ accessListLabel, accessList }) => {
+      it(`should execute "eth_estimateGas" with to, from, value, ${accessListLabel} and gas field`, async () => {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            to: accounts[1].address,
+            value: '0x1',
+            gas: '0xd97010',
+            accessList,
+          },
+        ]);
+        expect(res).to.contain('0x');
+        expect(res).to.not.be.oneOf(['0x', '0x0']);
+      });
     });
 
     it('should execute "eth_estimateGas" with `to` field set to null (deployment transaction)', async function () {
@@ -972,6 +987,45 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest']);
       expect(res).to.eq(constants.EMPTY_HEX);
+    });
+
+    /**
+     * HIP-1340 / EIP-7702: {@code eth_getCode} on an EOA with code delegation should return
+     * {@code 0xef0100} concatenated with the 20-byte delegated contract address.
+     */
+    it.skip('should return EIP-7702 delegation designator on eth_getCode after type-4 delegation to a contract for an EOA', async function () {
+      const signer = accounts[1];
+      const gasPrice = await relay.gasPrice();
+      const defaultGasLimit = numberTo0x(3_000_000);
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: basicContractAddress,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const unsignedTx = {
+        type: 4,
+        chainId: Number(CHAIN_ID),
+        nonce: currentNonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        value: ONE_TINYBAR,
+        authorizationList,
+      };
+
+      const signedTx = await signer.wallet.signTransaction(unsignedTx);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const code = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [signer.address, 'latest']);
+      const delegateHex = basicContractAddress.replace(/^0x/i, '').toLowerCase();
+      const expectedCode = `0xef0100${delegateHex}`;
+      expect(code.toLowerCase()).to.equal(expectedCode);
     });
 
     // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619

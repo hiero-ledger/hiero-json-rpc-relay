@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { hexToBytes } from '@ethereumjs/util';
-import { ContractFunctionParameters } from '@hashgraph/sdk';
+import { ContractFunctionParameters } from '@hiero-ledger/sdk';
 import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
 import pino from 'pino';

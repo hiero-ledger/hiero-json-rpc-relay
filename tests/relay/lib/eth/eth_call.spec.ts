@@ -7,7 +7,6 @@ import sinon from 'sinon';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import type { ContractService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
@@ -306,6 +305,28 @@ describe('@ethCall Eth Call spec', async function () {
         'latest',
         requestDetails,
       );
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with non-empty accessList', async () => {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        accessList: [
+          {
+            address: CONTRACT_ADDRESS_2,
+            storageKeys: [
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+            ],
+          },
+        ],
+      };
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+      const result = await contractService.call(callData, 'latest', requestDetails);
       expect(result).to.equal('0x00');
     });
 

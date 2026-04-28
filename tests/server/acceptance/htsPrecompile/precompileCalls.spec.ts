@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { ContractId } from '@hashgraph/sdk';
+import { ContractId } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 

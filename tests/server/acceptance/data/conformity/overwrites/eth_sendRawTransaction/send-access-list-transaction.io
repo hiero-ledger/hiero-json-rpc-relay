@@ -1,6 +1,8 @@
 // sends a transaction with access list
 //
-// Reason for override: Hedera JSON-RPC does not support access lists defined in EIP-2930.
+// Reason for override: We could not run the tests with the original chainId, as Hedera only supports chainIds
+// within the limits of Java's Long, which is not the case for the conformity tests
+// included in https://github.com/ethereum/execution-apis.
 //
 // The transaction was prepared with EIP-2930 structure:
 //
@@ -23,18 +25,16 @@
 //
 // Part of the response:
 // {
-//     "access_list": "0x",        // access list was ignored
+//     "access_list": "0x(...)",        // access list was NOT ignored!
 //     "chain_id": "0x12a",
-//     "type": 0,                  // transaction type downgraded to legacy
+//     "type": 1,                       // type was NOT ignored!
 //     "result": "SUCCESS",
 //     ...
 // }
 //
 // Although the transaction was signed and sent as type 0x1 with an access list,
-// Hedera ignored the accessList field and treated it as a legacy (type 0) transaction.
-// The field "access_list": "0x" confirms that Hedera currently does not support or process EIP-2930 access lists.
 // Note: This is the original test file, modified for our test purposes:
 // https://github.com/ethereum/execution-apis/blob/main/tests/eth_sendRawTransaction/send-access-list-transaction.io
 
->> {"jsonrpc":"2.0","id":1,"method":"eth_sendRawTransaction","params":["0x01f88783aa36a7808504a817c8008261a89467d8d32e9bf1a9968a5ff53b87d777aa8ebbee69872386f26fc1000080d7d69467d8d32e9bf1a9968a5ff53b87d777aa8ebbee69c001a033f979b49e404e079e6efdcd24f461f776dbffa64cbe46a30241fe378da6c68da02423fbd1c1e50eeae47e50918b4821ad20ff9f370d9984439c039f1610c2664d"]}
-<< {"jsonrpc":"2.0","id":1,"result":"0x26cc539c6475a58ae7bee59e17b2e0e6ae65d89a70e2976e8243272012dca988"}
+>> {"jsonrpc":"2.0","id":1,"method":"eth_sendRawTransaction","params":["0x01f8808201288085a54f4c3c008301155894cdad5844f865f379bea057fb435aefef38361b688080d7d69429cbb51a44fd332c14180b4d471fbbc6654b1657c001a0e712360de4d3edc65ad14f712af2c87d09ccd73589803949816fb817075c0927a066b74193ee2af19d7c100f5f4620927de7cfa2f5e4fe2df432bbe26f436e9a94"]}
+<< {"jsonrpc":"2.0","id":1,"result":"0xd07a55a00aeb93c7825d1ca42238abdc3bc225de097ee1b8b2a4a9240ae55f9c"}

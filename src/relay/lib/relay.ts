@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId } from '@hashgraph/sdk';
+import { AccountId } from '@hiero-ledger/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 import { RedisClientType } from 'redis';

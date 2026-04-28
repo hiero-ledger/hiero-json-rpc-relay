@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Hbar, HbarUnit } from '@hashgraph/sdk';
+import { Hbar, HbarUnit } from '@hiero-ledger/sdk';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
@@ -27,6 +27,7 @@ import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 const registry = new Registry();
 import sinon from 'sinon';
 
+import { prepend0x } from '../../../src/relay/formatters';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/relay/lib/services';
 import { TransactionPoolService } from '../../../src/relay/lib/services/transactionPoolService/transactionPoolService';
@@ -680,11 +681,12 @@ describe('Precheck', async function () {
     it('should be able to calculate small contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 60364;
+      const mirrorNodeEstimation = 70711;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 37964;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(smallestContractCreate);
+      const gasDifferenceFromOtherFactors = 16305;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: smallestContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
@@ -692,38 +694,136 @@ describe('Precheck', async function () {
     it('should be able to calculate normal contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 86351;
+      const mirrorNodeEstimation = 499055;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 16739;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(greeterContractCreate);
+      const gasDifferenceFromOtherFactors = 356525;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: greeterContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calculate contract call', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCall);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCall } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calucate tx without starting 0x', function () {
       const contractCallTrimmed = contractCall.replace('0x', '');
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCallTrimmed);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCallTrimmed } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to able to calculate transfer', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(transfer);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: transfer,
+        to: contractAddress1,
+      } as Transaction);
       expect(intrinsicGasCost).to.be.equal(constants.TX_BASE_COST);
     });
 
+    [
+      {
+        label: 'one address only',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'address and storage key',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`)],
+          },
+        ],
+      },
+      {
+        label: 'address and multiple storage keys',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + 3 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [
+              prepend0x(`${'0'.repeat(31)}1`),
+              prepend0x(`${'0'.repeat(31)}2`),
+              prepend0x(`${'0'.repeat(31)}3`),
+            ],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses and storage keys',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST + 2 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`), prepend0x(`${'0'.repeat(31)}2`)],
+          },
+        ],
+      },
+    ].forEach(({ label, accessList, expectedAccessListCost }) => {
+      it(`should be able to able to calculate cost of an access list With ${label}`, function () {
+        const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+          data: transfer,
+          to: contractAddress1,
+          accessList,
+        } as Transaction);
+
+        expect(intrinsicGasCost).to.equal(constants.TX_BASE_COST + expectedAccessListCost);
+      });
+    });
+
     it('should be able to calculate for odd length tx', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(invalidTx);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: invalidTx } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
+    });
+
+    it('should apply floor price for simple contract call (EIP-7623)', function () {
+      // Use realistic calldata: a function selector (4 non-zero bytes)
+      // For simple calls (with 'to' address), floor price is always >= standard gas when there's calldata
+      // because TOTAL_COST_FLOOR_PER_TOKEN (10) > STANDARD_TOKEN_COST (4)
+      const data = contractCall; // '0xcfae3217' - 4 non-zero bytes
+
+      const zeroBytes = 0;
+      const nonZeroBytes = 4;
+
+      const tokens = zeroBytes + nonZeroBytes * 4;
+      const standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokens;
+      const expectedFloorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokens;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: data,
+        to: contractAddress1, // not a contract creation
+      } as Transaction);
+
+      expect(expectedFloorPrice).to.be.greaterThan(standardIntrinsicGas);
+      expect(intrinsicGasCost).to.equal(expectedFloorPrice);
+      expect(intrinsicGasCost).to.be.greaterThan(standardIntrinsicGas);
     });
   });
 
@@ -950,14 +1050,25 @@ describe('Precheck', async function () {
       expect(parsedTxWithMatchingChainId.accessList).to.be.empty;
     });
 
-    it('should throw NOT_YET_IMPLEMENTED for non-empty access list', function () {
+    it('should throw "not supported for legacy transactions" for non-empty access list when tx type is 0', function () {
       parsedTxWithMatchingChainId.accessList = [
         {
           address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
           storageKeys: [],
         },
       ];
-      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('Not yet implemented');
+      parsedTxWithMatchingChainId.type = 0;
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('not supported for legacy transactions');
+    });
+
+    it('should successfully parse a valid transaction string with non empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [
+        {
+          address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+          storageKeys: [],
+        },
+      ];
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.not.throw;
     });
   });
 });

@@ -10,7 +10,7 @@ import {
   Status,
   TransactionId,
   TransactionResponse,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -20,7 +20,7 @@ import sinon, { useFakeTimers } from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { Eth, JsonRpcError, predefined } from '../../../../src/relay';
-import { formatTransactionIdWithoutQueryParams } from '../../../../src/relay/formatters';
+import { formatTransactionIdWithoutQueryParams, prepend0x } from '../../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
@@ -31,7 +31,7 @@ import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitSe
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
-import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
+import { overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -165,6 +165,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
         const signed = await signTransaction({
           ...transaction,
+          gasLimit: '0x927C0',
           data: '0x' + '22'.repeat(13000),
         });
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
@@ -205,7 +206,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         txResponseMock.getReceipt
           .onFirstCall()
-          .resolves({ fileId: FILE_ID } as unknown as import('@hashgraph/sdk').TransactionReceipt);
+          .resolves({ fileId: FILE_ID } as unknown as import('@hiero-ledger/sdk').TransactionReceipt);
         Object.assign(txResponseMock, {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
         });
@@ -663,6 +664,53 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(returnValue).to.equal(undefined);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
           });
+        });
+
+        it('should preserve and propagate accessList from raw transaction to tx pool', async function () {
+          const accessList = [
+            {
+              address: ACCOUNT_ADDRESS_1,
+              storageKeys: [prepend0x('11'.repeat(32))],
+            },
+          ];
+
+          const eip1559Tx = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            type: 2,
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x0',
+            maxFeePerGas: gasPrice,
+            maxPriorityFeePerGas: gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+            accessList,
+          } as const;
+
+          const signed = await signTransaction(eip1559Tx);
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          // Just make sure that the accessList is propagated to the tx pool
+          const saveSpy = sinon.stub(txPool, 'saveTransaction').callsFake(async (_from: unknown, parsedTx: unknown) => {
+            expect(parsedTx).to.have.property('accessList');
+            expect(parsedTx!['accessList']).to.deep.equal(accessList);
+            return Promise.resolve();
+          });
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          await ethImpl.sendRawTransaction(signed, requestDetails);
+          sinon.assert.calledOnce(saveSpy);
         });
       });
     });

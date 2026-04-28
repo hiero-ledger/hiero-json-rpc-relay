@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId } from '@hashgraph/sdk';
+import { ContractId } from '@hiero-ledger/sdk';
 import Axios from 'axios';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
@@ -9,7 +9,7 @@ import { BaseContract, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x } from '../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { TracerType } from '../../../src/relay/lib/constants';
 // Helper functions/constants from local resources
@@ -136,6 +136,24 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         to: basicContractAddress,
         gas: numberTo0x(30000),
         data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('@release should execute "eth_call" request to Basic contract with an access list provided', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+        accessList: [
+          {
+            address: accounts[0].address,
+            storageKeys: [prepend0x('00'.repeat(32))],
+          },
+        ],
       };
 
       const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);

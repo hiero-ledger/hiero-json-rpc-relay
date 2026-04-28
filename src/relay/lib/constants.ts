@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from 'bignumber.js';
-
 import { ConfigService } from '../../config-service/services';
 
 enum CACHE_KEY {
@@ -92,13 +90,29 @@ export default {
   DEFAULT_BLOCK_GAS_LIMIT: 30_000_000,
   MAX_GAS_PER_SEC: 15_000_000,
   CONTRACT_CALL_GAS_LIMIT: 50_000_000,
-  ISTANBUL_TX_DATA_NON_ZERO_COST: 16,
   TX_BASE_COST: 21_000,
   MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS: 587_000,
   TX_CONTRACT_CALL_AVERAGE_GAS: 500_000,
   TX_DEFAULT_GAS_DEFAULT: 400_000,
   TX_CREATE_EXTRA: 32_000,
-  TX_DATA_ZERO_COST: 4,
+
+  STANDARD_TOKEN_COST: 4,
+
+  // EIP-7623: Calldata floor pricing constants
+  TOTAL_COST_FLOOR_PER_TOKEN: 10,
+
+  // EIP-3860: Initcode cost for contract creation
+  INITCODE_WORD_COST: 2,
+
+  // EIP-7702: Authorization list cost for type 4 transactions
+  PER_EMPTY_ACCOUNT_COST: 25_000,
+
+  // EIP-2930 Access List cost of a single storage key
+  ACCESS_LIST_STORAGE_KEY_COST: 1_900,
+
+  // EIP-2930 Access List cost of a single address
+  ACCESS_LIST_ADDRESS_COST: 2_400,
+
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
   NEXT_LINK_PREFIX: '/api/v1/',
   QUERY_COST_INCREMENTATION_STEP: 1.1,
@@ -132,10 +146,10 @@ export default {
   },
 
   HBAR_RATE_LIMIT_DURATION: ConfigService.get('HBAR_RATE_LIMIT_DURATION'),
-  HBAR_RATE_LIMIT_TOTAL: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')),
-  HBAR_RATE_LIMIT_BASIC: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_BASIC')),
-  HBAR_RATE_LIMIT_EXTENDED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_EXTENDED')),
-  HBAR_RATE_LIMIT_PRIVILEGED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED')),
+  HBAR_RATE_LIMIT_TOTAL: BigInt(ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')),
+  HBAR_RATE_LIMIT_BASIC: BigInt(ConfigService.get('HBAR_RATE_LIMIT_BASIC')),
+  HBAR_RATE_LIMIT_EXTENDED: BigInt(ConfigService.get('HBAR_RATE_LIMIT_EXTENDED')),
+  HBAR_RATE_LIMIT_PRIVILEGED: BigInt(ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED')),
   GAS_PRICE_TINY_BAR_BUFFER: ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER'),
   WEB_SOCKET_PORT: ConfigService.get('WEB_SOCKET_PORT'),
   WEB_SOCKET_HTTP_PORT: ConfigService.get('WEB_SOCKET_HTTP_PORT'),
@@ -253,6 +267,9 @@ export default {
   BLOCK_SAFE: 'safe',
   BLOCK_FINALIZED: 'finalized',
   BLOCK_HASH_LENGTH: 66,
+
+  /** EIP-7702 / HIP-1340: prefix returned by eth_getCode for EOAs with code delegation. */
+  EOA_DELEGATION_DESIGNATOR_PREFIX: '0xef0100',
 
   ETH_FEE_HISTORY: 'eth_feeHistory',
   ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',

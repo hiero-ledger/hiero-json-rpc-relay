@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { FileId } from '@hashgraph/sdk';
+import { FileId } from '@hiero-ledger/sdk';
 import { Transaction as EthersTransaction } from 'ethers/transaction';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
@@ -220,7 +220,7 @@ export class TransactionService implements ITransactionService {
         return null;
       }
 
-      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
+      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0]);
     }
 
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
@@ -459,7 +459,7 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
-    return TransactionFactory.createTransactionFromLog(this.chain, matchingLog, 0);
+    return TransactionFactory.createTransactionFromLog(this.chain, matchingLog);
   }
 
   /**

@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256 } from 'ethers';
+import { AbiCoder, keccak256, type Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -11,15 +11,15 @@ import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../../src/relay/lib/eth';
+import { Precheck } from '../../../../src/relay/lib/precheck';
 import {
   LocalPendingTransactionStorage,
   LockService,
   TransactionPoolService,
 } from '../../../../src/relay/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
-import { mockData, overrideEnvsInMochaDescribe } from '../../helpers';
+import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -490,6 +490,51 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       });
   });
 
+  withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
+    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async () => {
+      const originalEstimateGas = contractService.estimateGas;
+      contractService.estimateGas = async () => {
+        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
+      };
+
+      const result = await ethImpl.estimateGas(transaction, id, requestDetails);
+
+      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction)));
+
+      contractService.estimateGas = originalEstimateGas;
+    });
+  });
+
+  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async () => {
+    await mockContractCall(
+      transaction,
+      true,
+      400,
+      {
+        _status: {
+          messages: [
+            {
+              data: '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+              detail: 'Invalid number of recipients',
+              message: 'CONTRACT_REVERT_EXECUTED',
+            },
+          ],
+        },
+      },
+      requestDetails,
+    );
+
+    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.eventually.satisfy((error: JsonRpcError) => {
+        expect(error.data).to.equal(
+          '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+        );
+        expect(error.message).to.equal('execution reverted: Invalid number of recipients');
+        return true;
+      });
+  });
+
   it('should eth_estimateGas with contract revert for contract call and custom contract error throws CONTRACT_REVERT error', async function () {
     const decodedMessage = 'Some error message';
     const customErrorSignature = keccak256(Buffer.from('CustomError(string)')).slice(0, 10); // 0x8d6ea8be
@@ -635,15 +680,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
     const originalEstimateGas = contractService.estimateGas;
+
     contractService.estimateGas = async () => {
-      return predefined.INTERNAL_ERROR('Test error for estimateGas');
+      throw predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 
-    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
-
-    expect(result).to.be.an('error');
-    expect((result as JsonRpcError).code).to.equal(-32603);
-    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
+    await expect(ethImpl.estimateGas(transaction, null, requestDetails)).to.eventually.be.rejected.and.satisfy(
+      (error: JsonRpcError) => error.code === -32603 && error.message.includes('Test error for estimateGas'),
+    );
 
     contractService.estimateGas = originalEstimateGas;
   });
@@ -667,6 +711,29 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
+  });
+
+  it('should keep the received accessList and not lose it before submitting to the MirrorNode', async () => {
+    const transaction = {
+      from: '0x05fba803be258049a27b820088bab1cad2058871',
+      value: '0xA186B8E9800',
+      gasPrice: '0xF4240',
+      gas: '0xd97010',
+      accessList: [
+        {
+          address: '0x05fba803be258049a27b820088bab1cad2058871',
+          storageKeys: ['0x0000000000000000000000000000000000000000000000000000000000000000'],
+        },
+      ],
+    };
+
+    await contractService['contractCallFormat'](transaction, requestDetails);
+    expect(transaction.accessList).to.have.lengthOf(1);
+    expect(transaction.accessList[0].address).to.be.eq('0x05fba803be258049a27b820088bab1cad2058871');
+    expect(transaction.accessList[0].storageKeys).to.have.lengthOf(1);
+    expect(transaction.accessList[0].storageKeys[0]).to.be.eq(
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+    );
   });
 
   describe('eth_estimateGas with mirror node 5xx server errors', function () {
