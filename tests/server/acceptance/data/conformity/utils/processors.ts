@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
-import { FileContent } from './interfaces';
+import { type FileContent } from './interfaces';
 import { updateRequestParams } from './overwrites';
 import { sendRequestToRelay } from './utils';
 import { findSchema, hasResponseFormatIssues, isResponseValid } from './validations';

@@ -12,7 +12,7 @@ import { RedisClientManager } from '../../../../../src/relay/lib/clients/redisCl
 import { IPAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/entities/hbarLimiter/ipAddressHbarSpendingPlan';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../../src/relay/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../../src/relay/lib/db/types/hbarLimiter/errors';
-import { IIPAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
+import { type IIPAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 

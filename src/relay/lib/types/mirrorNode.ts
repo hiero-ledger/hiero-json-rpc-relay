@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from 'bignumber.js';
+import { type BigNumber } from 'bignumber.js';
 
-import { AuthorizationListEntry } from '../model';
+import type { AuthorizationListEntry } from '../model';
 
 export interface IAccountInfo {
   /**

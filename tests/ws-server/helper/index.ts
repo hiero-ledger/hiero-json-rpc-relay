@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { WebSocketProvider } from 'ethers';
+import { type WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
 export { RPC_METHODS } from './rpcMethods';
 

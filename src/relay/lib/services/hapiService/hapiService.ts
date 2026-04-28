@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
+import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
-import { Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import { SDKClient } from '../../clients';
-import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
-import { HbarLimitService } from '../hbarLimitService';
+import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
+import type { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
   /**
@@ -132,7 +132,7 @@ export default class HAPIService {
   /**
    *  Decrement transaction counter. If 0 is reached, reset the client. Check also if resetDuration has been reached and reset the client, if yes.
    */
-  private decrementTransactionCounter() {
+  private decrementTransactionCounter(): void {
     if (this.transactionCount === 0) {
       return;
     }
@@ -146,7 +146,7 @@ export default class HAPIService {
   /**
    *  Decrement error encountered counter. If 0 is reached, reset the client. Check also if resetDuration has been reached and reset the client, if yes.
    */
-  public decrementErrorCounter(statusCode: number) {
+  public decrementErrorCounter(statusCode: number): void {
     if (!this.isReinitEnabled || this.errorCodes.length === 0) {
       return;
     }
@@ -156,7 +156,7 @@ export default class HAPIService {
     }
   }
 
-  private checkResetDuration() {
+  private checkResetDuration(): void {
     if (this.isTimeResetDisabled) {
       return;
     }
@@ -169,7 +169,7 @@ export default class HAPIService {
   /**
    * Reset the SDK Client and all counters.
    */
-  private resetClient() {
+  private resetClient(): void {
     this.clientResetCounter.labels(this.transactionCount.toString(), this.errorCodes.toString()).inc(1);
 
     this.client = this.initSDKClient();

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
-import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
+import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
-import { EthImpl } from '../../../../src/relay/lib/eth';
-import { CommonService } from '../../../../src/relay/lib/services';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
-import { ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type CommonService } from '../../../../src/relay/lib/services';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import { type ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1, mockWorkersPool } from '../../helpers';
 import {
   BLOCK_HASH,

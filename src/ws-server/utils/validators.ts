@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { JsonRpcError, predefined } from '../../relay';
-import { MirrorNodeClient } from '../../relay/lib/clients';
+import { type MirrorNodeClient } from '../../relay/lib/clients';
 import constants from '../../relay/lib/constants';
-import { RequestDetails } from '../../relay/lib/types';
+import { type RequestDetails } from '../../relay/lib/types';
 import { validateEthSubscribeLogsParamObject } from '../../relay/lib/validators';
 
 interface EthSubscribeLogsParams {
@@ -23,7 +23,7 @@ const validateIsContractOrTokenAddress = async (
   address: string,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
-) => {
+): Promise<void> => {
   const isContractOrToken = await mirrorNodeClient.resolveEntityType(
     address,
     constants.METHODS.ETH_SUBSCRIBE,
@@ -50,7 +50,7 @@ export const validateSubscribeEthLogsParams = async (
   filters: EthSubscribeLogsParams,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
-) => {
+): Promise<void> => {
   // validate address exists and is correct length and type
   // validate topics if exists and is array and each one is correct length and type
   // @todo: move EthSubscribeLogsParamsObject to ws-server package

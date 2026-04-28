@@ -67,6 +67,7 @@ export default defineConfig([
       // Custom rules
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-trailing-spaces': 'error',
       'no-useless-escape': 'warn',
@@ -86,6 +87,13 @@ export default defineConfig([
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'off',
       'n/no-process-exit': 'error',
+    },
+  },
+
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'error',
     },
   },
 

@@ -6,9 +6,9 @@ import { bytesToInt, concatBytes, hexToBytes, intToBytes } from '@ethereumjs/uti
 import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, toHexString } from '../../formatters';
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
-import { Log } from '../model';
-import { ITransactionReceipt } from '../types';
-import { IReceiptRlpInput } from '../types/IReceiptRlpInput';
+import { type Log } from '../model';
+import { type ITransactionReceipt } from '../types';
+import { type IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs

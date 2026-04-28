@@ -2,7 +2,7 @@
 
 import EventEmitter from 'events';
 import type { Logger } from 'pino';
-import { Registry } from 'prom-client';
+import type { Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
 import {
@@ -18,10 +18,10 @@ import {
 } from '../formatters';
 import type { Debug, JsonRpcError } from '../index';
 import { Utils } from '../utils';
-import { MirrorNodeClient } from './clients';
+import type { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
-import { IOpcode } from './clients/models/IOpcode';
-import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
+import type { IOpcode } from './clients/models/IOpcode';
+import type { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
@@ -30,14 +30,14 @@ import { type Block, Log } from './model';
 import {
   BlockService,
   CommonService,
-  IBlockService,
-  LockService,
-  TransactionPoolService,
+  type IBlockService,
+  type LockService,
+  type TransactionPoolService,
   TransactionService,
 } from './services';
-import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
-import HAPIService from './services/hapiService/hapiService';
-import {
+import type { ITransactionService } from './services/ethService/transactionService/ITransactionService';
+import type HAPIService from './services/hapiService/hapiService';
+import type {
   BlockTracerConfig,
   CallTracerResult,
   EntityTraceStateMap,

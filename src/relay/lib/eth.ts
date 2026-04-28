@@ -1,42 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { EventEmitter } from 'events';
-import { Logger } from 'pino';
-import { Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { type Registry } from 'prom-client';
 
-import { Eth } from '../index';
-import { MirrorNodeClient } from './clients';
+import { type Eth } from '../index';
+import { type MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
-import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { Block, Log, Transaction } from './model';
+import { type JsonRpcError, predefined } from './errors/JsonRpcError';
+import { type Block, type Log, type Transaction } from './model';
 import {
   AccountService,
   BlockService,
   CommonService,
   ContractService,
   FilterService,
-  IAccountService,
-  IBlockService,
-  ICommonService,
-  IContractService,
-  LockService,
-  TransactionPoolService,
+  type IAccountService,
+  type IBlockService,
+  type ICommonService,
+  type IContractService,
+  type LockService,
+  type TransactionPoolService,
   TransactionService,
 } from './services';
 import { FeeService } from './services/ethService/feeService/FeeService';
-import { IFeeService } from './services/ethService/feeService/IFeeService';
-import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
-import HAPIService from './services/hapiService/hapiService';
+import { type IFeeService } from './services/ethService/feeService/IFeeService';
+import { type ITransactionService } from './services/ethService/transactionService/ITransactionService';
+import type HAPIService from './services/hapiService/hapiService';
 import {
-  IContractCallRequest,
-  IFeeHistory,
-  IGetLogsParams,
-  INewFilterParams,
-  ITransactionReceipt,
-  RequestDetails,
-  TypedEvents,
+  type IContractCallRequest,
+  type IFeeHistory,
+  type IGetLogsParams,
+  type INewFilterParams,
+  type ITransactionReceipt,
+  type RequestDetails,
+  type TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
 

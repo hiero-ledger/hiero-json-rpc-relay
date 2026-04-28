@@ -5,7 +5,7 @@ import { ContractId } from '@hashgraph/sdk';
 import Axios from 'axios';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
-import { BaseContract, ethers } from 'ethers';
+import { type BaseContract, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -17,9 +17,9 @@ import { TYPES } from '../../../src/relay/lib/validators';
 import RelayAssertions from '../../relay/assertions';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 import { GAS_LIMIT } from '../../relay/lib/eth/eth-config';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import callerContractJson from '../contracts/Caller.json';
 import DeployerContractJson from '../contracts/Deployer.json';
@@ -34,7 +34,7 @@ import Helper from '../helpers/constants';
 import Address from '../helpers/constants';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 chai.use(chaiExclude);
 

@@ -2,9 +2,9 @@
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
-import { Block, Log, Receipt, Transaction } from './lib/model';
-import { TxPoolContent, TxPoolContentFrom, TxPoolStatus } from './lib/txpool';
-import {
+import type { Block, Log, Receipt, Transaction } from './lib/model';
+import type { TxPoolContent, TxPoolContentFrom, TxPoolStatus } from './lib/txpool';
+import type {
   BlockTracerConfig,
   IContractCallRequest,
   IGetLogsParams,

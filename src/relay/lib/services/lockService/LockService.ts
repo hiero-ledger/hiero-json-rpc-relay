@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '../../../../config-service/services';
-import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types';
+import { type LockAcquisitionResult, type LockStrategy, type LockStrategyLabel } from '../../types';
 
 /**
  * Service that manages transaction ordering through distributed locking.

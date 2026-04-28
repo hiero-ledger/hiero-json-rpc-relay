@@ -2,7 +2,7 @@
 import { type IJsonRpcResponse, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
 import { areSubscriptionsEnabled } from '../utils/utils';
 import { sendSubscriptionsDisabledError } from '../utils/utils';
-import { ISharedParams } from './jsonRpcController';
+import { type ISharedParams } from './jsonRpcController';
 
 /**
  * Handles unsubscription requests for on-chain events.

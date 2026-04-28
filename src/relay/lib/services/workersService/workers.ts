@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RequestDetails } from '../../types';
+import { type RequestDetails } from '../../types';
 import { getBalance } from '../ethService/accountService/accountWorker';
 import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';

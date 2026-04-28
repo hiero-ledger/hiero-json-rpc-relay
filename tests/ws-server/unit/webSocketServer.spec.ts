@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 import http from 'http';
-import { AddressInfo } from 'net';
+import { type AddressInfo } from 'net';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId } from '@hashgraph/sdk';
-import { Logger } from 'pino';
-import { Gauge, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type AccountId } from '@hashgraph/sdk';
+import { type Logger } from 'pino';
+import { Gauge, type Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../config-service/services';
-import { Admin, Eth, Net, TxPool, Web3 } from '../index';
+import { type Admin, type Eth, type Net, type TxPool, type Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -31,12 +31,12 @@ import { registerRpcMethods } from './services/registryService/rpcMethodRegistry
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
 import { TxPoolImpl } from './txpool';
 import {
-  IEthExecutionEventPayload,
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
+  type IEthExecutionEventPayload,
+  type IExecuteQueryEventPayload,
+  type IExecuteTransactionEventPayload,
   RequestDetails,
-  RpcMethodRegistry,
-  RpcNamespaceRegistry,
+  type RpcMethodRegistry,
+  type RpcNamespaceRegistry,
 } from './types';
 import { Web3Impl } from './web3';
 
@@ -203,7 +203,7 @@ export class Relay {
       help: 'Relay operator balance gauge',
       labelNames: ['mode', 'type', 'accountId'],
       registers: [register],
-      async collect() {
+      async collect(): Promise<void> {
         // Invoked when the registry collects its metrics' values.
         // Allows for updated account balance tracking
         try {
@@ -261,7 +261,7 @@ export class Relay {
   /**
    * Initializes required clients and services
    */
-  async initializeRelay() {
+  async initializeRelay(): Promise<void> {
     // 1. Connect to Redis first
     await this.connectRedisClient();
 
@@ -425,7 +425,7 @@ export class Relay {
     this.logger.info('Relay running with chainId=%s', chainId);
   }
 
-  private async connectRedisClient() {
+  private async connectRedisClient(): Promise<void> {
     if (RedisClientManager.isRedisEnabled()) {
       this.redisClient = await RedisClientManager.getClient(this.logger);
     } else {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { BigNumber } from 'bignumber.js';
 import chai, { expect } from 'chai';
@@ -18,7 +18,11 @@ import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheCl
 import constants from '../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
-import { MirrorNodeContractLog, MirrorNodeTransactionRecord, RequestDetails } from '../../../src/relay/lib/types';
+import {
+  type MirrorNodeContractLog,
+  type MirrorNodeTransactionRecord,
+  RequestDetails,
+} from '../../../src/relay/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
 

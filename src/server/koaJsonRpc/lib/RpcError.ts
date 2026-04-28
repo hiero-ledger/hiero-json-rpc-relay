@@ -14,19 +14,25 @@ export interface IJsonRpcError {
 export const spec = {
   ParseError: { code: -32700, message: 'Parse error' },
   InvalidRequest: { code: -32600, message: 'Invalid Request' },
-  MethodNotFound: (methodName: string) => ({ code: -32601, message: `Method ${methodName} not found` }),
+  MethodNotFound: (methodName: string): { code: number; message: string } => ({
+    code: -32601,
+    message: `Method ${methodName} not found`,
+  }),
 
   /**
    * @param err The error object that caused this `InternalError`.
    */
-  InternalError: (err: unknown) => ({
+  InternalError: (err: unknown): { code: number; message: string } => ({
     code: -32603,
     message: err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Internal error',
   }),
 
-  IPRateLimitExceeded: (methodName: string) => ({ code: -32605, message: `IP Rate limit exceeded on ${methodName}` }),
+  IPRateLimitExceeded: (methodName: string): { code: number; message: string } => ({
+    code: -32605,
+    message: `IP Rate limit exceeded on ${methodName}`,
+  }),
 
-  BatchRequestsMethodNotPermitted: (method: string) => ({
+  BatchRequestsMethodNotPermitted: (method: string): { code: number; message: string } => ({
     code: -32007,
     message: `Method ${method} is not permitted as part of batch requests`,
   }),

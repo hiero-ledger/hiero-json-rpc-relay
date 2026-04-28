@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IDetailedHbarSpendingPlan } from '../../types/hbarLimiter/hbarSpendingPlan';
-import { SubscriptionTier } from '../../types/hbarLimiter/subscriptionTier';
+import { type IDetailedHbarSpendingPlan } from '../../types/hbarLimiter/hbarSpendingPlan';
+import { type SubscriptionTier } from '../../types/hbarLimiter/subscriptionTier';
 import { HbarSpendingRecord } from './hbarSpendingRecord';
 
 export class HbarSpendingPlan implements IDetailedHbarSpendingPlan {

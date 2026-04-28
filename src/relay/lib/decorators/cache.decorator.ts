@@ -46,7 +46,7 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
   return function (target: any, context: ClassMethodDecoratorContext<T>) {
     const methodName = String(context.name);
 
-    return async function (this: T, ...args: unknown[]) {
+    return async function (this: T, ...args: unknown[]): Promise<any> {
       const cacheKey = generateCacheKey(methodName, args);
       const cacheService = this[cacheServiceProp] as ICacheClient;
 
@@ -156,7 +156,7 @@ const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedPara
  * @example
  *   generateCacheKey('getBlockByNumber', arguments); // should return getBlockByNumber_0x160c_false
  */
-const generateCacheKey = (methodName: string, args: unknown[]) => {
+const generateCacheKey = (methodName: string, args: unknown[]): string => {
   let cacheKey: string = methodName;
   for (const value of args) {
     if (!(value instanceof RequestDetails)) {

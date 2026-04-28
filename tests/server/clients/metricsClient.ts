@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance } from 'axios';
+import Axios, { type AxiosInstance } from 'axios';
 
 export default class MetricsClient {
   private readonly client: AxiosInstance;

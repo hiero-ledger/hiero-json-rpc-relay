@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Transaction } from 'ethers';
-import { Logger, pino } from 'pino';
+import { type Transaction } from 'ethers';
+import { type Logger, pino } from 'pino';
 import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../../src/relay/lib/services/transactionPoolService/transactionPoolService';
-import { PendingTransactionStorage } from '../../../../../src/relay/lib/types/transactionPool';
+import { type PendingTransactionStorage } from '../../../../../src/relay/lib/types/transactionPool';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('TransactionPoolService Test Suite', function () {

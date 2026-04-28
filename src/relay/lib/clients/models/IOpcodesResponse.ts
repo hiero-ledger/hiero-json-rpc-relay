@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IOpcode } from './IOpcode';
+import { type IOpcode } from './IOpcode';
 
 export interface IOpcodesResponse {
   address?: string;

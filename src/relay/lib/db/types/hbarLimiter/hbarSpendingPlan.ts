@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IHbarSpendingRecord } from './hbarSpendingRecord';
-import { SubscriptionTier } from './subscriptionTier';
+import { type IHbarSpendingRecord } from './hbarSpendingRecord';
+import { type SubscriptionTier } from './subscriptionTier';
 
 export interface IHbarSpendingPlan {
   id: string;

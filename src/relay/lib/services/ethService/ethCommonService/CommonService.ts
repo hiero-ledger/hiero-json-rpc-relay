@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as _ from 'lodash';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import { type IAccountInfo, type MirrorNodeContractLog, type RequestDetails } from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from './ICommonService';
+import { type ICommonService } from './ICommonService';
 
 export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
 export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]];
@@ -59,7 +59,7 @@ export class CommonService implements ICommonService {
   /**
    * @private
    */
-  private static getLogsBlockRangeLimit() {
+  private static getLogsBlockRangeLimit(): number {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
@@ -132,7 +132,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
     } else {
@@ -218,7 +218,11 @@ export class CommonService implements ICommonService {
     return true;
   }
 
-  public async validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails) {
+  public async validateBlockRange(
+    fromBlock: string,
+    toBlock: string,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
     let fromBlockNumber: any = null;
     let toBlockNumber: any = null;
 
@@ -333,7 +337,7 @@ export class CommonService implements ICommonService {
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
   }
 
-  public genericErrorHandler(error: any, logMessage?: string) {
+  public genericErrorHandler(error: any, logMessage?: string): void {
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -352,7 +356,7 @@ export class CommonService implements ICommonService {
     blockHash: string,
     requestDetails: RequestDetails,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
       if (block) {
@@ -382,7 +386,7 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null) {
+  public addTopicsToParams(params: any, topics: any[] | null): void {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
         if (!_.isNil(topics[i])) {
@@ -590,11 +594,11 @@ export class CommonService implements ICommonService {
     );
   };
 
-  private isBlockNumValid = (num: string) => {
+  private isBlockNumValid = (num: string): boolean => {
     return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
   };
 
-  public isBlockParamValid = (tag: string | null) => {
+  public isBlockParamValid = (tag: string | null): boolean => {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
 

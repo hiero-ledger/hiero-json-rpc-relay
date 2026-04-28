@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import _ from 'lodash';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { ICommonService } from '../ethCommonService/ICommonService';
-import { IFeeService } from '../feeService/IFeeService';
+import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { type IFeeHistory, type MirrorNodeBlock, type RequestDetails } from '../../../types';
+import { type ICommonService } from '../ethCommonService/ICommonService';
+import { type IFeeService } from '../feeService/IFeeService';
 
 export class FeeService implements IFeeService {
   /**

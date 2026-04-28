@@ -9,7 +9,7 @@ import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import type { ContractService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
-import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
+import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   defaultCallData,

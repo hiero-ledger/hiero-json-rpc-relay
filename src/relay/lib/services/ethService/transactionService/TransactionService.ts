@@ -1,35 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
-import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction } from 'ethers/transaction';
-import EventEmitter from 'events';
-import { Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
+import { type FileId } from '@hashgraph/sdk';
+import { type Transaction as EthersTransaction } from 'ethers/transaction';
+import type EventEmitter from 'events';
+import { type Logger } from 'pino';
+import { Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
-  ISyntheticTransactionReceiptParams,
+  type ISyntheticTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { Log, Transaction } from '../../../model';
+import { Log, type Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
 import {
-  IContractResultsParams,
-  ITransactionReceipt,
-  LockAcquisitionResult,
-  RequestDetails,
-  TypedEvents,
+  type IContractResultsParams,
+  type ITransactionReceipt,
+  type LockAcquisitionResult,
+  type RequestDetails,
+  type TypedEvents,
 } from '../../../types';
-import HAPIService from '../../hapiService/hapiService';
-import { ICommonService, LockService, TransactionPoolService } from '../../index';
-import { ITransactionService } from './ITransactionService';
+import type HAPIService from '../../hapiService/hapiService';
+import { type ICommonService, type LockService, type TransactionPoolService } from '../../index';
+import { type ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
   /**

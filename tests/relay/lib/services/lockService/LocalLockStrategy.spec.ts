@@ -4,8 +4,8 @@ import { expect } from 'chai';
 import { pino } from 'pino';
 import sinon from 'sinon';
 
-import { LocalLockStrategy, LockState } from '../../../../../src/relay/lib/services/lockService/LocalLockStrategy';
-import { LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
+import { LocalLockStrategy, type LockState } from '../../../../../src/relay/lib/services/lockService/LocalLockStrategy';
+import { type LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('LocalLockStrategy', function () {

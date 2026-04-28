@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Registry } from 'prom-client';
+import { Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
-import { RateLimitKey, RateLimitStore } from '../../types';
-import { RequestDetails } from '../../types/RequestDetails';
+import { RateLimitKey, type RateLimitStore } from '../../types';
+import { type RequestDetails } from '../../types/RequestDetails';
 
 /**
  * Service to apply IP and method-based rate limiting using configurable stores.

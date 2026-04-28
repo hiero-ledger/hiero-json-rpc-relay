@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
 
-import { LockStrategyLabel } from '../../types/lock';
+import { type LockStrategyLabel } from '../../types/lock';
 
 /**
  * Status label values for lock acquisition metrics.

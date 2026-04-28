@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RateLimitKey, RateLimitStore } from '../../types';
+import { type RateLimitKey, type RateLimitStore } from '../../types';
 
 interface DatabaseEntry {
   reset: number;

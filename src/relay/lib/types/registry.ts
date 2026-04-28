@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { DebugImpl } from '../debug';
-import { EthImpl } from '../eth';
-import { NetImpl } from '../net';
-import { Web3Impl } from '../web3';
+import { type DebugImpl } from '../debug';
+import { type EthImpl } from '../eth';
+import { type NetImpl } from '../net';
+import { type Web3Impl } from '../web3';
 
 /**
  * Type for supported service implementations that contain RPC methods

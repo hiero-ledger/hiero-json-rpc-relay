@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon, { stub } from 'sinon';
 
-import { Eth, predefined } from '../../../../src/relay';
+import { type Eth, predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {

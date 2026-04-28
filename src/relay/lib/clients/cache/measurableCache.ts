@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Registry } from 'prom-client';
+import { Counter, type Registry } from 'prom-client';
 
 import { WorkersPool } from '../../services/workersService/WorkersPool';
 import type { ICacheClient } from './ICacheClient';

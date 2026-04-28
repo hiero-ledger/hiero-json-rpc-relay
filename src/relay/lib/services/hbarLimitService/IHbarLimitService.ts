@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RequestDetails } from '../../types';
+import { type RequestDetails } from '../../types';
 
 export interface IHbarLimitService {
   resetLimiter(requestDetails: RequestDetails): Promise<void>;

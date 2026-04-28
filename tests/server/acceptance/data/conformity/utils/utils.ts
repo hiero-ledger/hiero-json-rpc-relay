@@ -3,7 +3,7 @@ import axios from 'axios';
 
 import { signTransaction } from '../../../../../relay/helpers';
 import { localNodeAccountPrivateKey, sendAccountAddress } from './constants';
-import { JsonRpcRequest, JsonRpcResponse, Transaction, TransactionResponse } from './interfaces';
+import { type JsonRpcRequest, type JsonRpcResponse, type Transaction, type TransactionResponse } from './interfaces';
 
 export async function getTransactionCount(relayUrl: string) {
   const request = {

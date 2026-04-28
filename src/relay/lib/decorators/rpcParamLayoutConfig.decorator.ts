@@ -24,7 +24,7 @@ export const RPC_LAYOUT = {
    *
    * @param rpcParamRearrangementFn - Function to show custom parameter rearrangement
    */
-  custom: (rpcParamRearrangementFn: (params: any[]) => any[]) => rpcParamRearrangementFn,
+  custom: (rpcParamRearrangementFn: (params: any[]) => any[]): ((params: any[]) => any[]) => rpcParamRearrangementFn,
 };
 
 /**

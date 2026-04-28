@@ -3,7 +3,7 @@ import { keccak256 } from 'ethers/crypto';
 
 import { prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
-import { Log } from './lib/model';
+import { type Log } from './lib/model';
 
 export class LogsBloomUtils {
   public static readonly BYTE_SIZE = 256;
@@ -16,7 +16,7 @@ export class LogsBloomUtils {
    * @param address
    * @param topics
    */
-  private static addLogItems(bitvector: Uint8Array, address: string, topics: string[]) {
+  private static addLogItems(bitvector: Uint8Array, address: string, topics: string[]): void {
     const items = [address, ...topics];
     for (let k = 0; k < items.length; k++) {
       const item = Buffer.alloc(32, strip0x(keccak256(items[k])), 'hex');

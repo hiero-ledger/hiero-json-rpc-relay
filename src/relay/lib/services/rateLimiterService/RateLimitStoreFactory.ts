@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import { Counter } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type Logger } from 'pino';
+import { type Counter } from 'prom-client';
+import { type RedisClientType } from 'redis';
 
-import { RateLimitStore } from '../../types';
+import { type RateLimitStore } from '../../types';
 import { LruRateLimitStore } from './LruRateLimitStore';
 import { RedisRateLimitStore } from './RedisRateLimitStore';
 

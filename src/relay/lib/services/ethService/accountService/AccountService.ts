@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { RequestDetails } from '../../../types';
-import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
-import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
+import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { type RequestDetails } from '../../../types';
+import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from '../ethCommonService/ICommonService';
-import { IAccountService } from './IAccountService';
+import { type ICommonService } from '../ethCommonService/ICommonService';
+import { type IAccountService } from './IAccountService';
 
 export class AccountService implements IAccountService {
   /**
@@ -128,7 +128,10 @@ export class AccountService implements IAccountService {
    * @param blockNumberOrTagOrHash
    * @param requestDetails
    */
-  public async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
+  public async extractBlockNumberAndTimestamp(
+    blockNumberOrTagOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<{ latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }> {
     let latestBlock: LatestBlockNumberTimestamp;
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
@@ -171,7 +174,7 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails) {
+  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails): Promise<never[]> {
     let pagedTransactions = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
@@ -191,7 +194,12 @@ export class AccountService implements IAccountService {
    * @param latestBlock
    * @param requestDetails
    */
-  async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+  async getBalanceAtBlockNumber(
+    account,
+    block,
+    latestBlock,
+    requestDetails,
+  ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
     let mirrorAccount;
@@ -311,7 +319,7 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
+  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;

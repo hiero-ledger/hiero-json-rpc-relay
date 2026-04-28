@@ -2,19 +2,19 @@
 
 import {
   AccountCreateTransaction,
-  AccountId,
-  Client,
+  type AccountId,
+  type Client,
   Hbar,
   PrivateKey,
   TokenAssociateTransaction,
   TokenCreateTransaction,
-  TokenId,
+  type TokenId,
   TokenSupplyType,
   TokenType,
   TransferTransaction,
 } from '@hashgraph/sdk';
 
-import MirrorClient from '../../clients/mirrorClient';
+import type MirrorClient from '../../clients/mirrorClient';
 
 /**
  * Test fixture responsible for creating a Hedera block containing

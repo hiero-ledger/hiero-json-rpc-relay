@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { numberTo0x } from '../../../../formatters';
-import { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { type ICacheClient } from '../../../clients/cache/ICacheClient';
+import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { Block } from '../../../model';
-import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { IBlockService, ICommonService } from '../../index';
+import { type Block } from '../../../model';
+import { type ITransactionReceipt, type MirrorNodeBlock, type RequestDetails } from '../../../types';
+import { type IBlockService, type ICommonService } from '../../index';
 import { WorkersPool } from '../../workersService/WorkersPool';
 
 export class BlockService implements IBlockService {

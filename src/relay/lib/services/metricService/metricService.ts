@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Counter, Histogram, type Registry } from 'prom-client';
 
 import constants from '../../constants';
 import {
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
-  ITransactionRecordMetric,
-  RequestDetails,
+  type IExecuteQueryEventPayload,
+  type IExecuteTransactionEventPayload,
+  type ITransactionRecordMetric,
+  type RequestDetails,
 } from '../../types';
-import { HbarLimitService } from '../hbarLimitService';
+import { type HbarLimitService } from '../hbarLimitService';
 
 interface ITransactionMetricsCollector {
   getTransactionRecordMetrics(

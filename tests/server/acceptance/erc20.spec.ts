@@ -7,13 +7,13 @@ import { ethers } from 'ethers';
 import { CommonService } from '../../../src/relay/lib/services';
 // Constants from local resources
 import Constants from '../../server/helpers/constants';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import ERC20MockJson from '../contracts/ERC20Mock.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 // Local resources
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 const extractRevertReason = (errorReason: string) => {
   const pattern = /(?<=reverted: ).*/;
