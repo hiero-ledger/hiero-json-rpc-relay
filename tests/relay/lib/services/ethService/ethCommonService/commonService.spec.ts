@@ -11,7 +11,11 @@ import { numberTo0x, prepend0x } from '../../../../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
 import { CacheClientFactory } from '../../../../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../../../../src/relay/lib/services';
-import { MirrorNodeBlock, MirrorNodeContractResult, RequestDetails } from '../../../../../../src/relay/lib/types';
+import {
+  type MirrorNodeBlock,
+  type MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../../../../src/relay/lib/types';
 import { toHex } from '../../../../helpers';
 
 const logger = pino({ level: 'silent' });

@@ -4,14 +4,7 @@ import * as _ from 'lodash';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
-import {
-  numberTo0x,
-  parseNumericEnvVar,
-  prepend0x,
-  tinybarsToWeibars,
-  toHash32,
-  trimPrecedingZeros,
-} from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -20,7 +13,7 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import {
+import type {
   IAccountInfo,
   MirrorNodeBlock,
   MirrorNodeContractLog,
