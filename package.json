@@ -29,7 +29,7 @@
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "chai-exclude": "^3.0.0",
-    "eslint": "^9.34.0",
+    "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^17.24.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
