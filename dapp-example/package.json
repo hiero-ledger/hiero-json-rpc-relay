@@ -31,7 +31,7 @@
     "@babel/preset-env": "^7.28.5",
     "@cypress/webpack-batteries-included-preprocessor": "^4.0.4",
     "@cypress/webpack-preprocessor": "^6.0.4",
-    "@synthetixio/synpress": "^3.7.3",
+    "@synthetixio/synpress": "^4.1.2",
     "babel-loader": "^10.0.0",
     "cypress": "^13.13.2",
     "cypress-multi-reporters": "^2.0.5",
@@ -46,7 +46,7 @@
     "start": "react-scripts start --openssl-legacy-provider",
     "build": "react-scripts build --openssl-legacy-provider",
     "bootstrap": "env-cmd node tests/e2e/bootstrap.js",
-    "test": "env-cmd npx synpress run -cf synpress.js",
+    "test": "env-cmd npx synpress run",
     "start-prod": "http-server build -p 3000 -a localhost",
     "eject": "react-scripts eject",
     "test:ci": "npm ci && npm run bootstrap && npm run build && start-server-and-test 'start' http-get://localhost:3000 'npm run test'"
