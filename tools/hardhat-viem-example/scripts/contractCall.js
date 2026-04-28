@@ -2,7 +2,7 @@
 
 import { network } from 'hardhat';
 
-//This function accepts two parameters - address and msg
+//This function accepts two parameters - contractAddress and msg
 //Retrieves the contract from the address and set new greeting
 export default async ({ contractAddress, msg }) => {
   const hre = await network.create();
