@@ -736,6 +736,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,
