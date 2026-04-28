@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type AccountId, type FileId, type PublicKey, type TransactionResponse } from '@hashgraph/sdk';
+import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
-import { type Logger } from 'pino';
+import type { Logger } from 'pino';
 import { Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import { SDKClient } from '../../clients';
-import { type ITransactionRecordMetric, type RequestDetails, type TypedEvents } from '../../types';
-import { type HbarLimitService } from '../hbarLimitService';
+import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
+import type { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
   /**

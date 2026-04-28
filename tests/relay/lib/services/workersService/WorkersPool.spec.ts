@@ -28,7 +28,7 @@ describe('WorkersPool Test Suite', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Local execution mode: WORKERS_POOL_ENABLED=false
+  // Local execution mode: WORKERS_POOL_ENABLED=false (default)
   // ---------------------------------------------------------------------------
   describe('run() — local execution mode (WORKERS_POOL_ENABLED=false)', () => {
     overrideEnvsInMochaDescribe({ WORKERS_POOL_ENABLED: false });
@@ -119,7 +119,7 @@ describe('WorkersPool Test Suite', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Pool execution mode: WORKERS_POOL_ENABLED=true (default)
+  // Pool execution mode: WORKERS_POOL_ENABLED=true
   // ---------------------------------------------------------------------------
   describe('run() — pool execution mode (WORKERS_POOL_ENABLED=true)', () => {
     overrideEnvsInMochaDescribe({ WORKERS_POOL_ENABLED: true });

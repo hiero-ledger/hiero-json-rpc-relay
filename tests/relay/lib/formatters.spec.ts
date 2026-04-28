@@ -259,6 +259,12 @@ describe('Formatters', () => {
     it('should return 0x0 for NaN input', () => {
       expect(nanOrNumberInt64To0x(NaN)).to.equal('0x0');
     });
+    it('should convert a positive string input', () => {
+      expect(nanOrNumberInt64To0x('100')).to.equal('0x64');
+    });
+    it('should convert a negative string input', () => {
+      expect(nanOrNumberInt64To0x('-10')).to.equal('0xfffffffffffffff6');
+    });
 
     for (const [testName, testValues] of Object.entries({
       '2 digits': ['-10', '0xfffffffffffffff6'],

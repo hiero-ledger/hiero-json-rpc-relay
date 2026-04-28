@@ -2,26 +2,26 @@
 
 import EventEmitter from 'events';
 import type { Logger } from 'pino';
-import { type Registry } from 'prom-client';
+import type { Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
 import {
   decodeErrorMessage,
   isHex,
   mapKeysAndValues,
+  nanOrNumberInt64To0x,
   numberTo0x,
   prepend0x,
   strip0x,
   tinybarsToWeibars,
   toHexString,
 } from '../formatters';
-import { type Debug } from '../index';
-import { type JsonRpcError } from '../index';
+import type { Debug, JsonRpcError } from '../index';
 import { Utils } from '../utils';
-import { type MirrorNodeClient } from './clients';
+import type { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
-import { type IOpcode } from './clients/models/IOpcode';
-import { type IOpcodesResponse } from './clients/models/IOpcodesResponse';
+import type { IOpcode } from './clients/models/IOpcode';
+import type { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
@@ -35,21 +35,21 @@ import {
   type TransactionPoolService,
   TransactionService,
 } from './services';
-import { type ITransactionService } from './services/ethService/transactionService/ITransactionService';
+import type { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import type HAPIService from './services/hapiService/hapiService';
-import {
-  type BlockTracerConfig,
-  type CallTracerResult,
-  type EntityTraceStateMap,
-  type ICallTracerConfig,
-  type IOpcodeLoggerConfig,
-  type MirrorNodeContractLog,
-  type OpcodeLoggerResult,
-  type RequestDetails,
-  type TraceBlockTxResult,
-  type TransactionTracerConfig,
-  type TxHashToContractResultOrActionsMap,
-  type TypedEvents,
+import type {
+  BlockTracerConfig,
+  CallTracerResult,
+  EntityTraceStateMap,
+  ICallTracerConfig,
+  IOpcodeLoggerConfig,
+  MirrorNodeContractLog,
+  OpcodeLoggerResult,
+  RequestDetails,
+  TraceBlockTxResult,
+  TransactionTracerConfig,
+  TxHashToContractResultOrActionsMap,
+  TypedEvents,
 } from './types';
 import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
@@ -545,18 +545,18 @@ export class DebugImpl implements Debug {
    * Returns an address' evm equivalence.
    *
    * @async
-   * @param {string} address - The address to be resolved.
+   * @param {string | null} address - The address to be resolved.
    * @param {[string]} types - The possible types of the address.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<string>} The address returned as an EVM address.
+   * @returns {Promise<string | null>} The address returned as an EVM address.
    */
   async resolveAddress(
-    address: string,
+    address: string | null,
     requestDetails: RequestDetails,
     types: string[] = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
+  ): Promise<string | null> {
     // if the address is null or undefined we return it as is
-    if (!address) return address;
+    if (address == null) return null;
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
@@ -578,9 +578,9 @@ export class DebugImpl implements Debug {
 
   async resolveMultipleAddresses(
     from: string,
-    to: string,
+    to: string | null,
     requestDetails: RequestDetails,
-  ): Promise<{ resolvedFrom: string; resolvedTo: string }> {
+  ): Promise<{ resolvedFrom: string; resolvedTo: string | null }> {
     const [resolvedFrom, resolvedTo] = await Promise.all([
       this.resolveAddress(from, requestDetails, [
         constants.TYPE_CONTRACT,
@@ -589,6 +589,10 @@ export class DebugImpl implements Debug {
       ]),
       this.resolveAddress(to, requestDetails, [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT]),
     ]);
+
+    if (resolvedFrom == null) {
+      throw predefined.INTERNAL_ERROR('Missing resolved sender address');
+    }
 
     return { resolvedFrom, resolvedTo };
   }
@@ -686,11 +690,7 @@ export class DebugImpl implements Debug {
           requestDetails,
         );
         return {
-          ...(this.getEmptyTracerObject(
-            TracerType.CallTracer,
-            resolvedFrom,
-            resolvedTo ?? constants.ZERO_HEX,
-          ) as CallTracerResult),
+          ...this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo),
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
           output: isHex(transactionsResponse.result)
@@ -725,7 +725,7 @@ export class DebugImpl implements Debug {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const value = numberTo0x(tinybarsToWeibars(amount) ?? 0);
+      const value = nanOrNumberInt64To0x(amount);
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {
@@ -999,6 +999,7 @@ export class DebugImpl implements Debug {
   /**
    * Returns an empty/minimal tracer result object for a given tracer type.
    * Used for pre-execution validation failures and synthetic transactions that have no EVM execution.
+   * When resolvedTo params is null - the type is CREATE and when not null it is type CALL
    *
    * @private
    * @param tracer - The tracer type to build the empty object for.
@@ -1007,33 +1008,40 @@ export class DebugImpl implements Debug {
    * @returns The empty tracer result object.
    */
   private getEmptyTracerObject(
+    tracer: TracerType.CallTracer,
+    resolvedFrom: string,
+    resolvedTo: string | null,
+  ): CallTracerResult;
+  private getEmptyTracerObject(
+    tracer: TracerType.PrestateTracer | TracerType.OpcodeLogger,
+  ): EntityTraceStateMap | OpcodeLoggerResult;
+  private getEmptyTracerObject(
     tracer: TracerType,
     resolvedFrom?: string,
-    resolvedTo?: string,
+    resolvedTo?: string | null,
   ): EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult {
     switch (tracer) {
       case TracerType.PrestateTracer:
-        return {};
+        return {} as EntityTraceStateMap;
       case TracerType.OpcodeLogger:
         return {
           gas: 0,
           failed: false,
           returnValue: '',
           structLogs: [],
-        };
-      case TracerType.CallTracer: {
+        } as OpcodeLoggerResult;
+      case TracerType.CallTracer:
         return {
-          type: CallType.CALL,
-          from: resolvedFrom ?? constants.ZERO_HEX,
-          to: resolvedTo ?? constants.ZERO_HEX,
+          type: resolvedTo == null ? CallType.CREATE : CallType.CALL,
+          from: resolvedFrom,
+          to: resolvedTo,
           gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
           gasUsed: constants.ZERO_HEX,
           value: constants.ZERO_HEX,
           input: constants.EMPTY_HEX,
           output: constants.EMPTY_HEX,
           calls: [],
-        };
-      }
+        } as CallTracerResult;
     }
   }
 

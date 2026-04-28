@@ -272,6 +272,11 @@ export class Relay {
     //    because Mirror Node is required for both read-only and read-write operation.
     await this.waitForMirrorNode();
 
+    this.logger.warn(
+      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.151.0. ' +
+        'If you encounter HTTP 400 errors from the mirror node, please verify your mirror node version is compatible.',
+    );
+
     // 4. Validate operator balance (requires ethImpl to be initialized)
     if (!ConfigService.get('READ_ONLY')) {
       await this.ensureOperatorHasBalance();
@@ -481,11 +486,41 @@ export class Relay {
 
   private async ensureOperatorHasBalance(): Promise<void> {
     const operator = this.operatorAccountId!.toString();
-    const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
-    if (balance === BigInt(0)) {
-      throw new Error(`Operator account '${operator}' has no balance`);
-    } else {
-      this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
+    const operatorBalanceErrorMsg = `Operator account '${operator}' has no balance`;
+    const maxAttempts = ConfigService.get('OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS') || 1;
+    const delayMs = ConfigService.get('OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS');
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
+        if (balance === BigInt(0)) {
+          throw new Error(operatorBalanceErrorMsg);
+        }
+
+        this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
+        this.logger.info('Operator balance obtained (startup check passed on attempt %d/%d)', attempt, maxAttempts);
+        return;
+      } catch (error: unknown) {
+        const isLastAttempt = attempt >= maxAttempts;
+        const retryable = error instanceof Error && error.message === operatorBalanceErrorMsg;
+
+        if (!retryable || isLastAttempt) {
+          this.logger.error(
+            { err: error },
+            'Can not obtain operator balance after %d attempt(s). Aborting startup.',
+            attempt,
+          );
+          throw error;
+        }
+
+        this.logger.warn(
+          'Can not obtain operator balance on startup attempt %d/%d. Retrying in %dms...',
+          attempt,
+          maxAttempts,
+          delayMs,
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
 

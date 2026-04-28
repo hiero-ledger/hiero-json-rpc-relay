@@ -770,7 +770,7 @@ describe('MirrorNodeClient', async function () {
 
   it('`getContractResults` by transactionId', async () => {
     const transactionId = '0.0.10-167654-000123456';
-    mock.onGet(`contracts/results/${transactionId}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${transactionId}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResult(transactionId, requestDetails);
     expect(result).to.exist;
@@ -781,7 +781,7 @@ describe('MirrorNodeClient', async function () {
 
   it('`getContractResults` by hash', async () => {
     const hash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6391';
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResult(hash, requestDetails);
     expect(result).to.exist;
@@ -792,10 +792,10 @@ describe('MirrorNodeClient', async function () {
 
   it('`getContractResults` by hash using cache', async () => {
     const hash = '0x07cad7b827375d10d73af57b6a3e84353645fdb1305ea58ff52dda53ec640533';
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
     const resultBeforeCached = await mirrorNodeInstance.getContractResult(hash, requestDetails);
 
-    mock.onGet(`contracts/results/${hash}`).reply(400, JSON.stringify(null));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(400, JSON.stringify(null));
     const resultAfterCached = await mirrorNodeInstance.getContractResult(hash, requestDetails);
 
     expect(resultBeforeCached).to.eq(resultAfterCached);
@@ -803,7 +803,7 @@ describe('MirrorNodeClient', async function () {
 
   it('`getContractResultsWithRetry` by hash', async () => {
     const hash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6399';
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -824,9 +824,9 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResultsWithRetry` by hash retries once because of missing transaction_index', async () => {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6397';
     mock
-      .onGet(`contracts/results/${hash}`)
+      .onGet(`contracts/results/${hash}?hbar=false`)
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, transaction_index: undefined }));
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -844,12 +844,12 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResultsWithRetry` by hash retries once because of missing transaction_index and block_number', async () => {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6393';
     mock
-      .onGet(`contracts/results/${hash}`)
+      .onGet(`contracts/results/${hash}?hbar=false`)
       .replyOnce(
         200,
         JSON.stringify({ ...detailedContractResult, transaction_index: undefined, block_number: undefined }),
       );
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -868,9 +868,9 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResultsWithRetry` by hash retries once because of missing block_number', async () => {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb3391';
     mock
-      .onGet(`contracts/results/${hash}`)
+      .onGet(`contracts/results/${hash}?hbar=false`)
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_number: undefined }));
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -888,9 +888,9 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResultsWithRetry` by hash retries once because of block_hash equals 0x', async () => {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb3391';
     mock
-      .onGet(`contracts/results/${hash}`)
+      .onGet(`contracts/results/${hash}?hbar=false`)
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_hash: '0x' }));
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -906,7 +906,7 @@ describe('MirrorNodeClient', async function () {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6393';
     // Mock 3 sequential calls that return immature records - less than default polling counts (10)
     [...Array(3)].reduce((mockChain) => {
-      return mockChain.onGet(`contracts/results/${hash}`).replyOnce(
+      return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(
         200,
         JSON.stringify({
           ...detailedContractResult,
@@ -917,7 +917,7 @@ describe('MirrorNodeClient', async function () {
       );
     }, mock);
 
-    mock.onGet(`contracts/results/${hash}`).reply(200, JSON.stringify(detailedContractResult));
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
     const result = await mirrorNodeInstance.getContractResultWithRetry(
       mirrorNodeInstance.getContractResult.name,
@@ -935,7 +935,7 @@ describe('MirrorNodeClient', async function () {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6393';
     // Mock 10 sequential calls that return immature records - equals to the default polling counts (10) - should throw an error at the last polling attempt
     [...Array(10)].reduce((mockChain) => {
-      return mockChain.onGet(`contracts/results/${hash}`).replyOnce(
+      return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(
         200,
         JSON.stringify({
           ...detailedContractResult,
@@ -963,7 +963,7 @@ describe('MirrorNodeClient', async function () {
 
   it('`getContractResults` detailed', async () => {
     mock
-      .onGet(`contracts/results?limit=100&order=asc`)
+      .onGet(`contracts/results?limit=100&order=asc&hbar=false`)
       .reply(200, JSON.stringify({ results: [detailedContractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getContractResults(requestDetails);
@@ -993,7 +993,7 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResults` by id', async () => {
     const contractId = '0.0.5001';
     mock
-      .onGet(`contracts/${contractId}/results?limit=100&order=asc`)
+      .onGet(`contracts/${contractId}/results?limit=100&order=asc&hbar=false`)
       .reply(200, JSON.stringify({ results: [contractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(contractId, requestDetails);
@@ -1010,7 +1010,7 @@ describe('MirrorNodeClient', async function () {
   it('`getContractResults` by address', async () => {
     const address = '0x0000000000000000000000000000000000001f41';
     mock
-      .onGet(`contracts/${address}/results?limit=100&order=asc`)
+      .onGet(`contracts/${address}/results?limit=100&order=asc&hbar=false`)
       .reply(200, JSON.stringify({ results: [contractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(address, requestDetails);
@@ -1027,7 +1027,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultsByAddress` by address no timestamp', async () => {
     const address = '0x0000000000000000000000000000000000001f41';
     mock
-      .onGet(`contracts/${address}/results?limit=1&order=desc`)
+      .onGet(`contracts/${address}/results?limit=1&order=desc&hbar=false`)
       .reply(200, JSON.stringify({ results: [contractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getLatestContractResultsByAddress(address, undefined, 1, requestDetails);
@@ -1044,7 +1044,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultsByAddress` by address with timestamp, limit 2', async () => {
     const address = '0x0000000000000000000000000000000000001f41';
     mock
-      .onGet(`contracts/${address}/results?timestamp=lte:987654.000123456&limit=2&order=desc`)
+      .onGet(`contracts/${address}/results?timestamp=lte:987654.000123456&limit=2&order=desc&hbar=false`)
       .reply(200, JSON.stringify({ results: [contractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getLatestContractResultsByAddress(
@@ -1666,8 +1666,8 @@ describe('MirrorNodeClient', async function () {
       for (let i = 0; i < pages; i++) {
         const results = [{ foo: `bar${i}` }];
         mockedResults = mockedResults.concat(results);
-        const nextPage = i !== pages - 1 ? `results?page=${i + 1}` : null;
-        mock.onGet(`results?page=${i}`).reply(
+        const nextPage = i !== pages - 1 ? `results?page=${i + 1}&hbar=false` : null;
+        mock.onGet(`results?page=${i}&hbar=false`).reply(
           200,
           JSON.stringify({
             genericResults: results,
@@ -1714,7 +1714,7 @@ describe('MirrorNodeClient', async function () {
       const mockedResults = mockPages(pages);
 
       const results = await mirrorNodeInstance.getPaginatedResults(
-        'results?page=0',
+        'results?page=0&hbar=false',
         'results',
         'genericResults',
         requestDetails,
@@ -1730,7 +1730,12 @@ describe('MirrorNodeClient', async function () {
       mockPages(pages);
 
       try {
-        await mirrorNodeInstance.getPaginatedResults('results?page=0', 'results', 'genericResults', requestDetails);
+        await mirrorNodeInstance.getPaginatedResults(
+          'results?page=0&hbar=false',
+          'results',
+          'genericResults',
+          requestDetails,
+        );
         expect.fail('should have thrown an error');
       } catch (e: any) {
         const errorRef = predefined.PAGINATION_MAX(0); // reference error for all properties except message

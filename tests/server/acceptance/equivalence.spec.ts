@@ -6,13 +6,13 @@ import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
 
 import { hexToASCII } from '../../../src/relay/formatters';
-import { type MirrorNodeClient } from '../../../src/relay/lib/clients';
+import type { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
 import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { type AliasAccount } from '../types/AliasAccount';
+import type { AliasAccount } from '../types/AliasAccount';
 
 enum CallTypes {
   Call = 'Call',

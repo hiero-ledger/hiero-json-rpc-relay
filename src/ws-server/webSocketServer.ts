@@ -6,7 +6,7 @@ import Koa from 'koa';
 import websockify from 'koa-websocket';
 import pino from 'pino';
 import { Counter, type Registry } from 'prom-client';
-import { type RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
@@ -17,7 +17,7 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '../relay/lib/services';
 import { RequestDetails } from '../relay/lib/types';
 import KoaJsonRpc from '../server/koaJsonRpc';
-import { type IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
+import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '../server/koaJsonRpc/lib/RpcResponse';
 import { applyProxyMiddleware } from '../server/utils/proxyUtils';
@@ -106,8 +106,7 @@ export async function initializeWsServer(
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
-
-    next();
+    void next();
   });
 
   app.ws.use(async (ctx: Koa.Context) => {
@@ -152,7 +151,7 @@ export async function initializeWsServer(
         connectionId: ctx.websocket.id,
       });
 
-      context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+      await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
         // Increment the total messages counter for each message received
         wsMetricRegistry.getCounter('totalMessageCounter').inc();
 
@@ -268,7 +267,7 @@ export async function initializeWsServer(
     });
 
     if (pingInterval > 0) {
-      setInterval(async () => {
+      ctx.websocket.pingIntervalId = setInterval(async () => {
         ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
       }, pingInterval);
     }

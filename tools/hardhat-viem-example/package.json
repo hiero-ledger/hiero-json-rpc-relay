@@ -7,7 +7,7 @@
     "test": "npx hardhat test"
   },
   "dependencies": {
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.4",
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
