@@ -65,6 +65,7 @@ export interface IContractCallRequest {
   data?: string | null;
   input?: string;
   accessList?: AccessListEntry[];
+  authorizationList?: AuthorizationListEntry[];
 }
 
 export interface IContractCallResponse {

@@ -217,7 +217,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(Number(res)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
     });
 
-    it('should execute "eth_estimateGas" with to, from, value and gas field', async function () {
+    it('should execute "eth_estimateGas" with to, from, value and gas field', async () => {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
           from: accounts[0].address,
@@ -259,6 +259,31 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         expect(res).to.contain('0x');
         expect(res).to.not.be.oneOf(['0x', '0x0']);
       });
+    });
+
+    it('should execute "eth_estimateGas" with authorizationList for type 4 transaction', async () => {
+      const signer = accounts[0];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: basicContractAddress,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+        {
+          type: 4,
+          from: signer.address,
+          to: accounts[1].address,
+          value: '0x1',
+          gas: '0xd97010',
+          authorizationList,
+        },
+      ]);
+      expect(res).to.contain('0x');
+      expect(res).to.not.be.oneOf(['0x', '0x0']);
     });
 
     it('should execute "eth_estimateGas" with `to` field set to null (deployment transaction)', async function () {

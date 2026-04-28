@@ -257,6 +257,43 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           },
         ];
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
+        const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
+        expect(tx).to.have.property('accessList').that.is.an('array');
+        expect(tx.accessList).to.not.be.empty;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
+        const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
+        expect(block).to.have.property('transactions').that.is.an('array');
+        const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
+        expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
+        expect(transactionInBlock.accessList).to.not.be.empty;
+      });
+
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          to: accounts[0].address,
+        } as unknown as Transaction;
+        transaction.gasLimit = Precheck.transactionIntrinsicGasCost(transaction);
+        transaction.accessList = [
+          {
+            address: accounts[0].address,
+            storageKeys: [],
+          },
+        ];
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
         await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
       });
 
@@ -892,7 +929,65 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   /**
-   * We’ll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
+   * Skip until the Mirror Node supports authorization_list in /contracts/call simulations.
+   * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
+   */
+  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
+    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
+
+    it('eth_call with authorizationList simulates delegated code', async () => {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const result = await relay.call('eth_call', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+        'latest',
+      ]);
+
+      expect(result).to.be.a('string');
+      expect(result.startsWith('0x')).to.be.true;
+    });
+
+    it('eth_estimateGas with authorizationList returns a non-zero gas estimate', async () => {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const gas = await relay.call('eth_estimateGas', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+      ]);
+
+      expect(gas).to.be.a('string');
+      expect(gas.startsWith('0x')).to.be.true;
+      expect(BigInt(gas)).to.be.greaterThan(BigInt(0));
+    });
+  });
+
+  /**
+   * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
    * https://github.com/hiero-ledger/hiero-mirror-node/issues/12379.
    */
   describe.skip('EIP-7702 (authorizationList)', function () {

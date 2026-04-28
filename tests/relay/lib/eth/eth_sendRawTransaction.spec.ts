@@ -14,6 +14,7 @@ import {
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
@@ -324,6 +325,61 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         ethImpl,
         [signed, requestDetails],
       );
+    });
+
+    it('should parse type 4 raw string and expose ethers-internal authorizationList format mismatch', async function () {
+      // The authorizationList entries are provided in ethers AuthorizationLike format (BigNumberish chainId/nonce + SignatureLike).
+      const authEntry = {
+        chainId: Number(ConfigService.get('CHAIN_ID')),
+        address: ACCOUNT_ADDRESS_1,
+        nonce: 0,
+        signature: {
+          r: '0x' + 'aa'.repeat(32),
+          s: '0x' + 'bb'.repeat(32),
+          yParity: 0,
+        },
+      };
+      const type4tx = {
+        type: 4,
+        chainId: Number(ConfigService.get('CHAIN_ID')),
+        to: ACCOUNT_ADDRESS_1,
+        maxFeePerGas: gasPrice,
+        maxPriorityFeePerGas: '0x0',
+        gasLimit: MAX_GAS_LIMIT_HEX,
+        value: '0x0',
+        authorizationList: [authEntry],
+      };
+      const signed = await signTransaction(type4tx);
+
+      // When sendRawTransaction receives a string it calls Precheck.parseRawTransaction(transaction),
+      // which internally calls Transaction.from(rawString).
+      // Ethers deserialises the authorization list into its own Authorization format - NOT the relay's AuthorizationListEntry format.
+      const parsedTx = ethers.Transaction.from(signed);
+      expect(parsedTx.type).to.equal(4);
+      expect(parsedTx.authorizationList).to.be.an('array').with.lengthOf(1);
+
+      const ethersEntry = parsedTx.authorizationList![0];
+      // chainId and nonce come back as bigint — not hex strings
+      expect(typeof ethersEntry.chainId).to.equal('bigint');
+      expect(typeof ethersEntry.nonce).to.equal('bigint');
+      // yParity/r/s are nested inside a Signature object — not flat properties
+      expect(ethersEntry).to.not.have.property('yParity');
+      expect(ethersEntry).to.not.have.property('r');
+      expect(ethersEntry).to.not.have.property('s');
+      expect(ethersEntry.signature).to.be.an('object');
+
+      // Despite the format difference, sendRawTransaction should still succeed
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+
+      const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+      expect(result)
+        .to.be.a('string')
+        .that.matches(/^0x[0-9a-fA-F]{64}$/);
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
