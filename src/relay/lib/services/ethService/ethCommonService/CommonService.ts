@@ -539,6 +539,7 @@ export class CommonService implements ICommonService {
         return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
       }
     }
+    this.logger.error('Failed to retrieve gas price from network fees (%s)', JSON.stringify(networkFees));
 
     throw predefined.INTERNAL_ERROR('Failed to retrieve gas price from network fees');
   }
