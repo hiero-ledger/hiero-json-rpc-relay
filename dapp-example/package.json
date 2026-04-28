@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-env": "^7.29.2",
     "@cypress/webpack-batteries-included-preprocessor": "^4.0.4",
     "@cypress/webpack-preprocessor": "^6.0.4",
     "@synthetixio/synpress": "^3.7.3",
