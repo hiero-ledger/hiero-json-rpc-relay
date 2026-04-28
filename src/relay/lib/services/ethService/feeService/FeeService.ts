@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
-import { numberTo0x, tinybarsToWeibars } from '../../../../formatters';
+import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
@@ -184,8 +183,8 @@ export class FeeService implements IFeeService {
     const oldestBlockNumber = Math.max(0, newestBlockNumber - blockCount + 1);
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
     const feeHistory: IFeeHistory = {
-      baseFeePerGas: new Array<string>(blockCount) as string[],
-      gasUsedRatio: new Array<number>(blockCount) as number[],
+      baseFeePerGas: [] as string[],
+      gasUsedRatio: [] as number[],
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
@@ -197,18 +196,17 @@ export class FeeService implements IFeeService {
       feeHistory.gasUsedRatio?.push(gasUsedRatio);
     }
 
-    // get latest block fee
-    // @ts-ignore
-    let nextBaseFeePerGas: string = _.last(feeHistory.baseFeePerGas);
-
+    // append the projected next-block fee (EIP-1559 requires baseFeePerGas.length == blockCount + 1)
+    let nextBaseFeePerGas: string;
     if (latestBlockNumber > newestBlockNumber) {
-      // get next block fee if the newest block is not the latest
+      // historical range: next fee comes from the block that actually followed
       nextBaseFeePerGas = (await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails)).fee;
+    } else {
+      // newest == latest: use the live network price to avoid returning a stale fee-schedule value
+      nextBaseFeePerGas = numberTo0x(await this.common.getGasPriceInWeibars(requestDetails));
     }
 
-    if (nextBaseFeePerGas) {
-      feeHistory.baseFeePerGas?.push(nextBaseFeePerGas);
-    }
+    feeHistory.baseFeePerGas?.push(nextBaseFeePerGas);
 
     if (shouldIncludeRewards) {
       feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
@@ -243,6 +241,24 @@ export class FeeService implements IFeeService {
     }
 
     const gasUsedRatio = this.getGasUsedRatioForBlock(block);
+
+    // Non-empty block: use the effective gas price of the last transaction in the block.
+    // Type 2/4 transactions carry gas_price="0x" from the mirror node; fall through to the
+    // network-fee fallback below, which returns the same value on Hedera.
+    if (block.gas_used) {
+      try {
+        const lastTx = await this.mirrorNodeClient.getLatestContractResultForBlock(block, requestDetails);
+        if (lastTx?.gas_price && lastTx.gas_price !== constants.EMPTY_HEX) {
+          return { fee: lastTx.gas_price, gasUsedRatio };
+        }
+      } catch (error) {
+        this.logger.warn(
+          error,
+          `Fee history cannot retrieve last transaction for block %s, falling back to network fee`,
+          blockNumber,
+        );
+      }
+    }
 
     try {
       const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);

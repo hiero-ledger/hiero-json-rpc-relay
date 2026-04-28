@@ -8,7 +8,12 @@ import { numberTo0x } from '../../../../../src/relay/formatters';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
 import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
-import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
+import {
+  IFeeHistory,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../../../src/relay/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('FeeService', function () {
@@ -31,7 +36,7 @@ describe('FeeService', function () {
 
   describe('feeHistory (happy path)', function () {
     let feeService: FeeService;
-    let mirrorStub: { getBlock: sinon.SinonStub };
+    let mirrorStub: { getBlock: sinon.SinonStub; getLatestContractResultForBlock: sinon.SinonStub };
     let commonStub: {
       translateBlockTag: sinon.SinonStub;
       getGasPriceInWeibars: sinon.SinonStub;
@@ -39,7 +44,7 @@ describe('FeeService', function () {
 
     withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
       beforeEach(function () {
-        mirrorStub = { getBlock: sinon.stub() };
+        mirrorStub = { getBlock: sinon.stub(), getLatestContractResultForBlock: sinon.stub() };
         commonStub = {
           translateBlockTag: sinon.stub(),
           getGasPriceInWeibars: sinon.stub(),
@@ -53,7 +58,11 @@ describe('FeeService', function () {
 
         const block = minimalMirrorBlock(head, 1_000_000, '0.0.0');
         mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
+        // block 100 is non-empty but last tx has type-2 gas_price -> falls back to network fee
+        mirrorStub.getLatestContractResultForBlock.withArgs(block, requestDetails).resolves(null);
         commonStub.getGasPriceInWeibars.withArgs(requestDetails, `lte:${block.timestamp.to}`).resolves(77);
+        // N+1 live price (no timestamp) – used when newestBlock == latest
+        commonStub.getGasPriceInWeibars.withArgs(requestDetails).resolves(77);
       });
 
       afterEach(function () {
@@ -142,6 +151,240 @@ describe('FeeService', function () {
       const gasUsed = constants.DEFAULT_BLOCK_GAS_LIMIT / 4;
       expect(ratioFor(minimalMirrorBlock(9, gasUsed, 'not-a-version'))).to.equal(0.25);
       expect(warnSpy.called).to.be.false;
+    });
+  });
+
+  describe('getFeeHistoryDataFromBlock (private)', function () {
+    let feeService: FeeService;
+    let mirrorStub: {
+      getBlock: sinon.SinonStub;
+      getLatestContractResultForBlock: sinon.SinonStub;
+    };
+    let commonStub: { getGasPriceInWeibars: sinon.SinonStub };
+
+    const NETWORK_FEE_WEIBARS = 57 * constants.TINYBAR_TO_WEIBAR_COEF;
+    const NETWORK_FEE_HEX = numberTo0x(NETWORK_FEE_WEIBARS);
+
+    const makeContractResult = (overrides: Partial<MirrorNodeContractResult> = {}): MirrorNodeContractResult =>
+      ({
+        gas_price: NETWORK_FEE_HEX,
+        gas_used: 100_000,
+        type: 1,
+        max_fee_per_gas: '0x0',
+        max_priority_fee_per_gas: '0x0',
+        ...overrides,
+      }) as MirrorNodeContractResult;
+
+    function callPrivate(blockNumber: number) {
+      return (feeService as any).getFeeHistoryDataFromBlock(blockNumber, requestDetails);
+    }
+
+    withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
+      beforeEach(function () {
+        mirrorStub = {
+          getBlock: sinon.stub(),
+          getLatestContractResultForBlock: sinon.stub(),
+        };
+        commonStub = { getGasPriceInWeibars: sinon.stub() };
+        const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
+        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+      });
+
+      afterEach(function () {
+        sinon.restore();
+      });
+
+      it('non-empty block with type-1 tx: returns gas_price of last transaction', async function () {
+        const block = minimalMirrorBlock(10, 100_000);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        mirrorStub.getLatestContractResultForBlock
+          .withArgs(block, requestDetails)
+          .resolves(makeContractResult({ gas_price: NETWORK_FEE_HEX }));
+
+        const { fee } = await callPrivate(10);
+
+        expect(fee).to.equal(NETWORK_FEE_HEX);
+        sinon.assert.notCalled(commonStub.getGasPriceInWeibars);
+      });
+
+      it('non-empty block with type-2 tx (gas_price="0x"): falls back to network fee', async function () {
+        const block = minimalMirrorBlock(10, 100_000);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        mirrorStub.getLatestContractResultForBlock
+          .withArgs(block, requestDetails)
+          .resolves(makeContractResult({ gas_price: constants.EMPTY_HEX, type: 2 }));
+        commonStub.getGasPriceInWeibars
+          .withArgs(requestDetails, `lte:${block.timestamp.to}`)
+          .resolves(NETWORK_FEE_WEIBARS);
+
+        const { fee } = await callPrivate(10);
+
+        expect(fee).to.equal(NETWORK_FEE_HEX);
+        sinon.assert.calledOnce(commonStub.getGasPriceInWeibars);
+      });
+
+      it('empty block (gas_used=0): skips contract result lookup, uses network fee at timestamp', async function () {
+        const block = minimalMirrorBlock(10, 0);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        commonStub.getGasPriceInWeibars
+          .withArgs(requestDetails, `lte:${block.timestamp.to}`)
+          .resolves(NETWORK_FEE_WEIBARS);
+
+        const { fee } = await callPrivate(10);
+
+        expect(fee).to.equal(NETWORK_FEE_HEX);
+        sinon.assert.notCalled(mirrorStub.getLatestContractResultForBlock);
+      });
+
+      it('empty block (gas_used=0): gasUsedRatio is 0', async function () {
+        const block = minimalMirrorBlock(10, 0);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        commonStub.getGasPriceInWeibars.resolves(NETWORK_FEE_WEIBARS);
+
+        const { gasUsedRatio } = await callPrivate(10);
+
+        expect(gasUsedRatio).to.equal(0);
+      });
+
+      it('non-empty block, getLatestContractResultForBlock returns null: falls back to network fee', async function () {
+        const block = minimalMirrorBlock(10, 100_000);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        mirrorStub.getLatestContractResultForBlock.withArgs(block, requestDetails).resolves(null);
+        commonStub.getGasPriceInWeibars
+          .withArgs(requestDetails, `lte:${block.timestamp.to}`)
+          .resolves(NETWORK_FEE_WEIBARS);
+
+        const { fee } = await callPrivate(10);
+
+        expect(fee).to.equal(NETWORK_FEE_HEX);
+      });
+
+      it('getLatestContractResultForBlock throws: falls back to network fee for that block', async function () {
+        const block = minimalMirrorBlock(10, 100_000);
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(block);
+        mirrorStub.getLatestContractResultForBlock.rejects(new Error('mirror node down'));
+        commonStub.getGasPriceInWeibars
+          .withArgs(requestDetails, `lte:${block.timestamp.to}`)
+          .resolves(NETWORK_FEE_WEIBARS);
+
+        const { fee } = await callPrivate(10);
+
+        expect(fee).to.equal(NETWORK_FEE_HEX);
+      });
+
+      it('block not found (getBlock returns null): returns ZERO_HEX fee and 0 gasUsedRatio', async function () {
+        mirrorStub.getBlock.withArgs(10, requestDetails).resolves(null);
+
+        const { fee, gasUsedRatio } = await callPrivate(10);
+
+        expect(fee).to.equal(constants.ZERO_HEX);
+        expect(gasUsedRatio).to.equal(0);
+      });
+
+      it('getBlock throws: returns ZERO_HEX fee and 0 gasUsedRatio', async function () {
+        mirrorStub.getBlock.withArgs(10, requestDetails).rejects(new Error('network error'));
+
+        const { fee, gasUsedRatio } = await callPrivate(10);
+
+        expect(fee).to.equal(constants.ZERO_HEX);
+        expect(gasUsedRatio).to.equal(0);
+      });
+    });
+  });
+
+  describe('getFeeHistory (private) – nextBaseFeePerGas selection', function () {
+    let feeService: FeeService;
+    let mirrorStub: {
+      getBlock: sinon.SinonStub;
+      getLatestContractResultForBlock: sinon.SinonStub;
+    };
+    let commonStub: {
+      translateBlockTag: sinon.SinonStub;
+      getGasPriceInWeibars: sinon.SinonStub;
+    };
+
+    const NETWORK_FEE_WEIBARS = 57 * constants.TINYBAR_TO_WEIBAR_COEF;
+    const NETWORK_FEE_HEX = numberTo0x(NETWORK_FEE_WEIBARS);
+
+    withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
+      beforeEach(function () {
+        mirrorStub = {
+          getBlock: sinon.stub(),
+          getLatestContractResultForBlock: sinon.stub(),
+        };
+        commonStub = {
+          translateBlockTag: sinon.stub(),
+          getGasPriceInWeibars: sinon.stub(),
+        };
+        const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
+        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+      });
+
+      afterEach(function () {
+        sinon.restore();
+      });
+
+      it('when newestBlock is latest: nextFee calls getGasPriceInWeibars WITHOUT timestamp', async function () {
+        const head = 10;
+        commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
+
+        const block = minimalMirrorBlock(head, 100_000);
+        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
+        // last tx in block
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: NETWORK_FEE_HEX, type: 1, gas_used: 100_000 });
+        // current (no-timestamp) fee call for the N+1 entry
+        commonStub.getGasPriceInWeibars.withArgs(requestDetails).resolves(NETWORK_FEE_WEIBARS);
+
+        const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
+
+        const feeHistory = result as IFeeHistory;
+        // baseFeePerGas[0] from tx gas_price, [1] from current fee
+        expect(feeHistory.baseFeePerGas).to.have.length(2);
+        expect(feeHistory.baseFeePerGas![0]).to.equal(NETWORK_FEE_HEX);
+        expect(feeHistory.baseFeePerGas![1]).to.equal(NETWORK_FEE_HEX);
+        // getGasPriceInWeibars called exactly once with no timestamp (for the N+1 next entry)
+        sinon.assert.calledOnceWithMatch(commonStub.getGasPriceInWeibars, requestDetails);
+        sinon.assert.neverCalledWithMatch(commonStub.getGasPriceInWeibars, requestDetails, sinon.match.string);
+      });
+
+      it('when newestBlock is historical: nextFee is fetched from the actual next block', async function () {
+        const head = 20;
+        const newest = 18;
+        commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
+        commonStub.translateBlockTag.withArgs(numberTo0x(newest), requestDetails).resolves(newest);
+
+        // blocks 18 (range) and 19 (next after newest)
+        const block18 = minimalMirrorBlock(18, 100_000);
+        const block19 = minimalMirrorBlock(19, 100_000);
+        mirrorStub.getBlock.withArgs(18, requestDetails).resolves(block18);
+        mirrorStub.getBlock.withArgs(19, requestDetails).resolves(block19);
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: NETWORK_FEE_HEX, type: 1, gas_used: 100_000 });
+
+        const result = await feeService.feeHistory(1, numberTo0x(newest), null, requestDetails);
+
+        const feeHistory = result as IFeeHistory;
+        // [0] = block18, [1] = next (block19 via getFeeHistoryDataFromBlock)
+        expect(feeHistory.baseFeePerGas).to.have.length(2);
+        // both blocks return the same tx gas_price
+        expect(feeHistory.baseFeePerGas![0]).to.equal(NETWORK_FEE_HEX);
+        expect(feeHistory.baseFeePerGas![1]).to.equal(NETWORK_FEE_HEX);
+      });
+
+      it('baseFeePerGas array has no pre-allocated undefined slots', async function () {
+        const head = 10;
+        commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
+        const block = minimalMirrorBlock(head, 100_000);
+        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: NETWORK_FEE_HEX, type: 1, gas_used: 100_000 });
+        commonStub.getGasPriceInWeibars.resolves(NETWORK_FEE_WEIBARS);
+
+        const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
+        const feeHistory = result as IFeeHistory;
+
+        // Must be exactly [blockFee, nextFee]
+        expect(feeHistory.baseFeePerGas).to.have.length(2);
+        feeHistory.baseFeePerGas!.forEach((v) => expect(v).to.be.a('string'));
+      });
     });
   });
 });

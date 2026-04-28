@@ -7,7 +7,7 @@ import sinon from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../../../../../../src/config-service/services';
-import { numberTo0x, prepend0x, tinybarsToWeibars } from '../../../../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
 import { CacheClientFactory } from '../../../../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../../../../src/relay/lib/services';
@@ -117,10 +117,10 @@ describe('CommonService', () => {
     let getGasPriceStub: sinon.SinonStub;
     const requestDetails = new RequestDetails({ requestId: uuid(), ipAddress: '0.0.0.0' });
 
-    // Simulated network gas fee: 94 tinybars = 940 gwei
-    const NETWORK_FEE_WEI = tinybarsToWeibars(94)!; // 940_000_000_000n
+    // Simulated network gas fee: 94 weibars (hbar=false means mirror node already returns weibars)
+    const NETWORK_FEE_WEI = BigInt(94);
 
-    const toWei = (value: number) => BigInt(tinybarsToWeibars(value)!);
+    const toWei = (value: number) => BigInt(value);
 
     const block: MirrorNodeBlock = {
       count: 2,
@@ -175,8 +175,8 @@ describe('CommonService', () => {
     describe('Pre EIP-1559 transactions', () => {
       it('mixed type 0 and type 1 txs: both contribute to weighted average, no network call', async () => {
         // type 0 (legacy) and type 1 (access list) both carry an explicit gas_price
-        // tx0: type 0, 90 tinybars × 400 gas; tx1: type 1, 100 tinybars × 600 gas
-        // weighted = (90×400 + 100×600) / 1000 = (36000 + 60000) / 1000 = 96 tinybars
+        // tx0: type 0, 90 weibars × 400 gas; tx1: type 1, 100 weibars × 600 gas
+        // weighted = (90×400 + 100×600) / 1000 = (36000 + 60000) / 1000 = 96
         const contractResults = [
           { gas_price: toHex(90), gas_used: 400, type: 0 },
           { gas_price: toHex(100), gas_used: 600, type: 1 },
@@ -191,8 +191,8 @@ describe('CommonService', () => {
       });
 
       it('pure type 1 block: weighted average from gas_price, no network call', async () => {
-        // tx1: 94 tinybars × 300 gas; tx2: 100 tinybars × 700 gas
-        // weighted = (94×300 + 100×700) / 1000 = 98.2 → truncated to 98 tinybars
+        // tx1: 94 weibars × 300 gas; tx2: 100 weibars × 700 gas
+        // weighted = (94×300 + 100×700) / 1000 = 98.2 → truncated to 98
         const contractResults = [
           { gas_price: toHex(94), gas_used: 300, type: 1 },
           { gas_price: toHex(100), gas_used: 700, type: 1 },
@@ -311,9 +311,9 @@ describe('CommonService', () => {
 
     describe('Mixed Pre and Post EIP-1559 transactions', () => {
       it('mixed type 1 + type 2 (priorityFee=0): weighted average over full block gas', async () => {
-        // type1: gas_price=94, gas_used=500 => 94 * 500 tinybars
+        // type1: gas_price=94, gas_used=500 => 94 * 500
         // type2: max_fee=130, priority_fee=0, networkFee=94 => effective=94, gas_used=500 => 94 * 500
-        // baseFee = (94*500 + 94*500) / 1000 = 94 tinybars = networkFee
+        // baseFee = (94*500 + 94*500) / 1000 = 94 weibars = networkFee
         const contractResults = [
           { gas_price: toHex(94), gas_used: 500, type: 1 },
           { gas_price: '0x', gas_used: 500, type: 2, max_fee_per_gas: toHex(130), max_priority_fee_per_gas: toHex(0) },

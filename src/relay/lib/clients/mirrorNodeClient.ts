@@ -30,7 +30,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
+import { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
@@ -985,6 +985,22 @@ export class MirrorNodeClient {
       1,
       MirrorNodeClient.mirrorNodeContractResultsPageMax,
     );
+  }
+
+  public async getLatestContractResultForBlock(
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResult | null> {
+    const queryParamObject = {};
+    this.setContractResultsParams(queryParamObject, { blockNumber: block.number });
+    this.setLimitOrderParams(queryParamObject, { limit: 1, order: MirrorNodeClient.ORDER.DESC });
+    const queryParams = this.getQueryParams(queryParamObject);
+    const result = await this.get<{ results: MirrorNodeContractResult[] }>(
+      MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
+      MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
+      requestDetails,
+    );
+    return result?.results?.[0] ?? null;
   }
 
   public async getContractResultsDetails(contractId: string, timestamp: string, requestDetails: RequestDetails) {
