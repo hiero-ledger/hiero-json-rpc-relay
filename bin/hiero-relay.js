@@ -29,7 +29,7 @@ function run(argvInput = process.argv, deps = {}) {
 
   if (!fsDep.existsSync(INDEX_PATH)) {
     consoleDep.log(`Error: Artifact doesn't exist at ${INDEX_PATH}`);
-    processDep.exit(1);
+    processDep.exit(0);
     return;
   }
 
