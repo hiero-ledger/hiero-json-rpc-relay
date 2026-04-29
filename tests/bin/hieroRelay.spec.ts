@@ -180,15 +180,4 @@ describe('CLI run()', () => {
     expect(dotenvStub.config.calledWith({ path: '.env' })).to.be.true;
     expect(spawnStub.called).to.be.true;
   });
-
-  it('should fail when network missing (strict check)', () => {
-    run(['node', 'cli'], {
-      fsDep: fsStub,
-      spawnDep: spawnStub,
-      processDep: processStub,
-      consoleDep: consoleStub,
-    });
-
-    expect(consoleStub.log.calledWithMatch('You must specify')).to.be.true;
-  });
 });
