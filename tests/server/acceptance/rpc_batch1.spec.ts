@@ -19,7 +19,6 @@ import { formatTransactionId, numberTo0x, prepend0x } from '../../../src/relay/f
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
@@ -218,7 +217,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const parsedTx = ethers.Transaction.from(rlpTx);
             expect(res.pending[parsedTx.from]).to.not.be.empty;
 
-            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash == parsedTx.hash);
+            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash === parsedTx.hash);
             expect(txPoolTx).to.not.be.null;
 
             expect(txPoolTx.blockHash).to.equal(Constants.ZERO_HEX_32_BYTE);
@@ -827,7 +826,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         expect(blockResult.transactions).to.not.be.empty;
         expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffff172b5af000');
+        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffff172b5af000');
       });
 
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {
@@ -2483,10 +2482,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const toAddress = Utils.idToEvmAddress(receipt.accountId.toString());
           const verifyAccount = await mirrorNode.get(`/accounts/${toAddress}`);
 
-          if (verifyAccount && !verifyAccount.account) {
-            verifyAccount == (await mirrorNode.get(`/accounts/${toAddress}`));
-          }
-
           expect(verifyAccount.receiver_sig_required).to.be.true;
 
           const tx = {
@@ -2526,9 +2521,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const toAddress = Utils.idToEvmAddress(receipt.accountId.toString());
           const verifyAccount = await mirrorNode.get(`/accounts/${toAddress}`);
-          if (verifyAccount && !verifyAccount.account) {
-            verifyAccount == (await mirrorNode.get(`/accounts/${toAddress}`));
-          }
 
           expect(verifyAccount.receiver_sig_required).to.be.false;
 

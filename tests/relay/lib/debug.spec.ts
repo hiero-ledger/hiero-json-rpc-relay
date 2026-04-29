@@ -763,6 +763,8 @@ describe('Debug API Test Suite', async function () {
           );
 
           // Should not go through synthetic/logs; should return an "empty" call trace
+          expect(result.type).to.equal('CALL'); // to is non-null so type must be CALL
+          expect(result.to).to.equal(contractResult.evm_address);
           expect(result.calls).to.deep.equal([]);
           expect(result.gasUsed).to.equal('0x0');
           expect(result.value).to.equal('0x0');
@@ -770,6 +772,38 @@ describe('Debug API Test Suite', async function () {
           expect(result.output).to.equal('0x494e56414c49445f534f4c49444954595f41444452455353'); // INVALID_SOLIDITY_ADDRESS in hex
           expect(result).to.have.property('error', 'INVALID_SOLIDITY_ADDRESS');
           expect(result.revertReason).to.equal('INVALID_SOLIDITY_ADDRESS');
+        });
+
+        it('should return type=CREATE and to=null when contract result has to=null and actions are missing', async function () {
+          // Regression: pre-execution failure on a contract deploy — contract result exists, to is null (no deployed address), actions array is empty.
+          // Before the fix: type was always CALL and to was forced to 0x0.
+          // After the fix: type is CREATE when to is null, and to is propagated as null.
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+
+          const deployContractResult = {
+            ...contractsResultsByHashResult,
+            to: null,
+            result: 'WRONG_NONCE',
+            error_message: null,
+          };
+          restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(deployContractResult));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
+
+          expect(result.type).to.equal('CREATE');
+          expect(result.to).to.be.null;
+          expect(result.from).to.equal(accountsResult.evm_address);
+          expect(result.calls).to.deep.equal([]);
+          expect(result.gasUsed).to.equal('0x0');
+          expect(result.value).to.equal('0x0');
+          expect(result.input).to.equal('0x');
+          expect(result.output).to.equal('0x57524f4e475f4e4f4e4345'); // WRONG_NONCE as hex
+          expect(result).to.have.property('error', 'WRONG_NONCE');
+          expect(result.revertReason).to.equal('WRONG_NONCE');
         });
 
         it('should return type=CALL for direct precompile call', async () => {

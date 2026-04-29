@@ -266,7 +266,7 @@ export class HbarLimitService implements IHbarLimitService {
     const operatorPlan = await this.getOperatorSpendingPlan(requestDetails);
     await this.hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, cost, this.limitDuration);
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier).then();
+    void this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier);
 
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
@@ -300,7 +300,7 @@ export class HbarLimitService implements IHbarLimitService {
     await this.hbarSpendingPlanRepository.addToAmountSpent(spendingPlan.id, cost, this.limitDuration);
 
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier).then();
+    void this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier);
 
     this.logger.info(
       `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
@@ -433,7 +433,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (evmAddress) {
       try {
         return await this.getSpendingPlanByEvmAddress(evmAddress);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
         }
@@ -443,7 +443,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (ipAddress) {
       try {
         return await this.getSpendingPlanByIPAddress(requestDetails);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(` Spending plan not found for IP address.`);
         }

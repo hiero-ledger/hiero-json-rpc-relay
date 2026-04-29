@@ -1129,7 +1129,7 @@ export const verifyResult = async <T>(
   }
 };
 
-export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheService) => {
+export const mockWorkersPool = async (mirrorNodeInstance, commonService) => {
   const deps = {
     '../../../clients/mirrorNodeClient': {
       MirrorNodeClient: class {
@@ -1155,7 +1155,7 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
     ? WorkersPool['_innerRun']
     : async (options: WorkerTask) => {
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
-        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance, cacheService);
+        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance);
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
         return result;
       };

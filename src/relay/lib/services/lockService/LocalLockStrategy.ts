@@ -97,7 +97,9 @@ export class LocalLockStrategy implements LockStrategy {
 
       // Start a 30-second timer to auto-release if lock not manually released
       state.lockTimeoutId = setTimeout(() => {
-        this.forceReleaseExpiredLock(address, sessionKey, acquiredAt);
+        this.forceReleaseExpiredLock(address, sessionKey, acquiredAt).catch((err) =>
+          this.logger.error(err, 'Failed to force release expired lock for address %s', address),
+        );
       }, ConfigService.get('LOCK_MAX_HOLD_MS'));
 
       // Record successful acquisition

@@ -61,7 +61,7 @@ jobs:
 
       - name: Publish Test Report
         if: ${{ github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name && github.actor != 'dependabot[bot]' && github.actor != 'swirlds-automation' && !cancelled() && !failure() }}
-        uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
+        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
         with:
           # check_name: Tests
           check_name: '' # Set to empty to disable check run
