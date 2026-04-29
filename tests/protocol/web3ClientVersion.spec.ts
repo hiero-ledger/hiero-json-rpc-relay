@@ -19,11 +19,26 @@ describe('@release @protocol-acceptance web3_clientVersion', async function () {
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
+      const expectNoHttp500 = (response: { status?: number; error?: { code: number } }) => {
+        if (response.status !== undefined) {
+          expect(response.status).to.not.equal(500);
+        }
+        expect(response.error?.code).to.not.equal(-32603);
+      };
+
       it('@release should execute web3_clientVersion and handle valid requests correctly', async () => {
         const result = await client.call(METHOD_NAME, []);
         expect(result).to.exist;
         expect(result).to.be.a('string');
         expect(result).to.equal(expectedClientVersion);
+      });
+
+      it('Should not throw an error for passing null as a param', async () => {
+        expectNoHttp500(await client.callRaw(METHOD_NAME, null));
+      });
+
+      it('Should not throw an error for passing number as a param', async () => {
+        expectNoHttp500(await client.callRaw(METHOD_NAME, 9303));
       });
     });
   }

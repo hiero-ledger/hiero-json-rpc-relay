@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ContractId } from '@hashgraph/sdk';
 import { expect } from 'chai';
+import { ethers } from 'ethers';
 
 import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
@@ -8,7 +10,9 @@ import { numberTo0x } from '../../src/relay/formatters';
 import { ONE_TINYBAR_IN_WEI_HEX } from '../relay/lib/eth/eth-config';
 import MirrorClient from '../server/clients/mirrorClient';
 import RelayClient from '../server/clients/relayClient';
+import ServicesClient from '../server/clients/servicesClient';
 import basicContractJson from '../server/contracts/Basic.json';
+import ERC20MockJson from '../server/contracts/ERC20Mock.json';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions, { computeExpectedCumulativeGasUsed } from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
@@ -41,13 +45,19 @@ describe('@release @protocol-acceptance eth_getTransactionReceipt', async functi
   const {
     mirrorNode,
     relay,
+    servicesNode,
     initialBalance,
-  }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
+  }: { mirrorNode: MirrorClient; relay: RelayClient; servicesNode: ServicesClient; initialBalance: string } = global;
 
   const accounts: AliasAccount[] = [];
   let txHash: string;
   let expectedTxReceipt: any;
   let parentContractAddress: string;
+  let htsAddress: string;
+  let accountToAccountTxHash: string;
+  let relayContractTransferTxHash: string;
+  let relayContractTransferTo: string;
+  let htsTransferTxHash: string;
 
   const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
   const defaultGasLimit = numberTo0x(3_000_000);
@@ -85,12 +95,18 @@ describe('@release @protocol-acceptance eth_getTransactionReceipt', async functi
     accounts.push(...(await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 3, initialBalance)));
     global.accounts.push(...accounts);
 
-    const parentContract = await Utils.deployContract(
-      parentContractJson.abi,
-      parentContractJson.bytecode,
-      accounts[0].wallet,
-    );
+    const [parentContract, tokenId] = await Promise.all([
+      Utils.deployContract(parentContractJson.abi, parentContractJson.bytecode, accounts[0].wallet),
+      servicesNode.createToken(1000),
+    ]);
     parentContractAddress = parentContract.target as string;
+    htsAddress = Utils.idToEvmAddress(tokenId.toString());
+
+    await Promise.all([accounts[0].client.associateToken(tokenId), accounts[1].client.associateToken(tokenId)]);
+    await Promise.all([
+      servicesNode.transferToken(tokenId, accounts[0].accountId, 10),
+      servicesNode.transferToken(tokenId, accounts[1].accountId, 10),
+    ]);
 
     // Pre-send a simple transfer for the happy-path receipt assertions
     const tx = {
@@ -104,6 +120,27 @@ describe('@release @protocol-acceptance eth_getTransactionReceipt', async functi
     const signedTx = await accounts[0].wallet.signTransaction(tx);
     txHash = await relay.sendRawTransaction(signedTx);
     expectedTxReceipt = await mirrorNode.get(`/contracts/results/${txHash}`);
+
+    const accountToAccountTx = await accounts[0].wallet.sendTransaction({
+      to: accounts[1].wallet,
+      value: ethers.parseEther('1'),
+    });
+    await accountToAccountTx.wait();
+    accountToAccountTxHash = accountToAccountTx.hash;
+
+    const relayContract = await Utils.deployContractWithEthers([], basicContractJson, accounts[0].wallet, relay);
+    const relayContractTransferTx = await accounts[0].wallet.sendTransaction({
+      to: relayContract.target,
+      value: ethers.parseEther('1'),
+    });
+    await relayContractTransferTx.wait();
+    relayContractTransferTxHash = relayContractTransferTx.hash;
+    relayContractTransferTo = relayContract.target as string;
+
+    const tokenAsERC20 = new ethers.Contract(htsAddress, ERC20MockJson.abi, accounts[0].wallet);
+    const htsTransferTx = await tokenAsERC20.transfer(accounts[1].wallet.address, 1, await Utils.gasOptions());
+    await htsTransferTx.wait();
+    htsTransferTxHash = htsTransferTx.hash;
   });
 
   after(async () => {
@@ -114,6 +151,16 @@ describe('@release @protocol-acceptance eth_getTransactionReceipt', async functi
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
+      const getTxData = async (hash: string) => {
+        const [txByHash, receipt, mirrorResult] = await Promise.all([
+          client.call('eth_getTransactionByHash', [hash]),
+          client.call(METHOD_NAME, [hash]),
+          mirrorNode.get(`/contracts/results/${hash}`),
+        ]);
+
+        return { txByHash: txByHash as any, receipt: receipt as any, mirrorResult };
+      };
+
       it('@release Should execute eth_getTransactionReceipt and handle valid requests correctly', async () => {
         const txReceipt = (await client.call(METHOD_NAME, [txHash])) as any;
         expect(txReceipt.to).to.be.eq(accounts[1].address.toLowerCase());
@@ -122,6 +169,84 @@ describe('@release @protocol-acceptance eth_getTransactionReceipt', async functi
         expect(txReceipt.contractAddress).to.be.eq(expectedTxReceipt.address);
         expect(txReceipt.blockHash).to.be.eq(expectedTxReceipt.block_hash.slice(0, 66));
         expect(Number(txReceipt.transactionIndex)).to.be.eq(expectedTxReceipt.transaction_index);
+      });
+
+      it('from/to Addresses in transaction between accounts are in evm format', async function () {
+        const { txByHash, receipt, mirrorResult } = await getTxData(accountToAccountTxHash);
+        mirrorResult.from = accounts[0].wallet.address;
+        mirrorResult.to = accounts[1].wallet.address;
+
+        const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+        Assertions.transaction(txByHash, mirrorResult);
+        Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+        Assertions.evmAddress(txByHash.from);
+        Assertions.evmAddress(txByHash.to);
+        Assertions.evmAddress(receipt.from);
+        Assertions.evmAddress(receipt.to);
+      });
+
+      it('from/to Addresses in transaction to a contract (deployed through the relay) are in evm and long-zero format', async function () {
+        const { txByHash, receipt, mirrorResult } = await getTxData(relayContractTransferTxHash);
+        mirrorResult.from = accounts[0].wallet.address;
+        mirrorResult.to = relayContractTransferTo;
+
+        const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+        Assertions.transaction(txByHash, mirrorResult);
+        Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+        Assertions.evmAddress(txByHash.from);
+        Assertions.evmAddress(txByHash.to);
+        Assertions.evmAddress(receipt.from);
+        Assertions.evmAddress(receipt.to);
+      });
+
+      // Should be revised or deleted https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/1726/files#r1320363677
+      xit('from/to Addresses in transaction to a contract (deployed through HAPI tx) are in evm and long-zero format', async function () {
+        const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`);
+        const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
+        const parentContractLongZeroAddress = `0x${parentContractId.toSolidityAddress()}`;
+
+        const tx = await accounts[0].wallet.sendTransaction({
+          to: parentContractLongZeroAddress,
+          value: ethers.parseEther('1'),
+        });
+
+        await tx.wait();
+
+        const { txByHash, receipt, mirrorResult } = await getTxData(tx.hash);
+
+        mirrorResult.from = accounts[0].wallet.address;
+        mirrorResult.to = parentContractLongZeroAddress;
+        const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
+        Assertions.transaction(txByHash, mirrorResult);
+        Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+        Assertions.evmAddress(txByHash.from);
+        Assertions.longZeroAddress(txByHash.to);
+        Assertions.evmAddress(receipt.from);
+        Assertions.longZeroAddress(receipt.to);
+      });
+
+      it('from/to Addresses when transferring HTS tokens to the tokenAddress are in evm and long-zero format', async function () {
+        const { txByHash, receipt, mirrorResult } = await getTxData(htsTransferTxHash);
+        mirrorResult.from = accounts[0].wallet.address;
+        receipt.logs = [];
+        mirrorResult.logs = [];
+
+        const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+        Assertions.transaction(txByHash, mirrorResult);
+        Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+        Assertions.evmAddress(txByHash.from);
+        Assertions.longZeroAddress(txByHash.to);
+        Assertions.evmAddress(receipt.from);
+        Assertions.longZeroAddress(receipt.to);
       });
 
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of legacy transaction', async () => {

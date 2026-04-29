@@ -493,7 +493,7 @@ describe('@release @protocol-acceptance eth_call', async function () {
               expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
             });
 
-            it("006 'data' from request body with wrong method signature", async () => {
+            it('eth_call contract revert returns 200 http status', async () => {
               const callData = {
                 ...defaultCallData,
                 data: '0x3ec4de3800000000000000000000000067d8d32e9bf1a9968a5ff53b87d777aa8ebbee69',

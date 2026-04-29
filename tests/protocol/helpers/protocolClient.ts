@@ -24,7 +24,7 @@ export interface RpcRawResponse {
 export interface RpcProtocolClient {
   readonly label: string;
   call(method: string, params: unknown[]): Promise<unknown>;
-  callRaw(method: string, params: unknown[], options?: CallRawOptions): Promise<RpcRawResponse>;
+  callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse>;
 }
 
 type TestGlobal = typeof globalThis & {
@@ -41,7 +41,7 @@ class HttpProtocolClient implements RpcProtocolClient {
     return (global as TestGlobal).relay.call(method, params);
   }
 
-  async callRaw(method: string, params: unknown[], options?: CallRawOptions): Promise<RpcRawResponse> {
+  async callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse> {
     const url: string = (global as TestGlobal).relay.provider._getConnection().url;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (options?.ip) {
@@ -67,9 +67,9 @@ class WsProtocolClient implements RpcProtocolClient {
     return response.result;
   }
 
-  async callRaw(method: string, params: unknown[], options?: CallRawOptions): Promise<RpcRawResponse> {
+  async callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse> {
     if (options?.ip) {
-      return WsTestHelper.sendRequestWithIp(method, params, options.ip);
+      return WsTestHelper.sendRequestWithIp(method, Array.isArray(params) ? params : [], options.ip);
     }
     return WsTestHelper.sendRequestToStandardWebSocket(method, params);
   }

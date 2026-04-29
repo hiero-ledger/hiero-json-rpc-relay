@@ -288,6 +288,16 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
         });
       }
 
+      it('Should execute eth_sendRawTransaction requests with undefined params and receive MISSING_REQUIRED_PARAMETER error', async () => {
+        const response = await client.callRaw(METHOD_NAME, undefined);
+        const expectedError = predefined.MISSING_REQUIRED_PARAMETER(0);
+
+        expectJsonRpcEnvelope(response);
+        expect(response.error).to.exist;
+        expect(response.error!.code).to.eq(expectedError.code);
+        expect(response.error!.message).to.contain(expectedError.message);
+      });
+
       it('@release Should execute eth_sendRawTransaction and handle valid requests correctly', async () => {
         const transaction = {
           value: ONE_TINYBAR_IN_WEI_HEX,
@@ -307,7 +317,7 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
         expect(fromAccountInfo.evm_address).to.eq(accounts[0].address.toLowerCase());
       });
 
-      it('Should fail eth_sendRawTransaction when transaction has invalid format', async () => {
+      it('should fail "eth_sendRawTransaction" when transaction has invalid format', async () => {
         const response = await client.callRaw(METHOD_NAME, [Constants.INVALID_TRANSACTION]);
 
         expect(response.error).to.exist;
@@ -315,7 +325,7 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
         expect(response.error!.message).to.contain('unexpected junk after rlp payload');
       });
 
-      it('Should execute eth_sendRawTransaction for the deterministic deployment transaction', async () => {
+      it('@xts should execute "eth_sendRawTransaction" for deterministic deployment transaction', async () => {
         const sendHbarToProxyContractDeployerTx = {
           value: (10 * 10 ** 18).toString(), // 10 hbar - the gasPrice to deploy deterministic proxy contract
           to: Constants.DETERMINISTIC_DEPLOYMENT_SIGNER,
@@ -990,7 +1000,7 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
 
       describe('Prechecks', function () {
         describe('nonce handling', function () {
-          it('@release should return a receipt for the first tx and reject a duplicate raw tx with a too-low nonce', async function () {
+          it('@release fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with the same nonce twice', async function () {
             const nonce = await relay.getAccountNonce(accounts[2].address);
             const transaction = {
               ...default155TransactionData,
@@ -1014,7 +1024,7 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
           });
 
           if (!ConfigService.get('USE_ASYNC_TX_PROCESSING')) {
-            it('should reject a too-high nonce during eth_sendRawTransaction precheck when async tx processing is disabled', async function () {
+            it('fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with a higher nonce and async tx processing is disabled', async function () {
               const nonce = await relay.getAccountNonce(accounts[2].address);
               const transaction = {
                 ...default155TransactionData,
@@ -1029,7 +1039,7 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
             });
           }
 
-          it('@release should reject a duplicate raw tx with a too-low nonce after the first tx reaches consensus', async function () {
+          it('@release fail "eth_getTransactionReceipt" on submitting with wrong nonce error when sending a tx with the same nonce twice', async function () {
             const nonce = await relay.getAccountNonce(accounts[2].address);
             const transaction = {
               ...default155TransactionData,

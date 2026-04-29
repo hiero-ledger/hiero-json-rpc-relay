@@ -112,9 +112,6 @@ describe('@release @protocol-acceptance eth_getCode', async function () {
         expect(res).to.eq(basicContractJson.deployedBytecode);
       });
 
-      // Fixed during migration: the HTTP original (rpc_batch2.spec.ts:358) was a copy-paste
-      // bug that reused basicContractAddress without any id→evm conversion. Applying the
-      // same ContractId.fromString pattern used by the sibling eth_getBalance test.
       it('@release should execute "eth_getCode" for contract with id converted to evm_address', async () => {
         const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${basicContractAddress}`);
         const contractId = ContractId.fromString(mirrorNodeContractRes.contract_id);

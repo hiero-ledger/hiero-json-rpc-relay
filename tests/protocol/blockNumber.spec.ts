@@ -24,7 +24,14 @@ describe('@release @protocol-acceptance eth_blockNumber', async () => {
         expect(Number(result)).to.be.gte(0);
       });
 
-      it('should agree with mirror-node latest block within 1 block', async () => {
+      it('Should execute eth_blockNumber requests with undefined params and receive expected result', async () => {
+        const response = await client.callRaw(METHOD_NAME, undefined);
+        expect(response.error).to.not.exist;
+        expect(response.result).to.be.a('string');
+        expect((response.result as string).startsWith('0x')).to.be.true;
+      });
+
+      it('@release should execute "eth_blockNumber"', async () => {
         const mirrorBlocks = await mirrorNode.get('blocks');
         expect(mirrorBlocks).to.have.property('blocks');
         expect(mirrorBlocks.blocks.length).to.gt(0);
