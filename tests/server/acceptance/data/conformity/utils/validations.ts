@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import fs from 'node:fs';
+import path from 'node:path';
+
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect } from 'chai';
@@ -8,8 +11,9 @@ import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 let execApisOpenRpcData: any = null;
 function getExecApisOpenRpcData() {
   if (!execApisOpenRpcData) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    execApisOpenRpcData = require('../../../../../../openrpc_exec_apis.json');
+    const filePath = path.resolve(__dirname, '../../../../../../openrpc_exec_apis.json');
+    if (!fs.existsSync(filePath)) throw new Error(`OpenRPC data file not found at path: ${filePath}`);
+    execApisOpenRpcData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   }
   return execApisOpenRpcData;
 }
@@ -66,7 +70,7 @@ export function hasResponseFormatIssues(
   if (typeof expectedResponse === 'string') {
     try {
       parsedExpectedResponse = JSON.parse(expectedResponse);
-    } catch (e) {
+    } catch {
       console.log(`Expected response is not a valid JSON string: ${expectedResponse}`);
       return true;
     }

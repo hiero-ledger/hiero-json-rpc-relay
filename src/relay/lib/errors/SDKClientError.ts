@@ -27,7 +27,7 @@ export class SDKClientError extends Error {
   }
 
   public isContractRevertExecuted(): boolean {
-    return this.statusCode == Status.ContractRevertExecuted._code;
+    return this.statusCode === Status.ContractRevertExecuted._code;
   }
 
   public isTimeoutExceeded(): boolean {

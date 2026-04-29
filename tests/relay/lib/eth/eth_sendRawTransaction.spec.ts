@@ -31,7 +31,7 @@ import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitSe
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
-import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
+import { overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 

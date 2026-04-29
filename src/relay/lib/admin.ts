@@ -46,7 +46,7 @@ export class AdminImpl implements Admin {
 
       const networkName: string = networkInfo[0].name;
       return networkName.substring(networkName.indexOf('(') + 2, networkName.indexOf(')'));
-    } catch (e) {
+    } catch {
       return 'local';
     }
   }

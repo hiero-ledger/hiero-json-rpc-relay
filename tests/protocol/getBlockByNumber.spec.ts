@@ -187,7 +187,9 @@ describe('@release @protocol-acceptance eth_getBlockByNumber', async function ()
         const blockResult: any = await client.call(METHOD_NAME, [numberTo0x(mirrorResult.block_number), true]);
         expect(blockResult.transactions).to.not.be.empty;
         expect(blockResult.transactions.map((tx: any) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx: any) => tx.hash == txHash)[0].value).to.equal('0xffffff172b5af000');
+        expect(blockResult.transactions.filter((tx: any) => tx.hash === txHash)[0].value).to.equal(
+          '0xffffff172b5af000',
+        );
       });
 
       for (const params of INVALID_PARAMS) {

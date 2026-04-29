@@ -53,7 +53,7 @@ export class BlockFactory {
       stateRoot: constants.DEFAULT_ROOT_HASH,
       totalDifficulty: constants.ZERO_HEX,
       transactions: txArray,
-      transactionsRoot: txArray.length == 0 ? constants.DEFAULT_ROOT_HASH : blockHash,
+      transactionsRoot: txArray.length === 0 ? constants.DEFAULT_ROOT_HASH : blockHash,
       uncles: [],
     });
   }

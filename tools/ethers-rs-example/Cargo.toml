@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 ethers = { version = "2.0.14", features = ["ethers-solc"] }
 eyre = "0.6.12"
-tokio = { version = "1.51.1", features = ["full"] }
+tokio = { version = "1.52.1", features = ["full"] }
 dotenv = "0.15.0"
 serde_json = "1.0.149"
 idna = "1.1.0"

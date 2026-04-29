@@ -4,19 +4,15 @@ import { hexToBytes } from '@ethereumjs/util';
 import { ContractFunctionParameters } from '@hashgraph/sdk';
 import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
-import pino from 'pino';
 
 import { hexToASCII } from '../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
-import { Precheck } from '../../../src/relay/lib/precheck';
 import ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
 import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
-
-const logger = pino({ level: 'silent' });
 
 enum CallTypes {
   Call = 'Call',
@@ -61,7 +57,6 @@ describe('Equivalence tests', async function () {
   const { servicesNode, mirrorNode, relay }: any = global;
   const servicesClient = servicesNode as ServicesClient;
   const mirrorNodeClient = mirrorNode as MirrorNodeClient;
-  let precheck: Precheck;
 
   const SUCCESS = 'SUCCESS';
   const STATUS_SUCCESS = '0x1';
@@ -89,7 +84,6 @@ describe('Equivalence tests', async function () {
   const ADDRESS_0_0_359 = '0.0.359';
   const ADDRESS_0_0_360 = '0.0.360';
   const ADDRESS_0_0_361 = '0.0.361';
-  const ADDRESS_0_0_362 = '0.0.362';
   const ADDRESS_0_0_556 = '0.0.556';
   const ADDRESS_0_0_750 = '0.0.750';
   const ADDRESS_0_0_751 = '0.0.751';
@@ -173,7 +167,6 @@ describe('Equivalence tests', async function () {
     accounts[0] = await servicesClient.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
     tokenAddress = await createFungibleToken();
-    precheck = new Precheck(mirrorNodeClient, logger, '0x12a');
   });
 
   const getTestSummaryAmount = (amount: number): string => {

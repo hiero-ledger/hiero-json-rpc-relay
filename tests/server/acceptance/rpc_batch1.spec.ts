@@ -172,7 +172,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const parsedTx = ethers.Transaction.from(rlpTx);
             expect(res.pending[parsedTx.from]).to.not.be.empty;
 
-            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash == parsedTx.hash);
+            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash === parsedTx.hash);
             expect(txPoolTx).to.not.be.null;
 
             expect(txPoolTx.blockHash).to.equal(Constants.ZERO_HEX_32_BYTE);
@@ -429,11 +429,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     describe('Transaction related RPC Calls', () => {
       const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
       const defaultGasLimit = numberTo0x(3_000_000);
-      const defaultLegacyTransactionData = {
-        value: ONE_TINYBAR,
-        gasPrice: defaultGasPrice,
-        gasLimit: defaultGasLimit,
-      };
 
       const defaultLondonTransactionData = {
         value: ONE_TINYBAR,
