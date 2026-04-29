@@ -1071,4 +1071,32 @@ describe('Precheck', async function () {
       expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.not.throw;
     });
   });
+
+  describe('authorizationList', () => {
+    const authEntry = {
+      chainId: 0x12a,
+      address: contractAddress1,
+      nonce: BigInt(0),
+      signature: { r: '0x' + 'aa'.repeat(32), s: '0x' + 'bb'.repeat(32), yParity: 0 },
+    };
+
+    // The method only reads tx.type, tx.authorizationList, and tx.to.
+    const makeTx = (overrides: Record<string, unknown> = {}) =>
+      ({
+        type: 2,
+        authorizationList: undefined as any,
+        to: contractAddress1,
+        ...overrides,
+      }) as unknown as Transaction;
+
+    it('should not throw for type 4 tx with non-empty authorizationList and valid to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry] }))).not.to.throw();
+    });
+
+    it('should throw for type 4 tx with valid authorizationList but null to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry], to: null }))).to.throw(
+        'type 4 transaction cannot be used to create contract',
+      );
+    });
+  });
 });

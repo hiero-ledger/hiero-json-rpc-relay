@@ -10,6 +10,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 import { IAccountBalance } from './types/mirrorNode';
+import { validateAuthorizationList } from './validators/authorizationList';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -74,6 +75,7 @@ export class Precheck {
     this.chainId(parsedTx);
     this.value(parsedTx);
     this.accessList(parsedTx);
+    this.authorizationList(parsedTx);
   }
 
   /**
@@ -248,6 +250,21 @@ export class Precheck {
   accessList(tx: Transaction): void {
     if (Number(tx.type) === 0 && (tx.accessList ?? []).length > 0) {
       throw predefined.INVALID_PARAMETER('accessList', 'not supported for legacy transactions');
+    }
+  }
+
+  /**
+   * Validates the authorization list entries for EIP-7702 (type 4) transactions.
+   *
+   * @param tx - The transaction to validate.
+   * @throws {JsonRpcError} If any entry contains an invalid address.
+   */
+  authorizationList(tx: Transaction): void {
+    validateAuthorizationList(Number(tx.type), tx.authorizationList);
+
+    // EIP-7702 mandates that tx.to must not be null
+    if (tx.type === 4 && tx.to == null) {
+      throw predefined.INVALID_PARAMETER('to', 'type 4 transaction cannot be used to create contract');
     }
   }
 

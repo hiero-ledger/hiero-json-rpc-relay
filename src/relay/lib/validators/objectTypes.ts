@@ -18,6 +18,7 @@ type IObjectParamSchema = {
   type: string;
   nullable: boolean;
   required?: boolean;
+  innerType?: string;
 };
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
@@ -207,6 +208,46 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
       accessList: {
         type: 'array',
         nullable: false,
+      },
+      authorizationList: {
+        type: 'array',
+        innerType: 'authorizationListEntry',
+        nullable: false,
+      },
+    },
+  },
+  authorizationListEntry: {
+    name: 'AuthorizationListEntry',
+    properties: {
+      address: {
+        type: 'address',
+        nullable: false,
+        required: true,
+      },
+      chainId: {
+        type: 'hex',
+        nullable: false,
+        required: true,
+      },
+      nonce: {
+        type: 'hex',
+        nullable: false,
+        required: true,
+      },
+      r: {
+        type: 'hex64',
+        nullable: false,
+        required: true,
+      },
+      s: {
+        type: 'hex64',
+        nullable: false,
+        required: true,
+      },
+      yParity: {
+        type: 'yParityHex',
+        nullable: false,
+        required: true,
       },
     },
   },
