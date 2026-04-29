@@ -151,8 +151,8 @@ export class CommonService implements ICommonService {
       fromBlock = constants.BLOCK_LATEST;
     }
 
-    let fromBlockNum = 0;
-    let toBlockNum;
+    let fromBlockNum: number;
+    let toBlockNum: number;
     params.timestamp = [];
 
     const fromBlockResponse = await this.getHistoricalBlockResponse(requestDetails, fromBlock, true);
@@ -299,7 +299,7 @@ export class CommonService implements ICommonService {
     if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length < 32 && !isNaN(blockNumber)) {
       const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
       const latestBlock = latestBlockResponse.blocks[0];
-      if (blockNumber > latestBlock.number + this.maxBlockRange) {
+      if (!latestBlock || blockNumber > latestBlock.number + this.maxBlockRange) {
         return null;
       }
     }
