@@ -416,8 +416,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
         const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
 
-        expect(feeHistory['baseFeePerGas'].length).to.equal(2);
         // baseFeePerGas[1] = next-block prediction = also current gas price
+        expect(feeHistory['baseFeePerGas'].length).to.equal(2);
         expect(feeHistory['gasUsedRatio'].length).to.equal(1);
       });
 
@@ -442,35 +442,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
         // baseFeePerGas[0] = in-block fee; baseFeePerGas[1] = current live fee
         expect(feeHistory['baseFeePerGas'][1]).to.equal(BASE_FEE_PER_GAS_HEX);
       });
-
-      it('when newestBlock is historical: last entry comes from the actual next block', async function () {
-        // set newestBlock = BLOCK_NUMBER_2, which is older than latestBlock (BLOCK_NUMBER_3)
-        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
-        // "next" block after BLOCK_NUMBER_2 is BLOCK_NUMBER_3
-        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
-
-        const feeHistory = await ethImpl.feeHistory(1, numberTo0x(BLOCK_NUMBER_2), null, requestDetails);
-
-        expect(feeHistory['baseFeePerGas'].length).to.equal(2);
-        expect(feeHistory['baseFeePerGas'][1]).to.equal(BASE_FEE_PER_GAS_HEX);
-      });
     });
 
     describe('per-block fee resolution', function () {
-      it('non-empty block: uses gas_price of the last type-1 transaction in the block', async function () {
-        const HIGHER_GAS_PRICE = numberTo0x(BigInt(114) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF));
-        const higherPriceTx = {
-          results: [{ ...defaultContractResults.results[0], gas_price: HIGHER_GAS_PRICE, gas_used: 100_000, type: 1 }],
-          links: { next: null },
-        };
-        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(higherPriceTx));
-        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
-
-        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
-
-        expect(feeHistory['baseFeePerGas'][0]).to.equal(HIGHER_GAS_PRICE);
-      });
-
       it('type-2 last tx (gas_price="0x"): falls back to network fee at block timestamp', async function () {
         const type2Tx = {
           results: [

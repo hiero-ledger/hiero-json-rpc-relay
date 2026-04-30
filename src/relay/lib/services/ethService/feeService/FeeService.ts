@@ -8,7 +8,7 @@ import { MirrorNodeClient } from '../../../clients';
 import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../types';
+import { IFeeHistory, MirrorNodeBlock, MirrorNodeContractResult, RequestDetails } from '../../../types';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
 
@@ -179,98 +179,85 @@ export class FeeService implements IFeeService {
     rewardPercentiles: Array<number> | null,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory> {
-    // include the newest block number in the total block count
     const oldestBlockNumber = Math.max(0, newestBlockNumber - blockCount + 1);
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
+    const blockNumbers = Array.from(
+      { length: newestBlockNumber - oldestBlockNumber + 1 },
+      (_, i) => oldestBlockNumber + i,
+    );
+
+    // The next-block (newestBlockNumber+1) promise starts concurrently with the main block pipelines
+    const nextBaseFeePerGasPromise: Promise<string> =
+      latestBlockNumber > newestBlockNumber
+        ? this.fetchBlockFeeAndBlockGasUsed(newestBlockNumber + 1, requestDetails)
+            .then(({ fee }) => fee)
+            .catch(() => this.common.getGasPriceInWeibars(requestDetails).then(numberTo0x))
+        : this.common.getGasPriceInWeibars(requestDetails).then(numberTo0x);
+
+    // Each block's pipeline runs fully in parallel: block fetch -> CR fetch -> fee computation and gasUsedRatio.
+    const [feeData, nextBaseFeePerGas] = await Promise.all([
+      Promise.all(
+        blockNumbers.map(async (n): Promise<{ fee: string; gasUsedRatio: number }> => {
+          return await this.fetchBlockFeeAndBlockGasUsed(n, requestDetails);
+        }),
+      ),
+      nextBaseFeePerGasPromise,
+    ]);
+
     const feeHistory: IFeeHistory = {
-      baseFeePerGas: [] as string[],
-      gasUsedRatio: [] as number[],
+      baseFeePerGas: [...feeData.map((d) => d.fee), nextBaseFeePerGas],
+      gasUsedRatio: feeData.map((d) => d.gasUsedRatio),
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
-    // get fees from oldest to newest blocks
-    for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(blockNumber, requestDetails);
-
-      feeHistory.baseFeePerGas?.push(fee);
-      feeHistory.gasUsedRatio?.push(gasUsedRatio);
-    }
-
-    // append the projected next-block fee (EIP-1559 requires baseFeePerGas.length == blockCount + 1)
-    let nextBaseFeePerGas: string;
-    if (latestBlockNumber > newestBlockNumber) {
-      // historical range: next fee comes from the block that actually followed
-      nextBaseFeePerGas = (await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails)).fee;
-    } else {
-      // newest == latest: use the live network price to avoid returning a stale fee-schedule value
-      nextBaseFeePerGas = numberTo0x(await this.common.getGasPriceInWeibars(requestDetails));
-    }
-
-    feeHistory.baseFeePerGas?.push(nextBaseFeePerGas);
-
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles!.length).fill(constants.ZERO_HEX));
     }
 
     return feeHistory;
   }
 
   /**
-   * @param blockNumber
-   * @param requestDetails
+   * Fetches the block fee and gas used ratio for a given block number.
+   * Retrieves the block from the mirror node, obtains contract results if gas was used,
+   * and computes the gas-weighted average fee per gas.
+   * If the block cannot be fetched, logs a warning and returns an object with zero fee and zero gas used ratio.
+   *
+   * @param blockNumber - The block number to fetch the fee for.
+   * @param requestDetails - Details of the request, used for mirror node interactions.
+   * @returns A promise that resolves to an object containing the computed fee as a hex string and the gas used ratio.
    * @private
    */
-  private async getFeeHistoryDataFromBlock(
+  private async fetchBlockFeeAndBlockGasUsed(
     blockNumber: number,
     requestDetails: RequestDetails,
   ): Promise<{ fee: string; gasUsedRatio: number }> {
-    let block: MirrorNodeBlock | undefined;
-    try {
-      block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      if (!block) {
-        this.logger.warn(`Fee history: block ${blockNumber} not found. Returning zero fee and gasUsedRatio.`);
-        return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
-      }
-    } catch (error) {
-      this.logger.warn(
-        error,
-        `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
-        blockNumber,
-      );
-      return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
-    }
-
-    const gasUsedRatio = this.getGasUsedRatioForBlock(block);
-
-    // Non-empty block: use the effective gas price of the last transaction in the block.
-    // Type 2/4 transactions carry gas_price="0x" from the mirror node; fall through to the
-    // network-fee fallback below, which returns the same value on Hedera.
-    if (block.gas_used) {
-      try {
-        const lastTx = await this.mirrorNodeClient.getLatestContractResultForBlock(block, requestDetails);
-        if (lastTx?.gas_price && lastTx.gas_price !== constants.EMPTY_HEX) {
-          return { fee: lastTx.gas_price, gasUsedRatio };
-        }
-      } catch (error) {
-        this.logger.warn(
-          error,
-          `Fee history cannot retrieve last transaction for block %s, falling back to network fee`,
-          blockNumber,
-        );
-      }
-    }
-
-    try {
-      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
-      return { fee: numberTo0x(fee), gasUsedRatio };
-    } catch (error) {
-      this.logger.warn(error, `Fee history cannot retrieve fee. Returning zero fee for block %s`, blockNumber);
-      return { fee: constants.ZERO_HEX, gasUsedRatio };
-    }
+    const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails).catch((error) => {
+      this.logger.warn(error, `Fee history: failed to fetch block %s`, blockNumber);
+      return null;
+    });
+    if (!block) return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
+    const contractResults: MirrorNodeContractResult[] = block.gas_used
+      ? ((await this.mirrorNodeClient
+          .getContractResults(requestDetails, {
+            timestamp: [`gte:${block.timestamp.from}`, `lte:${block.timestamp.to}`],
+          })
+          .catch(() => [])) as MirrorNodeContractResult[])
+      : [];
+    const fee = await this.common
+      .computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails)
+      .catch((error) => {
+        this.logger.warn(error, `Fee history: failed to compute fee for block %s`, blockNumber);
+        return constants.ZERO_HEX;
+      });
+    return {
+      fee,
+      gasUsedRatio: this.getGasUsedRatioForBlock(block),
+    };
   }
 
   /**
-   * Returns the `gasUsedRatio` entry for for a block
+   * Returns the `gasUsedRatio` entry for a block
    * `gasUsed / blockGasLimit`, using {@link MirrorNodeBlock.gas_used} as gas used.
    *
    * If `gasUsed` exceeds that limit, logs a warning and returns `1` (100% usage).
