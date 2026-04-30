@@ -455,6 +455,19 @@ describe('@release @protocol-acceptance eth_sendRawTransaction', async function 
         await expectRpcError(client, signedTx, predefined.INSUFFICIENT_ACCOUNT_BALANCE);
       });
 
+      it('should fail "eth_sendRawTransaction" for legacy EIP 155 transactions (with gas price too low)', async function () {
+        const transaction = {
+          ...default155TransactionData,
+          gasPrice: GAS_PRICE_TOO_LOW,
+          to: parentContractAddress,
+          nonce: await relay.getAccountNonce(accounts[2].address),
+        };
+        const signedTx = await accounts[2].wallet.signTransaction(transaction);
+        const error = predefined.GAS_PRICE_TOO_LOW(GAS_PRICE_TOO_LOW, GAS_PRICE_REF);
+
+        await expectRpcError(client, signedTx, error, false);
+      });
+
       it('@xts should execute "eth_sendRawTransaction" for legacy transactions (with no chainId i.e. chainId=0x0)', async function () {
         const receiverInitialBalance = await relay.getBalance(parentContractAddress, 'latest');
         const transaction = {
