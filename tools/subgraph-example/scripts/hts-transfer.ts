@@ -10,7 +10,7 @@ import {
   TransferTransaction,
   PrivateKey,
   ReceiptStatusError,
-} from "@hashgraph/sdk";
+} from "@hiero-ledger/sdk";
 import { ethers } from "ethers";
 
 export async function transferHtsFT(receiver: string, hre: any) {
