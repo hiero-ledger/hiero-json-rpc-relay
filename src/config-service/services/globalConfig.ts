@@ -621,6 +621,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 'redis://127.0.0.1:6379',
   },
+  RPC_HTTP_API: {
+    type: 'strArray',
+    required: false,
+    defaultValue: ['eth', 'debug', 'net', 'web3', 'txpool', 'trace', 'admin'],
+  },
+  RPC_WS_API: {
+    type: 'strArray',
+    required: false,
+    defaultValue: ['eth', 'debug', 'net', 'web3', 'txpool', 'trace', 'admin'],
+  },
   REQUEST_ID_IS_OPTIONAL: {
     type: 'boolean',
     required: false,
