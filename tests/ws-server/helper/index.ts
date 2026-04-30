@@ -66,7 +66,7 @@ export class WsTestHelper {
     expect(obj.method).to.not.exist; // Should not have method field in response for standard non-subscription methods
   }
 
-  static prepareJsonRpcObject(method: string, params: any[]) {
+  static prepareJsonRpcObject(method: string, params: any) {
     return {
       id: 1,
       jsonrpc: '2.0',
