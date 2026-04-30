@@ -112,13 +112,13 @@ export const getRequestResult = async (
   }
 
   const subdomain = method.split('_')[0] ?? null;
+
   if (!RPC_WS_API.has(subdomain)) {
-    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
+    return jsonRespError(request.id || null, spec.SubdomainDisabled(request.method), requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(relay, request.method)) {
-    logger.warn(`Method not supported: ${request.method}`);
     return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 
