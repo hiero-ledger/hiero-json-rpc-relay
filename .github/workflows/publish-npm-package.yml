@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Publish Package to npmjs
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      dry-run-enabled:
+        description: 'Enable dry run mode'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  id-token: write   # required for npm trusted publishing (OIDC)
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  create-npm-package:
+    runs-on: hiero-smart-contracts-linux-medium
+    outputs:
+      artifact: ${{ steps.prepare-package-data.outputs.artifact-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.3.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup JQ
+        uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45 # v3.2.0
+        with:
+          version: 1.7
+
+      - name: Clean install (no scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Run build
+        run: npm run build
+
+      - name: Build standalone
+        run: node scripts/build-standalone.js
+
+      - name: Prepare Package Data
+        id: prepare-package-data
+        run: |
+          VERSION=$(jq -r '.version' './package.json')
+          PKG_NAME="hiero-json-rpc-relay-${VERSION}.tgz"
+          echo "artifact-name=${PKG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Build Package
+        run: |
+          npm pack
+          ls -lh ${{ steps.prepare-package-data.outputs.artifact-name }}
+
+      - name: Generate checksum
+        run: |
+          sha256sum ${{ steps.prepare-package-data.outputs.artifact-name }} > package.sha256
+
+      - name: Upload NPM Package Artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: npm-package
+          path: |
+            ./${{ steps.prepare-package-data.outputs.artifact-name }}
+            package.sha256
+          if-no-files-found: error
+
+  publish-npm-package:
+    runs-on: hiero-smart-contracts-linux-medium
+    needs: create-npm-package
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2.15.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.3.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install NPM latest
+        run: npm install -g npm@11.7.0
+
+      - name: Download NPM Package Artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-package
+
+      - name: Verify checksum
+        run: |
+          sha256sum -c package.sha256
+
+      - name: Publish npm package
+        run: |
+          args="--access=public --provenance --ignore-scripts"
+
+          if [[ "${{ inputs.dry-run-enabled }}" == "true" ]]; then
+            args="${args} --dry-run"
+          fi
+
+          package="${{ needs.create-npm-package.outputs.artifact }}"
+
+          echo "::group::Publishing package: ${package} with args: ${args}"
+          npm publish ${package} ${args}
+          echo "::endgroup::"
