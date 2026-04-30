@@ -7,7 +7,7 @@ import { predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
+import { defaultContractResults, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BASE_FEE_PER_GAS_HEX,
   BLOCK_NUMBER_2,
@@ -15,6 +15,7 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   DEFAULT_BLOCK,
   DEFAULT_NETWORK_FEES,
+  EXPECTED_GAS_USED_RATIO,
   NOT_FOUND_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
@@ -60,6 +61,10 @@ describe('@ethFeeHistory using MirrorNode', async function () {
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(previousFees));
       restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(200, JSON.stringify(latestFees));
+      // no transactions in previous block -> falls through to network/fees timestamp fallback
+      restMock
+        .onGet(`contracts/results?block.number=${previousBlock.number}&limit=1&order=desc&hbar=false`)
+        .reply(200, JSON.stringify({ results: [], links: { next: null } }));
     });
 
     it('eth_feeHistory', async function () {
@@ -76,8 +81,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x870ab1a800');
       expect(feeHistory['baseFeePerGas'][1]).to.equal('0x84b6a5c400');
       expect(feeHistory['baseFeePerGas'][2]).to.equal('0x84b6a5c400');
-      //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
+      expect(feeHistory['gasUsedRatio'][0]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
       expect(feeHistory['oldestBlock']).to.equal(`0x${previousBlock.number.toString(16)}`);
       const rewards = feeHistory['reward'][0];
       expect(rewards[0]).to.equal('0x0');
@@ -157,8 +161,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     expect(firstFeeHistory).to.exist;
     expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
-    //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
-    expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
+    expect(firstFeeHistory['gasUsedRatio'][0]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
     expect(firstFeeHistory['oldestBlock']).to.equal(hexBlockNumber);
 
     expect(firstFeeHistory).to.equal(secondFeeHistory);
@@ -170,7 +173,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
+      expect(feeHistory['gasUsedRatio'][0]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 
@@ -371,6 +374,188 @@ describe('@ethFeeHistory using MirrorNode', async function () {
           requestDetails,
         ),
       ).to.eventually.rejectedWith(jsonRpcError.message);
+    });
+  });
+
+  describe('eth_feeHistory with accurate baseFeePerGas (ETH_FEE_HISTORY_FIXED=false)', function () {
+    overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });
+
+    // BLOCK_NUMBER_3 is the "latest" block; BLOCK_NUMBER_2 is one step older
+    const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3, hapi_version: '0.28.1' };
+    const previousBlock = {
+      ...DEFAULT_BLOCK,
+      number: BLOCK_NUMBER_2,
+      hapi_version: '0.28.1',
+      timestamp: { from: '1651560386.060890948', to: '1651560389.060890948' },
+    };
+
+    // URL for the single-result contract-results lookup used by getFeeHistoryDataFromBlock
+    const contractResultsForBlock = (blockNumber: number) =>
+      `contracts/results?block.number=${blockNumber}&limit=1&order=desc&hbar=false`;
+
+    // hbar=false: gas_price is already in weibars
+    const latestTxInBlock = {
+      results: [{ ...defaultContractResults.results[0], gas_price: BASE_FEE_PER_GAS_HEX, gas_used: 100_000, type: 1 }],
+      links: { next: null },
+    };
+    const emptyContractResults = { results: [], links: { next: null } };
+
+    beforeEach(function () {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+      restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
+      restMock.onGet(`blocks/${previousBlock.number}`).reply(200, JSON.stringify(previousBlock));
+      restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+      restMock
+        .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
+        .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    });
+
+    describe('baseFeePerGas array structure', function () {
+      it('baseFeePerGas has blockCount + 1 entries', async function () {
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+
+        // baseFeePerGas[1] = next-block prediction = also current gas price
+        expect(feeHistory['baseFeePerGas'].length).to.equal(2);
+        expect(feeHistory['gasUsedRatio'].length).to.equal(1);
+      });
+
+      it('baseFeePerGas contains no undefined slots when blockCount > 1', async function () {
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        // every entry must be a string, not undefined
+        feeHistory['baseFeePerGas'].forEach((entry) => expect(typeof entry).to.equal('string'));
+        expect(feeHistory['baseFeePerGas'].length).to.equal(3);
+      });
+    });
+
+    describe('nextBaseFeePerGas (the N+1 entry)', function () {
+      it('when newestBlock is latest: last entry equals current gas price (network/fees, no timestamp)', async function () {
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+
+        // baseFeePerGas[0] = in-block fee; baseFeePerGas[1] = current live fee
+        expect(feeHistory['baseFeePerGas'][1]).to.equal(BASE_FEE_PER_GAS_HEX);
+      });
+    });
+
+    describe('per-block fee resolution', function () {
+      it('type-2 last tx (gas_price="0x"): falls back to network fee at block timestamp', async function () {
+        const type2Tx = {
+          results: [
+            {
+              ...defaultContractResults.results[0],
+              gas_price: '0x',
+              gas_used: 100_000,
+              type: 2,
+              max_fee_per_gas: '0x39',
+              max_priority_fee_per_gas: '0x0',
+            },
+          ],
+          links: { next: null },
+        };
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(type2Tx));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        // type-2 -> falls back to network fee at block timestamp -> BASE_FEE_PER_GAS_HEX
+        expect(feeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      });
+
+      it('empty block (gas_used=0): falls back to network fee at block timestamp', async function () {
+        const emptyBlock = { ...previousBlock, gas_used: 0 };
+        restMock.onGet(`blocks/${emptyBlock.number}`).reply(200, JSON.stringify(emptyBlock));
+        // getLatestContractResultForBlock should NOT be called for empty block
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        expect(feeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      });
+
+      it('mirror node returns empty results for non-empty block: falls back to network fee', async function () {
+        // gas_used > 0 but mirror node returns no contract results
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(emptyContractResults));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        expect(feeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      });
+
+      it('mirror node errors on contract results: falls back to network fee for that block', async function () {
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(500);
+        restMock
+          .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
+          .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        // error on previousBlock -> fallback to network/fees timestamp -> BASE_FEE_PER_GAS_HEX
+        expect(feeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      });
+    });
+
+    describe('gasUsedRatio', function () {
+      it('is computed from block.gas_used / blockGasLimit for HAPI version 0.28.1', async function () {
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        // DEFAULT_BLOCK: gas_used = 1_000_000; gasLimit at 0.28.1 = 30_000_000
+        expect(feeHistory['gasUsedRatio'][0]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
+        expect(feeHistory['gasUsedRatio'][1]).to.be.closeTo(EXPECTED_GAS_USED_RATIO, 1e-9);
+      });
+
+      it('empty block produces gasUsedRatio = 0', async function () {
+        const emptyBlock = { ...previousBlock, gas_used: 0 };
+        restMock.onGet(`blocks/${emptyBlock.number}`).reply(200, JSON.stringify(emptyBlock));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', null, requestDetails);
+
+        expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      });
+    });
+
+    describe('reward percentiles', function () {
+      it('reward array has blockCount entries each with one zero per percentile', async function () {
+        restMock.onGet(contractResultsForBlock(previousBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+        restMock.onGet(contractResultsForBlock(latestBlock.number)).reply(200, JSON.stringify(latestTxInBlock));
+
+        const feeHistory = await ethImpl.feeHistory(2, 'latest', [25, 50, 75], requestDetails);
+
+        expect(feeHistory['reward'].length).to.equal(2);
+        feeHistory['reward'].forEach((blockReward) => {
+          expect(blockReward).to.deep.equal([constants.ZERO_HEX, constants.ZERO_HEX, constants.ZERO_HEX]);
+        });
+      });
+    });
+
+    describe('block range boundaries', function () {
+      it('blockCount=0 returns zero-block response without fetching any blocks', async function () {
+        const feeHistory = await ethImpl.feeHistory(0, 'latest', null, requestDetails);
+
+        expect(feeHistory['gasUsedRatio']).to.be.null;
+        expect(feeHistory['oldestBlock']).to.equal(constants.ZERO_HEX);
+        expect(feeHistory['baseFeePerGas']).to.be.undefined;
+      });
+
+      it('newestBlock beyond latest returns REQUEST_BEYOND_HEAD_BLOCK error', async function () {
+        const beyondLatest = numberTo0x(BLOCK_NUMBER_3 + 100);
+
+        const result = await ethImpl.feeHistory(1, beyondLatest, null, requestDetails);
+
+        expect(result).to.have.property('code');
+      });
     });
   });
 });

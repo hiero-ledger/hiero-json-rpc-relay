@@ -13,7 +13,13 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import type {
+  IAccountInfo,
+  MirrorNodeBlock,
+  MirrorNodeContractLog,
+  MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
@@ -558,6 +564,64 @@ export class CommonService implements ICommonService {
     } catch (error) {
       throw this.genericErrorHandler(error, `Failed to retrieve gasPrice`);
     }
+  }
+
+  /**
+   * Computes the `baseFeePerGas` for a block as a gas-weighted average of the effective
+   * gas price paid across all transactions in that block. It's not the Ethereum base fee.
+   *
+   * Transaction types are handled as follows:
+   * - **Type 0 / Type 1**: carry an explicit `gas_price` in tinybars — used directly.
+   * - **Type 2 (EIP-1559) / Type 4 (EIP-7702)**: `gas_price` is `"0x"` in the mirror node
+   *   response. The effective price is derived as
+   *   `min(maxFeePerGas, networkFee + maxPriorityFeePerGas)`, where `networkFee` is the
+   *   Hedera network gas price at the block's timestamp (fetched once if any such tx exists).
+   *
+   * @param contractResults - Contract results for all transactions in the block.
+   * @param block - The block whose `baseFeePerGas` is being computed.
+   * @param requestDetails - Request metadata for logging and mirror node calls.
+   * @returns The computed `baseFeePerGas` as a `0x`-prefixed hex string in weibars.
+   */
+  public async computeGasWeightedAvgFeePerGas(
+    contractResults: MirrorNodeContractResult[],
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<string> {
+    if (contractResults.length === 0 || block.gas_used === 0 || block.gas_used == null) {
+      const fee = await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      return numberTo0x(fee);
+    }
+
+    const hasEIP1559Type = contractResults.some((cr) => cr.type === 2 || cr.type === 4);
+    // Make the network call only once if some transactions have EIP1559 type
+    const networkBaseGasFee = hasEIP1559Type
+      ? BigInt(await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`))
+      : BigInt(0);
+
+    const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
+      if (!cr.gas_price) return acc;
+      if (cr.type === 2 || cr.type === 4) {
+        // EIP-1559: gas_price is "0x"; derive effective price from max_fee / priority fields.
+        const maxGasFee = this.hexStringToBigInt(cr.max_fee_per_gas);
+        const priorityGasFee = this.hexStringToBigInt(cr.max_priority_fee_per_gas);
+        const baseFeeWithTip = networkBaseGasFee + priorityGasFee;
+        const effectiveGasFeeWei = baseFeeWithTip < maxGasFee ? baseFeeWithTip : maxGasFee;
+        return acc + effectiveGasFeeWei * BigInt(cr.gas_used);
+      }
+      // type-0/1: gas_price is already in weibars
+      return acc + this.hexStringToBigInt(cr.gas_price) * BigInt(cr.gas_used);
+    }, BigInt(0));
+
+    const baseFee = totalChargeWei / BigInt(block.gas_used);
+    return numberTo0x(baseFee);
+  }
+
+  /**
+   * Parses a hex string (e.g. "0x1a2b") to BigInt
+   */
+  private hexStringToBigInt(hex: string | undefined | null): bigint {
+    if (!hex || hex === '0x') return BigInt(0);
+    return BigInt(hex);
   }
 
   /**
