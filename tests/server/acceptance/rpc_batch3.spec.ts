@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId } from '@hashgraph/sdk';
+import { ContractId } from '@hiero-ledger/sdk';
 import Axios from 'axios';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';

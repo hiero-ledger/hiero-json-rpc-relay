@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Used for fake implementation of block history
-import { Status, TransactionRecord } from '@hashgraph/sdk';
+import { Status, TransactionRecord } from '@hiero-ledger/sdk';
 
 import { numberTo0x, toHash32 } from '../formatters';
 import type { MirrorNodeContractLog } from './types';

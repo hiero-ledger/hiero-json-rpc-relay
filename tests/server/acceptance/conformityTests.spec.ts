@@ -7,7 +7,7 @@
 // } from '@open-rpc/meta-schema';
 // import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
 // import { expect } from 'chai';
-import { TransferTransaction } from '@hashgraph/sdk';
+import { TransferTransaction } from '@hiero-ledger/sdk';
 import fs from 'fs';
 import path from 'path';
 

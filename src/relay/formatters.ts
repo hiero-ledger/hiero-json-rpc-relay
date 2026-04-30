@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
-import { BigNumber as BN } from 'bignumber.js';
+import { BigNumber } from '@hiero-ledger/sdk/lib/Transfer';
 import crypto from 'crypto';
 
 import { ConfigService } from '../config-service/services';
@@ -224,14 +223,6 @@ const toHash32 = (value: string): string => {
   return value.substring(0, 66);
 };
 
-const toNullableBigNumber = (value: string | null): string | null => {
-  if (typeof value === 'string') {
-    return new BN(value).toString();
-  }
-
-  return null;
-};
-
 const toNullIfEmptyHex = (value: string): string | null => {
   return value === EMPTY_HEX ? null : value;
 };
@@ -283,7 +274,6 @@ export {
   nanOrNumberTo0x,
   nanOrNumberInt64To0x,
   toHash32,
-  toNullableBigNumber,
   toNullIfEmptyHex,
   generateRandomHex,
   trimPrecedingZeros,

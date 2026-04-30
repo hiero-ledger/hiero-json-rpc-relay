@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+import { Status } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError'; // Update the path to point to the SDKClientError file
