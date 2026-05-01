@@ -79,7 +79,7 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async function () {
+      it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async () => {
         const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
 
         expect(result).to.not.have.property('code');
@@ -162,7 +162,7 @@ describe('FeeService', function () {
     });
   });
 
-  describe('feeHistory: per-block fee resolution', function () {
+  describe('feeHistory: per-block fee resolution', () => {
     let feeService: FeeService;
     let mirrorStub: { getBlock: sinon.SinonStub; getContractResults: sinon.SinonStub };
     let commonStub: {
@@ -196,7 +196,7 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('block fetch fails: baseFeePerGas[0] = ZERO_HEX and gasUsedRatio[0] = 0, logs warning', async function () {
+      it('block fetch fails: baseFeePerGas[0] = ZERO_HEX and gasUsedRatio[0] = 0, logs warning', async () => {
         mirrorStub.getBlock.rejects(new Error('mirror node down'));
 
         const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
@@ -208,7 +208,7 @@ describe('FeeService', function () {
         sinon.assert.notCalled(mirrorStub.getContractResults);
       });
 
-      it('block not found (null): baseFeePerGas[0] = ZERO_HEX and gasUsedRatio[0] = 0', async function () {
+      it('block not found (null): baseFeePerGas[0] = ZERO_HEX and gasUsedRatio[0] = 0', async () => {
         mirrorStub.getBlock.resolves(null);
 
         const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
@@ -219,7 +219,7 @@ describe('FeeService', function () {
         sinon.assert.notCalled(mirrorStub.getContractResults);
       });
 
-      it('empty block (gas_used=0): skips contract results fetch, fee from computeGasWeightedAvgFeePerGas with empty results', async function () {
+      it('empty block (gas_used=0): skips contract results fetch, fee from computeGasWeightedAvgFeePerGas with empty results', async () => {
         const block = makeBlock(HEAD, 0);
         mirrorStub.getBlock.resolves(block);
         commonStub.computeGasWeightedAvgFeePerGas.withArgs([], block, requestDetails).resolves(NETWORK_FEE_HEX);
@@ -232,7 +232,7 @@ describe('FeeService', function () {
         sinon.assert.calledWithExactly(commonStub.computeGasWeightedAvgFeePerGas, [], block, requestDetails);
       });
 
-      it('non-empty block: fetches contract results by block timestamp range', async function () {
+      it('non-empty block: fetches contract results by block timestamp range', async () => {
         const block = makeBlock(HEAD, 100_000);
         const crs = [{ gas_price: NETWORK_FEE_HEX, gas_used: 100_000, type: 1 }] as MirrorNodeContractResult[];
         mirrorStub.getBlock.resolves(block);
@@ -248,7 +248,7 @@ describe('FeeService', function () {
         sinon.assert.calledOnce(mirrorStub.getContractResults);
       });
 
-      it('contract results fetch fails: falls back to computeGasWeightedAvgFeePerGas with empty results', async function () {
+      it('contract results fetch fails: falls back to computeGasWeightedAvgFeePerGas with empty results', async () => {
         const block = makeBlock(HEAD, 100_000);
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getContractResults.rejects(new Error('timeout'));
@@ -261,7 +261,7 @@ describe('FeeService', function () {
         sinon.assert.calledWithExactly(commonStub.computeGasWeightedAvgFeePerGas, [], block, requestDetails);
       });
 
-      it('gasUsedRatio reflects block.gas_used / blockGasLimit', async function () {
+      it('gasUsedRatio reflects block.gas_used / blockGasLimit', async () => {
         const limit = blockGasLimit.obtainBlockGasLimit('0.0.0');
         const block = makeBlock(HEAD, limit / 2);
         mirrorStub.getBlock.resolves(block);
@@ -274,7 +274,7 @@ describe('FeeService', function () {
         expect(feeHistory.gasUsedRatio![0]).to.equal(0.5);
       });
 
-      it('computeGasWeightedAvgFeePerGas throws: baseFeePerGas[0] = ZERO_HEX and logs warning', async function () {
+      it('computeGasWeightedAvgFeePerGas throws: baseFeePerGas[0] = ZERO_HEX and logs warning', async () => {
         const block = makeBlock(HEAD, 100_000);
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getContractResults.resolves([]);
@@ -319,7 +319,7 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('single block: baseFeePerGas[0] is block fee and baseFeePerGas[1] is live price', async function () {
+      it('single block: baseFeePerGas[0] is block fee and baseFeePerGas[1] is live price', async () => {
         const head = 10;
         const block = makeBlock(head, 0);
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
@@ -335,7 +335,7 @@ describe('FeeService', function () {
         expect(feeHistory.baseFeePerGas).to.have.length(2);
       });
 
-      it('multi-block: baseFeePerGas and gasUsedRatio are ordered oldest to newest', async function () {
+      it('multi-block: baseFeePerGas and gasUsedRatio are ordered oldest to newest', async () => {
         const head = 12;
         const limit = blockGasLimit.obtainBlockGasLimit('0.0.0');
         const block11 = makeBlock(11, limit / 4);
@@ -359,7 +359,7 @@ describe('FeeService', function () {
         expect(feeHistory.gasUsedRatio![1]).to.equal(0.5);
       });
 
-      it('newestBlock == latest: baseFeePerGas[blockCount] is live getGasPriceInWeibars', async function () {
+      it('newestBlock == latest: baseFeePerGas[blockCount] is live getGasPriceInWeibars', async () => {
         const head = 10;
         const block = makeBlock(head, 0);
         const livePrice = NETWORK_FEE_WEIBARS * 2;
@@ -375,7 +375,7 @@ describe('FeeService', function () {
         sinon.assert.calledOnceWithExactly(commonStub.getGasPriceInWeibars, requestDetails);
       });
 
-      it('newestBlock is historical: baseFeePerGas[blockCount] is the fee of block newestBlock+1', async function () {
+      it('newestBlock is historical: baseFeePerGas[blockCount] is the fee of block newestBlock+1', async () => {
         const head = 20;
         const newest = 18;
         const block18 = makeBlock(newest, 0);
@@ -396,7 +396,7 @@ describe('FeeService', function () {
         sinon.assert.notCalled(commonStub.getGasPriceInWeibars);
       });
 
-      it('next block unavailable (null): baseFeePerGas[blockCount] = ZERO_HEX', async function () {
+      it('next block unavailable (null): baseFeePerGas[blockCount] = ZERO_HEX', async () => {
         const head = 20;
         const newest = 18;
         const block18 = makeBlock(newest, 0);
@@ -413,7 +413,7 @@ describe('FeeService', function () {
         sinon.assert.notCalled(commonStub.getGasPriceInWeibars);
       });
 
-      it('baseFeePerGas has exactly blockCount+1 entries with no undefined slots', async function () {
+      it('baseFeePerGas has exactly blockCount+1 entries with no undefined slots', async () => {
         const head = 10;
         const block = makeBlock(head, 0);
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
@@ -428,7 +428,7 @@ describe('FeeService', function () {
         feeHistory.baseFeePerGas!.forEach((v) => expect(v).to.be.a('string'));
       });
 
-      it('reward percentiles in non-fixed mode: reward array has correct shape', async function () {
+      it('reward percentiles in non-fixed mode: reward array has correct shape', async () => {
         const head = 10;
         const block = makeBlock(head, 0);
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
@@ -472,7 +472,7 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('rewardPercentiles.length > max: throws INVALID_PARAMETER', async function () {
+      it('rewardPercentiles.length > max: throws INVALID_PARAMETER', async () => {
         const tooMany = Array(constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE + 1).fill(1);
         try {
           await feeService.feeHistory(1, 'latest', tooMany, requestDetails);
@@ -482,7 +482,7 @@ describe('FeeService', function () {
         }
       });
 
-      it('newestBlock=pending: uses latestBlockNumber, does not call translateBlockTag with pending', async function () {
+      it('newestBlock=pending: uses latestBlockNumber, does not call translateBlockTag with pending', async () => {
         const head = 5;
         const block = makeBlock(head, 0);
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
@@ -496,7 +496,7 @@ describe('FeeService', function () {
         sinon.assert.calledOnceWithExactly(commonStub.translateBlockTag, constants.BLOCK_LATEST, requestDetails);
       });
 
-      it('newestBlockNumber > latestBlockNumber: returns REQUEST_BEYOND_HEAD_BLOCK error', async function () {
+      it('newestBlockNumber > latestBlockNumber: returns REQUEST_BEYOND_HEAD_BLOCK error', async () => {
         const head = 5;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
         commonStub.translateBlockTag.withArgs(numberTo0x(10), requestDetails).resolves(10);
@@ -506,7 +506,7 @@ describe('FeeService', function () {
         expect(result).to.have.property('code');
       });
 
-      it('blockCount > maxResults: clamped to 10 (DEFAULT_FEE_HISTORY_MAX_RESULTS with TEST=true)', async function () {
+      it('blockCount > maxResults: clamped to 10 (DEFAULT_FEE_HISTORY_MAX_RESULTS with TEST=true)', async () => {
         const head = 20;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
         mirrorStub.getBlock.callsFake((n: number) => Promise.resolve(makeBlock(n, 0)));
@@ -521,7 +521,7 @@ describe('FeeService', function () {
         expect(feeHistory.baseFeePerGas).to.have.length(11);
       });
 
-      it('blockCount=0: returns zero-block response (gasUsedRatio=null, baseFeePerGas=undefined)', async function () {
+      it('blockCount=0: returns zero-block response (gasUsedRatio=null, baseFeePerGas=undefined)', async () => {
         const head = 10;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
 
@@ -533,7 +533,7 @@ describe('FeeService', function () {
         expect(feeHistory.oldestBlock).to.equal(constants.ZERO_HEX);
       });
 
-      it('translateBlockTag throws: returns empty fee history and calls logger.error', async function () {
+      it('translateBlockTag throws: returns empty fee history and calls logger.error', async () => {
         commonStub.translateBlockTag
           .withArgs(constants.BLOCK_LATEST, requestDetails)
           .rejects(new Error('network error'));
@@ -574,7 +574,7 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('returns repeated fee with DEFAULT_GAS_USED_RATIO and blockCount+1 baseFeePerGas entries', async function () {
+      it('returns repeated fee with DEFAULT_GAS_USED_RATIO and blockCount+1 baseFeePerGas entries', async () => {
         const head = 10;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
 
@@ -592,7 +592,7 @@ describe('FeeService', function () {
         expect(feeHistory.reward).to.be.undefined;
       });
 
-      it('oldestBlock <= 0: clamps blockCount to 1 and oldestBlock to 1', async function () {
+      it('oldestBlock <= 0: clamps blockCount to 1 and oldestBlock to 1', async () => {
         const head = 3;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
 
@@ -604,7 +604,7 @@ describe('FeeService', function () {
         expect(feeHistory.oldestBlock).to.equal(numberTo0x(1));
       });
 
-      it('with reward percentiles: reward array has [blockCount][percentiles.length] shape', async function () {
+      it('with reward percentiles: reward array has [blockCount][percentiles.length] shape', async () => {
         const head = 10;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
 
@@ -619,7 +619,7 @@ describe('FeeService', function () {
   });
 
   describe('maxPriorityFeePerGas', function () {
-    it('returns ZERO_HEX', async function () {
+    it('returns ZERO_HEX', async () => {
       const feeService = new FeeService({} as any, {} as any, { error: sinon.stub(), warn: sinon.stub() } as any);
       expect(await feeService.maxPriorityFeePerGas()).to.equal(constants.ZERO_HEX);
     });

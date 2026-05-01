@@ -151,7 +151,7 @@ describe('CommonService', () => {
     });
 
     beforeEach(() => {
-      getGasPriceStub = sinon.stub(commonService as any, 'getGasPriceInWeibars').resolves(Number(NETWORK_FEE_WEI));
+      getGasPriceStub = sinon.stub(commonService, 'getGasPriceInWeibars').resolves(Number(NETWORK_FEE_WEI));
     });
 
     afterEach(() => sinon.restore());

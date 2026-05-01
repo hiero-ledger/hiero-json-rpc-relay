@@ -8,7 +8,7 @@ import { MirrorNodeClient } from '../../../clients';
 import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { IFeeHistory, MirrorNodeBlock, MirrorNodeContractResult, RequestDetails } from '../../../types';
+import type { IFeeHistory, MirrorNodeBlock, MirrorNodeContractResult, RequestDetails } from '../../../types';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
 
@@ -211,7 +211,7 @@ export class FeeService implements IFeeService {
     };
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles!.length).fill(constants.ZERO_HEX));
+      feeHistory.reward = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
     }
 
     return feeHistory;

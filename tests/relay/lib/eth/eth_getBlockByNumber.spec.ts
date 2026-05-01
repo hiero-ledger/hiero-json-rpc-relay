@@ -649,7 +649,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  describe('baseFeePerGas computation', function () {
+  describe('baseFeePerGas computation', () => {
     beforeEach(function () {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
@@ -674,7 +674,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       const totalCharge = BigInt(results[0].gas_used) * price1 + BigInt(results[1].gas_used) * price2;
       const expectedBaseFee = numberTo0x(totalCharge / BigInt(DEFAULT_BLOCK.gas_used));
 
-      expect(result!.baseFeePerGas).to.equal(expectedBaseFee);
+      // @ts-ignore
+      expect(result.baseFeePerGas).to.equal(expectedBaseFee);
     });
 
     it('satisfies baseFee * gasUsed <= sum(gasUsed_i * gasPrice_wei_i)', async () => {
@@ -696,7 +697,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       const price1Wei = BigInt('0x39');
       const price2Wei = BigInt('0x72');
       const totalCharge = 100_000n * price1Wei + 200_000n * price2Wei;
-      const baseFee = BigInt(result!.baseFeePerGas!);
+      // @ts-ignore
+      const baseFee = BigInt(result.baseFeePerGas!);
 
       expect(baseFee * BigInt(block.gas_used)).to.be.lte(totalCharge);
       expect(baseFee).to.equal(totalCharge / BigInt(block.gas_used));
@@ -713,7 +715,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
 
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
-      expect(result!.baseFeePerGas).to.equal(BASE_FEE_PER_GAS_HEX);
+      // @ts-ignore
+      expect(result.baseFeePerGas).to.equal(BASE_FEE_PER_GAS_HEX);
     });
   });
 });
