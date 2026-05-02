@@ -44,15 +44,17 @@ export async function getBalance(
 ): Promise<string> {
   try {
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
-    // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
-    // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
-    // `blockTagIsLatestOrPending` is called twice because `extractBlockNumberAndTimestamp` can change the state of `blockNumberOrTagOrHash` in place
-    // so we need to check again if it is still `latest` or `pending` after extracting the block number and timestamp, if it was not `latest` or `pending` before
-    if (!commonService.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      ({ latestBlock, blockNumberOrTagOrHash } = await accountService.extractBlockNumberAndTimestamp(
-        blockNumberOrTagOrHash,
-        requestDetails,
-      ));
+    let isLatestOrPending = commonService.blockTagIsLatestOrPending(blockNumberOrTagOrHash);
+
+    if (!isLatestOrPending) {
+      const result = await accountService.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+      latestBlock = result.latestBlock;
+      if (result.isLatest) {
+        isLatestOrPending = true;
+        blockNumberOrTagOrHash = constants.BLOCK_LATEST;
+      } else {
+        blockNumberOrTagOrHash = result.blockNumberOrTagOrHash;
+      }
     }
 
     let blockNumber = null;
@@ -60,7 +62,7 @@ export async function getBalance(
     let weibars = BigInt(0);
     let mirrorAccount;
 
-    if (!commonService.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
+    if (!isLatestOrPending) {
       const block = await commonService.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
       if (block) {
         blockNumber = block.number;
