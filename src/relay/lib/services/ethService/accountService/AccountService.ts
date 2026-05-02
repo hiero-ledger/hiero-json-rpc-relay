@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { randomUUID } from 'crypto';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
@@ -263,11 +264,21 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
       if (blockNumOrTag === constants.BLOCK_PENDING) {
-        return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
+        // Warm path: cache hit — return directly without hitting MN.
+        const senderLocalNonce = await this.transactionPoolService.getSenderLocalNonce(address);
+        if (senderLocalNonce) return numberTo0x(senderLocalNonce.value);
+
+        // Cold path: compute from MN + pool, then seed the senderLocalNonce
+        const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
+        const pendingCount = await this.transactionPoolService.getPendingCount(address);
+        const nextNonce = Number(mnNonce) + pendingCount;
+
+        // fire-and-forget the cache update, no need to delay the response if the cache is down or slow
+        void this.transactionPoolService.setSenderLocalNonce(address, { value: nextNonce, version: randomUUID() });
+        return numberTo0x(nextNonce);
       }
-      return mnNonce;
+      return await this.getAccountLatestEthereumNonce(address, requestDetails);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {

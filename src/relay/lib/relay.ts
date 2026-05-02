@@ -355,6 +355,7 @@ export class Relay {
       storage,
       this.logger.child({ name: 'transaction-pool-service' }),
       this.register,
+      this.cacheService,
     );
 
     // Create Eth implementation with connected Redis client

@@ -314,12 +314,12 @@ export class TransactionService implements ITransactionService {
     let senderAccountInfo: any = null;
 
     try {
-      const senderLocalNonceEntry = await this.getSenderLocalNonce(senderAddress);
+      const senderLocalNonceEntry = await this.transactionPoolService.getSenderLocalNonce(senderAddress);
       if (senderLocalNonceEntry) {
         // ----- Warm path: fast + without call to MN -----
         this.precheck.nonce(parsedTx, senderLocalNonceEntry.value);
         admittedVersion = senderLocalNonceEntry.version;
-        await this.setSenderLocalNonce(senderAddress, {
+        await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
           value: senderLocalNonceEntry.value + 1,
           version: admittedVersion,
         });
@@ -330,7 +330,7 @@ export class TransactionService implements ITransactionService {
         const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
-        await this.setSenderLocalNonce(senderAddress, {
+        await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
           value: signerRemoteNonce + 1,
           version: admittedVersion,
         });
@@ -341,7 +341,7 @@ export class TransactionService implements ITransactionService {
         await this.transactionPoolService.saveTransaction(senderAddress, parsedTx);
       } catch (saveError) {
         // Roll back the increment so the caller's retry isn't blocked until TTL expires.
-        await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+        await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
 
         // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
         // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
@@ -372,7 +372,7 @@ export class TransactionService implements ITransactionService {
       );
       await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (error) {
-      await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+      await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
       if (execLockResult) {
         await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
@@ -761,7 +761,7 @@ export class TransactionService implements ITransactionService {
       }
 
       // pre-execution failure would not have moved the nonce, safe to roll back and clean up here without needing to poll MN for certainty
-      await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+      await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
 
       return { error: preExecError, shouldPollAndCleanup: false };
@@ -831,44 +831,6 @@ export class TransactionService implements ITransactionService {
     }
 
     return { submittedTransactionId, error };
-  }
-
-  // ===== senderLocalNonce cache (POC) =====
-  // Per-sender { value, version } entry. value = next expected nonce. version = lifecycle id
-  // generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
-
-  private static readonly SENDER_LOCAL_NONCE_TTL = 5 * 60 * 1000;
-
-  private senderLocalNonceCacheKey(address: string): string {
-    return `senderLocalNonce:${address.toLowerCase()}`;
-  }
-
-  private async getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null> {
-    const cached = await this.cacheService.getAsync(this.senderLocalNonceCacheKey(address), 'getSenderLocalNonce');
-    return cached ?? null;
-  }
-
-  private async setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void> {
-    await this.cacheService.set(
-      this.senderLocalNonceCacheKey(address),
-      entry,
-      'setSenderLocalNonce',
-      TransactionService.SENDER_LOCAL_NONCE_TTL,
-    );
-  }
-
-  private async decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void> {
-    const key = this.senderLocalNonceCacheKey(address);
-    const cached = await this.cacheService.getAsync(key, 'decremenSenderLocalNonce');
-    if (cached && cached.version === expectedVersion) {
-      await this.cacheService.set(
-        key,
-        { value: cached.value - 1, version: cached.version },
-        'decremenSenderLocalNonce',
-        TransactionService.SENDER_LOCAL_NONCE_TTL,
-      );
-    }
-    // version mismatch or missing entry: no-op
   }
 
   // ===== MN poll cleanup (POC) =====

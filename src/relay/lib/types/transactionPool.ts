@@ -48,6 +48,22 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to a Set of RLP hex strings.
    */
   getAllTransactions(): Promise<Set<string>>;
+
+  /**
+   * Returns the cached { value, version } entry for the sender's next expected nonce, or null if absent.
+   */
+  getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null>;
+
+  /**
+   * Writes a { value, version } entry for the sender's next expected nonce.
+   */
+  setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void>;
+
+  /**
+   * Decrements the cached nonce by 1 if the version still matches (gen-matched rollback).
+   * No-ops on version mismatch or missing entry.
+   */
+  decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void>;
 }
 
 /**
