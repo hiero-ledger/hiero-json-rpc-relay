@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { FileId } from '@hashgraph/sdk';
+import { randomUUID } from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers/transaction';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
@@ -262,6 +263,30 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
+   * 2-lock sendRawTransaction (POC)
+   *
+   * FLOW:
+   *   1. stateless precheck
+   *   2. acquire Lock 1 (ingress lock)
+   *      a. read senderLocalNonce cache
+   *         warm  → in-mem nonce check vs cache.value
+   *                 cache := { value: cache.value + 1, version: cache.version }
+   *                 tx.admittedVersion := cache.version
+   *         cold  → verifyAccount (MN) + getPendingCount → nonce check
+   *                 senderAccountInfo captured for Lock 2 reuse
+   *                 cache := { value: signerNonce + 1, version: randomUUID() }
+   *                 tx.admittedVersion := cache.version
+   *      b. await saveTransaction
+   *         on save failure → decrement cache (gen-matched) → throw INTERNAL_ERROR
+   *   3. release Lock 1
+   *   4. acquire Lock 2 (execution lock)
+   *   5. balance check (reuse senderAccountInfo on cold; fresh verifyAccount on warm)
+   *      validateReceiverAndGasStateful (gas + access list + receiver)
+   *      on failure → decrement cache (gen-matched) → remove pool entry → release Lock 2 → throw
+   *   6. hand off to sendRawTransactionProcessor (CN submission + outcome handling)
+   *
+   */
+  /**
    * Sends a raw transaction
    * @param transaction The raw transaction data
    * @param requestDetails The request details for logging and tracking
@@ -275,71 +300,106 @@ export class TransactionService implements ITransactionService {
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
 
-    // Validate and save the transaction to the transaction pool before submitting it to the network
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Transaction undergoing basic properties (stateless) prechecks: transaction=%s`,
-        JSON.stringify(parsedTx),
-      );
-    }
+    // Stateless precheck outside any lock so malformed inputs never queue for the ingress lock.
     this.precheck.validateBasicPropertiesStateless(parsedTx);
-    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
-    let lockResult: LockAcquisitionResult | undefined;
+    const senderAddress = parsedTx.from!;
+    // Two keys for Lock 1 (short: admit + save) and Lock 2 (long: CN submit)
+    const ingressLockKey = `${senderAddress}:ingress`;
+    const execLockKey = `${senderAddress}:exec`;
+
+    // ===== Lock 1: ingress lock =====
+    const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
+    let admittedVersion: string;
+    let senderAccountInfo: any = null;
+
+    try {
+      const senderLocalNonceEntry = await this.getSenderLocalNonce(senderAddress);
+      if (senderLocalNonceEntry) {
+        // ----- Warm path: fast + without call to MN -----
+        this.precheck.nonce(parsedTx, senderLocalNonceEntry.value);
+        admittedVersion = senderLocalNonceEntry.version;
+        await this.setSenderLocalNonce(senderAddress, {
+          value: senderLocalNonceEntry.value + 1,
+          version: admittedVersion,
+        });
+      } else {
+        // ----- Cold path: with call to MN -----
+        senderAccountInfo = await this.precheck.verifyAccount(parsedTx, requestDetails);
+        const pendingCount = await this.transactionPoolService.getPendingCount(parsedTx.from!, 0);
+        const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
+        this.precheck.nonce(parsedTx, signerRemoteNonce);
+        admittedVersion = randomUUID();
+        await this.setSenderLocalNonce(senderAddress, {
+          value: signerRemoteNonce + 1,
+          version: admittedVersion,
+        });
+      }
+
+      // save transaction to pool
+      try {
+        await this.transactionPoolService.saveTransaction(senderAddress, parsedTx);
+      } catch (saveError) {
+        // Roll back the increment so the caller's retry isn't blocked until TTL expires.
+        await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+
+        // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
+        // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
+        // return a wrong pending state.
+        throw predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(saveError as Error).message}`);
+      }
+    } finally {
+      // Release Lock 1 regardless of outcome so that the caller can retry immediately if it was a precheck failure,
+      // or after a short wait if it was an MN or pool failure.
+      if (ingressLockResult) {
+        await this.lockService.releaseLock(ingressLockKey, ingressLockResult.sessionKey, ingressLockResult.acquiredAt);
+      }
+    }
+
+    // ===== Lock 2: execution lock =====
+    // Per-sender serialization of CN submission preserves the FIFO order established by Lock 1.
+    const execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
 
     try {
-      // Acquire lock before async operations
-      // This ensures proper nonce ordering for transactions from the same sender
-      if (parsedTx.from) {
-        lockResult = await this.lockService.acquireLock(parsedTx.from);
-      }
+      // precheck sender balance
+      const accountInfo = senderAccountInfo ?? (await this.precheck.verifyAccount(parsedTx, requestDetails));
+      this.precheck.balance(parsedTx, accountInfo.balance);
+
+      // precheck gas price and receiver
       networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
         await this.common.getGasPriceInWeibars(requestDetails),
       );
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
-          JSON.stringify(parsedTx),
-        );
-      }
-      await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (error) {
-      // Release lock on any error during validation or prechecks
-      if (lockResult) {
-        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
+      await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+      await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+      if (execLockResult) {
+        await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
       }
-      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
       throw error;
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
+    // Hand off to the processor: CN submit → release Lock 2 → MN poll (success) or rollback (pre-exec failure).
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     if (useAsyncTxProcessing) {
-      // Fire and forget - lock will be released after consensus submission
       void this.sendRawTransactionProcessor(
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        lockResult,
+        execLockResult,
+        admittedVersion,
         requestDetails,
       );
       return Utils.computeTransactionHash(transactionBuffer);
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
     return await this.sendRawTransactionProcessor(
       transactionBuffer,
       parsedTx,
       networkGasPriceInWeiBars,
-      lockResult,
+      execLockResult,
+      admittedVersion,
       requestDetails,
     );
   }
@@ -594,10 +654,12 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    lockResult: LockAcquisitionResult | undefined,
+    execLockResult: LockAcquisitionResult | undefined,
+    admittedVersion: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const originalCallerAddress = parsedTx.from?.toString() || '';
+    const senderAddress = parsedTx.from?.toString() || '';
+    const execLockKey = `${senderAddress}:exec`;
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
@@ -605,77 +667,72 @@ export class TransactionService implements ITransactionService {
 
     const { error } = await this.submitTransaction(
       transactionBuffer,
-      originalCallerAddress,
+      senderAddress,
       networkGasPriceInWeiBars,
       requestDetails,
     );
 
-    if (lockResult) {
-      await this.lockService.releaseLock(originalCallerAddress, lockResult.sessionKey, lockResult.acquiredAt);
+    // Release Lock 2 once CN responds, regardless of outcome for other transactions can start being processed ASAP
+    if (execLockResult) {
+      await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
     }
-    // Remove the transaction from the transaction pool after submission
-    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
-    // Handle submission errors - throws for definitive failures, returns when transaction was received by the network
-    await this.handleSubmissionError(error, parsedTx, requestDetails);
+    const { error: submissionError, shouldPollAndCleanup } = await this.handleSubmissionError(
+      error,
+      parsedTx,
+      senderAddress,
+      admittedVersion,
+      requestDetails,
+    );
 
-    // At this point, either no error or a post-execution failure
+    if (shouldPollAndCleanup) {
+      void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+    }
+
+    if (submissionError) throw submissionError;
     return Utils.computeTransactionHash(transactionBuffer);
   }
 
   /**
-   * Handles transaction submission errors by classifying and routing them appropriately.
+   * Classifies the CN submission outcome and signals what cleanup the caller should do.
    *
-   * This method serves as the single decision point for error handling after transaction submission.
-   * It evaluates the error type and either throws immediately or returns when the transaction is considered successful
-   * (i.e., no error or a post-execution failure)
+   * Returns { error, shouldPollAndCleanup }:
+   *   error               — the error to throw at the call site, or null on success/post-exec
+   *   shouldPollAndCleanup — true when CN outcome is unknown or the tx landed (poll to clean pool)
+   *                          false on confirmed pre-exec failure (cleanup done here, no poll needed)
    *
-   * Error handling flow:
-   * 1. No error → return (proceed)
-   * 2. Non-SDK error → throw as-is (application-level failure)
-   * 3. SDK timeout error → throw as-is (network failure)
-   * 4. Pre-execution failure (in HEDERA_SPECIFIC_REVERT_STATUSES):
-   *    - WRONG_NONCE: fetch account nonce from MN
-   *      - If nonce too high → throw NONCE_TOO_HIGH
-   *      - If nonce too low → throw NONCE_TOO_LOW
-   *      - If unable to determine → fallback to original status
-   *    - Others: throws TRANSACTION_REJECTED with status details
-   * 5. Post-execution failure → return (proceed)
-   *
-   * @param error - The error from transaction submission, or null/undefined if successful
-   * @param parsedTx - The parsed transaction for nonce comparison (used for WRONG_NONCE handling)
-   * @param requestDetails - Request details for logging and tracking
-   * @throws {JsonRpcError} NONCE_TOO_HIGH or NONCE_TOO_LOW for wrong nonce errors
-   * @throws {JsonRpcError} TRANSACTION_REJECTED for pre-execution failures
-   * @throws {Error} Original error for non-SDK or timeout errors
+   * Classification:
+   *   no error            → success               → { null, true }
+   *   non-SDK error       → outcome unknown        → { error, true }
+   *   SDK timeout/dropped → outcome unknown        → { error, true }
+   *   pre-exec failure    → nonce didn't move      → rollback + { preExecError, false }
+   *   post-exec failure   → nonce moved            → { null, true }
    */
   private async handleSubmissionError(
     error: any,
     parsedTx: EthersTransaction,
+    senderAddress: string,
+    admittedVersion: string,
     requestDetails: RequestDetails,
-  ): Promise<void> {
-    // No error - proceed to txhash retrieval
+  ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
     if (!error) {
-      return;
+      return { error: null, shouldPollAndCleanup: true };
     }
 
-    // Non-SDK errors are definitive failures - propagate as-is
     if (!(error instanceof SDKClientError)) {
-      throw error;
+      return { error, shouldPollAndCleanup: true };
     }
 
-    // Update metrics for SDK errors
     this.hapiService.decrementErrorCounter(error.statusCode);
 
-    // SDK timeout errors - propagate as-is
     if (error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout()) {
-      throw error;
+      return { error, shouldPollAndCleanup: true };
     }
 
-    // Check if this is a pre-execution failure
     const preExecutionFailures: string[] = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
     if (preExecutionFailures.includes(error.status.toString())) {
-      // WRONG_NONCE requires special handling to determine if nonce is too high or too low
+      let preExecError: JsonRpcError;
+
       // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
         if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
@@ -683,32 +740,35 @@ export class TransactionService implements ITransactionService {
         } else {
           this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
         }
+
         let accountNonce: number | null = null;
         try {
           accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
         } catch (mirrorNodeError) {
-          // Mirror Node request failed (e.g., 404, 429, 5xx)
-          // Simply ignore and fallback to the original rejection to avoid masking the true error
           this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
         }
 
-        // Determine if nonce is too high or too low
         if (accountNonce != null && accountNonce !== parsedTx.nonce) {
-          if (parsedTx.nonce > accountNonce) {
-            throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
-          } else {
-            throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
-          }
+          preExecError =
+            parsedTx.nonce > accountNonce
+              ? predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce)
+              : predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
+        } else {
+          preExecError = predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
         }
+      } else {
+        preExecError = predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
       }
 
-      // All other pre-execution failures throw TRANSACTION_REJECTED (-32003)
-      throw predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
+      // pre-execution failure would not have moved the nonce, safe to roll back and clean up here without needing to poll MN for certainty
+      await this.decrementSenderLocalNonce(senderAddress, admittedVersion);
+      await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+
+      return { error: preExecError, shouldPollAndCleanup: false };
     }
 
-    // Post-execution failure (e.g. CONTRACT_REVERT_EXECUTED, INVALID_ALIAS_KEY, etc.),
-    // proceed anyway: details can be obtained using the getTransactionReceipt method
-    return;
+    // Post-exec: nonce moved, leave pool entry for the MN-poll watcher
+    return { error: null, shouldPollAndCleanup: true };
   }
 
   /**
@@ -771,5 +831,67 @@ export class TransactionService implements ITransactionService {
     }
 
     return { submittedTransactionId, error };
+  }
+
+  // ===== senderLocalNonce cache (POC) =====
+  // Per-sender { value, version } entry. value = next expected nonce. version = lifecycle id
+  // generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
+
+  private static readonly SENDER_LOCAL_NONCE_TTL = 5 * 60 * 1000;
+
+  private senderLocalNonceCacheKey(address: string): string {
+    return `senderLocalNonce:${address.toLowerCase()}`;
+  }
+
+  private async getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null> {
+    const cached = await this.cacheService.getAsync(this.senderLocalNonceCacheKey(address), 'getSenderLocalNonce');
+    return cached ?? null;
+  }
+
+  private async setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void> {
+    await this.cacheService.set(
+      this.senderLocalNonceCacheKey(address),
+      entry,
+      'setSenderLocalNonce',
+      TransactionService.SENDER_LOCAL_NONCE_TTL,
+    );
+  }
+
+  private async decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void> {
+    const key = this.senderLocalNonceCacheKey(address);
+    const cached = await this.cacheService.getAsync(key, 'decremenSenderLocalNonce');
+    if (cached && cached.version === expectedVersion) {
+      await this.cacheService.set(
+        key,
+        { value: cached.value - 1, version: cached.version },
+        'decremenSenderLocalNonce',
+        TransactionService.SENDER_LOCAL_NONCE_TTL,
+      );
+    }
+    // version mismatch or missing entry: no-op
+  }
+
+  // ===== MN poll cleanup (POC) =====
+  // Polls MN for the receipt; removes the pool entry once MN reflects, or after max attempts (zombie cleanup).
+  private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
+    const senderAddress = parsedTx.from?.toString() || '';
+    const txHash = parsedTx.hash!;
+    const maxAttempts = 30;
+    const intervalMs = 2000;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
+        if (result && result.hash) {
+          await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+          return;
+        }
+      } catch {
+        // continue polling on transient errors
+      }
+    }
+    // zombie cleanup: max attempts reached, remove anyway
+    await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
   }
 }
