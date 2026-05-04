@@ -11,6 +11,10 @@ on:
         description: 'Enable dry run mode'
         required: false
         default: 'false'
+      rc:
+        description: 'Publish as release-candidate (npm tag: rc)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -119,6 +123,10 @@ jobs:
 
           if [[ "${{ inputs.dry-run-enabled || 'false' }}" == "true" ]]; then
             args="${args} --dry-run"
+          fi
+
+          if [[ "${{ inputs.rc || 'false' }}" == "true" ]]; then
+            args="${args} --tag rc"
           fi
 
           package="${{ needs.create-npm-package.outputs.artifact }}"
