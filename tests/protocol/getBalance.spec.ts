@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
+import { ContractId, Hbar, HbarUnit } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 

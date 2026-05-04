@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountCreateTransaction, FileInfo, FileInfoQuery, PrivateKey } from '@hashgraph/sdk';
+import { AccountCreateTransaction, FileInfo, FileInfoQuery, PrivateKey } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
