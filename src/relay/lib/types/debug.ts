@@ -21,7 +21,7 @@ export type TransactionTracerConfig = TracerConfig<ITracerConfig>;
 /**
  * Represents the state of an entity during a trace operation.
  */
-export interface EntitytTraceState {
+export interface EntityTraceState {
   /** The balance of the entity. */
   balance: string;
   /** The nonce of the entity. */
@@ -36,9 +36,9 @@ export interface EntitytTraceState {
  * Represents a mapping from entity identifiers to their corresponding trace state.
  *
  * @typeParam string - The key representing the unique identifier of an entity.
- * @typeParam EntitytTraceState - The value representing the trace state associated with the entity.
+ * @typeParam EntityTraceState - The value representing the trace state associated with the entity.
  */
-export type EntityTraceStateMap = Record<string, EntitytTraceState>;
+export type EntityTraceStateMap = Record<string, EntityTraceState>;
 
 /**
  * Represents the result of a callTracer operation for a transaction.
@@ -49,7 +49,7 @@ export interface CallTracerResult {
   /** The address initiating the call. */
   from: string;
   /** The address receiving the call. */
-  to: string;
+  to: string | null;
   /** The value transferred in the call, as a string. */
   value: string;
   /** The amount of gas provided for the call, as a string. */

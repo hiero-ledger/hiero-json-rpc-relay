@@ -134,6 +134,7 @@ export class LocalLRUCache implements ICacheClient {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
+    // keep the check against undefined as value can be false, 0, ""
     if (value !== undefined) {
       if (this.logger.isLevelEnabled('trace')) {
         const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');

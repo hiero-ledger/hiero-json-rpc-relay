@@ -38,8 +38,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     relay: RelayClient;
   } = global;
 
-  const TX_SUCCESS_CODE = BigInt(22);
-
   const TOKEN_NAME = Utils.randomString(10);
   const TOKEN_SYMBOL = Utils.randomString(5);
   const INITIAL_SUPPLY = 100000;
@@ -55,22 +53,8 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
   const accounts: AliasAccount[] = [];
 
-  let IERC20Metadata,
-    IERC20,
-    IERC721Metadata,
-    IERC721Enumerable,
-    IERC721,
-    TokenManager,
-    TokenManagementSigner,
-    IHederaTokenService;
-  let nftSerial,
-    tokenAddress,
-    nftAddress,
-    htsImplAddress,
-    htsImpl,
-    adminAccountLongZero,
-    account1LongZero,
-    account2LongZero;
+  let IERC20Metadata, IERC20, IERC721Metadata, IERC721Enumerable, IERC721, TokenManager;
+  let nftSerial, tokenAddress, nftAddress, htsImplAddress, htsImpl, adminAccountLongZero, account2LongZero;
 
   let tokenAddressFixedHbarFees,
     tokenAddressFixedTokenFees,
@@ -78,8 +62,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     tokenAddressFractionalFees,
     tokenAddressAllFees,
     nftAddressRoyaltyFees,
-    tokenAddresses,
-    nftAddresses,
     createTokenCost;
 
   before(async () => {
@@ -115,12 +97,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     await mirrorNode.get(`/accounts/${accounts[0].accountId}`);
     await mirrorNode.get(`/accounts/${accounts[1].accountId}`);
     await mirrorNode.get(`/accounts/${accounts[2].accountId}`);
-
-    TokenManagementSigner = new ethers.Contract(
-      TokenManager.target,
-      TokenManagementContractJson.abi,
-      accounts[0].wallet,
-    );
 
     // Create tokens
     const defaultTokenOptions = {
@@ -188,7 +164,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       adminPrivateKey: accounts[0].privateKey,
     };
     const mintResult0 = await servicesNode.mintNFT({ ...mintArgs, tokenId: nftTokenId0 });
-    const mintResult1 = await servicesNode.mintNFT({ ...mintArgs, tokenId: nftTokenId1 });
+    await servicesNode.mintNFT({ ...mintArgs, tokenId: nftTokenId1 });
 
     // associate tokens, grant KYC
     for (const account of [accounts[1], accounts[2]]) {
@@ -226,7 +202,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
     IERC20Metadata = getContract(tokenAddress, IERC20MetadataJson.abi, accounts[0].wallet);
     IERC20 = getContract(tokenAddress, IERC20Json.abi, accounts[0].wallet);
-    IHederaTokenService = getContract(tokenAddress, IHederaTokenServiceJson.abi, accounts[0].wallet);
 
     nftSerial = mintResult0.receipt.serials[0].low;
     IERC721Metadata = getContract(nftAddress, IERC721MetadataJson.abi, accounts[0].wallet);
@@ -234,7 +209,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     IERC721 = getContract(nftAddress, IERC721Json.abi, accounts[0].wallet);
 
     adminAccountLongZero = Utils.idToEvmAddress(accounts[0].accountId.toString());
-    account1LongZero = Utils.idToEvmAddress(accounts[1].accountId.toString());
     account2LongZero = Utils.idToEvmAddress(accounts[2].accountId.toString());
 
     // Transfer and approve token amounts
@@ -262,15 +236,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       Constants.GAS.LIMIT_1_000_000,
     );
     await rec5.wait();
-
-    tokenAddresses = [
-      tokenAddressNoFees,
-      tokenAddressFixedHbarFees,
-      tokenAddressFixedTokenFees,
-      tokenAddressFractionalFees,
-      tokenAddressAllFees,
-    ];
-    nftAddresses = [nftAddress, nftAddressRoyaltyFees];
   });
 
   function getContract(address, abi, wallet) {
@@ -463,16 +428,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.royaltyFees[0].feeCollector).to.exist;
         expect(customFees.royaltyFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
       });
-    });
-
-    describe('Token Info', async () => {
-      const tokenTests = [
-        'token with no custom fees',
-        'token with a fixed hbar fee',
-        'token with a fixed token fee',
-        'token with a fractional fee',
-        'token with all custom fees',
-      ];
     });
 
     describe('Function with HederaTokenService.getTokenKey(token, keyType)', async () => {

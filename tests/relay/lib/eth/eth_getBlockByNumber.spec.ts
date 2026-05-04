@@ -467,7 +467,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
       expect(restMock.history.get[0].url).equal(BLOCKS_LIMIT_ORDER_URL);
       expect(restMock.history.get[1].url).equal(
-        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
+        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc&hbar=false',
       );
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
@@ -502,7 +502,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
       expect(restMock.history.get[0].url).equal(BLOCKS_LIMIT_ORDER_URL);
       expect(restMock.history.get[1].url).equal(
-        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
+        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc&hbar=false',
       );
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
@@ -517,7 +517,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get.length).equal(TOTAL_GET_CALLS_EXECUTED);
       expect(restMock.history.get[0].url).equal(BLOCKS_LIMIT_ORDER_URL);
       expect(restMock.history.get[1].url).equal(
-        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
+        'contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc&hbar=false',
       );
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',

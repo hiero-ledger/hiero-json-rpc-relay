@@ -561,6 +561,16 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
   PAYMASTER_ENABLED: {
     type: 'boolean',
     required: false,
@@ -746,6 +756,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,
@@ -814,7 +829,7 @@ const _CONFIG = {
   WORKERS_POOL_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   WORKERS_POOL_MAX_THREADS: {
     type: 'number',

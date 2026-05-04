@@ -31,7 +31,7 @@ import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitSe
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
-import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
+import { overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -104,7 +104,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     const transactionIdServicesFormat = '0.0.902@1684375868.230217103';
     const transactionId = '0.0.902-1684375868-230217103';
     const value = '0x511617DE831B9E173';
-    const contractResultEndpoint = `contracts/results/${transactionId}`;
+    const contractResultEndpoint = `contracts/results/${transactionId}?hbar=false`;
     const networkExchangeRateEndpoint = 'network/exchangerate';
     const ethereumHash = '0x6d20b034eecc8d455c4c040fb3763082d499353a8b7d318b1085ad8d7de15f7e';
     const mockedExchangeRate = {

@@ -46,7 +46,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   const accountPath = `accounts/${MOCK_ACCOUNT_ADDR}${NO_TRANSACTIONS}`;
   const accountTimestampFilteredPath = `accounts/${MOCK_ACCOUNT_ADDR}?transactiontype=ETHEREUMTRANSACTION&timestamp=lte:${mockData.blocks.blocks[2].timestamp.to}&limit=2&order=desc`;
   const contractPath = `contracts/${MOCK_ACCOUNT_ADDR}`;
-  const contractResultsPath = `contracts/results/${transactionId}`;
+  const contractResultsPath = `contracts/results/${transactionId}?hbar=false`;
   const earliestBlockPath = `blocks?limit=1&order=asc`;
   const blockPath = `blocks/${blockNumber}`;
   const latestBlockPath = `blocks?limit=1&order=desc`;

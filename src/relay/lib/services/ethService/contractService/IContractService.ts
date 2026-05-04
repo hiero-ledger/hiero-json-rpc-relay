@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '../../../errors/JsonRpcError';
 import { Log } from '../../../model';
 import { IContractCallRequest, IGetLogsParams, RequestDetails } from '../../../types';
 

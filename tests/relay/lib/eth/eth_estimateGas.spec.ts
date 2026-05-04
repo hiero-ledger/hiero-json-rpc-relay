@@ -11,7 +11,6 @@ import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../../src/relay/lib/eth';
 import {
   LocalPendingTransactionStorage,

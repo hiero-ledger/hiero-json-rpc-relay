@@ -309,7 +309,7 @@ export class CommonService implements ICommonService {
       return latestBlockResponse.blocks[0];
     }
 
-    if (blockNumberOrTagOrHash == constants.BLOCK_EARLIEST) {
+    if (blockNumberOrTagOrHash === constants.BLOCK_EARLIEST) {
       return await this.mirrorNodeClient.getBlock(0, requestDetails);
     }
 

@@ -230,6 +230,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
+              // eslint-disable-next-line eqeqeq
               if (subscriptionId == '') {
                 subscriptionId = parsed.result;
               } else {
@@ -981,8 +982,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
 
             await wsProvider.send('eth_unsubscribe', [subId]);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e: any) {
+          } catch {
             errorsHandled++;
           }
         }
