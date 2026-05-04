@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { TransferTransaction } from '@hashgraph/sdk';
+import { TransferTransaction } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 

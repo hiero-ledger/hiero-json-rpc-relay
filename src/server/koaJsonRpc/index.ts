@@ -27,6 +27,7 @@ const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
 const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
+const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
@@ -164,6 +165,11 @@ export default class KoaJsonRpc {
   }
 
   async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
+    const subdomain = request.method.split('_')[0] ?? null;
+    if (!RPC_HTTP_API.has(subdomain)) {
+      return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestId);
+    }
+
     try {
       const requestDetails = new RequestDetails({ requestId, ipAddress });
       // check rate limit for method and ip

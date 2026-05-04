@@ -34,7 +34,7 @@ import {
   TransactionId,
   TransactionResponse,
   TransferTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { ethers, JsonRpcProvider } from 'ethers';
 import Long from 'long';
 

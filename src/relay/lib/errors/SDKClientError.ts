@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+import { Status } from '@hiero-ledger/sdk';
 
 export class SDKClientError extends Error {
   public status: Status = Status.Unknown;

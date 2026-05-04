@@ -58,6 +58,11 @@ If no command is specified, the relay starts with default settings. For more inf
 | `--config-file`          | `-c`  | string  | Path to environment config file                               | ❌        | -                                                  |
 | `--logging`              | `-l`  | string  | Logging level                                                 | ❌        | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `--logging-path`         | -     | string  | Path to write logs                                            | ❌        | -                                                  |
+| `--json-pretty-print-enabled` | - | boolean | Enabled/disable a basic ndjson formatter                     | ❌        | -                                                  |
+| `--rpc-http-enabled`     | -     | boolean  | Enable HTTP server (default: true)                           | ❌        | -                                                  |
+| `--rpc-ws-enabled`       | -     | boolean  | Enable WS server (default: false)                            | ❌        | -                                                  |
+| `--rpc-http-api`         | -     | array    | A list of subdomains that will be available for usage against HTTP server (default: all activated) | ❌        | `eth`, `debug`, `net`, `web3`, `txpool`, `trace`, `admin` |
+| `--rpc-ws-api`           | -     | array    | A list of subdomains that will be available for usage against WS server (default: all activated) | ❌        | `eth`, `debug`, `net`, `web3`, `txpool`, `trace`, `admin` |
 
 ---
 
@@ -72,7 +77,7 @@ hiero-relay -n testnet -r
 **Start relay with operator credentials:**
 
 ```bash
-hiero-relay -n mainnet --operator-id 0.0.1234 --operator-key <YOUR_KEY> --operator-key-format HEX_ED25519
+hiero-relay -n testnet --operator-id 0.0.1234 --operator-key <YOUR_KEY> --operator-key-format HEX_ED25519
 ```
 
 **Start relay using a config file:**
@@ -84,7 +89,25 @@ hiero-relay -c ./env/.relay.env
 **Start relay with custom logging:**
 
 ```bash
-hiero-relay -n previewnet -r -l debug --logging-path ./logs/relay.log
+hiero-relay -n testnet -r -l debug --logging-path ./logs/relay.log
+```
+
+**Start relay with both http and ws servers:**
+
+```bash
+hiero-relay -n testnet -r --rpc-ws-enabled
+```
+
+**Start relay with ws server only:**
+
+```bash
+hiero-relay -n testnet -r --rpc-http-enabled false --rpc-ws-enabled
+```
+
+**Start relay with both http and ws servers with specific subdomains**
+
+```bash
+hiero-relay -n testnet -r --rpc-ws-enabled --rpc-http-api eth net debug --rpc-ws-api web3
 ```
 
 ---
