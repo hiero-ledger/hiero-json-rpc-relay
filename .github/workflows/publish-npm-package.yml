@@ -28,7 +28,7 @@ jobs:
   create-npm-package:
     runs-on: hiero-smart-contracts-linux-medium
     outputs:
-      artifact: ${{ steps.prepare-package-data.outputs.artifact-name }}
+      artifact: ${{ steps.build-package.outputs.artifact-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -53,28 +53,32 @@ jobs:
       - name: Build standalone
         run: node scripts/build-standalone.js
 
-      - name: Prepare Package Data
-        id: prepare-package-data
-        run: |
-          VERSION=$(jq -r '.version' './package.json')
-          PKG_NAME="hiero-json-rpc-relay-${VERSION}.tgz"
-          echo "artifact-name=${PKG_NAME}" >> $GITHUB_OUTPUT
-
       - name: Build Package
+        id: build-package
         run: |
-          npm pack
-          ls -lh ${{ steps.prepare-package-data.outputs.artifact-name }}
+          PACK_OUTPUT=$(npm pack --json)
+          echo "$PACK_OUTPUT"
+
+          FILENAME=$(echo "$PACK_OUTPUT" | jq -r '.[0].filename')
+
+          if [[ -z "$FILENAME" || "$FILENAME" == "null" ]]; then
+            echo "Failed to determine package filename"
+            exit 1
+          fi
+
+          echo "artifact-name=${FILENAME}" >> $GITHUB_OUTPUT
+          ls -lh "$FILENAME"
 
       - name: Generate checksum
         run: |
-          sha256sum ${{ steps.prepare-package-data.outputs.artifact-name }} > package.sha256
+          sha256sum "${{ steps.build-package.outputs.artifact-name }}" > package.sha256
 
       - name: Upload NPM Package Artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: npm-package
           path: |
-            ./${{ steps.prepare-package-data.outputs.artifact-name }}
+            ./${{ steps.build-package.outputs.artifact-name }}
             package.sha256
           if-no-files-found: error
 
@@ -113,12 +117,12 @@ jobs:
         run: |
           args="--access=public --provenance --ignore-scripts"
 
-          if [[ "${{ inputs.dry-run-enabled }}" == "true" ]]; then
+          if [[ "${{ inputs.dry-run-enabled || 'false' }}" == "true" ]]; then
             args="${args} --dry-run"
           fi
 
           package="${{ needs.create-npm-package.outputs.artifact }}"
 
           echo "::group::Publishing package: ${package} with args: ${args}"
-          npm publish ${package} ${args}
+          npm publish "${package}" ${args}
           echo "::endgroup::"
