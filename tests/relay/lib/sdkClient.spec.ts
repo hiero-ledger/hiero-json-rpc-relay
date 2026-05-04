@@ -18,7 +18,7 @@ import {
   TransactionId,
   TransactionRecordQuery,
   type TransactionResponse,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
@@ -41,10 +41,10 @@ import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClient
 import HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import MetricService from '../../../src/relay/lib/services/metricService/metricService';
-import {
-  type IExecuteQueryEventPayload,
-  type IExecuteTransactionEventPayload,
-  type TypedEvents,
+import type {
+  IExecuteQueryEventPayload,
+  IExecuteTransactionEventPayload,
+  TypedEvents,
 } from '../../../src/relay/lib/types';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { Utils } from '../../../src/relay/utils';

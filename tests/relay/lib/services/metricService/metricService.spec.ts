@@ -2,7 +2,7 @@
 
 import { EventEmitter } from 'node:events';
 
-import { Hbar, Long, Status, type TransactionRecord, TransactionRecordQuery } from '@hashgraph/sdk';
+import { Hbar, Long, Status, type TransactionRecord, TransactionRecordQuery } from '@hiero-ledger/sdk';
 import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';

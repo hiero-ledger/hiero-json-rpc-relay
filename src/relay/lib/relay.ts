@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type AccountId } from '@hashgraph/sdk';
+import { type AccountId } from '@hiero-ledger/sdk';
 import { type Logger } from 'pino';
 import { Gauge, type Registry } from 'prom-client';
 import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../config-service/services';
-import { type Admin, type Eth, type Net, type TxPool, type Web3 } from '../index';
+import type { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';

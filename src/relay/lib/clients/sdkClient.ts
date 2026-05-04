@@ -22,7 +22,7 @@ import {
   type TransactionRecord,
   TransactionRecordQuery,
   type TransactionResponse,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { type EventEmitter } from 'events';
 import { type Logger } from 'pino';
 
@@ -31,7 +31,7 @@ import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { CommonService, type PaymasterAccount } from '../services';
 import { type HbarLimitService } from '../services/hbarLimitService';
-import { type ITransactionRecordMetric, type RequestDetails, type TypedEvents } from '../types';
+import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -143,15 +143,7 @@ export class SDKClient {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    // supplying '/dev/null' as logFile forces HederaLogger to construct its
-    // internal pino instance with pino.destination() (a SonicBoom stream) rather than a
-    // pino-pretty transport. Without this, HederaLogger unconditionally spawns a worker
-    // thread that persists for the process lifetime even though setLogger() immediately
-    // replaces the internal logger below. The '/dev/null' destination is never written to.
-    // TODO: Remove once @hashgraph/sdk exposes a no-op or silent construction option.
-    //       Upstream ticket https://github.com/hiero-ledger/hiero-sdk-js/issues/3891
-    //       Tech-debt ticket https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5148
-    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel), '/dev/null').setLogger(
+    const sdkLogger = new HederaLogger({ level: LogLevel._fromString(sdkLogLevel), silent: true }).setLogger(
       // @ts-ignore
       logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );

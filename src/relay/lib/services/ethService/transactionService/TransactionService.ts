@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { type FileId } from '@hashgraph/sdk';
+import { type FileId } from '@hiero-ledger/sdk';
 import { type Transaction as EthersTransaction } from 'ethers/transaction';
 import type EventEmitter from 'events';
 import { type Logger } from 'pino';
@@ -20,16 +20,16 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, type Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import {
-  type IContractResultsParams,
-  type ITransactionReceipt,
-  type LockAcquisitionResult,
-  type RequestDetails,
-  type TypedEvents,
+import type {
+  IContractResultsParams,
+  ITransactionReceipt,
+  LockAcquisitionResult,
+  RequestDetails,
+  TypedEvents,
 } from '../../../types';
 import type HAPIService from '../../hapiService/hapiService';
-import { type ICommonService, type LockService, type TransactionPoolService } from '../../index';
-import { type ITransactionService } from './ITransactionService';
+import type { ICommonService, LockService, TransactionPoolService } from '../../index';
+import type { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
   /**

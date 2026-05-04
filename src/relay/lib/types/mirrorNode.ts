@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type BigNumber } from 'bignumber.js';
+import type { BigNumber } from '@hiero-ledger/sdk/lib/Transfer';
 
 import type { AuthorizationListEntry } from '../model';
 

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { type JsonRpcError, predefined } from '../../../relay';
+
 export interface IJsonRpcError {
   readonly code: number;
   readonly message: string;
@@ -18,6 +20,16 @@ export const spec = {
     code: -32601,
     message: `Method ${methodName} not found`,
   }),
+
+  /**
+   * An error thrown when a method's domain is disabled varies depending on the method subdomain.
+   * Engine methods are not supported by the server and should return `UNSUPPORTED_METHOD`.
+   * Everything else should return `MethodNotFound`.
+   *
+   * @param method Name of the method.
+   */
+  SubdomainDisabled: (method: string): JsonRpcError | { code: number; message: string } =>
+    /^engine_.*/.test(method) ? predefined.UNSUPPORTED_METHOD : spec.MethodNotFound(method),
 
   /**
    * @param err The error object that caused this `InternalError`.

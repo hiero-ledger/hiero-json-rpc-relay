@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { keccak256 } from '@ethersproject/keccak256';
-import { AccountId, PrivateKey } from '@hashgraph/sdk';
-import { type Operator } from '@hashgraph/sdk/lib/client/Client';
+import { AccountId, PrivateKey } from '@hiero-ledger/sdk';
+import { type Operator } from '@hiero-ledger/sdk/lib/client/Client';
 import crypto from 'crypto';
 import { type Logger } from 'pino';
 

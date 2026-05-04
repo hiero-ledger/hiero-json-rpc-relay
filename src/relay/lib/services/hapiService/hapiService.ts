@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
+import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hiero-ledger/sdk';
 import { EventEmitter } from 'events';
 import type { Logger } from 'pino';
 import { Counter, type Registry } from 'prom-client';
