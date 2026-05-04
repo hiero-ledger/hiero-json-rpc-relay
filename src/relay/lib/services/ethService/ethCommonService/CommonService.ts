@@ -592,14 +592,18 @@ export class CommonService implements ICommonService {
       return numberTo0x(fee);
     }
 
-    const hasEIP1559Type = contractResults.some((cr) => cr.type === 2 || cr.type === 4);
-    // Make the network call only once if some transactions have EIP1559 type
-    const networkBaseGasFee = hasEIP1559Type
+    const isEIP1559Type = (cr: MirrorNodeContractResult) => cr.type === 2 || cr.type === 4;
+    // If type === null -> it is a HAPI transaction (Contract Call or Contract Create)
+    const hasNonLegacyTx = contractResults.some((cr) => isEIP1559Type(cr) || cr.type === null);
+    const networkBaseGasFee = hasNonLegacyTx
       ? BigInt(await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`))
       : BigInt(0);
 
     const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
-      if (!cr.gas_price) return acc;
+      if (cr.gas_price === null) {
+        // HAPI call - no Ethereum signature, charge at network rate
+        return acc + networkBaseGasFee * BigInt(cr.gas_used);
+      }
       if (cr.type === 2 || cr.type === 4) {
         // EIP-1559: gas_price is "0x"; derive effective price from max_fee / priority fields.
         const maxGasFee = this.hexStringToBigInt(cr.max_fee_per_gas);
@@ -608,6 +612,7 @@ export class CommonService implements ICommonService {
         const effectiveGasFeeWei = baseFeeWithTip < maxGasFee ? baseFeeWithTip : maxGasFee;
         return acc + effectiveGasFeeWei * BigInt(cr.gas_used);
       }
+      if (!cr.gas_price) return acc; // type 0/1 with missing gas_price
       // type-0/1: gas_price is already in weibars
       return acc + this.hexStringToBigInt(cr.gas_price) * BigInt(cr.gas_used);
     }, BigInt(0));

@@ -358,5 +358,79 @@ describe('CommonService', () => {
         sinon.assert.calledOnce(getGasPriceStub);
       });
     });
+
+    describe('HAPI transactions (type === null)', function () {
+      it('single HAPI tx filling the block: returns network fee at block timestamp', async function () {
+        // Effective price must fall back to the network fee at the block timestamp.
+        const contractResults = [
+          { gas_price: null, gas_used: 1000, type: null },
+        ] as unknown as MirrorNodeContractResult[];
+
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
+
+        expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
+        sinon.assert.calledOnceWithMatch(getGasPriceStub, requestDetails, `lte:${block.timestamp.to}`);
+      });
+
+      it('multiple HAPI txs: weighted average of networkFee × gas_used collapses to networkFee', async function () {
+        // (94×400 + 94×600) / 1000 = 94
+        const contractResults = [
+          { gas_price: null, gas_used: 400, type: null },
+          { gas_price: null, gas_used: 600, type: null },
+        ] as unknown as MirrorNodeContractResult[];
+
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
+
+        expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
+        sinon.assert.calledOnceWithMatch(getGasPriceStub, requestDetails, `lte:${block.timestamp.to}`);
+      });
+
+      it('HAPI tx mixed with type 1: HAPI contributes networkFee to weighted average', async function () {
+        // HAPI: effective = 94, gas_used = 500
+        // type 1: gas_price = 100, gas_used = 500
+        // weighted = (94×500 + 100×500) / 1000 = 97
+        const contractResults = [
+          { gas_price: null, gas_used: 500, type: null },
+          { gas_price: toHex(100), gas_used: 500, type: 1 },
+        ] as unknown as MirrorNodeContractResult[];
+        const expected = (NETWORK_FEE_WEI * BigInt(500) + toWei(100) * BigInt(500)) / BigInt(1000);
+
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
+
+        expect(result).to.equal(numberTo0x(expected));
+        sinon.assert.calledOnceWithMatch(getGasPriceStub, requestDetails, `lte:${block.timestamp.to}`);
+      });
+
+      it('HAPI tx mixed with type 2: network fee fetched exactly once, shared by both', async function () {
+        // HAPI: effective = networkFee(94), gas_used = 500
+        // type 2: max_fee=130, priority=0 => effective = min(130, 94+0) = 94, gas_used = 500
+        // weighted = (94×500 + 94×500) / 1000 = 94
+        const contractResults = [
+          { gas_price: null, gas_used: 500, type: null },
+          { gas_price: '0x', gas_used: 500, type: 2, max_fee_per_gas: toHex(130), max_priority_fee_per_gas: toHex(0) },
+        ] as unknown as MirrorNodeContractResult[];
+
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
+
+        expect(result).to.equal(numberTo0x(NETWORK_FEE_WEI));
+        sinon.assert.calledOnce(getGasPriceStub); // one call shared by HAPI and type 2
+      });
+
+      it('HAPI tx mixed with type 2 with priorityFee: weighted average reflects actual effective prices', async function () {
+        // HAPI: effective = networkFee(94), gas_used = 500
+        // type 2: max_fee=130, priority=10 => effective = min(130, 94+10) = 104, gas_used = 500
+        // weighted = (94×500 + 104×500) / 1000 = 99
+        const contractResults = [
+          { gas_price: null, gas_used: 500, type: null },
+          { gas_price: '0x', gas_used: 500, type: 2, max_fee_per_gas: toHex(130), max_priority_fee_per_gas: toHex(10) },
+        ] as unknown as MirrorNodeContractResult[];
+        const expected = (NETWORK_FEE_WEI * BigInt(500) + toWei(104) * BigInt(500)) / BigInt(1000);
+
+        const result = await commonService.computeGasWeightedAvgFeePerGas(contractResults, block, requestDetails);
+
+        expect(result).to.equal(numberTo0x(expected));
+        sinon.assert.calledOnce(getGasPriceStub);
+      });
+    });
   });
 });
