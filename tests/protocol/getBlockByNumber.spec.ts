@@ -17,7 +17,7 @@ import { AliasAccount } from '../server/types/AliasAccount';
 import { resolveAccountEvmAddresses } from './helpers/mirrorNodeHelpers';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_getBlockByNumber', async function () {
+describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_getBlockByNumber', async function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_getBlockByNumber';
 

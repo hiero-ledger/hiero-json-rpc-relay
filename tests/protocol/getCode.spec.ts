@@ -19,7 +19,7 @@ import { Utils } from '../server/helpers/utils';
 import { AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_getCode', async function () {
+describe('@release @protocol-acceptance @protocol-acceptance-contract-service eth_getCode', async function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_getCode';
 

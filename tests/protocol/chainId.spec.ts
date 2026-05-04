@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import { ConfigService } from '../../src/config-service/services';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_chainId', async function () {
+describe('@release @protocol-acceptance @protocol-acceptance-eth-plain eth_chainId', async function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_chainId';
   const CHAIN_ID = ConfigService.get('CHAIN_ID');

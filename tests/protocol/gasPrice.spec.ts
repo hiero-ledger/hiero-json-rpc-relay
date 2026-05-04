@@ -6,7 +6,7 @@ import { ConfigService } from '../../src/config-service/services';
 import RelayClient from '../server/clients/relayClient';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_gasPrice', async function () {
+describe('@release @protocol-acceptance @protocol-acceptance-common-service eth_gasPrice', async function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_gasPrice';
 

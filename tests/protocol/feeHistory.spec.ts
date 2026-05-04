@@ -11,7 +11,7 @@ import Assertions from '../server/helpers/assertions';
 import constants from '../server/helpers/constants';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_feeHistory', function () {
+describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_feeHistory', function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_feeHistory';
   const EXCHANGE_RATE_FILE_ID = '0.0.112';

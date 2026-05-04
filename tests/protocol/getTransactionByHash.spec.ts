@@ -16,7 +16,7 @@ import { Utils } from '../server/helpers/utils';
 import { AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_getTransactionByHash', async function () {
+describe('@release @protocol-acceptance @protocol-acceptance-transaction-service eth_getTransactionByHash', async function () {
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_getTransactionByHash';
   const CHAIN_ID = ConfigService.get('CHAIN_ID');

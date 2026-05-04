@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import type MirrorClient from '../server/clients/mirrorClient';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_blockNumber', async () => {
+describe('@release @protocol-acceptance @protocol-acceptance-common-service eth_blockNumber', async () => {
   const METHOD_NAME = 'eth_blockNumber';
   // @ts-ignore
   const { mirrorNode }: { mirrorNode: MirrorClient } = global;
