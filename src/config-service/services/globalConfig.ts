@@ -651,7 +651,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 133120, // 130 KB
   },
-  INITIAL_NONCE_TTL_MS: {
+  CACHED_SENDER_TX_COUNT_TTL: {
     type: 'number',
     required: false,
     defaultValue: 30_000, // 30 seconds

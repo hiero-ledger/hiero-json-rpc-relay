@@ -324,7 +324,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       this.initialNonceCacheKey(address),
       entry,
       'setInitialNonce',
-      ConfigService.get('INITIAL_NONCE_TTL_MS'),
+      ConfigService.get('CACHED_SENDER_TX_COUNT_TTL'),
     );
   }
 }
