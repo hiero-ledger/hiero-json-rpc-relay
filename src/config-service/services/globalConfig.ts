@@ -654,7 +654,7 @@ const _CONFIG = {
   SENDER_LOCAL_NONCE_TTL_MS: {
     type: 'number',
     required: false,
-    defaultValue: 300_000, // 5 minutes
+    defaultValue: 30_000, // 30 seconds
   },
   SERVER_HOST: {
     type: 'string',
