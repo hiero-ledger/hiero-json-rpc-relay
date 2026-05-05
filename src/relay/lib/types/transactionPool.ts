@@ -58,12 +58,6 @@ export interface TransactionPoolService {
    * Writes a { value, version } entry for the sender's next expected nonce.
    */
   setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void>;
-
-  /**
-   * Decrements the cached nonce by 1 if the version still matches (gen-matched rollback).
-   * No-ops on version mismatch or missing entry.
-   */
-  decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void>;
 }
 
 /**

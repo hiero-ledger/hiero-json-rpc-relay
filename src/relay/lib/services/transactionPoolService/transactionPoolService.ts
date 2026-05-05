@@ -274,11 +274,11 @@ export class TransactionPoolService implements ITransactionPoolService {
   }
 
   // ===== senderLocalNonce cache =====
-  // Per-sender { value, version } entry. value = next expected nonce. version = lifecycle id
+  // Per-sender { value, version } entry. value = last nonce returned by the mirror node. version = lifecycle id
   // generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
 
   /**
-   * Returns the cache key for a sender's local nonce entry.
+   * Returns the cache key for a sender's cached local nonce entry.
    *
    * @param address - The sender's EVM address.
    */
@@ -287,7 +287,7 @@ export class TransactionPoolService implements ITransactionPoolService {
   }
 
   /**
-   * Returns the cached { value, version } entry for the sender's next expected nonce,
+   * Returns the cached { value, version } entry for the sender's nonce, returned by the mirror node,
    * or null if the entry is absent or no cache service is configured.
    *
    * @param address - The sender's EVM address.
@@ -301,6 +301,7 @@ export class TransactionPoolService implements ITransactionPoolService {
   /**
    * Writes a { value, version } entry for the sender's next expected nonce.
    * Overwrites any existing entry. TTL is controlled by SENDER_LOCAL_NONCE_TTL_MS.
+   * Can be used to refresh the ttl of a cache entry.
    *
    * @param address - The sender's EVM address.
    * @param entry - The nonce entry to store. `value` is the next expected nonce; `version` tags the cache lifecycle.
@@ -313,28 +314,5 @@ export class TransactionPoolService implements ITransactionPoolService {
       'setSenderLocalNonce',
       ConfigService.get('SENDER_LOCAL_NONCE_TTL_MS'),
     );
-  }
-
-  /**
-   * Decrements the cached nonce value by 1 if the stored version matches `expectedVersion`.
-   * Used to roll back an optimistic increment when a transaction fails before CN execution.
-   * No-ops silently on version mismatch or missing entry to avoid corrupting a reseeded cache.
-   *
-   * @param address - The sender's EVM address.
-   * @param expectedVersion - The version the entry must have for the decrement to apply.
-   */
-  async decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void> {
-    if (!this.cacheService) return;
-    const key = this.senderLocalNonceCacheKey(address);
-    const entry = await this.cacheService.get(key, 'decrementSenderLocalNonce');
-    if (entry && entry.version === expectedVersion) {
-      await this.cacheService.set(
-        key,
-        { value: entry.value - 1, version: entry.version },
-        'decrementSenderLocalNonce',
-        ConfigService.get('SENDER_LOCAL_NONCE_TTL_MS'),
-      );
-    }
-    // version mismatch or missing entry: no-op
   }
 }

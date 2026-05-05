@@ -316,14 +316,16 @@ export class TransactionService implements ITransactionService {
     try {
       const [senderLocalNonceEntry, pendingCount] = await Promise.all([
         this.transactionPoolService.getSenderLocalNonce(senderAddress),
-        this.transactionPoolService.getPendingCount(parsedTx.from!, 0),
+        this.transactionPoolService.getPendingCount(senderAddress, 0),
       ]);
       if (senderLocalNonceEntry && pendingCount > 0) {
         // ----- Warm path: fast + without call to MN -----
-        this.precheck.nonce(parsedTx, senderLocalNonceEntry.value);
+        this.precheck.nonce(parsedTx, senderLocalNonceEntry.value + pendingCount);
         admittedVersion = senderLocalNonceEntry.version;
+
+        // Refresh ttl of the nonce entry
         await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
-          value: senderLocalNonceEntry.value + 1,
+          value: senderLocalNonceEntry.value,
           version: admittedVersion,
         });
       } else {
@@ -333,7 +335,7 @@ export class TransactionService implements ITransactionService {
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
         await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
-          value: signerRemoteNonce + 1,
+          value: signerRemoteNonce,
           version: admittedVersion,
         });
       }
@@ -342,9 +344,6 @@ export class TransactionService implements ITransactionService {
       try {
         await this.transactionPoolService.saveTransaction(senderAddress, parsedTx);
       } catch (saveError) {
-        // Roll back the increment so the caller's retry isn't blocked until TTL expires.
-        await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
-
         // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
         // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
         // return a wrong pending state.
@@ -374,7 +373,6 @@ export class TransactionService implements ITransactionService {
       );
       await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (error) {
-      await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
       if (execLockResult) {
         await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
@@ -763,7 +761,6 @@ export class TransactionService implements ITransactionService {
       }
 
       // pre-execution failure would not have moved the nonce, safe to roll back and clean up here without needing to poll MN for certainty
-      await this.transactionPoolService.decrementSenderLocalNonce(senderAddress, admittedVersion);
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
 
       return { error: preExecError, shouldPollAndCleanup: false };
