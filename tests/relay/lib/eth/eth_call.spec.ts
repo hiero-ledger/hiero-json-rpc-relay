@@ -667,12 +667,12 @@ describe('@ethCall Eth Call spec', async function () {
     });
 
     it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
-      const result = await contractService['extractBlockNumberOrTag'](null, requestDetails);
+      const result = await contractService['extractBlockNumberOrTag'](null);
       expect(result).to.be.null;
     });
 
     it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
-      await expect(contractService['extractBlockNumberOrTag']({}, requestDetails))
+      await expect(contractService['extractBlockNumberOrTag']({}))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(-32000);
