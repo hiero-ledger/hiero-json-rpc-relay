@@ -46,7 +46,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 
-describe.only('@ethSendRawTransaction eth_sendRawTransaction spec', async function () {
+describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function () {
   this.timeout(10000);
   const {
     restMock,
