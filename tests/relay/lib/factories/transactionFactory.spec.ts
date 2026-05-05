@@ -617,7 +617,7 @@ describe('TransactionFactory', () => {
       })!['authorizationList'];
 
     it('filters out null items and non-object items', () => {
-      const input = [null, undefined, 123, 'abc', true, () => ({}), { chainId: '1' }, { nonce: '2' }];
+      const input = [null, undefined, 123, 'abc', true, () => ({}), { chain_id: '1' }, { nonce: 2 }];
 
       const out = formatAuthorizationList(input);
 
@@ -629,7 +629,7 @@ describe('TransactionFactory', () => {
     it('items with missing/falsy fields fall back to zero constants', () => {
       const input = [
         {
-          chainId: '',
+          chain_id: '',
           nonce: 0,
           address: null,
           yParity: undefined,
@@ -648,11 +648,11 @@ describe('TransactionFactory', () => {
       expect(out.s).to.equal(constants.ZERO_HEX);
     });
 
-    it('normalizes non-0x-prefixed values (chainId/nonce/yParity) using prepend0x and truncates yParity to 4 chars', () => {
+    it('normalizes non-0x-prefixed values (chainId/yParity) using prepend0x and truncates yParity to 4 chars', () => {
       const input = [
         {
-          chainId: '1',
-          nonce: 'a',
+          chain_id: '1',
+          nonce: 100,
           yParity: '01',
           address: 'abcd',
           r: '0x1',
@@ -663,15 +663,15 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out.chainId).to.equal('0x1');
-      expect(out.nonce).to.equal('0xa');
+      expect(out.nonce).to.equal('0x64');
       expect(out.yParity).to.equal('0x01');
     });
 
     it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
       const input = [
-        { address: '0x1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
-        { address: '1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
-        { address: `0x${'a'.repeat(60)}`, chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' }, // 60 hex chars
+        { address: '0x1234', chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' },
+        { address: '1234', chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' },
+        { address: `0x${'a'.repeat(60)}`, chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' }, // 60 hex chars
       ];
 
       const out = formatAuthorizationList(input);
@@ -687,8 +687,8 @@ describe('TransactionFactory', () => {
 
       const input = [
         {
-          chainId: '1',
-          nonce: '1',
+          chain_id: '1',
+          nonce: 1,
           address: '0x1',
           yParity: '1',
           r: oversizedR,
@@ -703,8 +703,8 @@ describe('TransactionFactory', () => {
 
     it('preserves extra properties on items', () => {
       const item: any = {
-        chainId: '1',
-        nonce: '2',
+        chain_id: '1',
+        nonce: 2,
         address: '0x1234',
         yParity: '1',
         r: '0x' + '00'.repeat(32),
@@ -717,6 +717,25 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out).to.have.property('extraField').equal('keep-me');
+    });
+
+    it('normalizes Mirror Node authorization_list: numeric nonce', () => {
+      const input = [
+        {
+          address: '0x65c1572023cdc2d7b136ec3d3d8241f0eaf0646d',
+          chain_id: '0x12a',
+          nonce: 100,
+          r: '0x61de89c2b2ef991c1ad5717ac0e3d5a42388d2e7bb7710aa8da10e62b021d7d5',
+          s: '0x28cd33b0ca2fd294b0de00de5152a1da4434fc49e4941626ec3dbff768c946cb',
+          yParity: '0x0',
+        },
+      ];
+
+      const [out] = formatAuthorizationList(input);
+
+      expect(out.nonce).to.equal('0x64');
+      expect(out.chainId).to.equal('0x12a');
+      expect(out.address).to.equal('0x65c1572023cdc2d7b136ec3d3d8241f0eaf0646d');
     });
   });
 });

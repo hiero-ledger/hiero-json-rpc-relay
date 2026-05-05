@@ -108,8 +108,8 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
         .filter((item) => item !== null && typeof item === 'object')
         .map((item) => ({
           ...item, // additional properties remain allowed for authorization list items
-          chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
-          nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
+          chainId: !item.chain_id ? constants.ZERO_HEX : prepend0x(item.chain_id),
+          nonce: !item.nonce ? constants.ZERO_HEX : numberTo0x(item.nonce),
           address: formatAddress(item.address),
           yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
           r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
