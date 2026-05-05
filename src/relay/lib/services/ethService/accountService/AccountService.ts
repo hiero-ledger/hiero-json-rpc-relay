@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { randomUUID } from 'crypto';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
@@ -265,17 +264,18 @@ export class AccountService implements IAccountService {
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       if (blockNumOrTag === constants.BLOCK_PENDING) {
+        const [senderLocalNonce, pendingCount] = await Promise.all([
+          this.transactionPoolService.getInitialNonce(address),
+          this.transactionPoolService.getPendingCount(address),
+        ]);
+
         // Warm path: cache hit — return directly without hitting MN.
-        const senderLocalNonce = await this.transactionPoolService.getSenderLocalNonce(address);
-        if (senderLocalNonce) return numberTo0x(senderLocalNonce.value);
+        if (senderLocalNonce) return numberTo0x(senderLocalNonce.value + pendingCount);
 
         // Cold path: compute from MN + pool, then seed the senderLocalNonce
         const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-        const pendingCount = await this.transactionPoolService.getPendingCount(address);
         const nextNonce = Number(mnNonce) + pendingCount;
 
-        // fire-and-forget the cache update, no need to delay the response if the cache is down or slow
-        void this.transactionPoolService.setSenderLocalNonce(address, { value: nextNonce, version: randomUUID() });
         return numberTo0x(nextNonce);
       }
       return await this.getAccountLatestEthereumNonce(address, requestDetails);

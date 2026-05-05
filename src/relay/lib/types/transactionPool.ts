@@ -50,20 +50,17 @@ export interface TransactionPoolService {
   getAllTransactions(): Promise<Set<string>>;
 
   /**
-   * Returns the cached { value, version } entry for the sender's next expected nonce, or null if absent.
+   * Returns the cached { value, version } entry holding the sender's initial nonce baseline
+   * obtained from the mirror node for the first transaction in a burst, or null if absent.
+   * Note: this value is a baseline and is not updated as subsequent transactions are processed.
    */
-  getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null>;
+  getInitialNonce(address: string): Promise<{ value: number; version: string } | null>;
 
   /**
-   * Writes a { value, version } entry for the sender's next expected nonce.
+   * Writes a { value, version } entry holding the sender's initial nonce baseline
+   * obtained from the mirror node for the first transaction in a burst.
    */
-  setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void>;
-
-  /**
-   * Decrements the cached nonce by 1 if the version still matches (gen-matched rollback).
-   * No-ops on version mismatch or missing entry.
-   */
-  decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void>;
+  setInitialNonce(address: string, entry: { value: number; version: string }): Promise<void>;
 }
 
 /**

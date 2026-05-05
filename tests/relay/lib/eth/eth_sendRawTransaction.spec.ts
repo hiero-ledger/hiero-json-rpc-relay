@@ -32,7 +32,13 @@ import { RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
 import { overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
-import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
+import {
+  ACCOUNT_ADDRESS_1,
+  CONTRACT_RESPONSE_MOCK,
+  DEFAULT_NETWORK_FEES,
+  MAX_GAS_LIMIT_HEX,
+  NO_TRANSACTIONS,
+} from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
@@ -66,6 +72,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
    */
   const wasContractResultEndpointCalled = (): boolean => {
     return restMock.history.get.some((req) => req.url?.includes(MirrorNodeClient['GET_CONTRACT_RESULT_ENDPOINT']));
+  };
+
+  const waitForTheTransactionToBeIndexedByMirrorNode = async (hash: string): Promise<void> => {
+    restMock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, { hash, ...CONTRACT_RESPONSE_MOCK });
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
   };
 
   this.beforeEach(async () => {
@@ -156,9 +167,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       lockServiceStub.acquireLock.resolves();
     });
 
-    afterEach(() => {
+    afterEach(async () => {
       sinon.restore();
       clock.restore();
+
+      // Each submit operation will result in an attempt to fetch the transaction's
+      // data from the mirror node polling for it in the background. To stop this polling operation after
+      // the test is completed this cleanup function is called.
+      await waitForTheTransactionToBeIndexedByMirrorNode(ethereumHash);
     });
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
@@ -331,8 +347,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const signed = await signTransaction(transaction);
           const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
 
+          restMock.onGet(`contracts/results/${ethereumHash}?hbar=false`).reply(404);
+
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
           sinon.stub(txPool, 'getPendingCount').resolves(0);
           sdkClientStub.submitEthereumTransaction.resolves({
             txResponse: {
@@ -342,10 +361,19 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           });
 
           const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-
           expect(result).to.equal(ethereumHash);
+
           sinon.assert.calledOnce(saveStub);
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+          // Too soon for the transaction to be removed from the pool. It must be indexed by the mirror node first.
+          sinon.assert.notCalled(removeStub);
+
+          // Wait a few ticks for the poller to fetch the transaction's data from the mirror node.
+          restMock
+            .onGet(`contracts/results/${ethereumHash}?hbar=false`)
+            .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+          await new Promise((resolve) => setTimeout(resolve, 5_000));
 
           sinon.assert.calledOnce(removeStub);
           sinon.assert.calledWith(removeStub, accountAddress, signed);
@@ -460,12 +488,24 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           );
 
           // Verify lock was acquired
-          sinon.assert.calledOnce(lockServiceStub.acquireLock);
-          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+          sinon.assert.calledTwice(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:ingress`);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:exec`);
 
           // Verify lock release was attempted
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-123', currentTime);
+          sinon.assert.calledTwice(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(
+            lockServiceStub.releaseLock,
+            `${accountAddress}:ingress`,
+            'test-session-key-123',
+            currentTime,
+          );
+          sinon.assert.calledWith(
+            lockServiceStub.releaseLock,
+            `${accountAddress}:exec`,
+            'test-session-key-123',
+            currentTime,
+          );
         });
 
         it('should preserve original precheck error when lock release fails', async function () {
@@ -494,11 +534,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           );
 
           // Verify lock was acquired
-          sinon.assert.calledOnce(lockServiceStub.acquireLock);
-          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+          sinon.assert.calledTwice(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:ingress`);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:exec`);
 
           // Verify lock release was attempted despite failure
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledTwice(lockServiceStub.releaseLock);
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
@@ -530,8 +571,21 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             'Insufficient funds for transfer',
           );
           // Verify lock was properly released
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success', currentTime);
+          sinon.assert.calledTwice(lockServiceStub.releaseLock);
+
+          sinon.assert.calledTwice(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(
+            lockServiceStub.releaseLock,
+            `${accountAddress}:ingress`,
+            'test-session-key-success',
+            currentTime,
+          );
+          sinon.assert.calledWith(
+            lockServiceStub.releaseLock,
+            `${accountAddress}:exec`,
+            'test-session-key-success',
+            currentTime,
+          );
 
           // Transaction should be added to the tx pool and removed from it after failed async validation.
           sinon.assert.calledOnce(saveStub);
@@ -591,12 +645,15 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           expect(result).to.equal(ethereumHash);
 
           // Verify lock was acquired
-          sinon.assert.calledOnce(lockServiceStub.acquireLock);
-          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+          sinon.assert.calledTwice(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:ingress`);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:exec`);
 
-          // Verify lock was NOT released in sendRawTransaction
+          // Verify exec lock was NOT released in sendRawTransaction
           // (it should be released later in the chain, in sdkClient.executeTransaction)
-          sinon.assert.notCalled(lockServiceStub.releaseLock);
+          // only the ingress lock should be released right away
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:ingress`, 'test-session-key-success');
 
           // Verify no error logs
           sinon.assert.notCalled(loggerErrorStub);
@@ -612,7 +669,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const secondTransaction = await signTransaction({ ...transaction, nonce: 1 });
 
           restMock.onGet(receiverAccountEndpoint).reply(async () => {
-            await new Promise((r) => setTimeout(r, 5000));
+            await new Promise((r) => setTimeout(r, 2_000));
             return [200, ACCOUNT_RES];
           });
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
@@ -621,11 +678,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
           lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
 
-          const resultPromises = [
+          const hashes = (await Promise.all([
             ethImpl.sendRawTransaction(firstTransaction, requestDetails),
             ethImpl.sendRawTransaction(secondTransaction, requestDetails),
-          ];
-          await Promise.all(resultPromises);
+          ])) as unknown as string[];
+
+          await Promise.all(hashes.map(waitForTheTransactionToBeIndexedByMirrorNode));
 
           const firstSave = saveStub.getCall(0);
           const secondSave = saveStub.getCall(1);
@@ -658,7 +716,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(result).to.equal(ethereumHash);
 
             // Verify lock was NOT acquired when feature is disabled
-            sinon.assert.calledOnce(lockServiceStub.acquireLock);
+            sinon.assert.calledTwice(lockServiceStub.acquireLock);
             const returnValue = await lockServiceStub.acquireLock.getCall(0).returnValue;
             expect(returnValue).to.equal(undefined);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
@@ -714,8 +772,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           expect(result).to.equal(ethereumHash);
 
           // Verify lock was released after submitEthereumTransaction
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-after-consensus-1');
+          sinon.assert.calledTwice(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(
+            lockServiceStub.releaseLock,
+            `${accountAddress}:ingress`,
+            'session-after-consensus-1',
+          );
+          sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:exec`, 'session-after-consensus-1');
 
           expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
 
@@ -787,8 +850,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             sinon.assert.calledOnce(computeHashSpy);
 
             // Verify lock was released during synchronous execution (no need to tick clock)
-            sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-sync');
+            sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:ingress`, 'session-sync');
+            sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:exec`, 'session-sync');
 
             expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           } finally {
