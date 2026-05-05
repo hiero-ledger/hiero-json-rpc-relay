@@ -266,7 +266,7 @@ export class AccountService implements IAccountService {
       if (blockNumOrTag === constants.BLOCK_PENDING) {
         const [senderLocalNonce, pendingCount] = await Promise.all([
           this.transactionPoolService.getSenderLocalNonce(address),
-          await this.transactionPoolService.getPendingCount(address),
+          this.transactionPoolService.getPendingCount(address),
         ]);
 
         // Warm path: cache hit — return directly without hitting MN.
