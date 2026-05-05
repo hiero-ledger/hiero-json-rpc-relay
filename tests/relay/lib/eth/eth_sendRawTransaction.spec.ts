@@ -653,11 +653,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           // (it should be released later in the chain, in sdkClient.executeTransaction)
           // only the ingress lock should be released right away
           sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(
-            lockServiceStub.releaseLock,
-            `${accountAddress}:ingress`,
-            'session-after-consensus-1',
-          );
+          sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:ingress`, 'test-session-key-success');
 
           // Verify no error logs
           sinon.assert.notCalled(loggerErrorStub);
