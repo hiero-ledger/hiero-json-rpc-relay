@@ -26,7 +26,7 @@ The **Hiero JSON-RPC Relay CLI** is a command-line tool to start a local JSON-RP
 Download the npm package from npmjs
 
 ```bash
-npm install @hashgraph/hiero-relay-cli -g
+npm install @hiero-ledger/hiero-json-rpc-relay -g
 ```
 
 ---
