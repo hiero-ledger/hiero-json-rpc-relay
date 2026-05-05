@@ -1,5 +1,5 @@
 {
-  "name": "root",
+  "name": "@hiero-ledger/hiero-json-rpc-relay",
   "version": "0.77.0-SNAPSHOT",
   "bin": {
     "hiero-relay": "./bin/hiero-relay.js"
