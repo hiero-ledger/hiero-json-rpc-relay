@@ -294,7 +294,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null> {
     if (!this.cacheService) return null;
-    const entry = await this.cacheService.getAsync(this.senderLocalNonceCacheKey(address), 'getSenderLocalNonce');
+    const entry = await this.cacheService.get(this.senderLocalNonceCacheKey(address), 'getSenderLocalNonce');
     return entry ?? null;
   }
 
@@ -326,7 +326,7 @@ export class TransactionPoolService implements ITransactionPoolService {
   async decrementSenderLocalNonce(address: string, expectedVersion: string): Promise<void> {
     if (!this.cacheService) return;
     const key = this.senderLocalNonceCacheKey(address);
-    const entry = await this.cacheService.getAsync(key, 'decrementSenderLocalNonce');
+    const entry = await this.cacheService.get(key, 'decrementSenderLocalNonce');
     if (entry && entry.version === expectedVersion) {
       await this.cacheService.set(
         key,

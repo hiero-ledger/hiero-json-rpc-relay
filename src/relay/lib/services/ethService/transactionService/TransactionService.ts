@@ -314,8 +314,11 @@ export class TransactionService implements ITransactionService {
     let senderAccountInfo: any = null;
 
     try {
-      const senderLocalNonceEntry = await this.transactionPoolService.getSenderLocalNonce(senderAddress);
-      if (senderLocalNonceEntry) {
+      const [senderLocalNonceEntry, pendingCount] = await Promise.all([
+        this.transactionPoolService.getSenderLocalNonce(senderAddress),
+        this.transactionPoolService.getPendingCount(parsedTx.from!, 0),
+      ]);
+      if (senderLocalNonceEntry && pendingCount > 0) {
         // ----- Warm path: fast + without call to MN -----
         this.precheck.nonce(parsedTx, senderLocalNonceEntry.value);
         admittedVersion = senderLocalNonceEntry.version;
@@ -326,7 +329,6 @@ export class TransactionService implements ITransactionService {
       } else {
         // ----- Cold path: with call to MN -----
         senderAccountInfo = await this.precheck.verifyAccount(parsedTx, requestDetails);
-        const pendingCount = await this.transactionPoolService.getPendingCount(parsedTx.from!, 0);
         const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
