@@ -17,12 +17,17 @@ import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
-  IRegularTransactionReceiptParams,
+  type IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { Block, Log, Transaction } from '../../../model';
-import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
+import { type Block, type Log, type Transaction } from '../../../model';
+import {
+  type IContractResultsParams,
+  type ITransactionReceipt,
+  type MirrorNodeBlock,
+  type RequestDetails,
+} from '../../../types';
+import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
 

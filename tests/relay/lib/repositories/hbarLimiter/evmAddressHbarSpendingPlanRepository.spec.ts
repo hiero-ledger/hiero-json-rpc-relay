@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import type { ICacheClient } from '../../../../../src/relay/lib/clients/cache/ICacheClient';
@@ -13,7 +13,7 @@ import { RedisClientManager } from '../../../../../src/relay/lib/clients/redisCl
 import { EvmAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../../src/relay/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../../src/relay/lib/db/types/hbarLimiter/errors';
-import { IEvmAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
+import { type IEvmAddressHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 

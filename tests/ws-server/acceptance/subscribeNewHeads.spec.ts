@@ -7,11 +7,11 @@ import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import MirrorClient from '../../server/clients/mirrorClient';
-import RelayClient from '../../server/clients/relayClient';
+import type MirrorClient from '../../server/clients/mirrorClient';
+import type RelayClient from '../../server/clients/relayClient';
 import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;

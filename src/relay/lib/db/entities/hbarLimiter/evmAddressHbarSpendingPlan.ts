@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';
+import { type IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';
 
 export class EvmAddressHbarSpendingPlan implements IEvmAddressHbarSpendingPlan {
   evmAddress: string;
