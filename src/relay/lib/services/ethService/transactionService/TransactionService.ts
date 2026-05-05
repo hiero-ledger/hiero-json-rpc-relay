@@ -312,7 +312,7 @@ export class TransactionService implements ITransactionService {
 
     try {
       const [senderLocalNonceEntry, pendingCount] = await Promise.all([
-        this.transactionPoolService.getInitialNonce(senderAddress),
+        this.transactionPoolService.getConfirmedCount(senderAddress),
         this.transactionPoolService.getPendingCount(senderAddress, 0),
       ]);
       if (senderLocalNonceEntry && pendingCount > 0) {
@@ -321,7 +321,7 @@ export class TransactionService implements ITransactionService {
         admittedVersion = senderLocalNonceEntry.version;
 
         // Refresh ttl of the nonce entry
-        await this.transactionPoolService.setInitialNonce(senderAddress, {
+        await this.transactionPoolService.setConfirmedCount(senderAddress, {
           value: senderLocalNonceEntry.value,
           version: admittedVersion,
         });
@@ -331,7 +331,7 @@ export class TransactionService implements ITransactionService {
         const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
-        await this.transactionPoolService.setInitialNonce(senderAddress, {
+        await this.transactionPoolService.setConfirmedCount(senderAddress, {
           value: signerRemoteNonce,
           version: admittedVersion,
         });
@@ -385,6 +385,7 @@ export class TransactionService implements ITransactionService {
       parsedTx,
       networkGasPriceInWeiBars,
       execLockResult,
+      admittedVersion,
       requestDetails,
     );
 
@@ -639,6 +640,7 @@ export class TransactionService implements ITransactionService {
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
    * @param {LockAcquisitionResult | undefined} execLockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
+   * @param {string} admittedVersion - The admitted version of the tx count cache.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
@@ -647,6 +649,7 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
     execLockResult: LockAcquisitionResult | undefined,
+    admittedVersion: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const senderAddress = parsedTx.from?.toString() || '';
@@ -676,7 +679,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (shouldPollAndCleanup) {
-      void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+      void this.pollMirrorNodeAndCleanup(parsedTx, admittedVersion, requestDetails);
     }
 
     if (submissionError) throw submissionError;
@@ -817,7 +820,11 @@ export class TransactionService implements ITransactionService {
 
   // ===== MN poll cleanup (POC) =====
   // Polls MN for the receipt; removes the pool entry once MN reflects, or after max attempts (zombie cleanup).
-  private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
+  private async pollMirrorNodeAndCleanup(
+    parsedTx: EthersTransaction,
+    admittedVersion: string,
+    requestDetails: RequestDetails,
+  ): Promise<void> {
     const senderAddress = parsedTx.from?.toString() || '';
     const txHash = parsedTx.hash!;
     const maxAttempts = 30;
@@ -828,7 +835,13 @@ export class TransactionService implements ITransactionService {
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result && result.hash) {
-          await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+          await Promise.all([
+            this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized),
+            this.transactionPoolService.setConfirmedCount(senderAddress, {
+              value: parsedTx.nonce,
+              version: admittedVersion,
+            }),
+          ]);
           return;
         }
       } catch {

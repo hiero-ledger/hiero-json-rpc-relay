@@ -284,8 +284,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  private initialNonceCacheKey(address: string): string {
-    return `initialNonce:${address.toLowerCase()}`;
+  private confirmedCountCacheKey(address: string): string {
+    return `confirmedTransactionCount:${address.toLowerCase()}`;
   }
 
   /**
@@ -299,9 +299,9 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  async getInitialNonce(address: string): Promise<{ value: number; version: string } | null> {
+  async getConfirmedCount(address: string): Promise<{ value: number; version: string } | null> {
     if (!this.cacheService) return null;
-    const entry = await this.cacheService.get(this.initialNonceCacheKey(address), 'getInitialNonce');
+    const entry = await this.cacheService.get(this.confirmedCountCacheKey(address), 'getConfirmedCount');
     return entry ?? null;
   }
 
@@ -318,12 +318,12 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param address - The sender's EVM address.
    * @param entry - The nonce entry to store.
    */
-  async setInitialNonce(address: string, entry: { value: number; version: string }): Promise<void> {
+  async setConfirmedCount(address: string, entry: { value: number; version: string }): Promise<void> {
     if (!this.cacheService) return;
     await this.cacheService.set(
-      this.initialNonceCacheKey(address),
+      this.confirmedCountCacheKey(address),
       entry,
-      'setInitialNonce',
+      'setConfirmedCount',
       ConfigService.get('CACHED_SENDER_TX_COUNT_TTL'),
     );
   }
