@@ -301,16 +301,14 @@ export class CommonService implements ICommonService {
 
     const blockNumber = Number(blockNumberOrTagOrHash);
     if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length < 32 && !isNaN(blockNumber)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      const latestBlock = latestBlockResponse.blocks[0];
+      const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
       if (blockNumber > latestBlock.number + this.maxBlockRange) {
         return null;
       }
     }
 
     if (blockNumberOrTagOrHash == null || this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      return latestBlockResponse.blocks[0];
+      return await this.getLatestBlockFromMirrorNode(requestDetails);
     }
 
     if (blockNumberOrTagOrHash === constants.BLOCK_EARLIEST) {
@@ -324,17 +322,22 @@ export class CommonService implements ICommonService {
     return await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
   }
 
+  private async getLatestBlockFromMirrorNode(requestDetails: RequestDetails): Promise<any> {
+    const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
+    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
+    if (Array.isArray(blocks) && blocks.length > 0) {
+      return blocks[0];
+    }
+
+    throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
+  }
+
   /**
    * Gets the most recent block number.
    */
   public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
-    const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      return numberTo0x(blocks[0].number);
-    }
-
-    throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
+    const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
+    return numberTo0x(latestBlock.number);
   }
 
   public genericErrorHandler(error: any, logMessage?: string): void {
