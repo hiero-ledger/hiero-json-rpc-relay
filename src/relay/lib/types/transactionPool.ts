@@ -54,13 +54,13 @@ export interface TransactionPoolService {
    * obtained from the mirror node for the first transaction in a burst, or null if absent.
    * Note: this value is a baseline and is not updated as subsequent transactions are processed.
    */
-  getInitialNonce(address: string): Promise<{ value: number; version: string } | null>;
+  getConfirmedCount(address: string): Promise<{ value: number; version: string } | null>;
 
   /**
    * Writes a { value, version } entry holding the sender's initial nonce baseline
    * obtained from the mirror node for the first transaction in a burst.
    */
-  setInitialNonce(address: string, entry: { value: number; version: string }): Promise<void>;
+  setConfirmedCount(address: string, entry: { value: number; version: string }): Promise<void>;
 }
 
 /**
