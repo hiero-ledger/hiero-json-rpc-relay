@@ -312,7 +312,7 @@ export class TransactionService implements ITransactionService {
 
     try {
       const [senderLocalNonceEntry, pendingCount] = await Promise.all([
-        this.transactionPoolService.getSenderInitialNonce(senderAddress),
+        this.transactionPoolService.getInitialNonce(senderAddress),
         this.transactionPoolService.getPendingCount(senderAddress, 0),
       ]);
       if (senderLocalNonceEntry && pendingCount > 0) {
@@ -321,7 +321,7 @@ export class TransactionService implements ITransactionService {
         admittedVersion = senderLocalNonceEntry.version;
 
         // Refresh ttl of the nonce entry
-        await this.transactionPoolService.setSenderInitialNonce(senderAddress, {
+        await this.transactionPoolService.setInitialNonce(senderAddress, {
           value: senderLocalNonceEntry.value,
           version: admittedVersion,
         });
@@ -331,7 +331,7 @@ export class TransactionService implements ITransactionService {
         const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
-        await this.transactionPoolService.setSenderInitialNonce(senderAddress, {
+        await this.transactionPoolService.setInitialNonce(senderAddress, {
           value: signerRemoteNonce,
           version: admittedVersion,
         });
@@ -379,26 +379,21 @@ export class TransactionService implements ITransactionService {
 
     // Hand off to the processor: CN submit → release Lock 2 → MN poll (success) or rollback (pre-exec failure).
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      void this.sendRawTransactionProcessor(
-        transactionBuffer,
-        parsedTx,
-        networkGasPriceInWeiBars,
-        execLockResult,
-        admittedVersion,
-        requestDetails,
-      );
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
 
-    return await this.sendRawTransactionProcessor(
+    const sendRawTransactionProcessorPromise = this.sendRawTransactionProcessor(
       transactionBuffer,
       parsedTx,
       networkGasPriceInWeiBars,
       execLockResult,
-      admittedVersion,
       requestDetails,
     );
+
+    if (useAsyncTxProcessing) {
+      void sendRawTransactionProcessorPromise;
+      return Utils.computeTransactionHash(transactionBuffer);
+    }
+
+    return await sendRawTransactionProcessorPromise;
   }
 
   /**
@@ -643,7 +638,7 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
-   * @param {LockAcquisitionResult | undefined} lockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
+   * @param {LockAcquisitionResult | undefined} execLockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
@@ -652,7 +647,6 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
     execLockResult: LockAcquisitionResult | undefined,
-    admittedVersion: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const senderAddress = parsedTx.from?.toString() || '';
@@ -678,7 +672,6 @@ export class TransactionService implements ITransactionService {
       error,
       parsedTx,
       senderAddress,
-      admittedVersion,
       requestDetails,
     );
 
@@ -709,16 +702,9 @@ export class TransactionService implements ITransactionService {
     error: any,
     parsedTx: EthersTransaction,
     senderAddress: string,
-    admittedVersion: string,
     requestDetails: RequestDetails,
   ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
-    if (!error) {
-      return { error: null, shouldPollAndCleanup: true };
-    }
-
-    if (!(error instanceof SDKClientError)) {
-      return { error, shouldPollAndCleanup: true };
-    }
+    if (!error || !(error instanceof SDKClientError)) return { error: error ?? null, shouldPollAndCleanup: true };
 
     this.hapiService.decrementErrorCounter(error.statusCode);
 

@@ -265,7 +265,7 @@ export class AccountService implements IAccountService {
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       if (blockNumOrTag === constants.BLOCK_PENDING) {
         const [senderLocalNonce, pendingCount] = await Promise.all([
-          this.transactionPoolService.getSenderInitialNonce(address),
+          this.transactionPoolService.getInitialNonce(address),
           this.transactionPoolService.getPendingCount(address),
         ]);
 

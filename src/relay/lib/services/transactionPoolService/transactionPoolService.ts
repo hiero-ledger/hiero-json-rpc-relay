@@ -284,8 +284,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  private senderInitialNonceCacheKey(address: string): string {
-    return `senderInitialNonce:${address.toLowerCase()}`;
+  private initialNonceCacheKey(address: string): string {
+    return `initialNonce:${address.toLowerCase()}`;
   }
 
   /**
@@ -299,9 +299,9 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  async getSenderInitialNonce(address: string): Promise<{ value: number; version: string } | null> {
+  async getInitialNonce(address: string): Promise<{ value: number; version: string } | null> {
     if (!this.cacheService) return null;
-    const entry = await this.cacheService.get(this.senderInitialNonceCacheKey(address), 'getSenderInitialNonce');
+    const entry = await this.cacheService.get(this.initialNonceCacheKey(address), 'getInitialNonce');
     return entry ?? null;
   }
 
@@ -318,13 +318,13 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param address - The sender's EVM address.
    * @param entry - The nonce entry to store.
    */
-  async setSenderInitialNonce(address: string, entry: { value: number; version: string }): Promise<void> {
+  async setInitialNonce(address: string, entry: { value: number; version: string }): Promise<void> {
     if (!this.cacheService) return;
     await this.cacheService.set(
-      this.senderInitialNonceCacheKey(address),
+      this.initialNonceCacheKey(address),
       entry,
-      'setSenderInitialNonce',
-      ConfigService.get('SENDER_LOCAL_NONCE_TTL_MS'),
+      'setInitialNonce',
+      ConfigService.get('INITIAL_NONCE_TTL_MS'),
     );
   }
 }

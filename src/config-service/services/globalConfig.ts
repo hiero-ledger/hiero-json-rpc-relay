@@ -651,7 +651,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 133120, // 130 KB
   },
-  SENDER_LOCAL_NONCE_TTL_MS: {
+  INITIAL_NONCE_TTL_MS: {
     type: 'number',
     required: false,
     defaultValue: 30_000, // 30 seconds
