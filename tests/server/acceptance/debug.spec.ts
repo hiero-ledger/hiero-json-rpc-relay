@@ -3,7 +3,7 @@
 // External resources
 import { RLP } from '@ethereumjs/rlp';
 import { hexToBytes } from '@ethereumjs/util';
-import { TransferTransaction } from '@hashgraph/sdk';
+import { TransferTransaction } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
