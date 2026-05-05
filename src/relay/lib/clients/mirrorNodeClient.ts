@@ -40,6 +40,7 @@ export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
   private static readonly GET_TOKENS_ENDPOINT = 'tokens';
+  private static readonly GET_SCHEDULES_ENDPOINT = 'schedules';
   private static readonly ADDRESS_PLACEHOLDER = '{address}';
   private static readonly GET_BALANCE_ENDPOINT = 'balances';
   private static readonly TIMESTAMP_PLACEHOLDER = '{timestamp}';
@@ -85,6 +86,7 @@ export class MirrorNodeClient {
     [MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT, [404]],
     [MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TOKENS_ENDPOINT, [404]],
+    [MirrorNodeClient.GET_SCHEDULES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_CALL_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT, [404]],
@@ -1397,6 +1399,15 @@ export class MirrorNodeClient {
     );
   }
 
+  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number) {
+    return this.get(
+      `${MirrorNodeClient.GET_SCHEDULES_ENDPOINT}/${scheduleId}`,
+      MirrorNodeClient.GET_SCHEDULES_ENDPOINT,
+      requestDetails,
+      retries,
+    );
+  }
+
   public async getLatestContractResultsByAddress(
     address: string,
     blockEndTimestamp: string | undefined,
@@ -1941,9 +1952,19 @@ export class MirrorNodeClient {
           : Promise.reject(),
       );
 
+      promises.push(
+        searchableTypes.includes(constants.TYPE_SCHEDULE)
+          ? buildPromise(
+              this.getScheduleById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
+                return null;
+              }),
+            )
+          : Promise.reject(),
+      );
+
       // maps the promises with indices of the promises array
       // because there is no such method as Promise.anyWithIndex in js
-      // the index is needed afterward for detecting the resolved promise type (contract, account, or token)
+      // the index is needed afterward for detecting the resolved promise type (contract, account, token, or schedule)
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
     } catch (e) {
@@ -1958,6 +1979,10 @@ export class MirrorNodeClient {
       }
       case 1: {
         type = constants.TYPE_TOKEN;
+        break;
+      }
+      case 2: {
+        type = constants.TYPE_SCHEDULE;
         break;
       }
     }

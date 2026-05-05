@@ -972,7 +972,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should execute "eth_getCode" for hts token', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [NftHTSTokenContractAddress, 'latest']);
-      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
+      expect(res).to.be.equal(CommonService.getDelegationDesignator(Constants.HTS_ADDRESS));
     });
 
     it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {

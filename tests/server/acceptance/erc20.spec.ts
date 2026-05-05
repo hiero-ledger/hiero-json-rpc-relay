@@ -5,6 +5,7 @@ import { expect } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { ethers } from 'ethers';
 
+import relayConstants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
 // Constants from local resources
 import Constants from '../../server/helpers/constants';
@@ -101,7 +102,7 @@ describe('@erc20 Acceptance Tests', async function () {
       it('Relay can execute "eth_getCode" for ERC20 contract with evmAddress', async function () {
         const res = await relay.call('eth_getCode', [contract.target, 'latest']);
         expect(res).to.be.equal(
-          testTitles[i].expectedBytecode ?? CommonService.redirectBytecodeAddressReplace(contract.target),
+          testTitles[i].expectedBytecode ?? CommonService.getDelegationDesignator(relayConstants.HTS_ADDRESS),
         );
       });
 

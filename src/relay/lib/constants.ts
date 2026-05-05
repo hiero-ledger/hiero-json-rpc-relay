@@ -81,6 +81,7 @@ export default {
   TYPE_CONTRACT: 'CONTRACT',
   TYPE_ACCOUNT: 'ACCOUNT',
   TYPE_TOKEN: 'TOKEN',
+  TYPE_SCHEDULE: 'SCHEDULE',
 
   DEFAULT_FEE_HISTORY_MAX_RESULTS: 10,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE: 100,
@@ -259,6 +260,7 @@ export default {
   ONE_HEX: '0x1',
   TWO_HEX: '0x2',
   HTS_ADDRESS: '0x0000000000000000000000000000000000000167',
+  HSS_ADDRESS: '0x000000000000000000000000000000000000016b',
   DEFAULT_GAS_USED_RATIO: 0.5,
 
   BLOCK_LATEST: 'latest',
@@ -268,7 +270,7 @@ export default {
   BLOCK_FINALIZED: 'finalized',
   BLOCK_HASH_LENGTH: 66,
 
-  /** EIP-7702 / HIP-1340: prefix returned by eth_getCode for EOAs with code delegation. */
+  /** EIP-7702 / HIP-1340: prefix returned by eth_getCode for code-delegated addresses (EOAs, HTS tokens, HSS schedules). */
   EOA_DELEGATION_DESIGNATOR_PREFIX: '0xef0100',
 
   ETH_FEE_HISTORY: 'eth_feeHistory',
