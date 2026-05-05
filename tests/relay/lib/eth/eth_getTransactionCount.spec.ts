@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon, { stub } from 'sinon';
 
-import { Eth, predefined } from '../../../../src/relay';
+import { type Eth, predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {
@@ -46,7 +46,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   const accountPath = `accounts/${MOCK_ACCOUNT_ADDR}${NO_TRANSACTIONS}`;
   const accountTimestampFilteredPath = `accounts/${MOCK_ACCOUNT_ADDR}?transactiontype=ETHEREUMTRANSACTION&timestamp=lte:${mockData.blocks.blocks[2].timestamp.to}&limit=2&order=desc`;
   const contractPath = `contracts/${MOCK_ACCOUNT_ADDR}`;
-  const contractResultsPath = `contracts/results/${transactionId}`;
+  const contractResultsPath = `contracts/results/${transactionId}?hbar=false`;
   const earliestBlockPath = `blocks?limit=1&order=asc`;
   const blockPath = `blocks/${blockNumber}`;
   const latestBlockPath = `blocks?limit=1&order=desc`;

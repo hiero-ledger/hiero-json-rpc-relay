@@ -2,11 +2,11 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
 import ERC20MockJson from '../../server/contracts/ERC20Mock.json';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-1 eth_call', async function () {

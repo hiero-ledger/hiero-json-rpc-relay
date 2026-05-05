@@ -227,7 +227,7 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   },
 };
 
-export function validateSchema(schema: IObjectSchema, object: any) {
+export function validateSchema(schema: IObjectSchema, object: any): boolean {
   const expectedParams = Object.keys(schema.properties);
   const actualParams = Object.keys(object);
   if (schema.failOnUnexpectedParams) {

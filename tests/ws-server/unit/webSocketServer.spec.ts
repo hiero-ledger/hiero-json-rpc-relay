@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 import http from 'http';
-import { AddressInfo } from 'net';
+import { type AddressInfo } from 'net';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 
@@ -257,5 +257,16 @@ describe('webSocketServer websocket handling', () => {
 
     const { args } = sendToClientStub.getCall(0);
     expect(Array.isArray(args[2])).to.be.true;
+  });
+
+  it('should set up ping interval when WS_PING_INTERVAL > 0', async () => {
+    const setIntervalSpy = sinon.spy(global, 'setInterval');
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+    // The server-side 'connection' handler runs synchronously on upgrade,
+    // so by the time the client 'open' event fires setInterval has been called.
+    expect(setIntervalSpy.called).to.be.true;
+    setIntervalSpy.restore();
+    await ws.close();
   });
 });

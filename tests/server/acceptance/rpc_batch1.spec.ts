@@ -9,7 +9,7 @@ import {
   Hbar,
   PrivateKey,
   TransferTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -23,9 +23,9 @@ import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import basicContract from '../contracts/Basic.json';
 import basicContractJson from '../contracts/Basic.json';
 import logsContractJson from '../contracts/Logs.json';
@@ -36,7 +36,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions, { computeExpectedCumulativeGasUsed } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 import { MultiLogReceiptFixture } from './fixtures/multiLogReceiptFixture';
 
 const Address = RelayCalls;
@@ -828,7 +828,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         expect(blockResult.transactions).to.not.be.empty;
         expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffffffffffff9c');
+        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffff172b5af000');
       });
 
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {

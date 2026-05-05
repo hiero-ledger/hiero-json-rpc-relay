@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+import { Status } from '@hiero-ledger/sdk';
 
 export class MirrorNodeClientError extends Error {
   public statusCode: number;
@@ -71,7 +71,7 @@ export class MirrorNodeClientError extends Error {
     );
   }
 
-  public isContractRevert() {
+  public isContractRevert(): boolean {
     return this.message === MirrorNodeClientError.messages.CONTRACT_REVERT_EXECUTED;
   }
 
@@ -95,15 +95,21 @@ export class MirrorNodeClientError extends Error {
     return this.message === 'Precompile not supported';
   }
 
-  isFailInvalid() {
+  isFailInvalid(): boolean {
     return this.message === 'FAIL_INVALID';
   }
 
-  isInvalidTransaction() {
+  isInvalidTransaction(): boolean {
     return this.message === 'INVALID_TRANSACTION';
   }
 
-  public toJSON() {
+  public toJSON(): {
+    statusCode: number;
+    data: string | unknown;
+    detail: string | unknown;
+    message: string;
+    name: string;
+  } {
     return {
       statusCode: this.statusCode,
       data: this.data,

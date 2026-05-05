@@ -274,7 +274,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(randomBlock));
     restMock
       .onGet(
-        `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
+        `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc&hbar=false`,
       )
       .reply(200, JSON.stringify([]));
     restMock
@@ -328,7 +328,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(randomBlock));
     restMock
       .onGet(
-        `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
+        `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc&hbar=false`,
       )
       .abortRequest();
     restMock
@@ -353,10 +353,10 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
       restMock
-        .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}`)
+        .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}?hbar=false`)
         .reply(200, JSON.stringify(defaultDetailedContractResults));
       restMock
-        .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}`)
+        .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}?hbar=false`)
         .reply(200, JSON.stringify(defaultDetailedContractResults));
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 

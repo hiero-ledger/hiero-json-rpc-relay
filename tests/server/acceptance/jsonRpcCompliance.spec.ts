@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import { expect } from 'chai';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { RELAY_URL } from './data/conformity/utils/constants';
-import { JsonRpcResponse } from './data/conformity/utils/interfaces';
+import { type JsonRpcResponse } from './data/conformity/utils/interfaces';
 
 describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', function () {
   this.timeout(60000);

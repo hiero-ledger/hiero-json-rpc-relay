@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
-import { BigNumber as BN } from 'bignumber.js';
+import type { BigNumber } from '@hiero-ledger/sdk/lib/Transfer';
 import crypto from 'crypto';
 
 import { ConfigService } from '../config-service/services';
@@ -9,11 +8,11 @@ import constants from './lib/constants';
 
 const EMPTY_HEX = '0x';
 
-const hashNumber = (num) => {
+const hashNumber = (num): string => {
   return EMPTY_HEX + num.toString(16);
 };
 
-const generateRandomHex = (bytesLength = 16) => {
+const generateRandomHex = (bytesLength = 16): string => {
   return '0x' + crypto.randomBytes(bytesLength).toString('hex');
 };
 
@@ -165,9 +164,9 @@ const trimPrecedingZeros = (input: unknown): string | null => {
   return trimmed === '' ? '0' : trimmed;
 };
 
-function stripLeadingZeroForSignatures(signature: string) {
-  const remove0x = (signature) => (signature.startsWith('0x') ? signature.substring(2) : signature);
-  const remove0 = (signature) => (signature.startsWith('0') ? signature.substring(1) : signature);
+function stripLeadingZeroForSignatures(signature: string): string {
+  const remove0x = (signature: string): string => (signature.startsWith('0x') ? signature.substring(2) : signature);
+  const remove0 = (signature: string): string => (signature.startsWith('0') ? signature.substring(1) : signature);
 
   return '0x' + [remove0x, remove0].reduce((acc, fn) => fn(acc), signature);
 }
@@ -184,9 +183,11 @@ const nanOrNumberTo0x = (input: number | BigNumber | bigint | null): string => {
   return input == null || Number.isNaN(input) ? numberTo0x(0) : numberTo0x(input);
 };
 
-const nanOrNumberInt64To0x = (input: number | BigNumber | bigint | null): string => {
+const nanOrNumberInt64To0x = (input: number | string | BigNumber | bigint | null): string => {
+  if (input == null) return constants.ZERO_HEX;
+  const normalized = typeof input === 'string' ? BigInt(input) : input;
   // converting to string and then back to int is fixing a typescript warning
-  if (input && Number(input) < 0) {
+  if (Number(normalized) < 0) {
     // the hex of a negative number can be obtained from the binary value of that number positive value
     // the binary value needs to be negated and then to be incremented by 1
 
@@ -212,22 +213,14 @@ const nanOrNumberInt64To0x = (input: number | BigNumber | bigint | null): string
     // then: (BigInt(input.toString()) + (BigInt(1) << BigInt(bits))) = -10 + 2^64 = 18446744073709551606
     // this effectively represents -10 in an unsigned 64-bit representation:18446744073709551606 = 0xFFFFFFFFFFFFFFF6
     // finally, the modulo operation: % (1 << 64)
-    return numberTo0x((BigInt(input.toString()) + (BigInt(1) << BigInt(bits))) % (BigInt(1) << BigInt(bits)));
+    return numberTo0x((BigInt(normalized.toString()) + (BigInt(1) << BigInt(bits))) % (BigInt(1) << BigInt(bits)));
   }
 
-  return nanOrNumberTo0x(input);
+  return nanOrNumberTo0x(normalized);
 };
 
 const toHash32 = (value: string): string => {
   return value.substring(0, 66);
-};
-
-const toNullableBigNumber = (value: string | null): string | null => {
-  if (typeof value === 'string') {
-    return new BN(value).toString();
-  }
-
-  return null;
 };
 
 const toNullIfEmptyHex = (value: string): string | null => {
@@ -250,7 +243,7 @@ const isHex = (value: string): boolean => {
   return hexRegex.test(value);
 };
 
-const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false) => {
+const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false): number | bigint | null => {
   if (value && value < 0) {
     // negative amount can be received only by CONTRACT_NEGATIVE_VALUE revert
     // e.g. tx https://hashscan.io/mainnet/transaction/1735241436.856862230
@@ -281,7 +274,6 @@ export {
   nanOrNumberTo0x,
   nanOrNumberInt64To0x,
   toHash32,
-  toNullableBigNumber,
   toNullIfEmptyHex,
   generateRandomHex,
   trimPrecedingZeros,

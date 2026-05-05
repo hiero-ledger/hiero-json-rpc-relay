@@ -4,12 +4,12 @@ import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { prepend0x } from '../formatters';
-import { MirrorNodeClient } from './clients';
+import { type MirrorNodeClient } from './clients';
 import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
-import { CommonService, TransactionPoolService } from './services';
-import { RequestDetails } from './types';
-import { IAccountBalance } from './types/mirrorNode';
+import { CommonService, type TransactionPoolService } from './services';
+import { type RequestDetails } from './types';
+import { type IAccountBalance } from './types/mirrorNode';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -66,7 +66,7 @@ export class Precheck {
    * @param parsedTx - The parsed transaction.
    * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  validateBasicPropertiesStateless(parsedTx: Transaction) {
+  validateBasicPropertiesStateless(parsedTx: Transaction): void {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
@@ -315,7 +315,7 @@ export class Precheck {
    * @param tx The transaction object to validate.
    * @throws {Error} Throws a predefined error if the transaction type is unsupported.
    */
-  transactionType(tx: Transaction) {
+  transactionType(tx: Transaction): void {
     // Blob transactions are not supported as per HIP 866
     if (tx.type === 3) {
       throw predefined.UNSUPPORTED_TRANSACTION_TYPE_3;
@@ -327,7 +327,7 @@ export class Precheck {
    * @param tx - The transaction.
    * @param requestDetails - The request details for logging and tracking.
    */
-  async receiverAccount(tx: Transaction, requestDetails: RequestDetails) {
+  async receiverAccount(tx: Transaction, requestDetails: RequestDetails): Promise<void> {
     if (tx.to) {
       const verifyAccount = await this.mirrorNodeClient.getAccount(tx.to, requestDetails);
 

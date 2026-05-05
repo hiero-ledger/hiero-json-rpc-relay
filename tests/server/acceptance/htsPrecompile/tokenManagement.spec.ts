@@ -9,7 +9,7 @@ import TokenManagementJson from '../../contracts/TokenManagementContract.json';
 import Assertions from '../../helpers/assertions';
 import Constants from '../../helpers/constants';
 import { Utils } from '../../helpers/utils';
-import { AliasAccount } from '../../types/AliasAccount';
+import { type AliasAccount } from '../../types/AliasAccount';
 
 /**
  * Tests for:

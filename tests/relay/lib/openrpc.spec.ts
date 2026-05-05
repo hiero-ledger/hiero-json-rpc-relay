@@ -15,7 +15,7 @@ import sinon from 'sinon';
 import { LocalPendingTransactionStorage } from '../../../dist/relay/lib/services';
 import openRpcSchema from '../../../docs/openrpc.json';
 import { ConfigService } from '../../../src/config-service/services';
-import { Eth, JsonRpcError, Net, TxPool, Web3 } from '../../../src/relay';
+import { type Eth, type JsonRpcError, type Net, type TxPool, type Web3 } from '../../../src/relay';
 import { numberTo0x, trimPrecedingZeros } from '../../../src/relay/formatters';
 import { SDKClient } from '../../../src/relay/lib/clients';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
@@ -86,7 +86,7 @@ describe('Open RPC Specification', function () {
   overrideEnvsInMochaDescribe({ npm_package_version: 'relay/0.0.1-SNAPSHOT' });
 
   before(async () => {
-    openRpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
+    openRpcDocument = (await parseOpenRPCDocument(JSON.stringify(openRpcSchema))) as OpenrpcDocument;
     methodsResponseSchema = openRpcDocument.methods
       .filter((method) => 'name' in method)
       .filter((method) => method.result !== undefined)
@@ -168,7 +168,7 @@ describe('Open RPC Specification', function () {
     mock.onGet(`contracts/${contractAddress1}`).reply(200, JSON.stringify(null));
     mock
       .onGet(
-        `contracts/results?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&limit=100&order=asc`,
+        `contracts/results?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&limit=100&order=asc&hbar=false`,
       )
       .reply(200, JSON.stringify(defaultContractResults));
     mock
@@ -176,31 +176,33 @@ describe('Open RPC Specification', function () {
         `contracts/results/logs?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&limit=100&order=asc`,
       )
       .reply(200, JSON.stringify(defaultLogs));
-    mock.onGet(`contracts/results/${defaultTxHash}`).reply(200, JSON.stringify(defaultDetailedContractResultByHash));
+    mock
+      .onGet(`contracts/results/${defaultTxHash}?hbar=false`)
+      .reply(200, JSON.stringify(defaultDetailedContractResultByHash));
     mock
       .onGet(
-        `contracts/results?block.hash=${defaultBlock.hash}&transaction.index=${defaultBlock.count}&limit=100&order=asc`,
+        `contracts/results?block.hash=${defaultBlock.hash}&transaction.index=${defaultBlock.count}&limit=100&order=asc&hbar=false`,
       )
       .reply(200, JSON.stringify(defaultContractResults));
     mock
       .onGet(
-        `contracts/results?block.number=${defaultBlock.number}&transaction.index=${defaultBlock.count}&limit=100&order=asc`,
+        `contracts/results?block.number=${defaultBlock.number}&transaction.index=${defaultBlock.count}&limit=100&order=asc&hbar=false`,
       )
       .reply(200, JSON.stringify(defaultContractResults));
     mock
-      .onGet(`contracts/${contractAddress1}/results/${contractTimestamp1}`)
+      .onGet(`contracts/${contractAddress1}/results/${contractTimestamp1}?hbar=false`)
       .reply(200, JSON.stringify(defaultDetailedContractResults));
     mock
-      .onGet(`contracts/${contractAddress2}/results/${contractTimestamp2}`)
+      .onGet(`contracts/${contractAddress2}/results/${contractTimestamp2}?hbar=false`)
       .reply(200, JSON.stringify(defaultDetailedContractResults));
     mock
-      .onGet(`contracts/${contractId1}/results/${contractTimestamp1}`)
+      .onGet(`contracts/${contractId1}/results/${contractTimestamp1}?hbar=false`)
       .reply(200, JSON.stringify(defaultDetailedContractResults));
     mock
-      .onGet(`contracts/${contractId1}/results/${contractTimestamp2}`)
+      .onGet(`contracts/${contractId1}/results/${contractTimestamp2}?hbar=false`)
       .reply(200, JSON.stringify(defaultDetailedContractResults2));
     mock
-      .onGet(`contracts/${contractId2}/results/${contractTimestamp3}`)
+      .onGet(`contracts/${contractId2}/results/${contractTimestamp3}?hbar=false`)
       .reply(200, JSON.stringify(defaultDetailedContractResults3));
     mock.onGet(`tokens/0.0.${parseInt(defaultCallData.to, 16)}`).reply(404, JSON.stringify(null));
     mock.onGet(`accounts/${contractAddress1}?limit=100`).reply(
@@ -461,7 +463,9 @@ describe('Open RPC Specification', function () {
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
     mock
-      .onGet(`contracts/results?block.number=${defaultDetailedContractResultByHash.block_number}&limit=100&order=asc`)
+      .onGet(
+        `contracts/results?block.number=${defaultDetailedContractResultByHash.block_number}&limit=100&order=asc&hbar=false`,
+      )
       .reply(
         200,
         JSON.stringify({

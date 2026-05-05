@@ -1,37 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  AccountId,
+  type AccountId,
   Client,
   EthereumTransaction,
   EthereumTransactionData,
-  ExchangeRate,
+  type ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
-  FileId,
+  type FileId,
   FileInfoQuery,
   Hbar,
   HbarUnit,
   Logger as HederaLogger,
   LogLevel,
-  PublicKey,
-  Query,
+  type PublicKey,
+  type Query,
   Status,
-  Transaction,
-  TransactionRecord,
+  type Transaction,
+  type TransactionRecord,
   TransactionRecordQuery,
-  TransactionResponse,
-} from '@hashgraph/sdk';
-import { EventEmitter } from 'events';
-import { Logger } from 'pino';
+  type TransactionResponse,
+} from '@hiero-ledger/sdk';
+import { type EventEmitter } from 'events';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../config-service/services';
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService, PaymasterAccount } from '../services';
-import { HbarLimitService } from '../services/hbarLimitService';
-import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
+import { CommonService, type PaymasterAccount } from '../services';
+import { type HbarLimitService } from '../services/hbarLimitService';
+import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -143,15 +143,7 @@ export class SDKClient {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    // supplying '/dev/null' as logFile forces HederaLogger to construct its
-    // internal pino instance with pino.destination() (a SonicBoom stream) rather than a
-    // pino-pretty transport. Without this, HederaLogger unconditionally spawns a worker
-    // thread that persists for the process lifetime even though setLogger() immediately
-    // replaces the internal logger below. The '/dev/null' destination is never written to.
-    // TODO: Remove once @hashgraph/sdk exposes a no-op or silent construction option.
-    //       Upstream ticket https://github.com/hiero-ledger/hiero-sdk-js/issues/3891
-    //       Tech-debt ticket https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5148
-    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel), '/dev/null').setLogger(
+    const sdkLogger = new HederaLogger({ level: LogLevel._fromString(sdkLogLevel), silent: true }).setLogger(
       // @ts-ignore
       logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );

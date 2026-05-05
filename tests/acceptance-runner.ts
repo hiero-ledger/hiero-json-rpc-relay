@@ -5,7 +5,7 @@ import type { Server } from 'node:http';
 import path from 'node:path';
 import { GCProfiler } from 'node:v8';
 
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
@@ -134,7 +134,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
           const gasEstimation = await account.wallet.provider?.estimateGas(tx);
 
           // we multiply by 10 to add tolerance
-          const cost = (gasEstimation ?? 0n) * (feeData?.gasPrice ?? 0n) * 10n;
+          const cost = BigInt(gasEstimation ?? 0) * (feeData?.gasPrice ?? BigInt(0)) * BigInt(10);
 
           await account.wallet.sendTransaction({
             to: operatorAddress,

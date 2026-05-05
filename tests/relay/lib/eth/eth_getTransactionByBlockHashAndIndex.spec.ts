@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import _ from 'lodash';
 import sinon from 'sinon';
 
-import { Eth } from '../../../../src/relay';
+import { type Eth } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../../../../src/relay/lib/model';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultContractResults, defaultDetailedContractResults } from '../../helpers';
@@ -215,8 +215,8 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
             ...CONTRACT_RESULT_MOCK,
             type: 2,
             access_list: [],
-            max_fee_per_gas: '0x47',
-            max_priority_fee_per_gas: '0x47',
+            max_fee_per_gas: '0xa54f4c3c00',
+            max_priority_fee_per_gas: '0xa54f4c3c00',
           },
         ],
       }),
@@ -228,6 +228,8 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
       requestDetails,
     );
     expect(result).to.be.an.instanceOf(Transaction1559);
+    expect((result as Transaction1559).maxFeePerGas).to.equal('0xa54f4c3c00');
+    expect((result as Transaction1559).maxPriorityFeePerGas).to.equal('0xa54f4c3c00');
   });
 
   it('eth_getTransactionByBlockHashAndIndex returns 7702 transaction for type 4', async function () {

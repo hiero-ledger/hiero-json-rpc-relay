@@ -2,15 +2,15 @@
 
 import findConfig from 'find-config';
 import fs from 'fs';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../config-service/services';
 import { EvmAddressHbarSpendingPlanRepository } from '../db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { IDetailedHbarSpendingPlan } from '../db/types/hbarLimiter/hbarSpendingPlan';
+import { type IDetailedHbarSpendingPlan } from '../db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../db/types/hbarLimiter/subscriptionTier';
-import { isValidSpendingPlanConfig, SpendingPlanConfig } from '../types/spendingPlanConfig';
+import { isValidSpendingPlanConfig, type SpendingPlanConfig } from '../types/spendingPlanConfig';
 
 /**
  * Service for managing pre-configured {@link HbarSpendingPlan} entities.
@@ -301,7 +301,7 @@ export class HbarSpendingPlanConfigService {
    *
    * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig) {
+  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     for (const evmAddress of planConfig.evmAddresses || []) {
       const exists = await this.evmAddressHbarSpendingPlanRepository.existsByAddress(evmAddress);
       if (exists) {
@@ -326,7 +326,7 @@ export class HbarSpendingPlanConfigService {
    *
    * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig) {
+  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     for (const ipAddress of planConfig.ipAddresses || []) {
       const exists = await this.ipAddressHbarSpendingPlanRepository.existsByAddress(ipAddress);
       if (exists) {
