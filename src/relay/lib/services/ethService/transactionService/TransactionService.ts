@@ -324,7 +324,7 @@ export class TransactionService implements ITransactionService {
         admittedVersion = senderLocalNonceEntry.version;
 
         // Refresh ttl of the nonce entry
-        await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
+        await this.transactionPoolService.setSenderInitialNonce(senderAddress, {
           value: senderLocalNonceEntry.value,
           version: admittedVersion,
         });
@@ -334,7 +334,7 @@ export class TransactionService implements ITransactionService {
         const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
         this.precheck.nonce(parsedTx, signerRemoteNonce);
         admittedVersion = randomUUID();
-        await this.transactionPoolService.setSenderLocalNonce(senderAddress, {
+        await this.transactionPoolService.setSenderInitialNonce(senderAddress, {
           value: signerRemoteNonce,
           version: admittedVersion,
         });

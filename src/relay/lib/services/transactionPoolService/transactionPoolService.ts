@@ -273,45 +273,57 @@ export class TransactionPoolService implements ITransactionPoolService {
     }
   }
 
-  // ===== senderLocalNonce cache =====
-  // Per-sender { value, version } entry. value = last nonce returned by the mirror node. version = lifecycle id
-  // generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
+  // ===== sender initial nonce cache =====
+  // Per-sender { value, version } entry.
+  // value = initial nonce fetched from the mirror node for the first transaction in a burst.
+  // It is intentionally NOT updated as transactions are processed; callers derive expected nonces from this baseline.
+  // version = lifecycle id generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
 
   /**
-   * Returns the cache key for a sender's cached local nonce entry.
+   * Returns the cache key for a sender's cached initial nonce baseline entry.
    *
    * @param address - The sender's EVM address.
    */
-  private senderLocalNonceCacheKey(address: string): string {
-    return `senderLocalNonce:${address.toLowerCase()}`;
+  private senderInitialNonceCacheKey(address: string): string {
+    return `senderInitialNonce:${address.toLowerCase()}`;
   }
 
   /**
-   * Returns the cached { value, version } entry for the sender's nonce, returned by the mirror node,
-   * or null if the entry is absent or no cache service is configured.
+   * Returns the cached { value, version } entry holding the sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
    *
    * @param address - The sender's EVM address.
    */
   async getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null> {
     if (!this.cacheService) return null;
-    const entry = await this.cacheService.get(this.senderLocalNonceCacheKey(address), 'getSenderLocalNonce');
+    const entry = await this.cacheService.get(this.senderInitialNonceCacheKey(address), 'getSenderLocalNonce');
     return entry ?? null;
   }
 
   /**
-   * Writes a { value, version } entry for the sender's next expected nonce.
+   * Writes a { value, version } entry holding the sender's initial nonce baseline
+   * fetched from the mirror node for the first transaction in a burst.
    * Overwrites any existing entry. TTL is controlled by SENDER_LOCAL_NONCE_TTL_MS.
    * Can be used to refresh the ttl of a cache entry.
    *
+   * Notes:
+   * - `value` is the initial baseline nonce, not the evolving expected nonce.
+   * - `version` tags the cache lifecycle, allowing stale handlers to no-op after a reset.
+   *
    * @param address - The sender's EVM address.
-   * @param entry - The nonce entry to store. `value` is the next expected nonce; `version` tags the cache lifecycle.
+   * @param entry - The nonce entry to store.
    */
-  async setSenderLocalNonce(address: string, entry: { value: number; version: string }): Promise<void> {
+  async setSenderInitialNonce(address: string, entry: { value: number; version: string }): Promise<void> {
     if (!this.cacheService) return;
     await this.cacheService.set(
-      this.senderLocalNonceCacheKey(address),
+      this.senderInitialNonceCacheKey(address),
       entry,
-      'setSenderLocalNonce',
+      'setSenderInitialNonce',
       ConfigService.get('SENDER_LOCAL_NONCE_TTL_MS'),
     );
   }
