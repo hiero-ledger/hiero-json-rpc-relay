@@ -263,7 +263,7 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * 2-lock sendRawTransaction (POC)
+   * Sends a row transaction: 2-lock sendRawTransaction
    *
    * FLOW:
    *   1. stateless precheck
@@ -285,9 +285,6 @@ export class TransactionService implements ITransactionService {
    *      on failure → decrement cache (gen-matched) → remove pool entry → release Lock 2 → throw
    *   6. hand off to sendRawTransactionProcessor (CN submission + outcome handling)
    *
-   */
-  /**
-   * Sends a raw transaction
    * @param transaction The raw transaction data
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
@@ -315,7 +312,7 @@ export class TransactionService implements ITransactionService {
 
     try {
       const [senderLocalNonceEntry, pendingCount] = await Promise.all([
-        this.transactionPoolService.getSenderLocalNonce(senderAddress),
+        this.transactionPoolService.getSenderInitialNonce(senderAddress),
         this.transactionPoolService.getPendingCount(senderAddress, 0),
       ]);
       if (senderLocalNonceEntry && pendingCount > 0) {

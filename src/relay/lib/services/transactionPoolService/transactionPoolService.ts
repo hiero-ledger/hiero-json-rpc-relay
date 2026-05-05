@@ -299,9 +299,9 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  async getSenderLocalNonce(address: string): Promise<{ value: number; version: string } | null> {
+  async getSenderInitialNonce(address: string): Promise<{ value: number; version: string } | null> {
     if (!this.cacheService) return null;
-    const entry = await this.cacheService.get(this.senderInitialNonceCacheKey(address), 'getSenderLocalNonce');
+    const entry = await this.cacheService.get(this.senderInitialNonceCacheKey(address), 'getSenderInitialNonce');
     return entry ?? null;
   }
 
