@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
-import { createClient, RedisClientType } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 
 import { IPRateLimiterService } from '../../../src/relay/lib/services';
 import { RedisRateLimitStore } from '../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';

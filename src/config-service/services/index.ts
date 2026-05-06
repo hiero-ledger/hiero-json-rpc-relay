@@ -143,7 +143,7 @@ export class ConfigService {
     return maskedEnvs;
   }
 
-  private validateReadOnlyMode() {
+  private validateReadOnlyMode(): void {
     const vars = ['OPERATOR_ID_MAIN', 'OPERATOR_KEY_MAIN'] as const;
     if (this.get('READ_ONLY')) {
       logger.info('Relay is in READ_ONLY mode. It will not send transactions.');
@@ -163,7 +163,7 @@ export class ConfigService {
     }
   }
 
-  private validatePaymasterAccounts() {
+  private validatePaymasterAccounts(): void {
     const paymasterAccounts = this.get('PAYMASTER_ACCOUNTS');
     if (!paymasterAccounts.length) {
       return;

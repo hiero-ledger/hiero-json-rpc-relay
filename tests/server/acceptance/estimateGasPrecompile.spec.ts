@@ -5,10 +5,10 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { numberTo0x } from '../../../src/relay/formatters';
-import MirrorClient from '../clients/mirrorClient';
+import type MirrorClient from '../clients/mirrorClient';
 // Other imports
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import ERC20MockJson from '../contracts/ERC20Mock.json';
 import ERC721MockJson from '../contracts/ERC721Mock.json';
 import ERCTestContractJson from '../contracts/ERCTestContract.json';
@@ -19,7 +19,7 @@ import RelayCalls from '../helpers/constants';
 import Constants from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 describe('EstimatePrecompileContract tests', function () {
   const signers: AliasAccount[] = [];
