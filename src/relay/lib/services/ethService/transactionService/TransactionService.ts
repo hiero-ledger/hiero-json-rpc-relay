@@ -28,7 +28,7 @@ import {
   TypedEvents,
 } from '../../../types';
 import HAPIService from '../../hapiService/hapiService';
-import { AccountService, ICommonService, LockService, TransactionPoolService } from '../../index';
+import { type IAccountService, type ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -109,7 +109,7 @@ export class TransactionService implements ITransactionService {
     cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
-    private readonly accountService: AccountService,
+    private readonly accountService: IAccountService,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,

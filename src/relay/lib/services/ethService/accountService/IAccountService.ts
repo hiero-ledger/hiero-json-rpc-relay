@@ -11,4 +11,9 @@ export interface IAccountService {
   ) => Promise<string | JsonRpcError>;
 
   getBalance: (account: string, blockNumberOrTagOrHash: string, requestDetails: RequestDetails) => Promise<string>;
+
+  getTransactionCountSummary: (
+    account: string,
+    requestDetails: RequestDetails,
+  ) => Promise<{ pendingCount: number; confirmedCount: number }>;
 }
