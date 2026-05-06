@@ -20,9 +20,10 @@ export interface TransactionPoolService {
    *
    * @param address - The account address that submitted the transaction.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param status - Status of the transaction
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  removeTransaction(address: string, rlpHex: string): Promise<void>;
+  removeTransaction(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.

@@ -818,6 +818,8 @@ export class TransactionService implements ITransactionService {
       }
     }
     // zombie cleanup: max attempts reached, remove anyway
+    // we don't know if the transaction was actually executed or not...
+    this.logger.error('Zombie cleanup: transaction %s not found in Mirror Node after %d attempts', txHash, maxAttempts);
     await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
   }
 }
