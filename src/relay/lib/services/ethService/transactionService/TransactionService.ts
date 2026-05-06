@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, type Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import {
+import type {
   IAccountBalance,
   IContractResultsParams,
   ITransactionReceipt,
