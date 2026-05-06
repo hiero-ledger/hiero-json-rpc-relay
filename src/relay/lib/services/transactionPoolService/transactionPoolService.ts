@@ -141,7 +141,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const rlpHex = tx.serialized;
 
     try {
-      await this.storage.addToList(addressLowerCased, rlpHex);
+      await this.storage.addToList(addressLowerCased, rlpHex, tx.nonce);
       this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {
@@ -160,9 +160,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address of the transaction sender.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param status - The status of the transaction.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  async removeTransaction(address: string, rlpHex: string): Promise<void> {
+  async removeTransaction(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void> {
     if (!TransactionPoolService.isEnabled()) {
       return;
     }
@@ -170,7 +171,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
 
     try {
-      await this.storage.removeFromList(addressLowerCased, rlpHex);
+      await this.storage.removeFromList(addressLowerCased, rlpHex, status);
       this.pendingCountGauge.dec();
       this.operationsCounter.labels('remove').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
@@ -273,23 +274,8 @@ export class TransactionPoolService implements ITransactionPoolService {
     }
   }
 
-  // ===== sender initial nonce cache =====
-  // Per-sender { value, version } entry.
-  // value = initial nonce fetched from the mirror node for the first transaction in a burst.
-  // It is intentionally NOT updated as transactions are processed; callers derive expected nonces from this baseline.
-  // version = lifecycle id generated on cold-warm; lets failure handlers no-op if the cache has been re-created.
-
   /**
-   * Returns the cache key for a sender's cached initial nonce baseline entry.
-   *
-   * @param address - The sender's EVM address.
-   */
-  private confirmedCountCacheKey(address: string): string {
-    return `confirmedTransactionCount:${address.toLowerCase()}`;
-  }
-
-  /**
-   * Returns the cached { value, version } entry holding the sender's initial nonce baseline
+   * Returns the cached sender's initial nonce baseline
    * as returned by the mirror node for the first transaction in a burst; returns null if absent
    * or if no cache service is configured.
    *
@@ -299,32 +285,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The sender's EVM address.
    */
-  async getConfirmedCount(address: string): Promise<{ value: number; version: string } | null> {
-    if (!this.cacheService) return null;
-    const entry = await this.cacheService.get(this.confirmedCountCacheKey(address), 'getConfirmedCount');
-    return entry ?? null;
-  }
-
-  /**
-   * Writes a { value, version } entry holding the sender's initial nonce baseline
-   * fetched from the mirror node for the first transaction in a burst.
-   * Overwrites any existing entry. TTL is controlled by SENDER_LOCAL_NONCE_TTL_MS.
-   * Can be used to refresh the ttl of a cache entry.
-   *
-   * Notes:
-   * - `value` is the initial baseline nonce, not the evolving expected nonce.
-   * - `version` tags the cache lifecycle, allowing stale handlers to no-op after a reset.
-   *
-   * @param address - The sender's EVM address.
-   * @param entry - The nonce entry to store.
-   */
-  async setConfirmedCount(address: string, entry: { value: number; version: string }): Promise<void> {
-    if (!this.cacheService) return;
-    await this.cacheService.set(
-      this.confirmedCountCacheKey(address),
-      entry,
-      'setConfirmedCount',
-      ConfigService.get('CACHED_SENDER_TX_COUNT_TTL'),
-    );
+  async getConfirmedCount(address: string): Promise<number | null> {
+    return await this.storage.getConfirmedCount(address);
   }
 }

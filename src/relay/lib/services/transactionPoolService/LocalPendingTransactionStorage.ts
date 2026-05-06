@@ -47,8 +47,9 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param addr - The account address
    * @param rlpHex - The RLP-encoded transaction as a hex string
+   * @param _confirmedCount - The number of confirmed transactions for this address
    */
-  async addToList(addr: string, rlpHex: string): Promise<void> {
+  async addToList(addr: string, rlpHex: string, _confirmedCount: number): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -111,5 +112,20 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   async getTransactionPayloads(address: string): Promise<Set<string>> {
     const addressTransactions = this.pendingTransactions.get(address);
     return addressTransactions ?? new Set();
+  }
+
+  /**
+   * Returns the cached sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
+   *
+   * @param _address - The sender's EVM address.
+   */
+  async getConfirmedCount(_address: string): Promise<number | null> {
+    return new Promise((resolve) => resolve(null));
   }
 }

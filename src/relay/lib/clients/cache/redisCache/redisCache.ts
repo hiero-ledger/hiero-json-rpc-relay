@@ -227,4 +227,22 @@ export class RedisCache implements ICacheClient {
       this.logger.trace(`Cleared %s cache keys`, keysToDelete.length);
     }
   }
+
+  /**
+   * Stores multiple key-value pairs in the cache.
+   *
+   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds. Used in fallback to pipelineSet.
+   * @returns A Promise that resolves when the values are cached.
+
+  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
+    await this.client.createPool().execute(async (isolatedClient) => {
+      const multi = isolatedClient
+        .multi()
+        .set('paymentId:1259', 'Payment Successfully Completed!')
+        .del('paymentId:1260');
+      await multi.exec();
+    });
+  } */
 }

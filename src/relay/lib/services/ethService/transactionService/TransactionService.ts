@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { FileId } from '@hashgraph/sdk';
-import { randomUUID } from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers/transaction';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
@@ -29,7 +28,7 @@ import {
   TypedEvents,
 } from '../../../types';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService, LockService, TransactionPoolService } from '../../index';
+import { AccountService, ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -110,6 +109,7 @@ export class TransactionService implements ITransactionService {
     cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
+    private readonly accountService: AccountService,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,
@@ -307,35 +307,13 @@ export class TransactionService implements ITransactionService {
 
     // ===== Lock 1: ingress lock =====
     const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
-    let admittedVersion: string;
-    let senderAccountInfo: any = null;
 
     try {
-      const [senderLocalNonceEntry, pendingCount] = await Promise.all([
-        this.transactionPoolService.getConfirmedCount(senderAddress),
-        this.transactionPoolService.getPendingCount(senderAddress, 0),
-      ]);
-      if (senderLocalNonceEntry && pendingCount > 0) {
-        // ----- Warm path: fast + without call to MN -----
-        this.precheck.nonce(parsedTx, senderLocalNonceEntry.value + pendingCount);
-        admittedVersion = senderLocalNonceEntry.version;
-
-        // Refresh ttl of the nonce entry
-        await this.transactionPoolService.setConfirmedCount(senderAddress, {
-          value: senderLocalNonceEntry.value,
-          version: admittedVersion,
-        });
-      } else {
-        // ----- Cold path: with call to MN -----
-        senderAccountInfo = await this.precheck.verifyAccount(parsedTx, requestDetails);
-        const signerRemoteNonce = senderAccountInfo.ethereum_nonce + pendingCount;
-        this.precheck.nonce(parsedTx, signerRemoteNonce);
-        admittedVersion = randomUUID();
-        await this.transactionPoolService.setConfirmedCount(senderAddress, {
-          value: signerRemoteNonce,
-          version: admittedVersion,
-        });
-      }
+      const { confirmedCount, pendingCount } = await this.accountService.getTransactionCountSummary(
+        senderAddress,
+        requestDetails,
+      );
+      this.precheck.nonce(parsedTx, confirmedCount + pendingCount);
 
       // save transaction to pool
       try {
@@ -361,7 +339,7 @@ export class TransactionService implements ITransactionService {
 
     try {
       // precheck sender balance
-      const accountInfo = senderAccountInfo ?? (await this.precheck.verifyAccount(parsedTx, requestDetails));
+      const accountInfo = await this.precheck.verifyAccount(parsedTx, requestDetails);
       this.precheck.balance(parsedTx, accountInfo.balance);
 
       // precheck gas price and receiver
@@ -385,7 +363,6 @@ export class TransactionService implements ITransactionService {
       parsedTx,
       networkGasPriceInWeiBars,
       execLockResult,
-      admittedVersion,
       requestDetails,
     );
 
@@ -640,7 +617,6 @@ export class TransactionService implements ITransactionService {
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
    * @param {LockAcquisitionResult | undefined} execLockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
-   * @param {string} admittedVersion - The admitted version of the tx count cache.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
@@ -649,7 +625,6 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
     execLockResult: LockAcquisitionResult | undefined,
-    admittedVersion: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const senderAddress = parsedTx.from?.toString() || '';
@@ -679,7 +654,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (shouldPollAndCleanup) {
-      void this.pollMirrorNodeAndCleanup(parsedTx, admittedVersion, requestDetails);
+      void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
     }
 
     if (submissionError) throw submissionError;
@@ -820,12 +795,8 @@ export class TransactionService implements ITransactionService {
 
   // ===== MN poll cleanup (POC) =====
   // Polls MN for the receipt; removes the pool entry once MN reflects, or after max attempts (zombie cleanup).
-  private async pollMirrorNodeAndCleanup(
-    parsedTx: EthersTransaction,
-    admittedVersion: string,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
-    const senderAddress = parsedTx.from?.toString() || '';
+  private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
+    const senderAddress = parsedTx.from!.toString();
     const txHash = parsedTx.hash!;
     const maxAttempts = 30;
     const intervalMs = 2000;
@@ -835,13 +806,7 @@ export class TransactionService implements ITransactionService {
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result && result.hash) {
-          await Promise.all([
-            this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized),
-            this.transactionPoolService.setConfirmedCount(senderAddress, {
-              value: parsedTx.nonce,
-              version: admittedVersion,
-            }),
-          ]);
+          await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
           return;
         }
       } catch {

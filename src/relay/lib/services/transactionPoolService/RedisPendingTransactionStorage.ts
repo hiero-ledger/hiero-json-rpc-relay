@@ -26,6 +26,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly globalPendingTxsKey = `${this.keyPrefix}global`;
 
   /**
+   * Key for storing cached count of confirmed transactions.
+   */
+  private readonly confirmedTxCountKey = `${this.keyPrefix}confirmed`;
+
+  /**
    * The time-to-live (TTL) for the pending transaction storage in seconds.
    */
   private readonly storageTtl: number;
@@ -42,11 +47,12 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   /**
    * Resolves the Redis key for a given address.
    *
-   * @param addr - Account address whose pending list key should be derived.
+   * @param address - Account address whose pending list key should be derived.
+   * @param prefix - Optional prefix to prepend to the key (default: `this.keyPrefix`).
    * @returns The Redis key (e.g., `txpool:pending:<address>`).
    */
-  private keyFor(address: string): string {
-    return `${this.keyPrefix}${address}`;
+  private keyFor(address: string, prefix = this.keyPrefix): string {
+    return `${prefix}${address}`;
   }
 
   /**
@@ -55,9 +61,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - Account address whose pending list will be appended to.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param confirmedCount - The number of confirmed transactions for this address.
    */
-  async addToList(address: string, rlpHex: string): Promise<void> {
+  async addToList(address: string, rlpHex: string, confirmedCount: number): Promise<void> {
     const addressKey = this.keyFor(address);
+    const confirmedCountKey = this.keyFor(address, this.confirmedTxCountKey);
 
     await this.redisClient
       .multi()
@@ -65,18 +73,31 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
       .expire(addressKey, this.storageTtl)
       .sAdd(this.globalPendingTxsKey, rlpHex)
       .expire(this.globalPendingTxsKey, this.storageTtl)
+
+      .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
+      .expire(confirmedCountKey, ConfigService.get('CACHED_SENDER_TX_COUNT_TTL')) // but always refresh ttl to 30s
+
       .exec();
   }
 
   /**
    * Removes a transaction from the pending list of the given address.
+   * If the transaction is confirmed, it should increase the confirmed count by 1.
    *
    * @param address - Account address whose pending list should be modified.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param status - The status of the transaction (optional).
    */
-  async removeFromList(address: string, rlpHex: string): Promise<void> {
+  async removeFromList(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void> {
     const key = this.keyFor(address);
-    await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex).exec();
+    const removeOperation = this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex);
+    if (status !== 'confirmed') {
+      await removeOperation.exec();
+      return;
+    }
+    await removeOperation
+      .incr(this.keyFor(address, this.confirmedTxCountKey)) // If the key does not exist, it will be set to 1
+      .exec();
   }
 
   /**
@@ -132,5 +153,21 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     const addressKey = this.keyFor(address);
     const members = await this.redisClient.sMembers(addressKey);
     return new Set(members);
+  }
+
+  /**
+   * Returns the cached sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
+   *
+   * @param address - The sender's EVM address.
+   */
+  async getConfirmedCount(address: string): Promise<number | null> {
+    const result = await this.redisClient.get(`${this.confirmedTxCountKey}:${address.toLowerCase()}`);
+    return result != null ? Number(result) : null;
   }
 }

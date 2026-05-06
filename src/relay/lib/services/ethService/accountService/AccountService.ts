@@ -244,6 +244,22 @@ export class AccountService implements IAccountService {
   }
 
   /**
+   * Get confirmed transaction counts associated with an account.
+   *
+   * @param {string} address The account address
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  public async getTransactionCountSummary(address: string, requestDetails: RequestDetails) {
+    const [confirmedCount, pendingCount] = await Promise.all([
+      this.transactionPoolService.getConfirmedCount(address),
+      this.transactionPoolService.getPendingCount(address),
+    ]);
+    if (confirmedCount != null) return { pendingCount, confirmedCount };
+    const mnNonce = Number(await this.getAccountLatestEthereumNonce(address, requestDetails));
+    return { pendingCount, confirmedCount: mnNonce };
+  }
+
+  /**
    * Gets the number of transactions that have been executed for the given address.
    * This goes to the consensus nodes to determine the ethereumNonce.
    *
@@ -264,19 +280,8 @@ export class AccountService implements IAccountService {
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       if (blockNumOrTag === constants.BLOCK_PENDING) {
-        const [senderLocalNonce, pendingCount] = await Promise.all([
-          this.transactionPoolService.getConfirmedCount(address),
-          this.transactionPoolService.getPendingCount(address),
-        ]);
-
-        // Warm path: cache hit — return directly without hitting MN.
-        if (senderLocalNonce) return numberTo0x(senderLocalNonce.value + pendingCount);
-
-        // Cold path: compute from MN + pool, then seed the senderLocalNonce
-        const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-        const nextNonce = Number(mnNonce) + pendingCount;
-
-        return numberTo0x(nextNonce);
+        const { confirmedCount, pendingCount } = await this.getTransactionCountSummary(address, requestDetails);
+        return numberTo0x(confirmedCount + pendingCount);
       }
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
