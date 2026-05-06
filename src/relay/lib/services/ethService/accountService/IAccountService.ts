@@ -15,5 +15,5 @@ export interface IAccountService {
   getTransactionCountSummary: (
     account: string,
     requestDetails: RequestDetails,
-  ) => Promise<{ pendingCount: number; confirmedCount: number }>;
+  ) => Promise<{ pendingCount: number; confirmedCount: number; mirrorNodeArtifact: any }>;
 }

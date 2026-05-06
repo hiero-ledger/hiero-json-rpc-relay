@@ -21,6 +21,7 @@ import {
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
 import {
+  IAccountBalance,
   IContractResultsParams,
   ITransactionReceipt,
   LockAcquisitionResult,
@@ -308,11 +309,14 @@ export class TransactionService implements ITransactionService {
     // ===== Lock 1: ingress lock =====
     const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
 
+    let verifiedBalance: IAccountBalance | undefined;
     try {
-      const { confirmedCount, pendingCount } = await this.accountService.getTransactionCountSummary(
+      const { confirmedCount, pendingCount, mirrorNodeArtifact } = await this.accountService.getTransactionCountSummary(
         senderAddress,
         requestDetails,
       );
+      if (mirrorNodeArtifact && mirrorNodeArtifact.balance) verifiedBalance = mirrorNodeArtifact.balance;
+
       this.precheck.nonce(parsedTx, confirmedCount + pendingCount);
 
       // save transaction to pool
@@ -339,8 +343,8 @@ export class TransactionService implements ITransactionService {
 
     try {
       // precheck sender balance
-      const accountInfo = await this.precheck.verifyAccount(parsedTx, requestDetails);
-      this.precheck.balance(parsedTx, accountInfo.balance);
+      verifiedBalance ??= (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance;
+      this.precheck.balance(parsedTx, verifiedBalance);
 
       // precheck gas price and receiver
       networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(

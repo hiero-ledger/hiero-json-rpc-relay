@@ -254,9 +254,17 @@ export class AccountService implements IAccountService {
       this.transactionPoolService.getConfirmedCount(address),
       this.transactionPoolService.getPendingCount(address),
     ]);
-    if (confirmedCount != null) return { pendingCount, confirmedCount };
-    const mnNonce = Number(await this.getAccountLatestEthereumNonce(address, requestDetails));
-    return { pendingCount, confirmedCount: mnNonce };
+    if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
+    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
+    const toResult = (confirmedCount: number) => ({
+      pendingCount,
+      confirmedCount,
+      mirrorNodeArtifact: accountData,
+    });
+
+    if (!accountData) return toResult(0);
+    if (accountData.ethereum_nonce == null) return toResult(1);
+    return toResult(Number(accountData.ethereum_nonce));
   }
 
   /**
