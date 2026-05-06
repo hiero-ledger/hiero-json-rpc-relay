@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
 import { Utils } from '../../server/helpers/utils';
 import { WsTestConstant, WsTestHelper } from '../helper';

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
-import { EthImpl } from '../../../../src/relay/lib/eth';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import type { ICacheClient } from '../../../../src/relay/services/cache';
-import { CommonService } from '../../../../src/relay/services/commonService';
-import { MirrorNodeClient } from '../../../../src/relay/services/mirrorNodeClient';
+import { type CommonService } from '../../../../src/relay/services/commonService';
+import { type MirrorNodeClient } from '../../../../src/relay/services/mirrorNodeClient';
 import { buildCryptoTransferTransaction, mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_TIMESTAMP,

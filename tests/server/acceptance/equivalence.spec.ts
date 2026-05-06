@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { hexToBytes } from '@ethereumjs/util';
-import { ContractFunctionParameters } from '@hashgraph/sdk';
+import { ContractFunctionParameters } from '@hiero-ledger/sdk';
 import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
 
 import { hexToASCII } from '../../../src/relay/formatters';
-import { MirrorNodeClient } from '../../../src/relay/lib/clients';
-import ServicesClient from '../clients/servicesClient';
+import type { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import type ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
 import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import type { AliasAccount } from '../types/AliasAccount';
 
 enum CallTypes {
   Call = 'Call',

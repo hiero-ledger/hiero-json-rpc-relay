@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { BigNumber } from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
@@ -18,7 +17,11 @@ import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheCl
 import constants from '../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
-import { MirrorNodeContractLog, MirrorNodeTransactionRecord, RequestDetails } from '../../../src/relay/lib/types';
+import {
+  type MirrorNodeContractLog,
+  type MirrorNodeTransactionRecord,
+  RequestDetails,
+} from '../../../src/relay/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
 
@@ -981,8 +984,8 @@ describe('MirrorNodeClient', async function () {
     error_message: null,
     from: '0x0000000000000000000000000000000000001f41',
     function_parameters: '0x0707',
-    gas_limit: BigNumber('9223372036854775807'),
-    gas_used: BigNumber('9223372036854775806'),
+    gas_limit: '9223372036854775807',
+    gas_used: '9223372036854775806',
     timestamp: '987654.000123456',
     to: '0x0000000000000000000000000000000000001389',
   };

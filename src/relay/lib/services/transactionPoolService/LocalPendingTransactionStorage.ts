@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { PendingTransactionStorage } from '../../types/transactionPool';
+import { type PendingTransactionStorage } from '../../types/transactionPool';
 
 /**
  * Local in-memory implementation of PendingTransactionStorage.

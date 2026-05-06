@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from 'ethers/transaction';
-import { Logger } from 'pino';
-import { Counter, Gauge, Registry } from 'prom-client';
+import { type Transaction } from 'ethers/transaction';
+import { type Logger } from 'pino';
+import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import type { ICacheClient } from '../../clients/cache/ICacheClient';
 import {
-  PendingTransactionStorage,
-  TransactionPoolService as ITransactionPoolService,
+  type PendingTransactionStorage,
+  type TransactionPoolService as ITransactionPoolService,
 } from '../../types/transactionPool';
 import { RedisPendingTransactionStorage } from './RedisPendingTransactionStorage';
 
@@ -94,7 +94,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       name: 'rpc_relay_txpool_pending_count',
       help: 'Current total pending transactions across all addresses.',
       registers: [register],
-      collect: async () => {
+      collect: async (): Promise<void> => {
         const count = (await this.getAllTransactions()).size;
         this.pendingCountGauge.set(count);
       },
@@ -118,7 +118,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       name: 'rpc_relay_txpool_active_addresses',
       help: 'All current unique addresses having transactions in the pending pool',
       registers: [register],
-      collect: async () => {
+      collect: async (): Promise<void> => {
         const count = await this.getUniqueAddressesCount();
         this.activeAddressesGauge.set(count);
       },

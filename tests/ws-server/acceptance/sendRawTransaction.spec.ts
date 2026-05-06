@@ -2,17 +2,17 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import { ONE_TINYBAR_IN_WEI_HEX } from '../../relay/lib/eth/eth-config';
-import MirrorClient from '../../server/clients/mirrorClient';
-import RelayClient from '../../server/clients/relayClient';
+import type MirrorClient from '../../server/clients/mirrorClient';
+import type RelayClient from '../../server/clients/relayClient';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {

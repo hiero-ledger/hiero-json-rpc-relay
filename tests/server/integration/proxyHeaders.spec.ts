@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance, AxiosResponse } from 'axios';
+import Axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import { expect } from 'chai';
-import { Server } from 'http';
+import { type Server } from 'http';
 import { pino } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';

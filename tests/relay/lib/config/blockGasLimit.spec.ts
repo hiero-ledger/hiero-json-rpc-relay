@@ -7,7 +7,7 @@ import {
   BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
   isHapiVersionAtLeast,
   obtainBlockGasLimit,
-  VersionGasLimit,
+  type VersionGasLimit,
 } from '../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../src/relay/lib/constants';
 
