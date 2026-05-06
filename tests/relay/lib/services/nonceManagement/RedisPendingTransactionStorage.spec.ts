@@ -51,21 +51,21 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('addToList (Set-based)', () => {
     it('adds first transaction and returns size 1', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToList(addr1, rlp1, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('deduplicates the same transaction hash', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp1);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp1, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('adds multiple distinct tx hashes and returns correct size', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp2, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });
@@ -78,8 +78,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('returns size after multiple adds', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp2, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });
@@ -87,16 +87,16 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('removeFromList (Set-based)', () => {
     it('removes existing tx and returns new size', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp2, 0);
       await storage.removeFromList(addr1, rlp1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('is idempotent when removing non-existent tx', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.removeFromList(addr1, rlp2);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.removeFromList(addr1, rlp2, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
@@ -104,9 +104,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('removeAll', () => {
     it('deletes all txpool:pending:* keys', async () => {
-      await storage.addToList(addr1, tx1);
-      await storage.addToList(addr1, tx2);
-      await storage.addToList(addr2, tx3);
+      await storage.addToList(addr1, tx1, 0);
+      await storage.addToList(addr1, tx2, 0);
+      await storage.addToList(addr2, tx3, 0);
 
       await storage.removeAll();
 
@@ -118,8 +118,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
     it('should not delete keys from other namespaces (cache:, txpool:queue:)', async () => {
       // Add some txpool:pending keys
-      await storage.addToList(addr1, tx1);
-      await storage.addToList(addr2, tx2);
+      await storage.addToList(addr1, tx1, 0);
+      await storage.addToList(addr2, tx2, 0);
 
       // Add keys from other namespaces to simulate other services
       await redisClient.set('cache:eth_blockNumber', '123');
@@ -151,7 +151,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('Payload retrieval', () => {
     it('should save and retrieve payload atomically', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToList(addr1, rlp1, 0);
 
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
@@ -165,7 +165,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should remove payload when removed from list', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToList(addr1, rlp1, 0);
 
       await storage.removeFromList(addr1, rlp1);
 
@@ -180,9 +180,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should handle multiple transactions with payloads', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
-      await storage.addToList(addr2, rlp3);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp2, 0);
+      await storage.addToList(addr2, rlp3, 0);
 
       const count1 = await storage.getList(addr1);
       const count2 = await storage.getList(addr2);
@@ -199,9 +199,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should retrieve payloads for specific address only', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
-      await storage.addToList(addr2, rlp3);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr1, rlp2, 0);
+      await storage.addToList(addr2, rlp3, 0);
 
       const payloads = await storage.getTransactionPayloads(addr1);
       expect(payloads.size).to.equal(2);
@@ -217,8 +217,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should get all transaction payloads across addresses', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr2, rlp2);
+      await storage.addToList(addr1, rlp1, 0);
+      await storage.addToList(addr2, rlp2, 0);
 
       const allPayloads = await storage.getAllTransactionPayloads();
       expect(allPayloads.size).to.equal(2);
