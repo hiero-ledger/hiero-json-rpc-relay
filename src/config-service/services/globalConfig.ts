@@ -664,7 +664,7 @@ const _CONFIG = {
   CACHED_SENDER_TX_COUNT_TTL: {
     type: 'number',
     required: false,
-    defaultValue: 30_000, // 30 seconds
+    defaultValue: 30, // 30 seconds
   },
   SERVER_HOST: {
     type: 'string',
