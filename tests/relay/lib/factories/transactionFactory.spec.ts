@@ -737,5 +737,36 @@ describe('TransactionFactory', () => {
       expect(out.chainId).to.equal('0x12a');
       expect(out.address).to.equal('0x65c1572023cdc2d7b136ec3d3d8241f0eaf0646d');
     });
+
+    it('normalizes Mirror Node authorization_list chain_id "0x" to chainId "0x0"', () => {
+      const input = [
+        {
+          address: '0x33e2766f8e5405779ba16c071a5c0f5228d6421e',
+          chain_id: constants.EMPTY_HEX,
+          nonce: 0,
+          r: '0xb801ff3cf3fb1e5ebafa88ca24dd17892240381a865585908ad5dc3999aef208',
+          s: '0x1d8d1378a49e024d57249c8be4f7135eacd0d3529c1a94f6a3339a58cb540752',
+          yParity: '0x0',
+        },
+      ];
+      const [out] = formatAuthorizationList(input);
+      expect(out.chainId).to.equal(constants.ZERO_HEX);
+    });
+
+    it('omits mirror snake_case chain_id from formatted authorization list entries', () => {
+      const input = [
+        {
+          address: '0x33e2766f8e5405779ba16c071a5c0f5228d6421e',
+          chain_id: '0x12a',
+          nonce: 1,
+          r: '0xb801ff3cf3fb1e5ebafa88ca24dd17892240381a865585908ad5dc3999aef208',
+          s: '0x1d8d1378a49e024d57249c8be4f7135eacd0d3529c1a94f6a3339a58cb540752',
+          yParity: '0x0',
+        },
+      ];
+      const [out] = formatAuthorizationList(input);
+      expect(out).to.not.have.property('chain_id');
+      expect(out.chainId).to.equal('0x12a');
+    });
   });
 });

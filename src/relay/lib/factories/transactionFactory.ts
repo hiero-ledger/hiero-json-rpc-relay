@@ -106,15 +106,19 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
   authorizationList && Array.isArray(authorizationList)
     ? authorizationList
         .filter((item) => item !== null && typeof item === 'object')
-        .map((item) => ({
-          ...item, // additional properties remain allowed for authorization list items
-          chainId: !item.chain_id ? constants.ZERO_HEX : prepend0x(item.chain_id),
-          nonce: !item.nonce ? constants.ZERO_HEX : numberTo0x(item.nonce),
-          address: formatAddress(item.address),
-          yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
-          r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
-          s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
-        }))
+        .map((item) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { chain_id, ...rest } = item; // chain_id omitted from rest
+          return {
+            ...rest, // additional properties remain allowed for authorization list items
+            chainId: formatAuthorizationChainId(item.chain_id),
+            nonce: !item.nonce ? constants.ZERO_HEX : numberTo0x(item.nonce),
+            address: formatAddress(item.address),
+            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
+            r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
+            s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
+          };
+        })
     : [];
 
 /**
@@ -214,6 +218,19 @@ const formatAddress = (address: unknown): string => {
  */
 const formatGasFee = (gasFee: any): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
+
+/** EIP-7702 tuple chain id: MN may send "0x" for “unset”; JSON-RPC uint must be at least "0x0". */
+const formatAuthorizationChainId = (raw: unknown): string => {
+  if (raw == null || raw === '') {
+    return constants.ZERO_HEX;
+  }
+  const s = typeof raw === 'string' ? raw : String(raw);
+  if (s === constants.EMPTY_HEX) {
+    return constants.ZERO_HEX;
+  }
+  const with0x = prepend0x(s);
+  return with0x === constants.EMPTY_HEX ? constants.ZERO_HEX : with0x;
+};
 
 /**
  * Creates a Transaction object from a contract result
