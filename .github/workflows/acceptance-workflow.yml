@@ -137,8 +137,8 @@ jobs:
             --deploy-relay=false
         timeout-minutes: 15
 
-#      - name: Forward solo ports
-#        run: .github/scripts/forward-ports.sh
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
 
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
