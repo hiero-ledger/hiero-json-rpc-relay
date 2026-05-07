@@ -286,6 +286,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param address - The sender's EVM address.
    */
   async getConfirmedCount(address: string): Promise<number | null> {
+    if (!ConfigService.get('ENABLE_NONCE_ORDERING')) return null;
     return await this.storage.getConfirmedCount(address.toLowerCase());
   }
 }

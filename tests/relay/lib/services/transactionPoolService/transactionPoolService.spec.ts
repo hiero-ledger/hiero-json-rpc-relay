@@ -403,14 +403,27 @@ describe('TransactionPoolService Test Suite', function () {
     });
   });
 
-  // Single test for getConfirmedCount as requested
-  it('getConfirmedCount should delegate to storage with lowercased address and return the value', async () => {
-    const mixedCase = '0x742D35cC6629c0532C262d2d73F4c8E1A1B7B7B7';
-    mockStorage.getConfirmedCount.resolves(12);
+  withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: true }, () => {
+    it('getConfirmedCount should delegate to storage with lowercased address and return the value', async () => {
+      const mixedCase = '0x742D35cC6629c0532C262d2d73F4c8E1A1B7B7B7';
+      mockStorage.getConfirmedCount.resolves(12);
 
-    const result = await transactionPoolService.getConfirmedCount(mixedCase);
+      const result = await transactionPoolService.getConfirmedCount(mixedCase);
 
-    expect(result).to.equal(12);
-    expect(mockStorage.getConfirmedCount.calledOnceWithExactly(mixedCase.toLowerCase())).to.be.true;
+      expect(result).to.equal(12);
+      expect(mockStorage.getConfirmedCount.calledOnceWithExactly(mixedCase.toLowerCase())).to.be.true;
+    });
+  });
+
+  withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+    it('getConfirmedCount should return null when nonce ordering is disabled', async () => {
+      const mixedCase = '0x742D35cC6629c0532C262d2d73F4c8E1A1B7B7B7';
+      mockStorage.getConfirmedCount.resolves(12);
+
+      const result = await transactionPoolService.getConfirmedCount(mixedCase);
+
+      expect(result).to.equal(null);
+      expect(mockStorage.getConfirmedCount.calledOnceWithExactly(mixedCase.toLowerCase())).to.be.true;
+    });
   });
 });

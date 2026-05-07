@@ -685,7 +685,7 @@ export class TransactionService implements ITransactionService {
     execLockResult: LockAcquisitionResult | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const senderAddress = parsedTx.from?.toString() || '';
+    const senderAddress = parsedTx.from!;
     const execLockKey = `${senderAddress}:exec`;
 
     this.eventEmitter.emit('eth_execution', {
