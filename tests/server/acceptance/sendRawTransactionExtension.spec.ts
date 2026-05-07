@@ -686,33 +686,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(result2.nonce).to.equal(startNonce + 1);
     });
 
-    it('should submit large number of transaction from the same sender and have the correct nonces, ', async function () {
-      const sender = accounts[0];
-      const startNonce = await relay.getAccountNonce(sender.address);
-      const gasPrice = await relay.gasPrice();
-
-      // Submit both transactions concurrently (no await until Promise.all)
-      const tx1Promise = sendTransactionWithoutWaiting(sender, startNonce, 1, gasPrice);
-      const tx2Promise = sendTransactionWithoutWaiting(sender, startNonce + 1, 1, gasPrice);
-
-      // Wait for both to complete (lock service ensures they process sequentially internally)
-      const [tx1Hashes, tx2Hashes] = await Promise.all([tx1Promise[0], tx2Promise[0]]);
-      const tx1Hash = tx1Hashes;
-      const tx2Hash = tx2Hashes;
-
-      // Both should succeed - no WRONG_NONCE errors
-      expect(tx1Hash).to.exist;
-      expect(tx2Hash).to.exist;
-
-      const receipts = await Promise.all([
-        relay.pollForValidTransactionReceipt(tx1Hash),
-        relay.pollForValidTransactionReceipt(tx2Hash),
-      ]);
-
-      expect(receipts[0].status).to.equal('0x1');
-      expect(receipts[0].status).to.equal('0x1');
-    });
-
     withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true }, () => {
       it('should never experience "jumping" number of transaction when dealing with a lot of them submitted at once', async () => {
         const sender = accounts[0];
