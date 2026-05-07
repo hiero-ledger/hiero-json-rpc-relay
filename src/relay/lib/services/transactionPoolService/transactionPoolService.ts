@@ -286,6 +286,6 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param address - The sender's EVM address.
    */
   async getConfirmedCount(address: string): Promise<number | null> {
-    return await this.storage.getConfirmedCount(address);
+    return await this.storage.getConfirmedCount(address.toLowerCase());
   }
 }

@@ -167,7 +167,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param address - The sender's EVM address.
    */
   async getConfirmedCount(address: string): Promise<number | null> {
-    const result = await this.redisClient.get(`${this.confirmedTxCountKey}:${address.toLowerCase()}`);
+    const result = await this.redisClient.get(this.keyFor(address, this.confirmedTxCountKey));
     return result != null ? Number(result) : null;
   }
 }

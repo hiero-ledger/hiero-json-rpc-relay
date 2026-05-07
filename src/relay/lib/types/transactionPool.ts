@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Transaction } from 'ethers/transaction';
+import type { Transaction } from 'ethers/transaction';
+
+import type { IAccountInfo } from './mirrorNode';
 
 /**
  * Service responsible for managing pending transactions in the pool and coordinating with consensus results.
@@ -131,4 +133,26 @@ export interface PendingTransactionStorage {
    * @param address - The sender's EVM address.
    */
   getConfirmedCount(address: string): Promise<number | null>;
+}
+
+/**
+ * Interface used to hold the current stats of pending pool.
+ */
+export interface IPendingPoolStatusInfo {
+  /*
+   * Current number of transactions in the pool.
+   */
+  pendingCount: number;
+
+  /**
+   * Number of other transactions that have been confirmed.
+   * Its value can be derived from the cache or fetched directly from the mirror node.
+   */
+  confirmedCount: number;
+
+  /**
+   * Can be used to preserve the response from MirroNode in case it was used to build this object.
+   * If whole structures was derived from the cache, it can be null.
+   */
+  mirrorNodeArtifact: IAccountInfo | null;
 }

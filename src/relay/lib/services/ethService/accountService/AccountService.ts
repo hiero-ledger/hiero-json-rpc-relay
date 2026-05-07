@@ -8,8 +8,9 @@ import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { type RequestDetails } from '../../../types';
+import type { RequestDetails } from '../../../types';
 import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from '../ethCommonService/ICommonService';
@@ -257,14 +258,17 @@ export class AccountService implements IAccountService {
    * @param {string} address The account address
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
-  public async getTransactionCountSummary(address: string, requestDetails: RequestDetails) {
+  public async getTransactionCountSummary(
+    address: string,
+    requestDetails: RequestDetails,
+  ): Promise<IPendingPoolStatusInfo> {
     const [confirmedCount, pendingCount] = await Promise.all([
       this.transactionPoolService.getConfirmedCount(address),
       this.transactionPoolService.getPendingCount(address),
     ]);
     if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
     const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
-    const toResult = (confirmedCount: number) => ({
+    const toResult = (confirmedCount: number): IPendingPoolStatusInfo => ({
       pendingCount,
       confirmedCount,
       mirrorNodeArtifact: accountData,

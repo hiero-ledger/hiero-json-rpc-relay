@@ -797,7 +797,7 @@ export class TransactionService implements ITransactionService {
     return { submittedTransactionId, error };
   }
 
-  // ===== MN poll cleanup (POC) =====
+  // ===== MN poll cleanup =====
   // Polls MN for the receipt; removes the pool entry once MN reflects, or after max attempts (zombie cleanup).
   private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
     const senderAddress = parsedTx.from!.toString();
@@ -814,7 +814,7 @@ export class TransactionService implements ITransactionService {
           return;
         }
       } catch {
-        // continue polling on transient errors
+        this.logger.error('Mirror Node poll failed for transaction %s on %d attempt', txHash, i);
       }
     }
     // zombie cleanup: max attempts reached, remove anyway
