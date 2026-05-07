@@ -253,7 +253,7 @@ export class AccountService implements IAccountService {
   }
 
   /**
-   * Get confirmed transaction counts associated with an account.
+   * Get transaction counts associated with an account.
    *
    * @param {string} address The account address
    * @param {RequestDetails} requestDetails The request details for logging and tracking

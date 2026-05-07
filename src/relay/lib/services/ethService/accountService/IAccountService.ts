@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type JsonRpcError } from '../../../errors/JsonRpcError';
-import { type RequestDetails } from '../../../types';
+import type { IAccountInfo, RequestDetails } from '../../../types';
 
 export interface IAccountService {
   getTransactionCount: (
@@ -15,5 +15,5 @@ export interface IAccountService {
   getTransactionCountSummary: (
     account: string,
     requestDetails: RequestDetails,
-  ) => Promise<{ pendingCount: number; confirmedCount: number; mirrorNodeArtifact: any }>;
+  ) => Promise<{ pendingCount: number; confirmedCount: number; mirrorNodeArtifact: IAccountInfo | null }>;
 }

@@ -319,7 +319,12 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
     if (!ConfigService.get('USE_ASYNC_TX_PROCESSING')) return await sendRawTransactionProcessorPromise;
-    void sendRawTransactionProcessorPromise;
+    void sendRawTransactionProcessorPromise.catch(() =>
+      this.logger.error(
+        'Transaction %s failed asynchronously', // More details already logged by sendRawTransactionProcessor
+        parsedTx.hash,
+      ),
+    );
     return Utils.computeTransactionHash(transactionBuffer);
   }
 
