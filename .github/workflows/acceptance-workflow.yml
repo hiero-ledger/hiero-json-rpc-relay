@@ -114,7 +114,7 @@ jobs:
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.153.0' }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
