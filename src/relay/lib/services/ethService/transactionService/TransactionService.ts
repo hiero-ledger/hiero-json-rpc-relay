@@ -300,13 +300,54 @@ export class TransactionService implements ITransactionService {
 
     // Stateless precheck outside any lock so malformed inputs never queue for the ingress lock.
     this.precheck.validateBasicPropertiesStateless(parsedTx);
-
     const senderAddress = parsedTx.from!;
-    // Two keys for Lock 1 (short: admit + save) and Lock 2 (long: CN submit)
-    const ingressLockKey = `${senderAddress}:ingress`;
-    const execLockKey = `${senderAddress}:exec`;
 
     // ===== Lock 1: ingress lock =====
+    // Transactions will be added one by one, so there will be no race condition on this operation.
+    const admitResult = await this.admitTransaction(senderAddress, parsedTx, requestDetails);
+
+    // ===== Lock 2: execution lock =====
+    // Per-sender serialization of CN submission preserves the FIFO order established by Lock 1.
+    const executionResult = await this.prepareExecution(senderAddress, parsedTx, requestDetails, admitResult.balance);
+
+    // Hand off to the processor: CN submit → release Lock 2 → MN poll (success) or rollback (pre-exec failure).
+    const sendRawTransactionProcessorPromise = this.sendRawTransactionProcessor(
+      transactionBuffer,
+      parsedTx,
+      executionResult.networkGasPriceInWeiBars,
+      executionResult.execLockResult,
+      requestDetails,
+    );
+    if (!ConfigService.get('USE_ASYNC_TX_PROCESSING')) return await sendRawTransactionProcessorPromise;
+    void sendRawTransactionProcessorPromise;
+    return Utils.computeTransactionHash(transactionBuffer);
+  }
+
+  /**
+   * Admits a transaction into the local processing pipeline.
+   *
+   * This method performs nonce-related admission checks under the per-sender
+   * ingress lock to guarantee deterministic transaction ordering and prevent
+   * concurrent nonce races.
+   *
+   * The ingress lock is always released, regardless of success or failure,
+   * allowing callers to retry immediately on precheck failures.
+   *
+   * @private
+   * @param senderAddress - The sender EVM address.
+   * @param parsedTx - Parsed Ethereum transaction.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns Promise resolving to the verified sender balance if available
+   *          from the mirror node artifact.
+   * @throws JsonRpcError when transaction persistence fails.
+   * @throws Re-throws nonce validation and account retrieval errors.
+   */
+  private async admitTransaction(
+    senderAddress: string,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+  ): Promise<{ balance: IAccountBalance | undefined }> {
+    const ingressLockKey = `${senderAddress}:ingress`;
     const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
 
     let verifiedBalance: IAccountBalance | undefined;
@@ -335,16 +376,43 @@ export class TransactionService implements ITransactionService {
         await this.lockService.releaseLock(ingressLockKey, ingressLockResult.sessionKey, ingressLockResult.acquiredAt);
       }
     }
+    return { balance: verifiedBalance };
+  }
 
-    // ===== Lock 2: execution lock =====
-    // Per-sender serialization of CN submission preserves the FIFO order established by Lock 1.
+  /**
+   * Performs all stateful execution prechecks before the transaction is submitted
+   * to the consensus node.
+   *
+   * This method acquires the per-sender execution lock to preserve FIFO ordering
+   * established during the admission phase and prevent concurrent transaction
+   * execution for the same sender.
+   *
+   * @private
+   * @param senderAddress - The sender EVM address.
+   * @param parsedTx - Parsed Ethereum transaction.
+   * @param verifiedBalance - Previously fetched sender balance if available.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns Promise resolving to the acquired execution lock result and
+   *          normalized network gas price in weibars.
+   * @throws Re-throws any validation or network-related error encountered
+   *         during execution prechecks.
+   */
+  private async prepareExecution(
+    senderAddress: string,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+    verifiedBalance?: IAccountBalance,
+  ): Promise<{ networkGasPriceInWeiBars: number; execLockResult?: LockAcquisitionResult }> {
+    const execLockKey = `${senderAddress}:exec`;
     const execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
 
     try {
       // precheck sender balance
-      verifiedBalance ??= (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance;
-      this.precheck.balance(parsedTx, verifiedBalance);
+      this.precheck.balance(
+        parsedTx,
+        verifiedBalance ?? (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance,
+      );
 
       // precheck gas price and receiver
       networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
@@ -359,23 +427,7 @@ export class TransactionService implements ITransactionService {
       throw error;
     }
 
-    // Hand off to the processor: CN submit → release Lock 2 → MN poll (success) or rollback (pre-exec failure).
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-
-    const sendRawTransactionProcessorPromise = this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      execLockResult,
-      requestDetails,
-    );
-
-    if (useAsyncTxProcessing) {
-      void sendRawTransactionProcessorPromise;
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
-
-    return await sendRawTransactionProcessorPromise;
+    return { networkGasPriceInWeiBars, execLockResult };
   }
 
   /**
@@ -388,15 +440,12 @@ export class TransactionService implements ITransactionService {
     const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
     const cacheTTL = 15 * 60 * 1000; // 15 minutes
 
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod);
-
+    let currentNetworkExchangeRate = await this.cacheService.get(cacheKey, callingMethod);
     if (!currentNetworkExchangeRate) {
       currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
       await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, cacheTTL);
     }
-
-    const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
-    return exchangeRateInCents;
+    return currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
   }
 
   /**
