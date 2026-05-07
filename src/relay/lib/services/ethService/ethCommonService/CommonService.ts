@@ -13,7 +13,12 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { type IAccountInfo, type MirrorNodeContractLog, type RequestDetails } from '../../../types';
+import {
+  type IAccountInfo,
+  type MirrorNodeBlock,
+  type MirrorNodeContractLog,
+  type RequestDetails,
+} from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -322,11 +327,24 @@ export class CommonService implements ICommonService {
     return await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
   }
 
-  private async getLatestBlockFromMirrorNode(requestDetails: RequestDetails): Promise<any> {
+  /**
+   * Fetches the latest block from the mirror node.
+   *
+   * Acts as the single source of truth for "latest" within this service: callers that need either the
+   * latest block object or just its number should go through here so the empty/null mirror-node response
+   * is handled in one place. The mirror node can transiently return an empty `blocks` array (e.g. right
+   * after a network reset, or against a freshly deployed mirror node that has not finished its initial
+   * sync); in those cases this method throws `COULD_NOT_RETRIEVE_LATEST_BLOCK` rather than letting an
+   * undefined block propagate to callers and crash with a `TypeError`.
+   *
+   * @param requestDetails - request metadata used for logging and tracing
+   * @returns the latest mirror node block
+   * @throws {JsonRpcError} `COULD_NOT_RETRIEVE_LATEST_BLOCK` when the mirror node returns no blocks
+   */
+  private async getLatestBlockFromMirrorNode(requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      return blocks[0];
+    if (Array.isArray(blocksResponse?.blocks) && blocksResponse.blocks.length > 0) {
+      return blocksResponse.blocks[0];
     }
 
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;

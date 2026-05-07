@@ -154,4 +154,55 @@ describe('CommonService', () => {
       );
     });
   });
+
+  describe('getLatestBlockNumber', () => {
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+    const LATEST_BLOCK_QUERY = 'blocks?limit=1&order=desc';
+
+    let commonService: CommonService;
+    let restMock: MockAdapter;
+
+    beforeEach(() => {
+      const logger = pino({ level: 'silent' });
+      const registry = new Registry();
+      const cacheService = CacheClientFactory.create(logger, registry);
+      const mirrorNodeClient = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: 'mirror-node' }),
+        registry,
+        cacheService,
+      );
+      restMock = new MockAdapter(mirrorNodeClient.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+    });
+
+    afterEach(() => {
+      restMock.restore();
+      sinon.restore();
+    });
+
+    it('returns the latest block number in 0x form when the mirror node returns a block', async () => {
+      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ number: 643209 }] }));
+
+      const result = await commonService.getLatestBlockNumber(requestDetails);
+
+      expect(result).to.equal('0x9d089');
+    });
+
+    it('throws COULD_NOT_RETRIEVE_LATEST_BLOCK when the blocks array is empty', async () => {
+      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [] }));
+
+      await expect(commonService.getLatestBlockNumber(requestDetails)).to.be.rejectedWith(
+        predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK.message,
+      );
+    });
+
+    it('throws COULD_NOT_RETRIEVE_LATEST_BLOCK when the mirror node returns 404', async () => {
+      restMock.onGet(LATEST_BLOCK_QUERY).reply(404, JSON.stringify({}));
+
+      await expect(commonService.getLatestBlockNumber(requestDetails)).to.be.rejectedWith(
+        predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK.message,
+      );
+    });
+  });
 });
