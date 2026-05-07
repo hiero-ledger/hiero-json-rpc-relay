@@ -13,7 +13,7 @@ set -euo pipefail
 # And we are also able to explicitly direct the calls to the ports we expect them to be (like 5551 for mirror-node).
 
 FORWARDS=(
-  "mirror-ingress-controller|5551:38081"
+  "mirror-ingress-controller|5551:80"
   "mirror-1-web3|8545:8545"
   "network-node|50211:50211"
 )
