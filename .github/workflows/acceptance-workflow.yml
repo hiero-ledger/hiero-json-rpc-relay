@@ -145,11 +145,11 @@ jobs:
 
       - name: Run acceptance tests
         run: |
-          if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
-            echo "Overriding OPERATOR_KEY_MAIN with the secret value"
-            export OPERATOR_KEY_MAIN="$OPERATOR_KEY"
-          fi
-          npm run acceptancetest:${{ inputs.testfilter }}
+            if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
+              echo "Overriding OPERATOR_KEY_MAIN with the secret value"
+              export OPERATOR_KEY_MAIN="$OPERATOR_KEY"
+            fi
+            npm run acceptancetest:${{ inputs.testfilter }}
         env:
           TEST_WS_SERVER: ${{ inputs.test_ws_server }}
           SUBSCRIPTIONS_ENABLED: ${{ inputs.test_ws_server }}
