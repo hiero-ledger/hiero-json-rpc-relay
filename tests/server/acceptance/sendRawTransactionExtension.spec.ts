@@ -771,6 +771,52 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         // All transactions should succeed, at no point should the nonce we submitted be treated as incorrect.
         expect(errorsCount).to.be.equal(0);
       });
+
+      it('should still calculate correct nonce even if mid processing some of the received transactions will be broken', async () => {
+        const brokenTransactions: { gasLimit?: string; nonce?: number }[] = [];
+        brokenTransactions[5] = { gasLimit: '0x0' }; // gas too low - stateless check fail
+        brokenTransactions[10] = { nonce: 5 }; // nonce too low - stateful check fail
+
+        const sender = accounts[0];
+        let nonce = await relay.getAccountNonce(sender.address);
+        const gasPrice = await relay.gasPrice();
+
+        const txPromises: Promise<string>[] = [];
+        for (let i = 0; i < 15; i++) {
+          const tx = {
+            ...defaultLondonTransactionData,
+            to: accounts[2].address,
+            value: ONE_TINYBAR,
+            nonce,
+            maxPriorityFeePerGas: gasPrice,
+            maxFeePerGas: gasPrice,
+            ...(brokenTransactions[i] || {}),
+          };
+
+          if (!brokenTransactions[i]) nonce++; // broken transaction should not influence the nonce calculation
+          txPromises.push(sender.wallet.signTransaction(tx));
+        }
+        const signedTransactions = await Promise.all(txPromises);
+
+        const submitTransactionsPromisesThatCantFail: Promise<string>[] = [];
+        const submitTransactionsPromisesThatShouldFail: Promise<string>[] = [];
+        for (const [index, signedTx] of signedTransactions.entries()) {
+          (!brokenTransactions[index]
+            ? submitTransactionsPromisesThatCantFail
+            : submitTransactionsPromisesThatShouldFail
+          ).push(relay.sendRawTransaction(signedTx));
+        }
+
+        const hashes = await Promise.all(submitTransactionsPromisesThatCantFail);
+
+        await Promise.allSettled(submitTransactionsPromisesThatShouldFail);
+
+        const receipts = await Promise.all(hashes.map((hash) => relay.pollForValidTransactionReceipt(hash)));
+        const errorsCount = receipts
+          .map(({ status }) => status)
+          .filter((status) => status !== constants.ONE_HEX).length;
+        expect(errorsCount).to.be.equal(0);
+      });
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
