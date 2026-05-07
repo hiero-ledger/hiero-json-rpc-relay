@@ -102,6 +102,50 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
   });
 
+  describe('getConfirmedCount', () => {
+    it('returns null when no baseline is cached for address', async () => {
+      const count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(null);
+    });
+
+    it('returns the baseline set via addToList and does not overwrite on subsequent adds (SET NX)', async () => {
+      await storage.addToList(addr1, rlp1, 10);
+      let count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(10);
+
+      // Attempt to set a different baseline; NX should prevent overwrite
+      await storage.addToList(addr1, rlp2, 42);
+      count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(10);
+    });
+
+    it('increments baseline on confirmed removal', async () => {
+      await storage.addToList(addr1, rlp1, 3);
+      await storage.removeFromList(addr1, rlp1, 'confirmed');
+      const count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(4);
+    });
+
+    it('does not increment baseline on rejected/unspecified removal', async () => {
+      await storage.addToList(addr1, rlp1, 7);
+      await storage.removeFromList(addr1, rlp1, 'rejected');
+      let count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(7);
+
+      // unspecified (undefined)
+      await storage.removeFromList(addr1, rlp2);
+      count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(7);
+    });
+
+    it('starts from 1 when incrementing without pre-existing baseline', async () => {
+      // No addToList call to set NX baseline
+      await storage.removeFromList(addr2, rlp3, 'confirmed');
+      const count = await storage.getConfirmedCount(addr2);
+      expect(count).to.equal(1);
+    });
+  });
+
   describe('removeAll', () => {
     it('deletes all txpool:pending:* keys', async () => {
       await storage.addToList(addr1, tx1, 0);

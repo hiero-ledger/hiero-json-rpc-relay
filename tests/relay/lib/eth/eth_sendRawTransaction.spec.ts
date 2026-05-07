@@ -16,7 +16,7 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { EventEmitter } from 'events';
 import pino from 'pino';
-import sinon, { useFakeTimers } from 'sinon';
+import sinon, { stub, useFakeTimers } from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { type Eth, JsonRpcError, predefined } from '../../../../src/relay';
@@ -1116,9 +1116,17 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
 
           // Reset the account mock and set same nonce as transaction (cannot determine difference)
-          restMock.resetHistory();
-          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }));
-
+          stub(ethImpl['accountService'], 'getTransactionCountSummary')
+            .onFirstCall()
+            .returns({
+              pendingCount: 0,
+              confirmedCount: 5,
+            })
+            .onSecondCall()
+            .returns({
+              pendingCount: 1,
+              confirmedCount: 5,
+            });
           await expect(ethImpl.sendRawTransaction(signed, requestDetails))
             .to.be.rejectedWith(JsonRpcError)
             .and.eventually.satisfy(

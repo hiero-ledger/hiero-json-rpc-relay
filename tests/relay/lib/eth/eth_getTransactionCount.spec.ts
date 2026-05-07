@@ -34,8 +34,14 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     hapiServiceInstance,
     ethImpl,
     cacheService,
-  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
-    generateEthTestEnv();
+    transactionPoolService,
+  }: {
+    restMock: MockAdapter;
+    hapiServiceInstance: HAPIService;
+    ethImpl: Eth;
+    cacheService: ICacheClient;
+    transactionPoolService: any;
+  } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionCountTest', ipAddress: '0.0.0.0' });
   const blockNumber = mockData.blocks.blocks[2].number;
@@ -150,6 +156,10 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
       const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_PENDING, requestDetails);
       expect(nonce).to.exist;
       expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce + pendingTxs));
+    });
+
+    after(() => {
+      sinon.restore();
     });
   });
 
@@ -335,5 +345,77 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, blockHash, requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(2));
+  });
+
+  describe('getTransactionCountSummary (pending)', function () {
+    const accountUrl = `accounts/${MOCK_ACCOUNT_ADDR}?transactions=false`;
+
+    beforeEach(async () => {
+      restMock.resetHandlers();
+      restMock.onGet('network/fees').reply(200, JSON.stringify({}));
+    });
+
+    afterEach(async () => {
+      sinon.restore();
+      restMock.resetHandlers();
+    });
+
+    it('uses transactionPoolService counts when confirmedCount is available (no MN call needed)', async () => {
+      const confirmed = 5;
+      const pending = 3;
+
+      const getConfirmedStub = sinon.stub(transactionPoolService, 'getConfirmedCount').resolves(confirmed);
+      const getPendingStub = sinon.stub(transactionPoolService, 'getPendingCount').resolves(pending);
+
+      restMock.onGet(accountUrl).reply(404, JSON.stringify(mockData.notFound));
+
+      const result = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'pending', requestDetails);
+
+      expect(result).to.equal(numberTo0x(confirmed + pending));
+      expect(getConfirmedStub.calledOnceWithExactly(MOCK_ACCOUNT_ADDR)).to.be.true;
+      expect(getPendingStub.calledOnceWithExactly(MOCK_ACCOUNT_ADDR)).to.be.true;
+    });
+
+    it('falls back to MN: account not found -> confirmed=0 then add pending', async () => {
+      const pending = 2;
+
+      sinon.stub(transactionPoolService, 'getConfirmedCount').resolves(null);
+      sinon.stub(transactionPoolService, 'getPendingCount').resolves(pending);
+
+      restMock.onGet(accountUrl).reply(404, JSON.stringify(mockData.notFound));
+
+      const result = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'pending', requestDetails);
+
+      expect(result).to.equal(numberTo0x(pending));
+    });
+
+    it('falls back to MN: account found with null ethereum_nonce -> treat confirmed as 1', async () => {
+      const pending = 4;
+
+      sinon.stub(transactionPoolService, 'getConfirmedCount').resolves(null);
+      sinon.stub(transactionPoolService, 'getPendingCount').resolves(pending);
+
+      const accountWithNullNonce = { ...mockData.account, ethereum_nonce: null };
+      restMock.onGet(accountUrl).reply(200, JSON.stringify(accountWithNullNonce));
+
+      const result = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'pending', requestDetails);
+
+      expect(result).to.equal(numberTo0x(1 + pending));
+    });
+
+    it('falls back to MN: account found with numeric ethereum_nonce -> use that confirmed value', async () => {
+      const pending = 1;
+      const ethereumNonce = 7;
+
+      sinon.stub(transactionPoolService, 'getConfirmedCount').resolves(null);
+      sinon.stub(transactionPoolService, 'getPendingCount').resolves(pending);
+
+      const accountWithNonce = { ...mockData.account, ethereum_nonce: ethereumNonce };
+      restMock.onGet(accountUrl).reply(200, JSON.stringify(accountWithNonce));
+
+      const result = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'pending', requestDetails);
+
+      expect(result).to.equal(numberTo0x(ethereumNonce + pending));
+    });
   });
 });

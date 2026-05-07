@@ -747,7 +747,6 @@ export class TransactionService implements ITransactionService {
     if (preExecutionFailures.includes(error.status.toString())) {
       let preExecError: JsonRpcError;
 
-      // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
         if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
           this.wrongNonceMetric.labels('none').inc();
@@ -757,7 +756,9 @@ export class TransactionService implements ITransactionService {
 
         let accountNonce: number | null = null;
         try {
-          accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
+          const txCounts = await this.accountService.getTransactionCountSummary(parsedTx.from!, requestDetails);
+          // Decrementing because currently investigated transaction is still placed on the pending queue.
+          accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
         } catch (mirrorNodeError) {
           this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
         }

@@ -50,6 +50,7 @@ describe('TransactionPoolService Test Suite', function () {
       getTransactionPayloads: sinon.stub(),
       getAllTransactionPayloads: sinon.stub(),
       getUniqueAddressCount: sinon.stub(),
+      getConfirmedCount: sinon.stub(),
     };
 
     transactionPoolService = new TransactionPoolService(mockStorage, logger, register);
@@ -400,5 +401,16 @@ describe('TransactionPoolService Test Suite', function () {
       // Verify only one storage call was made
       expect(mockStorage.removeFromList.callCount).to.equal(1);
     });
+  });
+
+  // Single test for getConfirmedCount as requested
+  it('getConfirmedCount should delegate to storage with lowercased address and return the value', async () => {
+    const mixedCase = '0x742D35cC6629c0532C262d2d73F4c8E1A1B7B7B7';
+    mockStorage.getConfirmedCount.resolves(12);
+
+    const result = await transactionPoolService.getConfirmedCount(mixedCase);
+
+    expect(result).to.equal(12);
+    expect(mockStorage.getConfirmedCount.calledOnceWithExactly(mixedCase.toLowerCase())).to.be.true;
   });
 });
