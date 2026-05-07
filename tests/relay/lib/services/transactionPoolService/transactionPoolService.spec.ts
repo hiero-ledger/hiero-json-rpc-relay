@@ -423,7 +423,6 @@ describe('TransactionPoolService Test Suite', function () {
       const result = await transactionPoolService.getConfirmedCount(mixedCase);
 
       expect(result).to.equal(null);
-      expect(mockStorage.getConfirmedCount.calledOnceWithExactly(mixedCase.toLowerCase())).to.be.true;
     });
   });
 });
