@@ -10,15 +10,15 @@ import { numberTo0x, prepend0x } from '../../src/relay/formatters';
 import Constants from '../../src/relay/lib/constants';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { ONE_TINYBAR_IN_WEI_HEX } from '../relay/lib/eth/eth-config';
-import MirrorClient from '../server/clients/mirrorClient';
-import RelayClient from '../server/clients/relayClient';
-import ServicesClient from '../server/clients/servicesClient';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type RelayClient from '../server/clients/relayClient';
+import type ServicesClient from '../server/clients/servicesClient';
 import basicContract from '../server/contracts/Basic.json';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions, { computeExpectedCumulativeGasUsed } from '../server/helpers/assertions';
 import { Utils } from '../server/helpers/utils';
-import { AliasAccount } from '../server/types/AliasAccount';
-import { ALL_PROTOCOL_CLIENTS, RpcRawResponse } from './helpers/protocolClient';
+import { type AliasAccount } from '../server/types/AliasAccount';
+import { ALL_PROTOCOL_CLIENTS, type RpcRawResponse } from './helpers/protocolClient';
 
 describe('@release @protocol-acceptance @protocol-acceptance-transaction-service eth_sendRawTransaction', async function () {
   this.timeout(240 * 1000);

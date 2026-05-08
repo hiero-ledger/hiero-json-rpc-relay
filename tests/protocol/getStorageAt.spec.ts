@@ -4,11 +4,11 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigService } from '../../src/config-service/services';
-import MirrorClient from '../server/clients/mirrorClient';
-import RelayClient from '../server/clients/relayClient';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type RelayClient from '../server/clients/relayClient';
 import storageContractJson from '../server/contracts/Storage.json';
 import { Utils } from '../server/helpers/utils';
-import { AliasAccount } from '../server/types/AliasAccount';
+import { type AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
 describe('@release @protocol-acceptance @protocol-acceptance-contract-service eth_getStorageAt', async function () {

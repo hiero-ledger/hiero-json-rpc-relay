@@ -8,16 +8,16 @@ import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import { ONE_TINYBAR_IN_WEI_HEX } from '../relay/lib/eth/eth-config';
-import MirrorClient from '../server/clients/mirrorClient';
-import RelayClient from '../server/clients/relayClient';
-import ServicesClient from '../server/clients/servicesClient';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type RelayClient from '../server/clients/relayClient';
+import type ServicesClient from '../server/clients/servicesClient';
 import basicContractJson from '../server/contracts/Basic.json';
 import ERC20MockJson from '../server/contracts/ERC20Mock.json';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions, { computeExpectedCumulativeGasUsed } from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
-import { AliasAccount } from '../server/types/AliasAccount';
+import { type AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
 describe('@release @protocol-acceptance @protocol-acceptance-transaction-service eth_getTransactionReceipt', async function () {

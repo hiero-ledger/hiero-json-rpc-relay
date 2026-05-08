@@ -5,15 +5,15 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { formatTransactionId, numberTo0x } from '../../src/relay/formatters';
-import MirrorClient from '../server/clients/mirrorClient';
-import RelayClient from '../server/clients/relayClient';
-import ServicesClient from '../server/clients/servicesClient';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type RelayClient from '../server/clients/relayClient';
+import type ServicesClient from '../server/clients/servicesClient';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import RelayCalls from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
-import { AliasAccount } from '../server/types/AliasAccount';
+import { type AliasAccount } from '../server/types/AliasAccount';
 import { resolveAccountEvmAddresses } from './helpers/mirrorNodeHelpers';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
