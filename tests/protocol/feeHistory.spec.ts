@@ -5,8 +5,8 @@ import { ethers } from 'ethers';
 
 import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
-import MirrorClient from '../server/clients/mirrorClient';
-import ServicesClient from '../server/clients/servicesClient';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type ServicesClient from '../server/clients/servicesClient';
 import Assertions from '../server/helpers/assertions';
 import constants from '../server/helpers/constants';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
@@ -124,48 +124,50 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
       });
 
       for (const client of ALL_PROTOCOL_CLIENTS) {
-        it('should call eth_feeHistory with updated fees', async function () {
-          const blockCountNumber = lastBlockAfterUpdate.number - lastBlockBeforeUpdate.number;
-          const blockCountHex = ethers.toQuantity(blockCountNumber);
-          const defaultGasPriceHex = ethers.toQuantity(Assertions.defaultGasPrice);
-          const newestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number);
-          const oldestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number - blockCountNumber + 1);
+        describe(client.label, () => {
+          it('should call eth_feeHistory with updated fees', async function () {
+            const blockCountNumber = lastBlockAfterUpdate.number - lastBlockBeforeUpdate.number;
+            const blockCountHex = ethers.toQuantity(blockCountNumber);
+            const defaultGasPriceHex = ethers.toQuantity(Assertions.defaultGasPrice);
+            const newestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number);
+            const oldestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number - blockCountNumber + 1);
 
-          const result = (await client.call(METHOD_NAME, [blockCountHex, newestBlockNumberHex, [0]])) as any;
+            const result = (await client.call(METHOD_NAME, [blockCountHex, newestBlockNumberHex, [0]])) as any;
 
-          Assertions.feeHistory(result, {
-            resultCount: blockCountNumber,
-            oldestBlock: oldestBlockNumberHex,
-            checkReward: true,
+            Assertions.feeHistory(result, {
+              resultCount: blockCountNumber,
+              oldestBlock: oldestBlockNumberHex,
+              checkReward: true,
+            });
+            expect(result.baseFeePerGas[1]).to.equal(defaultGasPriceHex);
+            expect(result.baseFeePerGas[result.baseFeePerGas.length - 2]).to.equal(defaultGasPriceHex);
+            expect(result.baseFeePerGas[result.baseFeePerGas.length - 1]).to.equal(defaultGasPriceHex);
           });
-          expect(result.baseFeePerGas[1]).to.equal(defaultGasPriceHex);
-          expect(result.baseFeePerGas[result.baseFeePerGas.length - 2]).to.equal(defaultGasPriceHex);
-          expect(result.baseFeePerGas[result.baseFeePerGas.length - 1]).to.equal(defaultGasPriceHex);
-        });
 
-        it('should call eth_feeHistory with newest block > latest', async function () {
-          const blocksAhead = 10;
-          const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-          const newestBlockNumberHex = ethers.toQuantity(latestBlock.number + blocksAhead);
-          const expectedError = predefined.REQUEST_BEYOND_HEAD_BLOCK(
-            latestBlock.number + blocksAhead,
-            latestBlock.number,
-          );
+          it('should call eth_feeHistory with newest block > latest', async function () {
+            const blocksAhead = 10;
+            const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
+            const newestBlockNumberHex = ethers.toQuantity(latestBlock.number + blocksAhead);
+            const expectedError = predefined.REQUEST_BEYOND_HEAD_BLOCK(
+              latestBlock.number + blocksAhead,
+              latestBlock.number,
+            );
 
-          const response = await client.callRaw(METHOD_NAME, ['0x1', newestBlockNumberHex, null]);
+            const response = await client.callRaw(METHOD_NAME, ['0x1', newestBlockNumberHex, null]);
 
-          expect(response.error).to.exist;
-          expect(response.error!.code).to.eq(expectedError.code);
-          expect(response.error!.message).to.contain(expectedError.message);
-        });
+            expect(response.error).to.exist;
+            expect(response.error!.code).to.eq(expectedError.code);
+            expect(response.error!.message).to.contain(expectedError.message);
+          });
 
-        it('should call eth_feeHistory with zero block count', async function () {
-          const result = (await client.call(METHOD_NAME, ['0x0', 'latest', null] as unknown[])) as any;
+          it('should call eth_feeHistory with zero block count', async function () {
+            const result = (await client.call(METHOD_NAME, ['0x0', 'latest', null] as unknown[])) as any;
 
-          expect(result.reward).to.not.exist;
-          expect(result.baseFeePerGas).to.not.exist;
-          expect(result.gasUsedRatio).to.equal(null);
-          expect(result.oldestBlock).to.equal('0x0');
+            expect(result.reward).to.not.exist;
+            expect(result.baseFeePerGas).to.not.exist;
+            expect(result.gasUsedRatio).to.equal(null);
+            expect(result.oldestBlock).to.equal('0x0');
+          });
         });
       }
     });
