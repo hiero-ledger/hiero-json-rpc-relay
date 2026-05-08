@@ -344,7 +344,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
-      withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true }, () => {
+      withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: true }, () => {
         it('should save and remove transaction from transaction pool on success path', async function () {
           const signed = await signTransaction(transaction);
           const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
@@ -377,6 +377,37 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
           await new Promise((resolve) => setTimeout(resolve, 5_000));
 
+          sinon.assert.calledOnce(removeStub);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
+
+          saveStub.restore();
+          removeStub.restore();
+        });
+      });
+
+      withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: false }, () => {
+        it('should save and remove transaction from transaction pool on success path with nonce ordering disabled', async function () {
+          const signed = await signTransaction(transaction);
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+          sinon.stub(txPool, 'getPendingCount').resolves(0);
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+          expect(result).to.equal(ethereumHash);
+
+          sinon.assert.calledOnce(saveStub);
+          sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+          // When nonce ordering is disabled, the transaction is immediately removed from the pool.
           sinon.assert.calledOnce(removeStub);
           sinon.assert.calledWith(removeStub, accountAddress, signed);
 
