@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MirrorClient from '../../server/clients/mirrorClient';
+import type MirrorClient from '../../server/clients/mirrorClient';
 
 /**
  * Resolves long-zero addresses to EVM addresses by querying mirror node.
