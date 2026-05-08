@@ -861,8 +861,8 @@ export class TransactionService implements ITransactionService {
   private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
     const senderAddress = parsedTx.from!.toString();
     const txHash = parsedTx.hash!;
-    const maxAttempts = 30;
-    const intervalMs = 2000;
+    const maxAttempts = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS');
+    const intervalMs = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS');
 
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));

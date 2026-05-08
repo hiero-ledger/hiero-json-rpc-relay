@@ -661,6 +661,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 133120, // 130 KB
   },
+  SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 2000, // 2s
+  },
+  SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30, // 30 attempts
+  },
   CACHED_SENDER_TX_COUNT_TTL: {
     type: 'number',
     required: false,
