@@ -2,17 +2,17 @@
 
 import parse from 'co-body';
 import Koa from 'koa';
-import { Logger } from 'pino';
-import { Histogram, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
-import { JsonRpcError, predefined, Relay } from '../../relay';
+import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '../../relay/lib/services';
-import { MethodRateLimitConfiguration, RateLimitStore } from '../../relay/lib/types';
+import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
-import { IJsonRpcRequest } from './lib/IJsonRpcRequest';
+import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from './lib/RpcResponse';
 import {

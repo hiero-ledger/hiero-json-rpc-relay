@@ -3,15 +3,15 @@
 import {
   FileAppendTransaction,
   FileId,
-  FileInfo,
+  type FileInfo,
   Hbar,
   HbarUnit,
   Long,
   Status,
   TransactionId,
   TransactionResponse,
-} from '@hashgraph/sdk';
-import MockAdapter from 'axios-mock-adapter';
+} from '@hiero-ledger/sdk';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { EventEmitter } from 'events';
@@ -19,14 +19,14 @@ import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
-import { Eth, JsonRpcError, predefined } from '../../../../src/relay';
+import { type Eth, JsonRpcError, predefined } from '../../../../src/relay';
 import { formatTransactionIdWithoutQueryParams } from '../../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
 import { LockService, TransactionPoolService } from '../../../../src/relay/lib/services';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
@@ -53,6 +53,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     hapiServiceInstance: HAPIService;
     ethImpl: Eth;
     cacheService: ICacheClient;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
     registry: import('prom-client').Registry;
   } = generateEthTestEnv();
 
@@ -205,7 +206,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         txResponseMock.getReceipt
           .onFirstCall()
-          .resolves({ fileId: FILE_ID } as unknown as import('@hashgraph/sdk').TransactionReceipt);
+          // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+          .resolves({ fileId: FILE_ID } as unknown as import('@hiero-ledger/sdk').TransactionReceipt);
         Object.assign(txResponseMock, {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
         });

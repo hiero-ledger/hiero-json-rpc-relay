@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { predefined } from '../../../relay';
+import { type JsonRpcError, predefined } from '../../../relay';
 
 export interface IJsonRpcError {
   readonly code: number;
@@ -16,7 +16,10 @@ export interface IJsonRpcError {
 export const spec = {
   ParseError: { code: -32700, message: 'Parse error' },
   InvalidRequest: { code: -32600, message: 'Invalid Request' },
-  MethodNotFound: (methodName: string) => ({ code: -32601, message: `Method ${methodName} not found` }),
+  MethodNotFound: (methodName: string): { code: number; message: string } => ({
+    code: -32601,
+    message: `Method ${methodName} not found`,
+  }),
 
   /**
    * An error thrown when a method's domain is disabled varies depending on the method subdomain.
@@ -25,20 +28,23 @@ export const spec = {
    *
    * @param method Name of the method.
    */
-  SubdomainDisabled: (method: string) =>
+  SubdomainDisabled: (method: string): JsonRpcError | { code: number; message: string } =>
     /^engine_.*/.test(method) ? predefined.UNSUPPORTED_METHOD : spec.MethodNotFound(method),
 
   /**
    * @param err The error object that caused this `InternalError`.
    */
-  InternalError: (err: unknown) => ({
+  InternalError: (err: unknown): { code: number; message: string } => ({
     code: -32603,
     message: err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Internal error',
   }),
 
-  IPRateLimitExceeded: (methodName: string) => ({ code: -32605, message: `IP Rate limit exceeded on ${methodName}` }),
+  IPRateLimitExceeded: (methodName: string): { code: number; message: string } => ({
+    code: -32605,
+    message: `IP Rate limit exceeded on ${methodName}`,
+  }),
 
-  BatchRequestsMethodNotPermitted: (method: string) => ({
+  BatchRequestsMethodNotPermitted: (method: string): { code: number; message: string } => ({
     code: -32007,
     message: `Method ${method} is not permitted as part of batch requests`,
   }),

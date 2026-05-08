@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fail } from 'assert';
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { predefined } from '../../../../src/relay';
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../../src/relay/formatters';
-import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
+import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
-import { EthImpl } from '../../../../src/relay/lib/eth';
-import { Block, Transaction } from '../../../../src/relay/lib/model';
-import { CommonService } from '../../../../src/relay/lib/services';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type Block, type Transaction } from '../../../../src/relay/lib/model';
+import { type CommonService } from '../../../../src/relay/lib/services';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {

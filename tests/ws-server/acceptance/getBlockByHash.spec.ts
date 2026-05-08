@@ -2,7 +2,7 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 
 import { WsTestConstant, WsTestHelper } from '../helper';
 

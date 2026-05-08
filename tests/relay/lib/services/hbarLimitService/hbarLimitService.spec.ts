@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
-import Long from 'long';
-import pino, { Logger } from 'pino';
+import type Long from 'long';
+import pino, { type Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 import sinon from 'sinon';
 
@@ -23,7 +23,7 @@ import {
   HbarSpendingPlanNotActiveError,
   HbarSpendingPlanNotFoundError,
 } from '../../../../../src/relay/lib/db/types/hbarLimiter/errors';
-import { IDetailedHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
+import { type IDetailedHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../../../src/relay/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
 import { HbarLimitService } from '../../../../../src/relay/lib/services/hbarLimitService';
@@ -35,7 +35,7 @@ chai.use(chaiAsPromised);
 describe('HBAR Rate Limit Service', function () {
   const logger = pino({ level: 'silent' });
   const register = new Registry();
-  const totalBudgetInTinybars = constants.HBAR_RATE_LIMIT_TOTAL.toNumber();
+  const totalBudgetInTinybars = Number(constants.HBAR_RATE_LIMIT_TOTAL);
   const limitDuration = constants.HBAR_RATE_LIMIT_DURATION;
   const mode = constants.EXECUTION_MODE.TRANSACTION;
   const methodName = 'testMethod';

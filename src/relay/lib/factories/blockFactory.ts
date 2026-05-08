@@ -9,14 +9,14 @@ import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import { obtainBlockGasLimit } from '../config/blockGasLimit';
 import constants from '../constants';
 import {
-  AuthorizationListEntry,
+  type AuthorizationListEntry,
   Block,
-  Transaction,
-  Transaction1559,
-  Transaction2930,
-  Transaction7702,
+  type Transaction,
+  type Transaction1559,
+  type Transaction2930,
+  type Transaction7702,
 } from '../model';
-import { MirrorNodeBlock } from '../types/mirrorNode';
+import { type MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;

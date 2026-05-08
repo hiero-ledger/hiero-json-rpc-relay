@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RequestDetails } from './RequestDetails';
+import { type RequestDetails } from './RequestDetails';
 
 export interface IEthExecutionEventPayload {
   method: string;
