@@ -2,7 +2,7 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
 
 import { spec } from '../../../src/server/koaJsonRpc/lib/RpcError';

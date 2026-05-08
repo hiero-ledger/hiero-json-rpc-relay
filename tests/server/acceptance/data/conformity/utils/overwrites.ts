@@ -13,7 +13,7 @@ import {
   transaction1559AndBlockHash,
   transaction2930AndBlockHash,
 } from './constants';
-import { JsonRpcRequest, Transaction } from './interfaces';
+import { type JsonRpcRequest, type Transaction } from './interfaces';
 import { legacyTransaction, transaction1559, transaction1559_2930, transaction2930 } from './transactions';
 import { getTransactionCount } from './utils';
 

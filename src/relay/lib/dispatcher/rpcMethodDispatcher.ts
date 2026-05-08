@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { Utils } from '../../utils';
@@ -8,7 +8,7 @@ import { JsonRpcError } from '../errors/JsonRpcError';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { OperationHandler, RequestDetails, RpcMethodRegistry } from '../types';
+import { type OperationHandler, type RequestDetails, type RpcMethodRegistry } from '../types';
 import { RPC_PARAM_VALIDATION_RULES_KEY, validateParams } from '../validators';
 
 /**

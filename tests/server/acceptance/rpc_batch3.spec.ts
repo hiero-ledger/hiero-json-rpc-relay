@@ -4,7 +4,7 @@
 import Axios from 'axios';
 import { expect, use } from 'chai';
 import chaiExclude from 'chai-exclude';
-import { BaseContract, ethers } from 'ethers';
+import { type BaseContract, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -14,9 +14,9 @@ import { TracerType } from '../../../src/relay/lib/constants';
 import { TYPES } from '../../../src/relay/lib/validators';
 import RelayAssertions from '../../relay/assertions';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import DeployerContractJson from '../contracts/Deployer.json';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
@@ -28,7 +28,7 @@ import RelayCall from '../helpers/constants';
 import Helper from '../helpers/constants';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 use(chaiExclude);
 

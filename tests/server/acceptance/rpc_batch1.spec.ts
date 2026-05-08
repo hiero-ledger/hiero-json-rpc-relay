@@ -13,9 +13,9 @@ import Constants from '../../../src/relay/lib/constants';
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import basicContract from '../contracts/Basic.json';
 import basicContractJson from '../contracts/Basic.json';
 // Local resources from contracts directory
@@ -25,7 +25,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 import { MultiLogReceiptFixture } from './fixtures/multiLogReceiptFixture';
 
 const Address = RelayCalls;

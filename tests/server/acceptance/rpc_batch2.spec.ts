@@ -3,7 +3,10 @@
 import { expect } from 'chai';
 
 import { ConfigService } from '../../../src/config-service/services';
-import RelayClient from '../clients/relayClient';
+import type RelayClient from '../clients/relayClient';
+// Contracts from local resources
+// Assertions from local resources
+// Helper functions/constants from local resources
 import RelayCalls from '../helpers/constants';
 
 describe('@api-batch-2 RPC Server Acceptance Tests', function () {
