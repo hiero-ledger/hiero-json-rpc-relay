@@ -361,7 +361,7 @@ export class TransactionService implements ITransactionService {
         senderAddress,
         requestDetails,
       );
-      if (mirrorNodeArtifact && mirrorNodeArtifact.balance) verifiedBalance = mirrorNodeArtifact.balance;
+      verifiedBalance = mirrorNodeArtifact?.balance;
 
       this.precheck.nonce(parsedTx, confirmedCount + pendingCount);
 
@@ -868,7 +868,7 @@ export class TransactionService implements ITransactionService {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
-        if (result && result.hash) {
+        if (result?.hash) {
           await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
           return;
         }

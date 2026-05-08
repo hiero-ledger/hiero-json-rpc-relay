@@ -12,6 +12,7 @@ import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICach
 import constants from '../../../../src/relay/lib/constants';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
+import { type TransactionPoolService } from '../../../../src/relay/lib/types/transactionPool';
 import RelayAssertions from '../../assertions';
 import {
   defaultDetailedContractResults,
@@ -40,7 +41,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     hapiServiceInstance: HAPIService;
     ethImpl: Eth;
     cacheService: ICacheClient;
-    transactionPoolService: any;
+    transactionPoolService: TransactionPoolService;
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionCountTest', ipAddress: '0.0.0.0' });
@@ -347,7 +348,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     expect(nonce).to.equal(numberTo0x(2));
   });
 
-  describe('getTransactionCountSummary (pending)', function () {
+  describe('getTransactionCountSummary (pending)', () => {
     const accountUrl = `accounts/${MOCK_ACCOUNT_ADDR}?transactions=false`;
 
     beforeEach(async () => {

@@ -5,7 +5,6 @@ import { type Logger } from 'pino';
 import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
-import type { ICacheClient } from '../../clients/cache/ICacheClient';
 import {
   type PendingTransactionStorage,
   type TransactionPoolService as ITransactionPoolService,
@@ -61,8 +60,6 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   private readonly storageType: string;
 
-  private readonly cacheService: ICacheClient | null;
-
   /**
    * Return if the transaction pool is enabled based on ENABLE_TX_POOL env
    */
@@ -77,9 +74,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param logger - The logger instance for transaction pool operations.
    * @param register - Prometheus registry for metrics.
    */
-  constructor(storage: PendingTransactionStorage, logger: Logger, register: Registry, cacheService?: ICacheClient) {
+  constructor(storage: PendingTransactionStorage, logger: Logger, register: Registry) {
     this.storage = storage;
-    this.cacheService = cacheService ?? null;
     this.logger = logger.child({ name: 'transaction-pool-service' });
     this.storageType = storage instanceof RedisPendingTransactionStorage ? 'redis' : 'local';
     const metricNames = [

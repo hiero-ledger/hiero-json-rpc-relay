@@ -25,7 +25,7 @@ import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
-import { LockService, TransactionPoolService } from '../../../../src/relay/lib/services';
+import { type IAccountService, LockService, TransactionPoolService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
@@ -1147,17 +1147,27 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
 
           // Reset the account mock and set same nonce as transaction (cannot determine difference)
-          stub(ethImpl['accountService'], 'getTransactionCountSummary')
+          stub((ethImpl as unknown as { accountService: IAccountService }).accountService, 'getTransactionCountSummary')
             .onFirstCall()
-            .returns({
-              pendingCount: 0,
-              confirmedCount: 5,
-            })
+            .returns(
+              new Promise((resolve) =>
+                resolve({
+                  pendingCount: 0,
+                  confirmedCount: 5,
+                  mirrorNodeArtifact: null,
+                }),
+              ),
+            )
             .onSecondCall()
-            .returns({
-              pendingCount: 1,
-              confirmedCount: 5,
-            });
+            .returns(
+              new Promise((resolve) =>
+                resolve({
+                  pendingCount: 1,
+                  confirmedCount: 5,
+                  mirrorNodeArtifact: null,
+                }),
+              ),
+            );
           await expect(ethImpl.sendRawTransaction(signed, requestDetails))
             .to.be.rejectedWith(JsonRpcError)
             .and.eventually.satisfy(
