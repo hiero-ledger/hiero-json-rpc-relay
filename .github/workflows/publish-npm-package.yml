@@ -7,14 +7,13 @@ on:
     types: [ published ]
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.77.0 or v0.77.0-rc1)'
+        required: true
       dry-run-enabled:
         description: 'Enable dry run mode'
         required: false
         default: 'false'
-      ref:
-        description: 'Ref (tag) to release'
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -33,9 +32,56 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     outputs:
       artifact: ${{ steps.build-package.outputs.artifact-name }}
+      is-rc: ${{ steps.resolve-tag.outputs.is-rc }}
     steps:
-      - name: Checkout repository
+      - name: Harden Runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2.15.1
+        with:
+          egress-policy: audit
+
+      - name: Resolve tag reference
+        id: resolve-tag
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+
+          # Strip leading 'v' if present
+          VERSION="${TAG#v}"
+
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::Could not determine version from tag: ${TAG}"
+            exit 1
+          fi
+
+          # Determine if this is an RC release
+          if [[ "$VERSION" == *-rc* ]]; then
+            IS_RC="true"
+          else
+            IS_RC="false"
+          fi
+
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "is-rc=${IS_RC}" >> $GITHUB_OUTPUT
+          echo "Resolved tag=${TAG}, version=${VERSION}, is-rc=${IS_RC}"
+
+      - name: Checkout repository at tag
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ steps.resolve-tag.outputs.tag }}
+
+      - name: Verify package version matches tag
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ steps.resolve-tag.outputs.version }}"
+
+          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::package.json version (${PACKAGE_VERSION}) does not match tag version (${TAG_VERSION})"
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -97,11 +143,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.ref }}
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Use Node.js 22
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -129,7 +171,7 @@ jobs:
             args="${args} --dry-run"
           fi
 
-          if [[ "${{ inputs.rc || 'false' }}" == "true" ]]; then
+          if [[ "${{ needs.create-npm-package.outputs.is-rc }}" == "true" ]]; then
             args="${args} --tag rc"
           fi
 
