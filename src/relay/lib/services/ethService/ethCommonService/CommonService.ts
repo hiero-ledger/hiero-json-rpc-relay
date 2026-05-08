@@ -626,10 +626,6 @@ export class CommonService implements ICommonService {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
 
-  public isBlockHash = (blockHash: string): boolean => {
-    return new RegExp(constants.BLOCK_HASH_REGEX + '{64}$').test(blockHash);
-  };
-
   /**
    * Tries to get the account with the given address from the cache,
    * if not found, it fetches it from the mirror node.

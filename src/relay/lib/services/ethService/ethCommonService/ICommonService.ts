@@ -51,8 +51,6 @@ export interface ICommonService {
     sliceCount?: number,
   ): Promise<Log[]>;
 
-  isBlockHash(blockHash: string): boolean;
-
   isBlockParamValid(tag: string | null): boolean;
 
   resolveEvmAddress(address: string, requestDetails: RequestDetails, types?: string[]): Promise<string>;
