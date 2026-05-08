@@ -83,11 +83,22 @@ export interface PendingTransactionStorage {
    * Adds a pending transaction for the given address.
    * Implementations must atomically index the transaction (per-address + global) and persist its payload.
    *
+   * Additionally, stores the information what was the initial number of confirmed transactions for the address
+   * when creating this local pending pool.
+   *
    * @param addr - The account address.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
    * @param confirmedCount - The confirmed transaction count for the address.
    */
-  addToList(addr: string, rlpHex: string, confirmedCount: number): Promise<void>;
+  addToListAndSetConfirmedCount(addr: string, rlpHex: string, confirmedCount: number): Promise<void>;
+
+  /**
+   * Removes a transaction from the pending list of the given address.
+   *
+   * @param address - The account address whose transaction should be removed.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
+   */
+  removeFromList(address: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.
@@ -95,9 +106,8 @@ export interface PendingTransactionStorage {
    *
    * @param address - The account address whose transaction should be removed.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
-   * @param status - The status of the transaction (optional).
    */
-  removeFromList(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void>;
+  removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes all pending transactions across all addresses.

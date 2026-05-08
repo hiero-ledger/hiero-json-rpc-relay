@@ -58,12 +58,13 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   /**
    * Adds a pending transaction for the given address.
    * Atomically indexes the transaction (per-address + global) using MULTI/EXEC.
+   * It also stores the confirmed count for the address.
    *
    * @param address - Account address whose pending list will be appended to.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
    * @param confirmedCount - The number of confirmed transactions for this address.
    */
-  async addToList(address: string, rlpHex: string, confirmedCount: number): Promise<void> {
+  async addToListAndSetConfirmedCount(address: string, rlpHex: string, confirmedCount: number): Promise<void> {
     const addressKey = this.keyFor(address);
     const confirmedCountKey = this.keyFor(address, this.confirmedTxCountKey);
 
@@ -75,9 +76,21 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
       .expire(this.globalPendingTxsKey, this.storageTtl)
 
       .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
-      .expire(confirmedCountKey, ConfigService.get('CACHED_SENDER_TX_COUNT_TTL')) // but always refresh ttl to 30s
+      .expire(confirmedCountKey, ConfigService.get('CACHED_SENDER_TX_COUNT_TTL')) // but always refresh ttl
 
       .exec();
+  }
+
+  /**
+   * Removes a transaction from the pending list of the given address.
+   *
+   * @param address - Account address whose pending list should be modified.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
+   */
+  async removeFromList(address: string, rlpHex: string): Promise<void> {
+    const key = this.keyFor(address);
+
+    await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex).exec();
   }
 
   /**
@@ -86,16 +99,12 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - Account address whose pending list should be modified.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
-   * @param status - The status of the transaction (optional).
    */
-  async removeFromList(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void> {
-    const key = this.keyFor(address);
-    const removeOperation = this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex);
-    if (status !== 'confirmed') {
-      await removeOperation.exec();
-      return;
-    }
-    await removeOperation
+  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
+    await this.redisClient
+      .multi()
+      .sRem(this.keyFor(address), rlpHex)
+      .sRem(this.globalPendingTxsKey, rlpHex)
       .incr(this.keyFor(address, this.confirmedTxCountKey)) // If the key does not exist, it will be set to 1
       .exec();
   }

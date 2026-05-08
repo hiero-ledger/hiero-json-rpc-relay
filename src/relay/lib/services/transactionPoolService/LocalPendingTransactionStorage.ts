@@ -10,6 +10,9 @@ import { type PendingTransactionStorage } from '../../types/transactionPool';
  * atomicity across multiple process instances.
  */
 export class LocalPendingTransactionStorage implements PendingTransactionStorage {
+  // Local cache of confirmed count for each address
+  private readonly confirmedCount: Map<string, number>;
+
   // Maps address to a Set of RLP hex payloads for that address
   private readonly pendingTransactions: Map<string, Set<string>>;
 
@@ -17,6 +20,7 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   private readonly globalTransactionIndex: Set<string>;
 
   constructor() {
+    this.confirmedCount = new Map();
     this.pendingTransactions = new Map();
     this.globalTransactionIndex = new Set();
   }
@@ -47,13 +51,14 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param addr - The account address
    * @param rlpHex - The RLP-encoded transaction as a hex string
-   * @param _confirmedCount - The number of confirmed transactions for this address
+   * @param confirmedCount - The number of confirmed transactions for this address
    */
-  async addToList(addr: string, rlpHex: string, _confirmedCount: number): Promise<void> {
+  async addToListAndSetConfirmedCount(addr: string, rlpHex: string, confirmedCount: number): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
     }
+    if (!this.confirmedCount.has(addr)) this.confirmedCount.set(addr, confirmedCount);
 
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(rlpHex);
@@ -82,6 +87,17 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
     // Remove from global index
     this.globalTransactionIndex.delete(rlpHex);
+  }
+
+  /**
+   * Removes a transaction from the pending list of the given address.
+   *
+   * @param address - The account address whose transaction should be removed
+   * @param rlpHex - The RLP-encoded transaction as a hex string
+   */
+  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
+    await this.removeFromList(address, rlpHex);
+    this.confirmedCount.set(address, (this.confirmedCount.get(address) ?? 0) + 1);
   }
 
   /**

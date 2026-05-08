@@ -137,7 +137,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const rlpHex = tx.serialized;
 
     try {
-      await this.storage.addToList(addressLowerCased, rlpHex, tx.nonce);
+      await this.storage.addToListAndSetConfirmedCount(addressLowerCased, rlpHex, tx.nonce);
       this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {
@@ -167,7 +167,11 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
 
     try {
-      await this.storage.removeFromList(addressLowerCased, rlpHex, status);
+      if (status === 'confirmed') {
+        await this.storage.removeFromListAndIncrementConfirmedCount(addressLowerCased, rlpHex);
+      } else {
+        await this.storage.removeFromList(addressLowerCased, rlpHex);
+      }
       this.pendingCountGauge.dec();
       this.operationsCounter.labels('remove').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
