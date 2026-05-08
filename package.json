@@ -111,7 +111,7 @@
     "@ethereumjs/util": "^9.1.0",
     "@ethersproject/keccak256": "^5.8.0",
     "@hiero-ledger/sdk": "^2.83.0",
-    "@hoppscotch/cli": "0.30.3",
+    "@hoppscotch/cli": "0.31.1",
     "@koa/cors": "^5.0.0",
     "async-mutex": "^0.5.0",
     "axios": "^1.15.2",
