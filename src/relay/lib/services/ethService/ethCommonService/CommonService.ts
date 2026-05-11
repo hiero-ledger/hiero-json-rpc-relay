@@ -351,7 +351,10 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Gets the most recent block number.
+   * Gets the most recent block number from the mirror node (the `latest` block).
+   *
+   * @param {RequestDetails} requestDetails - Request metadata used for logging and tracing.
+   * @returns {Promise<string>} The block number as a 0x-prefixed hexadecimal string (JSON-RPC quantity).
    */
   public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
     const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
