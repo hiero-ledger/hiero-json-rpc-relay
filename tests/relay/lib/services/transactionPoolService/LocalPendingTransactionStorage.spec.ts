@@ -194,12 +194,13 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
   });
 
-  describe('getConfirmedCount should return null for address with no cached baseline', () => {
+  describe('getConfirmedCount should return correct value for address', () => {
     [
       {
         title: 'should return null with no operations',
         run: async () => {},
         address: testAddress1,
+        expectedValue: null,
       },
       {
         title: 'should still return null after addToList attempts to seed baseline',
@@ -207,29 +208,31 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
           await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 5);
         },
         address: testAddress1,
+        expectedValue: 5,
       },
       {
-        title: 'should still return null after removeFromList operations',
+        title: 'should return value after removeFromList operations',
         run: async () => {
           await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
           await storage.removeFromList(testAddress1, testRlp1);
         },
         address: testAddress1,
+        expectedValue: 3,
       },
       {
-        title: 'should return null for any address regardless of operations',
+        title: 'should return incremented value after removeFromListAndIncrementConfirmedCount operations',
         run: async () => {
-          await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 10);
-          await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 11);
-          await storage.removeFromList(testAddress2, testRlp2);
+          await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+          await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1);
         },
-        address: testAddress2,
+        address: testAddress1,
+        expectedValue: 4,
       },
-    ].forEach(({ title, run, address }) => {
+    ].forEach(({ title, run, address, expectedValue }) => {
       it(title, async () => {
         await run();
         const count = await storage.getConfirmedCount(address);
-        expect(count).to.equal(null);
+        expect(count).to.equal(expectedValue);
       });
     });
   });
