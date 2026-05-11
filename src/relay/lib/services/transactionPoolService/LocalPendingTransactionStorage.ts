@@ -139,9 +139,9 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
    * - Callers should derive subsequent expected nonces relative to this value.
    *
-   * @param _address - The sender's EVM address.
+   * @param address - The sender's EVM address.
    */
-  async getConfirmedCount(_address: string): Promise<number | null> {
-    return new Promise((resolve) => resolve(null));
+  async getConfirmedCount(address: string): Promise<number | null> {
+    return this.confirmedCount.get(address) ?? null;
   }
 }
