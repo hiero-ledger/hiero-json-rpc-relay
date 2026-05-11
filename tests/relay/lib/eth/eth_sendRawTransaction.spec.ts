@@ -1151,7 +1151,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
 
           // Reset the account mock and set same nonce as transaction (cannot determine difference)
-          stub((ethImpl as unknown as { accountService: IAccountService }).accountService, 'getTransactionCountSummary')
+          stub((ethImpl as unknown as { accountService: IAccountService }).accountService, 'getTransactionCounts')
             .onFirstCall()
             .returns(
               new Promise((resolve) =>

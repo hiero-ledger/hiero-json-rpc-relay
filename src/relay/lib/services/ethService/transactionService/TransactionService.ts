@@ -357,7 +357,7 @@ export class TransactionService implements ITransactionService {
 
     let verifiedBalance: IAccountBalance | undefined;
     try {
-      const { confirmedCount, pendingCount, mirrorNodeArtifact } = await this.accountService.getTransactionCountSummary(
+      const { confirmedCount, pendingCount, mirrorNodeArtifact } = await this.accountService.getTransactionCounts(
         senderAddress,
         requestDetails,
       );
@@ -765,7 +765,7 @@ export class TransactionService implements ITransactionService {
 
         let accountNonce: number | null = null;
         try {
-          const txCounts = await this.accountService.getTransactionCountSummary(parsedTx.from!, requestDetails);
+          const txCounts = await this.accountService.getTransactionCounts(parsedTx.from!, requestDetails);
           // Decrementing because currently investigated transaction is still placed on the pending queue.
           accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
         } catch (mirrorNodeError) {

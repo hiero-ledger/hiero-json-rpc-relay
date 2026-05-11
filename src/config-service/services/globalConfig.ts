@@ -669,7 +669,7 @@ const _CONFIG = {
   SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS: {
     type: 'number',
     required: false,
-    defaultValue: 30, // 30 attempts
+    defaultValue: 10, // 10 attempts
   },
   CACHED_SENDER_TX_COUNT_TTL: {
     type: 'number',

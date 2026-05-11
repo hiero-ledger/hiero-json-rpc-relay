@@ -348,7 +348,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     expect(nonce).to.equal(numberTo0x(2));
   });
 
-  describe('getTransactionCountSummary (pending)', () => {
+  describe('getTransactionCounts (pending)', () => {
     const accountUrl = `accounts/${MOCK_ACCOUNT_ADDR}?transactions=false`;
 
     beforeEach(async () => {

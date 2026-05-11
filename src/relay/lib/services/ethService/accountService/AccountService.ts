@@ -258,10 +258,7 @@ export class AccountService implements IAccountService {
    * @param {string} address The account address
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
-  public async getTransactionCountSummary(
-    address: string,
-    requestDetails: RequestDetails,
-  ): Promise<IPendingPoolStatusInfo> {
+  public async getTransactionCounts(address: string, requestDetails: RequestDetails): Promise<IPendingPoolStatusInfo> {
     const [confirmedCount, pendingCount] = await Promise.all([
       this.transactionPoolService.getConfirmedCount(address),
       this.transactionPoolService.getPendingCount(address),
@@ -299,11 +296,8 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      if (blockNumOrTag === constants.BLOCK_PENDING) {
-        const { confirmedCount, pendingCount } = await this.getTransactionCountSummary(address, requestDetails);
-        return numberTo0x(confirmedCount + pendingCount);
-      }
-      return await this.getAccountLatestEthereumNonce(address, requestDetails);
+      const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
+      return numberTo0x(blockNumOrTag === constants.BLOCK_PENDING ? confirmedCount + pendingCount : confirmedCount);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {

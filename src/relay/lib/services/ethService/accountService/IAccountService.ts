@@ -12,7 +12,7 @@ export interface IAccountService {
 
   getBalance: (account: string, blockNumberOrTagOrHash: string, requestDetails: RequestDetails) => Promise<string>;
 
-  getTransactionCountSummary: (
+  getTransactionCounts: (
     account: string,
     requestDetails: RequestDetails,
   ) => Promise<{ pendingCount: number; confirmedCount: number; mirrorNodeArtifact: IAccountInfo | null }>;
