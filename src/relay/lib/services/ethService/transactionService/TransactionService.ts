@@ -282,7 +282,7 @@ export class TransactionService implements ITransactionService {
    *   3. release Lock 1
    *   4. acquire Lock 2 (execution lock)
    *   5. balance check (reuse senderAccountInfo on cold; fresh verifyAccount on warm)
-   *      validateReceiverAndGasStateful (gas + access list + receiver)
+   *      validateReceiverAndGasStateful (gas and receiver)
    *      on failure → decrement cache (gen-matched) → remove pool entry → release Lock 2 → throw
    *   6. hand off to sendRawTransactionProcessor (CN submission + outcome handling)
    *
