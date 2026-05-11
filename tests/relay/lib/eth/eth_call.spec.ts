@@ -55,6 +55,8 @@ interface ContractServiceTest extends ContractService {
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
 
+const BLOCKHASH = '0x378e5993d3756648e1ef0141e646d6290af5a652181055516a1a69e76e04b5db';
+
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
@@ -669,6 +671,16 @@ describe('@ethCall Eth Call spec', async function () {
     it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
       const result = await contractService['extractBlockNumberOrTag'](null);
       expect(result).to.be.null;
+    });
+
+    it('should return unchanged blockHash when blockHash is passed as a string on extractBlockNumberOrTag', async function () {
+      const result = await contractService['extractBlockNumberOrTag'](BLOCKHASH);
+      expect(result).to.be.equal(BLOCKHASH);
+    });
+
+    it('should return unchanged blockHash when blockHash is passed within an object on extractBlockNumberOrTag', async function () {
+      const result = await contractService['extractBlockNumberOrTag']({ blockHash: BLOCKHASH });
+      expect(result).to.be.equal(BLOCKHASH);
     });
 
     it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
