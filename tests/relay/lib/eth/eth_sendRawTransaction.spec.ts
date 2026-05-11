@@ -90,10 +90,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     const txPoolServiceWithMockedStorage = new TransactionPoolService(
       {
         getList: sinon.stub(),
-        addToList: sinon.stub(),
+        addToListAndSetConfirmedCount: sinon.stub(),
         removeFromList: sinon.stub(),
+        removeFromListAndIncrementConfirmedCount: sinon.stub(),
         removeAll: sinon.stub(),
         getUniqueAddressCount: sinon.stub(),
+        getAllTransactionPayloads: sinon.stub(),
+        getTransactionPayloads: sinon.stub(),
+        getConfirmedCount: sinon.stub(),
       },
       pino({ level: 'silent' }),
       registry,
