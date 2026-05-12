@@ -13,7 +13,12 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { type IAccountInfo, type MirrorNodeContractLog, type RequestDetails } from '../../../types';
+import {
+  type IAccountInfo,
+  type MirrorNodeBlock,
+  type MirrorNodeContractLog,
+  type RequestDetails,
+} from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -301,16 +306,14 @@ export class CommonService implements ICommonService {
 
     const blockNumber = Number(blockNumberOrTagOrHash);
     if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length < 32 && !isNaN(blockNumber)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      const latestBlock = latestBlockResponse.blocks[0];
+      const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
       if (blockNumber > latestBlock.number + this.maxBlockRange) {
         return null;
       }
     }
 
     if (blockNumberOrTagOrHash == null || this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      return latestBlockResponse.blocks[0];
+      return await this.getLatestBlockFromMirrorNode(requestDetails);
     }
 
     if (blockNumberOrTagOrHash === constants.BLOCK_EARLIEST) {
@@ -325,16 +328,37 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Gets the most recent block number.
+   * Fetches the latest block from the mirror node.
+   *
+   * Acts as the single source of truth for "latest" within this service: callers that need either the
+   * latest block object or just its number should go through here so the empty/null mirror-node response
+   * is handled in one place. The mirror node can transiently return an empty `blocks` array (e.g. right
+   * after a network reset, or against a freshly deployed mirror node that has not finished its initial
+   * sync); in those cases this method throws `COULD_NOT_RETRIEVE_LATEST_BLOCK` rather than letting an
+   * undefined block propagate to callers and crash with a `TypeError`.
+   *
+   * @param requestDetails - request metadata used for logging and tracing
+   * @returns the latest mirror node block
+   * @throws {JsonRpcError} `COULD_NOT_RETRIEVE_LATEST_BLOCK` when the mirror node returns no blocks
    */
-  public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
+  private async getLatestBlockFromMirrorNode(requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      return numberTo0x(blocks[0].number);
+    if (Array.isArray(blocksResponse?.blocks) && blocksResponse.blocks.length > 0) {
+      return blocksResponse.blocks[0];
     }
 
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
+  }
+
+  /**
+   * Gets the most recent block number from the mirror node (the `latest` block).
+   *
+   * @param {RequestDetails} requestDetails - Request metadata used for logging and tracing.
+   * @returns {Promise<string>} The block number as a 0x-prefixed hexadecimal string (JSON-RPC quantity).
+   */
+  public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
+    const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
+    return numberTo0x(latestBlock.number);
   }
 
   public genericErrorHandler(error: any, logMessage?: string): void {
