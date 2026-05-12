@@ -189,9 +189,9 @@ export class ContractService implements IContractService {
     }
 
     // check for static precompile cases first before consulting nodes
-    // this also account for environments where system entities were not yet exposed to the mirror node
-    if (address === constants.HTS_ADDRESS) {
-      this.logger.trace(`HTS precompile case, return %s for byte code`, constants.INVALID_EVM_INSTRUCTION);
+    // this also accounts for environments where system entities were not yet exposed to the mirror node
+    if (address === constants.HTS_ADDRESS || address === constants.HSS_ADDRESS) {
+      this.logger.trace(`System contract %s, return %s for byte code`, address, constants.INVALID_EVM_INSTRUCTION);
       return constants.INVALID_EVM_INSTRUCTION;
     }
 
@@ -200,15 +200,26 @@ export class ContractService implements IContractService {
         constants.TYPE_CONTRACT,
         constants.TYPE_TOKEN,
         constants.TYPE_ACCOUNT,
+        constants.TYPE_SCHEDULE,
       ]);
       if (result) {
         const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
-        if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
+        const entityCreatedTimestamp = result.entity?.created_timestamp ?? result.entity?.consensus_timestamp;
+        if (!blockInfo || parseFloat(entityCreatedTimestamp) > parseFloat(blockInfo.timestamp.to)) {
           return constants.EMPTY_HEX;
         }
         if (result.type === constants.TYPE_TOKEN) {
-          this.logger.trace(`Token redirect case, return redirectBytecode`);
-          return CommonService.redirectBytecodeAddressReplace(address);
+          this.logger.trace(
+            `Token facade case, return delegation designator pointing to HTS (%s)`,
+            constants.HTS_ADDRESS,
+          );
+          return CommonService.getDelegationDesignator(constants.HTS_ADDRESS);
+        } else if (result.type === constants.TYPE_SCHEDULE) {
+          this.logger.trace(
+            `Schedule facade case, return delegation designator pointing to HSS (%s)`,
+            constants.HSS_ADDRESS,
+          );
+          return CommonService.getDelegationDesignator(constants.HSS_ADDRESS);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
             return result.entity.runtime_bytecode;
@@ -222,7 +233,10 @@ export class ContractService implements IContractService {
         }
       }
 
-      this.logger.debug(`Address %s is not a contract nor an HTS token, returning empty hex`, address);
+      this.logger.debug(
+        `Address %s is not a contract, HTS token, HSS schedule, or delegated EOA, returning empty hex`,
+        address,
+      );
 
       return constants.EMPTY_HEX;
     } catch (error: any) {

@@ -1545,6 +1545,27 @@ describe('MirrorNodeClient', async function () {
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
     });
+
+    it('returns `SCHEDULE` when only the SCHEDULES endpoint returns a result', async () => {
+      const scheduleId = '0.0.13312';
+      const scheduleLongZero = '0x0000000000000000000000000000000000003400';
+      const scheduleResponse = { schedule_id: scheduleId, consensus_timestamp: '1234567890.000000001' };
+
+      mock.onGet(`contracts/${scheduleLongZero}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`accounts/${scheduleLongZero}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${scheduleId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`schedules/${scheduleId}`).reply(200, JSON.stringify(scheduleResponse));
+
+      const entityType = await mirrorNodeInstance.resolveEntityType(
+        scheduleLongZero,
+        'mirrorNodeClientTest',
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN, constants.TYPE_SCHEDULE],
+      );
+      expect(entityType).to.exist;
+      expect(entityType!.type).to.eq('SCHEDULE');
+      expect(entityType!.entity.schedule_id).to.eq(scheduleId);
+    });
   });
 
   describe('getTransactionById', async () => {
