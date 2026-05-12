@@ -101,12 +101,19 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
   async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
-    await this.redisClient
-      .multi()
-      .sRem(this.keyFor(address), rlpHex)
-      .sRem(this.globalPendingTxsKey, rlpHex)
-      .incr(this.keyFor(address, this.confirmedTxCountKey)) // If the key does not exist, it will be set to 1
-      .exec();
+    const confirmedKey = this.keyFor(address, this.confirmedTxCountKey);
+
+    // MULTI will still execute even if the pending tx set already expired.
+    // This is expected behavior.
+    //
+    // If the tx is no longer in the pending pool, SREM becomes a no-op.
+    // We still attempt to increment the confirmed count if that key exists.
+    const multi = this.redisClient.multi().sRem(this.keyFor(address), rlpHex).sRem(this.globalPendingTxsKey, rlpHex);
+
+    // If the key is missing it means that confirmed count expired way too early, we shouldn't set it then
+    const confirmedCountExists = await this.redisClient.exists(confirmedKey);
+    if (confirmedCountExists) multi.incr(confirmedKey);
+    await multi.exec();
   }
 
   /**

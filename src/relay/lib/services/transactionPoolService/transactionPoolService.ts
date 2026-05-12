@@ -126,9 +126,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address that submits the transaction.
    * @param tx - The transaction object to be stored.
+   * @param confirmedCount - Number of confirmed transactions count received from the mirror node.
    * @returns A promise that resolves once the transaction is stored.
    */
-  async saveTransaction(address: string, tx: Transaction): Promise<void> {
+  async saveTransaction(address: string, tx: Transaction, confirmedCount: number): Promise<void> {
     if (!TransactionPoolService.isEnabled()) {
       return;
     }
@@ -137,7 +138,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const rlpHex = tx.serialized;
 
     try {
-      await this.storage.addToListAndSetConfirmedCount(addressLowerCased, rlpHex, tx.nonce);
+      await this.storage.addToListAndSetConfirmedCount(addressLowerCased, rlpHex, confirmedCount);
       this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {

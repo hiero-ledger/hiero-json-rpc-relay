@@ -13,9 +13,10 @@ export interface TransactionPoolService {
    *
    * @param address - The account address that submits the transaction.
    * @param tx - The transaction object to be stored.
+   * @param confirmedCount - Number of confirmed transactions count received from the mirror node.
    * @returns A promise that resolves once the transaction is stored.
    */
-  saveTransaction(address: string, tx: Transaction): Promise<void>;
+  saveTransaction(address: string, tx: Transaction, confirmedCount: number): Promise<void>;
 
   /**
    * Removes a transaction from the transaction pool for the given address.

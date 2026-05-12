@@ -367,7 +367,7 @@ export class TransactionService implements ITransactionService {
 
       // save transaction to pool
       try {
-        await this.transactionPoolService.saveTransaction(senderAddress, parsedTx);
+        await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
       } catch (saveError) {
         // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
         // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will

@@ -73,7 +73,7 @@ describe('TransactionPoolService Test Suite', function () {
     withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
       it(`should not execute .addToList if ENABLE_TX_POOL is set to false`, async function () {
         mockStorage.addToListAndSetConfirmedCount.resolves();
-        await transactionPoolService.saveTransaction(testAddress, testTransaction);
+        await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
         expect(mockStorage.addToListAndSetConfirmedCount.notCalled).to.be.true;
       });
     });
@@ -81,7 +81,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should successfully save transaction to pool', async () => {
       mockStorage.addToListAndSetConfirmedCount.resolves();
 
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       expect(mockStorage.addToListAndSetConfirmedCount.calledOnce).to.be.true;
       expect(mockStorage.addToListAndSetConfirmedCount.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
@@ -90,7 +90,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should save transaction to pool and update counter', async () => {
       mockStorage.addToListAndSetConfirmedCount.resolves();
 
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       const metric = await register.getSingleMetric('rpc_relay_txpool_operations_total');
       if (!metric) throw new Error('Expected metric to be registered');
@@ -120,7 +120,7 @@ describe('TransactionPoolService Test Suite', function () {
       const loggerSpy = sinon.spy(transactionPoolService['logger'], 'error');
 
       try {
-        await transactionPoolService.saveTransaction(testAddress, testTransaction);
+        await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
         expect.fail('Expected error to be thrown');
       } catch (error) {
         expect((error as Error).message).to.equal('Storage connection failed');
@@ -258,7 +258,7 @@ describe('TransactionPoolService Test Suite', function () {
       mockStorage.removeFromList.resolves();
 
       // Save transaction
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       // Verify pending count increased
       mockStorage.getList.resolves(1);
@@ -286,12 +286,12 @@ describe('TransactionPoolService Test Suite', function () {
       // First transaction
       mockStorage.getList.resolves(0);
       mockStorage.addToListAndSetConfirmedCount.resolves();
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       // Second transaction
       mockStorage.getList.resolves(1);
       mockStorage.addToListAndSetConfirmedCount.resolves();
-      await transactionPoolService.saveTransaction(testAddress, secondTx);
+      await transactionPoolService.saveTransaction(testAddress, secondTx, secondTx.nonce);
 
       expect(mockStorage.addToListAndSetConfirmedCount.calledTwice).to.be.true;
       expect(mockStorage.addToListAndSetConfirmedCount.firstCall.calledWith(testAddress.toLowerCase(), testRlpHex)).to
@@ -379,7 +379,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should pass RLP payload to addToListAndSetConfirmedCount when saving transaction', async () => {
       mockStorage.addToListAndSetConfirmedCount.resolves();
 
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       expect(mockStorage.addToListAndSetConfirmedCount.calledOnce).to.be.true;
       const callArgs = mockStorage.addToListAndSetConfirmedCount.firstCall.args;
@@ -390,7 +390,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should atomically save address index and payload in single storage call', async () => {
       mockStorage.addToListAndSetConfirmedCount.resolves();
 
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
 
       // Verify only one storage call was made
       expect(mockStorage.addToListAndSetConfirmedCount.callCount).to.equal(1);
