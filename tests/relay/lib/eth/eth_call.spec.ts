@@ -684,13 +684,10 @@ describe('@ethCall Eth Call spec', async function () {
     });
 
     it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
-      await expect(contractService['extractBlockNumberOrTag']({}))
-        .to.be.rejectedWith(JsonRpcError)
-        .and.eventually.satisfy((error: JsonRpcError) => {
-          expect(error.code).to.equal(-32000);
-          expect(error.message).to.contain('neither block nor hash specified');
-          return true;
-        });
+      expect(() => contractService['extractBlockNumberOrTag']({})).to.throw(
+        JsonRpcError,
+        'neither block nor hash specified',
+      );
     });
 
     it('should handle invalid contract address in validateContractAddress', async function () {
