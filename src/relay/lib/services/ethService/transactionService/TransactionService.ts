@@ -419,6 +419,11 @@ export class TransactionService implements ITransactionService {
     const execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
 
+    // If transactions are processed asynchronously we do NOT wait for the Consensus Node response,
+    // we can release the lock immediately and allow subsequent transactions to be processed even when
+    // no error occurs. Otherwise, the lock will be released in the next step, after full transaction is submitted
+    // (sendRawTransactionProcessor).
+    let shouldLockBeReleased = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     try {
       // precheck sender balance
       this.precheck.balance(
@@ -432,10 +437,13 @@ export class TransactionService implements ITransactionService {
       );
       await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (error) {
+      // If an error occurs at this stage, however, we should release the lock immediately regardless
+      // of the processing mode, because there will be no submission attempt, and we need to unlock next transactions.
+      shouldLockBeReleased = true;
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
       throw error;
     } finally {
-      if (execLockResult) {
+      if (execLockResult && shouldLockBeReleased) {
         await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
       }
     }
