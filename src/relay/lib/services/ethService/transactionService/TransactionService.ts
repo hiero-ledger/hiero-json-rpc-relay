@@ -264,7 +264,7 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Sends a row transaction: 2-lock sendRawTransaction
+   * Sends a raw transaction: 2-lock sendRawTransaction
    *
    * FLOW:
    *   1. stateless precheck
@@ -363,7 +363,14 @@ export class TransactionService implements ITransactionService {
       );
       verifiedBalance = mirrorNodeArtifact?.balance;
 
-      this.precheck.nonce(parsedTx, confirmedCount + pendingCount);
+      // When we do NOT enforce ordered processing, we cannot reliably determine the state of all currently
+      // pending transactions being processed. Because of that, the safest approach is to verify only that
+      // the submitted nonce is greater than or equal to the number of transactions already confirmed by
+      // the Mirror Node.
+      const expectedNonce = !ConfigService.get('ENABLE_NONCE_ORDERING')
+        ? confirmedCount
+        : confirmedCount + pendingCount;
+      this.precheck.nonce(parsedTx, expectedNonce);
 
       // save transaction to pool
       await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
@@ -426,10 +433,11 @@ export class TransactionService implements ITransactionService {
       await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (error) {
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+      throw error;
+    } finally {
       if (execLockResult) {
         await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
       }
-      throw error;
     }
 
     return { networkGasPriceInWeiBars, execLockResult };

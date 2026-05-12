@@ -108,6 +108,7 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   async removeAll(): Promise<void> {
     this.pendingTransactions.clear();
     this.globalTransactionIndex.clear();
+    this.confirmedCount.clear();
   }
 
   /**
