@@ -11,7 +11,7 @@ import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
@@ -366,14 +366,14 @@ export class TransactionService implements ITransactionService {
       this.precheck.nonce(parsedTx, confirmedCount + pendingCount);
 
       // save transaction to pool
-      try {
-        await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
-      } catch (saveError) {
-        // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
-        // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
-        // return a wrong pending state.
-        throw predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(saveError as Error).message}`);
-      }
+      await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
+    } catch (error) {
+      if (error instanceof JsonRpcError) throw error;
+
+      // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
+      // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
+      // return a wrong pending state.
+      throw predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(error as Error).message}`);
     } finally {
       // Release Lock 1 regardless of outcome so that the caller can retry immediately if it was a precheck failure,
       // or after a short wait if it was an MN or pool failure.
