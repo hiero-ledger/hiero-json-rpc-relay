@@ -138,11 +138,11 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       expect(count).to.equal(7);
     });
 
-    it('starts from 1 when incrementing without pre-existing baseline', async () => {
+    it('does not start from 1 when incrementing without pre-existing baseline (confirmedCount key expired)', async () => {
       // No addToList call to set NX baseline
       await storage.removeFromListAndIncrementConfirmedCount(addr2, rlp3);
       const count = await storage.getConfirmedCount(addr2);
-      expect(count).to.equal(1);
+      expect(count).to.be.null;
     });
   });
 
