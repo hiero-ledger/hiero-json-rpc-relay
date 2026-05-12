@@ -416,7 +416,7 @@ export class TransactionService implements ITransactionService {
     verifiedBalance?: IAccountBalance,
   ): Promise<{ networkGasPriceInWeiBars: number; execLockResult?: LockAcquisitionResult }> {
     const execLockKey = `${senderAddress}:exec`;
-    const execLockResult = await this.lockService.acquireLock(execLockKey);
+    let execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
 
     // If transactions are processed asynchronously we do NOT wait for the Consensus Node response,
@@ -445,6 +445,7 @@ export class TransactionService implements ITransactionService {
     } finally {
       if (execLockResult && shouldLockBeReleased) {
         await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
+        execLockResult = undefined;
       }
     }
 

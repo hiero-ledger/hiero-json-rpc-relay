@@ -822,13 +822,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           );
           sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:exec`, 'session-after-consensus-1');
 
-          expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
-
           // In async mode, verify computeHash was called before lock release
           if (useAsyncTxProcessing) {
             sinon.assert.called(computeHashSpy);
             expect(sendRawTransactionProcessorSpy.calledBefore(computeHashSpy)).to.be.true;
-            expect(computeHashSpy.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+            expect(computeHashSpy.calledAfter(lockServiceStub.releaseLock)).to.be.true;
+            expect(sdkClientStub.submitEthereumTransaction.calledAfter(lockServiceStub.releaseLock)).to.be.true;
+          } else {
+            expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           }
         } finally {
           computeHashSpy.restore();
