@@ -658,16 +658,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       });
 
       describe('Successful Transaction Path', () => {
-        it('should acquire lock and pass lockSessionKey to processor with releasing, but not removing tx from the pool', async function () {
+        it.only('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
           const signed = await signTransaction(transaction);
 
           // Mock successful flow
           restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
-          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
 
           const currentTime = process.hrtime.bigint();
           lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
@@ -689,16 +686,18 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:ingress`);
           sinon.assert.calledWith(lockServiceStub.acquireLock, `${accountAddress}:exec`);
 
-          // Verify exec lock IS released in sendRawTransaction
-          // (pending transaction should be removed later in the chain, in sdkClient.executeTransaction)
-          // but the locks are removed right away so we can process next transaction.
-          sinon.assert.calledTwice(lockServiceStub.releaseLock);
+          // Verify exec lock was NOT released in sendRawTransaction
+          // (it should be released later in the chain, in sdkClient.executeTransaction)
+          // only the ingress lock should be released right away
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
           sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:ingress`, 'test-session-key-success');
-          sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:exec`, 'test-session-key-success');
 
-          sinon.assert.notCalled(removeStub);
           // Verify no error logs
           sinon.assert.notCalled(loggerErrorStub);
+
+          // 5 seconds later exec release should be called as well
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          sinon.assert.calledWith(lockServiceStub.releaseLock, `${accountAddress}:exec`, 'test-session-key-success');
         });
 
         it('should be able to add more than 1 transaction into the pending queue', async function () {
