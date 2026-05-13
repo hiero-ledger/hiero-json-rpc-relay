@@ -303,7 +303,10 @@ export class TransactionService implements ITransactionService {
           JSON.stringify(parsedTx),
         );
       }
-      await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+      if (!ConfigService.get('DISABLE_MN_PRECHECKS')) {
+        await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      }
     } catch (error) {
       // Release lock on any error during validation or prechecks
       if (lockResult) {

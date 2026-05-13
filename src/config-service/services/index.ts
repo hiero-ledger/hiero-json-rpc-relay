@@ -57,6 +57,17 @@ export class ConfigService {
   private readonly envs: NodeJS.ReadOnlyDict<string>;
 
   /**
+   * List of predefined warnings to be shown
+   * @private
+   */
+  private readonly warnings: Array<{ envName: string; value: any }> = [
+    {
+      envName: 'DISABLE_MN_PRECHECKS',
+      value: true,
+    },
+  ];
+
+  /**
    * Fetches all envs from process.env and pushes them into the envs property
    * @private
    */
@@ -79,6 +90,13 @@ export class ConfigService {
       // printing current env variables, masking up sensitive information
       for (const name in this.envs) {
         logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
+      }
+
+      // printing warnings
+      for (const warning of this.warnings) {
+        if (this.envs[warning.envName] === warning.value) {
+          logger.warn(`${warning.envName} is set to '${warning.value}'`);
+        }
       }
     }
 
