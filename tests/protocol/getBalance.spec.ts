@@ -160,7 +160,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
         const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
         const res = (await client.call(METHOD_NAME, [
           getBalanceContractAddress,
-          numberTo0x(latestBlock.number),
+          latestBlock.hash.substring(0, 66),
         ])) as string;
         expect(res).to.eq(ethers.toQuantity(ONE_WEIBAR));
       });

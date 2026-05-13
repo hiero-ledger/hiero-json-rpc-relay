@@ -22,7 +22,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-eth-plain eth_chain
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('should execute "eth_chainId"', async () => {
-        const res = (await client.call(METHOD_NAME, [null])) as string;
+        const res = (await client.call(METHOD_NAME, [])) as string;
         expect(res).to.be.equal(CHAIN_ID);
       });
 

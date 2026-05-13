@@ -271,7 +271,6 @@ jobs:
       - websocket-batch-3
       - cacheservice
       - server-config
-      - protocol
       - protocol-account-service
       - protocol-block-service
       - protocol-common-service
