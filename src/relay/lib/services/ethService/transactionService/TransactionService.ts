@@ -726,7 +726,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (shouldPollAndCleanup) {
-      if (ConfigService.get('ENABLE_NONCE_ORDERING') && !ConfigService.get('USE_ASYNC_TX_PROCESSING')) {
+      if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
         void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
       } else {
         await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');

@@ -658,7 +658,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       });
 
       describe('Successful Transaction Path', () => {
-        it.only('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
+        it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
           const signed = await signTransaction(transaction);
 
           // Mock successful flow
