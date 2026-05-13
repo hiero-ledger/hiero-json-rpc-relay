@@ -812,6 +812,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         await Promise.allSettled(submitTransactionsPromisesThatShouldFail);
 
         const receipts = await Promise.all(hashes.map((hash) => relay.pollForValidTransactionReceipt(hash)));
+
+        // Wait for the failing transactions to be fully processed and removed from our tx pool as well
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
         const errorsCount = receipts
           .map(({ status }) => status)
           .filter((status) => status !== constants.ONE_HEX).length;
