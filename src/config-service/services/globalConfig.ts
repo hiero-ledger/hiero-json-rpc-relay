@@ -719,7 +719,7 @@ const _CONFIG = {
   PENDING_TRANSACTION_STORAGE_TTL: {
     type: 'number',
     required: false,
-    defaultValue: 60,
+    defaultValue: 30,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',
