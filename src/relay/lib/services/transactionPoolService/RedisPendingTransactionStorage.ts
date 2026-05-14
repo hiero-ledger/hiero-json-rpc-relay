@@ -76,7 +76,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
       .expire(this.globalPendingTxsKey, this.storageTtl)
 
       .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
-      .expire(confirmedCountKey, ConfigService.get('CACHED_SENDER_TX_COUNT_TTL')) // but always refresh ttl
+      .expire(confirmedCountKey, this.storageTtl) // but always refresh ttl
 
       .exec();
   }
@@ -112,8 +112,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
 
     // If the key is missing it means that confirmed count expired way too early, we shouldn't set it then
     const confirmedCountExists = await this.redisClient.exists(confirmedKey);
-    if (confirmedCountExists)
-      multi.incr(confirmedKey).expire(confirmedKey, ConfigService.get('CACHED_SENDER_TX_COUNT_TTL'));
+    if (confirmedCountExists) multi.incr(confirmedKey).expire(confirmedKey, this.storageTtl);
     await multi.exec();
   }
 

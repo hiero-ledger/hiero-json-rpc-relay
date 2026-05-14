@@ -671,11 +671,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 10, // 10 attempts
   },
-  CACHED_SENDER_TX_COUNT_TTL: {
-    type: 'number',
-    required: false,
-    defaultValue: 30, // 30 seconds
-  },
   SERVER_HOST: {
     type: 'string',
     required: false,
@@ -724,7 +719,7 @@ const _CONFIG = {
   PENDING_TRANSACTION_STORAGE_TTL: {
     type: 'number',
     required: false,
-    defaultValue: 30,
+    defaultValue: 60,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',
