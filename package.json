@@ -47,7 +47,7 @@
     "sinon": "^21.1.2",
     "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "acceptancetest": "c8 ts-mocha tests/server/acceptance/index.spec.ts --exit",
