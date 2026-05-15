@@ -142,7 +142,7 @@ export class HbarSpendingPlanConfigService {
           return [];
         }
       } catch (fileError: any) {
-        throw new Error(`File error: ${fileError.message}`);
+        throw new Error(`File error: ${fileError.message}`, { cause: fileError });
       }
     }
   }
