@@ -31,9 +31,17 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly confirmedTxCountKey = `${this.keyPrefix}confirmed`;
 
   /**
-   * The time-to-live (TTL) for the pending transaction storage in seconds.
+   * Reference TTL baseline in seconds, derived from sdk request timeout.
+   * This value is not written as a key TTL by itself; it serves as a base to
+   * compute other expirations in this storage (e.g., confirmedCountTtl).
    */
-  private readonly storageTtl: number;
+  private readonly referenceStorageTtl: number;
+
+  /**
+   * Extra TTL in seconds added per currently pending transaction for an address
+   * when computing that address' pending-set expiration.
+   */
+  private readonly extraPerPendingStorageTtl: number;
 
   /**
    * Creates a new Redis-backed pending transaction storage.
@@ -41,7 +49,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param redisClient - A connected {@link RedisClientType} instance.
    */
   constructor(private readonly redisClient: RedisClientType) {
-    this.storageTtl = ConfigService.get('PENDING_TRANSACTION_STORAGE_TTL');
+    this.referenceStorageTtl = ConfigService.get('SDK_REQUEST_TIMEOUT');
+    this.extraPerPendingStorageTtl = ConfigService.get('EXTRA_PER_PENDING_TRANSACTION_STORAGE_TTL');
   }
 
   /**
@@ -67,16 +76,17 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   async addToListAndSetConfirmedCount(address: string, rlpHex: string, confirmedCount: number): Promise<void> {
     const addressKey = this.keyFor(address);
     const confirmedCountKey = this.keyFor(address, this.confirmedTxCountKey);
+    const storageTtl = await this.getPendingTxTtl(address);
 
     await this.redisClient
       .multi()
       .sAdd(addressKey, rlpHex)
-      .expire(addressKey, this.storageTtl)
+      .expire(addressKey, storageTtl)
       .sAdd(this.globalPendingTxsKey, rlpHex)
-      .expire(this.globalPendingTxsKey, this.storageTtl)
+      .expire(this.globalPendingTxsKey, storageTtl)
 
       .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
-      .expire(confirmedCountKey, this.storageTtl) // but always refresh ttl
+      .expire(confirmedCountKey, this.confirmedCountTtl) // but always refresh ttl
 
       .exec();
   }
@@ -112,7 +122,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
 
     // If the key is missing it means that confirmed count expired way too early, we shouldn't set it then
     const confirmedCountExists = await this.redisClient.exists(confirmedKey);
-    if (confirmedCountExists) multi.incr(confirmedKey).expire(confirmedKey, this.storageTtl);
+    if (confirmedCountExists) multi.incr(confirmedKey).expire(confirmedKey, this.confirmedCountTtl);
     await multi.exec();
   }
 
@@ -185,5 +195,28 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   async getConfirmedCount(address: string): Promise<number | null> {
     const result = await this.redisClient.get(this.keyFor(address, this.confirmedTxCountKey));
     return result != null ? Number(result) : null;
+  }
+
+  /**
+   * TTL for the cached confirmed-transaction count per address, in seconds.
+   * Set to 2x the referenceStorageTtl so it outlives the baseline request
+   * window and tolerates delays.
+   */
+  get confirmedCountTtl(): number {
+    return 2 * this.referenceStorageTtl;
+  }
+
+  /**
+   * Computes the TTL (in seconds) to apply to a sender's pending-transaction set.
+   * The +1 accounts for the transaction being added now to ensure a minimum bump.
+   * Scales with the number of pending transactions to reduce premature expiration
+   * under bursty submission patterns - with the nonce ordering mechanism enabled
+   * transactions will be submitted one by one.
+   *
+   * @param address - The account address whose pending list size is used for scaling.
+   */
+  async getPendingTxTtl(address: string): Promise<number> {
+    const pendingCount = await this.getList(address);
+    return this.confirmedCountTtl + (1 + pendingCount) * this.extraPerPendingStorageTtl;
   }
 }

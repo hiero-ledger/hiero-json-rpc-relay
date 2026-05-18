@@ -716,10 +716,10 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
+  EXTRA_PER_PENDING_TRANSACTION_STORAGE_TTL: {
     type: 'number',
     required: false,
-    defaultValue: 30,
+    defaultValue: 5,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',
