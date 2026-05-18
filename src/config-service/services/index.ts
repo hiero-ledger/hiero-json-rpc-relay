@@ -62,7 +62,7 @@ export class ConfigService {
    */
   private readonly warnings: Array<{ envName: string; value: any }> = [
     {
-      envName: 'DISABLE_MN_PRECHECKS',
+      envName: 'DISABLE_MN_PRECHECKS_ON_TX_SENDING',
       value: true,
     },
   ];

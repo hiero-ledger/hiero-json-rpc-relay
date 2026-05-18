@@ -287,6 +287,7 @@ export class TransactionService implements ITransactionService {
 
     let lockResult: LockAcquisitionResult | undefined;
     let networkGasPriceInWeiBars: number;
+    const disableMnPrechecks = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING');
 
     try {
       // Acquire lock before async operations
@@ -294,9 +295,15 @@ export class TransactionService implements ITransactionService {
       if (parsedTx.from) {
         lockResult = await this.lockService.acquireLock(parsedTx.from);
       }
-      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-        await this.common.getGasPriceInWeibars(requestDetails),
-      );
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, use a static fallback gas price instead of
+      // calling the Mirror Node. The value is still required downstream by the SDK to
+      // compute the Hedera max transaction fee, but we trade live accuracy for latency
+      // and resilience to MN outages.
+      const rawNetworkGasPriceInWeiBars = disableMnPrechecks
+        ? ConfigService.get('FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS') * constants.TINYBAR_TO_WEIBAR_COEF
+        : await this.common.getGasPriceInWeibars(requestDetails);
+      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(rawNetworkGasPriceInWeiBars);
+
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
@@ -304,7 +311,7 @@ export class TransactionService implements ITransactionService {
         );
       }
 
-      if (!ConfigService.get('DISABLE_MN_PRECHECKS')) {
+      if (!disableMnPrechecks) {
         await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
       }
     } catch (error) {
@@ -687,12 +694,17 @@ export class TransactionService implements ITransactionService {
           this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
         }
         let accountNonce: number | null = null;
-        try {
-          accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
-        } catch (mirrorNodeError) {
-          // Mirror Node request failed (e.g., 404, 429, 5xx)
-          // Simply ignore and fallback to the original rejection to avoid masking the true error
-          this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+        // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node lookup and fall
+        // through to the generic TRANSACTION_REJECTED response below — operators in this
+        // mode have opted out of MN-validated error classification.
+        if (!ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+          try {
+            accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
+          } catch (mirrorNodeError) {
+            // Mirror Node request failed (e.g., 404, 429, 5xx)
+            // Simply ignore and fallback to the original rejection to avoid masking the true error
+            this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+          }
         }
 
         // Determine if nonce is too high or too low
@@ -736,13 +748,20 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, use a static fallback exchange rate instead
+      // of calling the Mirror Node. The rate is only consumed in the HFS (createFile) path
+      // for preemptive HBAR limit estimation, so an approximate value is acceptable.
+      const currentNetworkExchangeRateInCents = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
+        ? ConfigService.get('FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS')
+        : await this.getCurrentNetworkExchangeRateInCents(requestDetails);
+
       const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
         transactionBuffer,
         constants.ETH_SEND_RAW_TRANSACTION,
         requestDetails,
         originalCallerAddress,
         networkGasPriceInWeiBars,
-        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        currentNetworkExchangeRateInCents,
       );
 
       fileId = sendRawTransactionResult.fileId;

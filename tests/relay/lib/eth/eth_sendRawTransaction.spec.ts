@@ -1111,5 +1111,140 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
     });
+
+    describe('DISABLE_MN_PRECHECKS_ON_TX_SENDING', function () {
+      /**
+       * The objective of DISABLE_MN_PRECHECKS_ON_TX_SENDING=true is that sendRawTransaction performs
+       * ZERO Mirror Node calls before submitting to the consensus node.
+       *
+       * Skipped MN calls (compared to the default flow):
+       *   - network/fees           (gas price)
+       *   - network/exchangerate   (HBAR rate)
+       *   - accounts/<from>        (existence, balance, nonce, receiver_sig_required)
+       *   - accounts/<from>        (WRONG_NONCE post-rejection nonce lookup)
+       *
+       * Fallback static values (FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS,
+       * FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS) are used instead.
+       */
+
+      const wasAnyMirrorNodeCallMade = (): boolean => restMock.history.get.length > 0;
+
+      withOverriddenEnvsInMochaTest(
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false },
+        () => {
+          it('should submit the transaction with zero Mirror Node calls on the happy path', async function () {
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            // Reset history AFTER all setup, so we only count calls made during sendRawTransaction.
+            restMock.resetHistory();
+
+            const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            expect(resultingHash).to.equal(ethereumHash);
+            // The acid test: no Mirror Node HTTP calls at all during the send flow.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
+            // And we still submitted to the consensus node.
+            sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+          });
+
+          it('should pass the fallback gas price (in weibars) to the SDK', async function () {
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+            restMock.resetHistory();
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // submitEthereumTransaction(buffer, callerName, requestDetails, originalCaller,
+            //                           networkGasPriceInWeiBars, exchangeRateInCents)
+            const call = sdkClientStub.submitEthereumTransaction.getCall(0);
+            const fallbackTinybars = ConfigService.get('FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS') as number;
+            const fallbackExchangeCents = ConfigService.get('FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS') as number;
+            const expectedWeibars = Utils.addPercentageBufferToGasPrice(
+              fallbackTinybars * constants.TINYBAR_TO_WEIBAR_COEF,
+            );
+
+            expect(call.args[4]).to.equal(expectedWeibars);
+            expect(call.args[5]).to.equal(fallbackExchangeCents);
+          });
+
+          it('should return a generic TRANSACTION_REJECTED on WRONG_NONCE without polling Mirror Node', async function () {
+            const signed = await signTransaction({ ...transaction, nonce: 10 });
+
+            const wrongNonceError = new SDKClientError(
+              { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+              'WRONG_NONCE',
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+            restMock.resetHistory();
+
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+              .to.be.rejectedWith(JsonRpcError)
+              .and.eventually.satisfy(
+                (error: JsonRpcError) =>
+                  expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                  expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
+              );
+
+            // No MN call to classify the nonce as TOO_LOW / TOO_HIGH.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
+          });
+
+          it('should NOT call precheck.validateAccountAndNetworkStateful', async function () {
+            const validateStub = sinon.stub(
+              ethImpl['transactionService']['precheck'],
+              'validateAccountAndNetworkStateful',
+            );
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            sinon.assert.notCalled(validateStub);
+          });
+        },
+      );
+
+      // Sanity: with the flag off, the existing prechecks DO run and DO make MN calls.
+      // This guards against accidental regressions in the other direction.
+      withOverriddenEnvsInMochaTest(
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false },
+        () => {
+          it('should still call validateAccountAndNetworkStateful when flag is off', async function () {
+            const validateStub = sinon.stub(
+              ethImpl['transactionService']['precheck'],
+              'validateAccountAndNetworkStateful',
+            );
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            sinon.assert.calledOnce(validateStub);
+          });
+        },
+      );
+    });
   });
 });
