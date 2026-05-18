@@ -8,8 +8,9 @@ import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { type RequestDetails } from '../../../types';
+import type { RequestDetails } from '../../../types';
 import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from '../ethCommonService/ICommonService';
@@ -252,6 +253,30 @@ export class AccountService implements IAccountService {
   }
 
   /**
+   * Get transaction counts associated with an account.
+   *
+   * @param {string} address The account address
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  public async getTransactionCounts(address: string, requestDetails: RequestDetails): Promise<IPendingPoolStatusInfo> {
+    const [confirmedCount, pendingCount] = await Promise.all([
+      this.transactionPoolService.getConfirmedCount(address),
+      this.transactionPoolService.getPendingCount(address),
+    ]);
+    if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
+    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
+    const toResult = (confirmedCount: number): IPendingPoolStatusInfo => ({
+      pendingCount,
+      confirmedCount,
+      mirrorNodeArtifact: accountData,
+    });
+
+    if (!accountData) return toResult(0);
+    if (accountData.ethereum_nonce == null) return toResult(1);
+    return toResult(Number(accountData.ethereum_nonce));
+  }
+
+  /**
    * Gets the number of transactions that have been executed for the given address.
    * This goes to the consensus nodes to determine the ethereumNonce.
    *
@@ -271,11 +296,8 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (blockNumOrTag === constants.BLOCK_PENDING) {
-        return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
-      }
-      return mnNonce;
+      const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
+      return numberTo0x(blockNumOrTag === constants.BLOCK_PENDING ? confirmedCount + pendingCount : confirmedCount);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {
