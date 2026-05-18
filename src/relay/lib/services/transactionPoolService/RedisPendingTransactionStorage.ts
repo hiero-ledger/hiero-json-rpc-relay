@@ -49,7 +49,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param redisClient - A connected {@link RedisClientType} instance.
    */
   constructor(private readonly redisClient: RedisClientType) {
-    this.referenceStorageTtl = ConfigService.get('SDK_REQUEST_TIMEOUT');
+    this.referenceStorageTtl = Math.ceil(ConfigService.get('SDK_REQUEST_TIMEOUT') / 1000); // ms to s conversion
     this.extraPerPendingStorageTtl = ConfigService.get('EXTRA_PER_PENDING_TRANSACTION_STORAGE_TTL');
   }
 
