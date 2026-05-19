@@ -1,0 +1,105 @@
+## Enhancements
+
+- feat: adds changed Token getCode behaviour [#5381](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5381)
+- feat: async savetransaction break fifo nonce ordering for concurrent transactions in sendrawtransaction adjustments (#5349) [#5371](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5371)
+- fix: fixed nonce typing issue and chain\_id mapping (#5362) [#5370](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5370)
+- [Pectra] Change Token getCode behavior [#5359](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5359)
+- feat: two-lock nonce sequencing for concurrent eth\_sendRawTransaction (#5349) [#5356](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5356)
+- chore: migration from `@hashgraph`/sdk 2.81.0 to `@hiero-ledger`/sdk 2.83.0 (#5148) [#5354](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5354)
+- fix: make network fees retrieval failure for corrent mn response logged [PoC] [#5342](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5342)
+- feat: add retry mechanism when operator balance is 0 [#5334](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5334)
+- Add retry mechanism when operator balance is 0 [#5317](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5317)
+- [Pectra] Use non-beta version of hiero-ledger sdk [#5314](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5314)
+- ci: skip codecov and test report publishing for dependabot runs (#5289) [#5298](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5298)
+- feat: change name of ms storing metric and fix its buckets (#5231) [#5297](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5297)
+- feat: Add authorisationlist on type 4 tx [#5292](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5292)
+- feat: add GitHub workflow for publishing as npmjs package [#5290](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5290)
+- Exclude test result publishing & codecov scan from the dependabot pipelines [#5289](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5289)
+- feat: disable worker pool by default (#5286) [#5288](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5288)
+- fix: improve Redis acquireLock logic to address stuck requests (#5260) [#5287](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5287)
+- Disable worker pool in default configuration [#5286](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5286)
+- feat: pectra upgrade accesslist [run pipelines] [#5285](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5285)
+- feat: pectra upgrade accesslist with solo [testing pipelines] [#5284](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5284)
+- feat: pectra upgrade accesslist pipelines run [breaking, dont merge] [#5277](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5277)
+- feat: added a warning for minimum required mirror node version when hbar=false is enforced (#5238) [#5274](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5274)
+- fix: resolve lint errors across repo and strengthen CI enforcement (2/3) [#5272](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5272)
+- feat: update sdk version and decode access list (#5139) [#5271](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5271)
+- feat: added startup probe to check mirror node version (#5238) [#5268](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5268)
+- Fix issues with the rpc\_relay\_lock\_waiting\_txns metric [#5260](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5260)
+- feat: add locks to poller service (#5258) [POC] [#5259](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5259)
+- Add startup warning log for minimum required mirror node version when hbar=false is enforced [#5238](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5238)
+- chore: use solo node instead of local node (#5060) [#5234](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5234)
+- Improve WebSocket ping interval cleanup on connection close [#5233](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5233)
+- Worker pool queue wait time should store seconds instead of milliseconds [#5231](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5231)
+- fix: resolve lint errors across repo and strengthen CI enforcement (1/3) [#5228](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5228)
+- feat: enable same HTTP methods on websocket [#5217](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5217)
+- Pectra: AuthorizationList on eth\_call eth\_estimateGas [#5208](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5208)
+- feat: implement extended commands for relay cli [#5188](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5188)
+- feat: return EIP-7702 delegation designator for eth\_getCode (#5033) [#5172](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5172)
+- feat: retry Mirror Node connection on startup with configurable backoff [#5158](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5158)
+- feat: remove mirror node polling for successful transactions in sendrawtransactionprocessor (#4861) [#5154](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5154)
+- feat: implement base commands for relay cli [#5150](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5150)
+- feat: move getBalance to specific worker [#5146](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5146)
+- feat: add accesslist support (#5084) [#5145](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5145)
+- feat: calculate gasUsedRatio in eth\_feeHistory (#5066) [#5140](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5140)
+- Support for AccessList in the hiero sdk package [#5139](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5139)
+- [SOLO A5] feat: reduce memory footprint by replacing full ethers.js import with selective submodule imports [#5137](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5137)
+- feat: align relay to mirror node returing weibars (#4901) [#5134](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5134)
+- Add GitHub action for publishing Relay CLI [#5133](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5133)
+- Implement extended commands for Relay CLI [#5132](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5132)
+- Implement base commands for Relay CLI [#5131](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5131)
+- Pectra: Accesslist compatibility [#5084](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5084)
+- feat: removes lerna and merge relay into a single package [#5074](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5074)
+- Gas Ratio: eth\_feeHistory calculate gasRatio [#5066](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5066)
+- Remove lerna, creating 1 single index start point, with bootstrap logic [#5062](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5062)
+- WebSocket server should offer the same features as the HTTP server [#4991](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4991)
+- [perf] Redundant log fetching (N+1) in debug\_traceBlockByNumber [#4905](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4905)
+- [perf] O(N^2) complexity in getBlockTransactionDetails() [#4904](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4904)
+- maxFeePerGas and maxPriorityFeePerGas returned in tinybars instead of weibars for type 0x2 transactions [#4901](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4901)
+- Remove Mirror Node Polling for Successful Transactions in sendRawTransactionProcessor [#4861](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4861)
+- Add worker threads related metrics to Grafana [#4817](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4817)
+- Design POC:Relay as node Executable [#4799](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4799)
+- feat: allow user to pick server that should be started (#4797) [breaking  change] [#4798](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4798)
+- chore: revamp the default configuration variables (#4785) [#4792](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4792)
+- Redefine the default Relay configuration to improve Developer Experience [#4785](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4785)
+- Resolve Lint Errors Across Packages and Strengthen CI Enforcement [#4700](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4700)
+- Pectra: Update gas validation for Pectra upgrade (EIP-7623, EIP-7702) [#4659](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4659)
+
+## Bug Fixes
+
+- fix: correct order of actions and improve dry run render (#5133) [#5393](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5393)
+- fix: guard getHistoricalBlockResponse against empty mirror node blocks [#5369](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5369)
+- Numeric nonce parsing problem for Pectra authorization\_list [#5362](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5362)
+- [BUG] Fix reading number of undefined error on getBlockByNumber [#5350](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5350)
+- Async `saveTransaction` break FIFO nonce ordering for concurrent transactions in sendRawTransaction [#5349](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5349)
+- fix: unit tests are stopped mid processing with success result code (#5318) [#5319](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5319)
+- Unit tests are stopped mid-processing with success result code [#5318](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5318)
+- fix: debug\_transaction can return to: null [#5276](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5276)
+- fix: clear WebSocket ping interval on connection close (#5233) [#5275](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5275)
+- bug: debug\_traceTransaction returns `to: "0x0"` for pre-check–rejected CREATE txs [#5244](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5244)
+- fix: removed `@release` tag from test and updated the title (#5191) [#5212](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5212)
+- fix: changed assertion for gasUsed to match blockGasLimit implementation (#5189) [#5210](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5210)
+- fix: fixed cumulativeGasUsed assertions in acceptance tests (#5190) [#5209](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5209)
+- bug: ws-server pod crashes in CrashLoopBackOff — Helm chart passes file path as npm script arg (hedera-json-rpc 0.76.0) [#5203](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5203)
+- fix: changed asseertion for gasUsed to match blockGasLimit implementation (#5189) [#5202](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5202)
+- fix: fixed cumulativeGasUsed assertions in acceptance tests (#5190) [#5201](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5201)
+- Review eth\_getBalance, error=Exceeded maximum mirror node pagination count: 20 [#5079](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5079)
+
+## Documentation
+
+- fix: Resolve Lint Errors Across Packages and Strengthen CI Enforcement [#4761](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4761)
+
+## Dependency Upgrades
+
+- build(deps): bump follow-redirects from 1.15.6 to 1.16.0 in /dapp-example [#5252](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5252)
+- build(deps): bump `@hashgraph`/sdk from 2.75.0 to 2.78.0 in /dapp-example [#4664](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4664)
+
+## Internal Changes
+
+- chore: use step-security action and disable caching [#5262](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5262)
+
+## :heart: Contributors
+
+Thank you to all the contributors who worked on this release:
+
+@BartoszSolkaBD, @PavelSBorisov, @bootcodes, @jasuwienas, @jnsereko, @natanasow, @quiet-node, and @simzzz
