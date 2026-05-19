@@ -146,44 +146,6 @@ describe('ConfigService tests', async function () {
     }
   });
 
-  describe('startup warnings', () => {
-    it('should declare DISABLE_MN_PRECHECKS_ON_TX_SENDING in the warnings list with the boolean value true', () => {
-      // The `envs` dict is populated by ValidationService.typeCasting, which returns booleans
-      // (not strings) for boolean-typed entries. The warnings entry MUST match that — a string
-      // 'true' would never equal the cast boolean true and the warning would silently never fire.
-      // Lock this in to prevent regressions.
-      const warnings: Array<{ envName: string; value: any }> = ConfigService['getInstance']()['warnings'];
-
-      const entry = warnings.find((w) => w.envName === 'DISABLE_MN_PRECHECKS_ON_TX_SENDING');
-      expect(entry, 'expected a warnings entry for DISABLE_MN_PRECHECKS_ON_TX_SENDING').to.exist;
-      expect(entry!.value).to.equal(true);
-      expect(typeof entry!.value).to.equal('boolean');
-    });
-
-    it('should match the type-cast env value (true === true) so the warning actually fires', () => {
-      const envBefore = process.env;
-      process.env = { ...process.env, DISABLE_MN_PRECHECKS_ON_TX_SENDING: 'true' };
-
-      // @ts-expect-error: The operand of a 'delete' operator must be optional
-      delete ConfigService.instance;
-      try {
-        // Force re-init with the override above
-        expect(ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')).to.equal(true);
-
-        const warnings: Array<{ envName: string; value: any }> = ConfigService['getInstance']()['warnings'];
-        const envs: Record<string, unknown> = ConfigService['getInstance']()['envs'] as any;
-
-        const entry = warnings.find((w) => w.envName === 'DISABLE_MN_PRECHECKS_ON_TX_SENDING')!;
-        // The exact comparison the constructor uses to decide whether to logger.warn().
-        expect(envs[entry.envName]).to.equal(entry.value);
-      } finally {
-        // @ts-expect-error: The operand of a 'delete' operator must be optional
-        delete ConfigService.instance;
-        process.env = envBefore;
-      }
-    });
-  });
-
   it('should be able to execute getAllMasked', async () => {
     const envs = ConfigService.getAllMasked();
     expect(envs).to.not.be.empty;

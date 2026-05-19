@@ -240,16 +240,6 @@ const _CONFIG = {
       'INVALID_FILE_ID',
     ],
   },
-  FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS: {
-    type: 'number',
-    required: false,
-    defaultValue: 12,
-  },
-  FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS: {
-    type: 'number',
-    required: false,
-    defaultValue: 71,
-  },
   FEE_HISTORY_MAX_RESULTS: {
     type: 'number',
     required: false,

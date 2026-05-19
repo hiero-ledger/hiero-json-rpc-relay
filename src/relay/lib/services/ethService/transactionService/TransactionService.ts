@@ -295,12 +295,13 @@ export class TransactionService implements ITransactionService {
       if (parsedTx.from) {
         lockResult = await this.lockService.acquireLock(parsedTx.from);
       }
-      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, use a static fallback gas price instead of
-      // calling the Mirror Node. The value is still required downstream by the SDK to
-      // compute the Hedera max transaction fee, but we trade live accuracy for latency
-      // and resilience to MN outages.
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node gas-price
+      // fetch entirely. Use the user's own signed gas price (from tx.gasPrice or, for
+      // EIP-1559, maxFeePerGas + maxPriorityFeePerGas) as the basis for the Hedera
+      // `maxTransactionFee` cap — the user already committed to paying that, so it is the
+      // most defensible local upper bound and avoids guessing with a stale config default.
       const rawNetworkGasPriceInWeiBars = disableMnPrechecks
-        ? ConfigService.get('FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS') * constants.TINYBAR_TO_WEIBAR_COEF
+        ? Number(parsedTx.gasPrice ?? parsedTx.maxFeePerGas! + parsedTx.maxPriorityFeePerGas!)
         : await this.common.getGasPriceInWeibars(requestDetails);
       networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(rawNetworkGasPriceInWeiBars);
 
@@ -313,6 +314,13 @@ export class TransactionService implements ITransactionService {
 
       if (!disableMnPrechecks) {
         await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      } else {
+        // MN-prechecks disabled: only the precheck that needs no Mirror Node data still runs.
+        //   - accessList: pure stateless rejection of tx shapes Hedera does not yet support.
+        // precheck.gasPrice is intentionally skipped — without a Mirror Node reading we have
+        // no independent network gas-price anchor to compare the user's tx against; underpriced
+        // transactions will be surfaced by the consensus node instead.
+        this.precheck.accessList(parsedTx);
       }
     } catch (error) {
       // Release lock on any error during validation or prechecks
@@ -748,11 +756,12 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
-      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, use a static fallback exchange rate instead
-      // of calling the Mirror Node. The rate is only consumed in the HFS (createFile) path
-      // for preemptive HBAR limit estimation, so an approximate value is acceptable.
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node exchange-rate
+      // fetch. The rate is only consumed in the HFS (createFile) path for the HBAR rate limiter's
+      // preemptive estimation; 0 is treated as the "skip preemptive estimation" sentinel by
+      // SDKClient.createFile. The HBAR limiter still reconciles actual fees post-hoc.
       const currentNetworkExchangeRateInCents = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
-        ? ConfigService.get('FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS')
+        ? 0
         : await this.getCurrentNetworkExchangeRateInCents(requestDetails);
 
       const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(

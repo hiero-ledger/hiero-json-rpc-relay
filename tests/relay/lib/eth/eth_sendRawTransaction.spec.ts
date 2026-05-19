@@ -1153,7 +1153,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
           });
 
-          it('should pass the fallback gas price (in weibars) to the SDK', async function () {
+          it('should derive the Hedera max-fee basis from the user-signed gas price and pass 0 exchange rate', async function () {
             sdkClientStub.submitEthereumTransaction.resolves({
               txResponse: {
                 transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -1168,14 +1168,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             // submitEthereumTransaction(buffer, callerName, requestDetails, originalCaller,
             //                           networkGasPriceInWeiBars, exchangeRateInCents)
             const call = sdkClientStub.submitEthereumTransaction.getCall(0);
-            const fallbackTinybars = ConfigService.get('FALLBACK_NETWORK_GAS_PRICE_IN_TINYBARS') as number;
-            const fallbackExchangeCents = ConfigService.get('FALLBACK_NETWORK_EXCHANGE_RATE_IN_CENTS') as number;
-            const expectedWeibars = Utils.addPercentageBufferToGasPrice(
-              fallbackTinybars * constants.TINYBAR_TO_WEIBAR_COEF,
-            );
-
+            // The user signed with `transaction.gasPrice` ('0xad78ebc5ac620000') — the relay
+            // must use exactly that as the basis for the Hedera max-fee cap (after the
+            // GAS_PRICE_PERCENTAGE_BUFFER, which is 0 by default in tests).
+            const expectedWeibars = Utils.addPercentageBufferToGasPrice(Number(BigInt(transaction.gasPrice)));
             expect(call.args[4]).to.equal(expectedWeibars);
-            expect(call.args[5]).to.equal(fallbackExchangeCents);
+            // 0 is the "no Mirror Node reading available" sentinel.
+            expect(call.args[5]).to.equal(0);
           });
 
           it('should return a generic TRANSACTION_REJECTED on WRONG_NONCE without polling Mirror Node', async function () {
@@ -1217,6 +1216,27 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             await ethImpl.sendRawTransaction(signed, requestDetails);
 
             sinon.assert.notCalled(validateStub);
+          });
+
+          // precheck.gasPrice is intentionally skipped (no MN value to compare against), but
+          // precheck.accessList is purely stateless and still rejects unsupported tx shapes.
+          it('should still run precheck.accessList but NOT precheck.gasPrice', async function () {
+            const gasPriceSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'gasPrice');
+            const accessListSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'accessList');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            sinon.assert.notCalled(gasPriceSpy);
+            sinon.assert.calledOnce(accessListSpy);
+            // Sanity: still no MN call.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
           });
         },
       );
