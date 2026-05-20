@@ -68,7 +68,7 @@ describe('@ratelimiter Shared Rate Limiting Acceptance Tests', function () {
 
   describe('Shared Rate Limiting Between Services', function () {
     it('should share rate limit counters between two service instances', async function () {
-      let rateLimited = false;
+      let rateLimited: boolean;
 
       // Make exactly LIMIT requests through serviceA to hit the limit
       for (let i = 0; i < LIMIT; i++) {

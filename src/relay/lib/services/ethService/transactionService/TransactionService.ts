@@ -11,7 +11,7 @@ import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
@@ -21,6 +21,7 @@ import {
 import { Log, type Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
 import type {
+  IAccountBalance,
   IContractResultsParams,
   ITransactionReceipt,
   LockAcquisitionResult,
@@ -28,7 +29,7 @@ import type {
   TypedEvents,
 } from '../../../types';
 import type HAPIService from '../../hapiService/hapiService';
-import type { ICommonService, LockService, TransactionPoolService } from '../../index';
+import type { IAccountService, ICommonService, LockService, TransactionPoolService } from '../../index';
 import type { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -109,6 +110,7 @@ export class TransactionService implements ITransactionService {
     cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
+    private readonly accountService: IAccountService,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,
@@ -262,7 +264,28 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Sends a raw transaction
+   * Sends a raw transaction: 2-lock sendRawTransaction
+   *
+   * FLOW:
+   *   1. stateless precheck
+   *   2. acquire Lock 1 (ingress lock)
+   *      a. read senderLocalNonce cache
+   *         warm  → in-mem nonce check vs cache.value
+   *                 cache := { value: cache.value + 1, version: cache.version }
+   *                 tx.admittedVersion := cache.version
+   *         cold  → verifyAccount (MN) + getPendingCount → nonce check
+   *                 senderAccountInfo captured for Lock 2 reuse
+   *                 cache := { value: signerNonce + 1, version: randomUUID() }
+   *                 tx.admittedVersion := cache.version
+   *      b. await saveTransaction
+   *         on save failure → decrement cache (gen-matched) → throw INTERNAL_ERROR
+   *   3. release Lock 1
+   *   4. acquire Lock 2 (execution lock)
+   *   5. balance check (reuse senderAccountInfo on cold; fresh verifyAccount on warm)
+   *      validateReceiverAndGasStateful (gas and receiver)
+   *      on failure → decrement cache (gen-matched) → remove pool entry → release Lock 2 → throw
+   *   6. hand off to sendRawTransactionProcessor (CN submission + outcome handling)
+   *
    * @param transaction The raw transaction data
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
@@ -275,26 +298,140 @@ export class TransactionService implements ITransactionService {
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
 
-    // Validate and save the transaction to the transaction pool before submitting it to the network
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Transaction undergoing basic properties (stateless) prechecks: transaction=%s`,
-        JSON.stringify(parsedTx),
-      );
-    }
+    // Stateless precheck outside any lock so malformed inputs never queue for the ingress lock.
     this.precheck.validateBasicPropertiesStateless(parsedTx);
-    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    const senderAddress = parsedTx.from!;
 
-    let lockResult: LockAcquisitionResult | undefined;
+    // ===== Lock 1: ingress lock =====
+    // Transactions will be added one by one, so there will be no race condition on this operation.
+    const admitResult = await this.admitTransaction(senderAddress, parsedTx, requestDetails);
+
+    // ===== Lock 2: execution lock =====
+    // Per-sender serialization of CN submission preserves the FIFO order established by Lock 1.
+    const executionResult = await this.prepareExecution(senderAddress, parsedTx, requestDetails, admitResult.balance);
+
+    // Hand off to the processor: CN submit → release Lock 2 → MN poll (success) or rollback (pre-exec failure).
+    const sendRawTransactionProcessorPromise = this.sendRawTransactionProcessor(
+      transactionBuffer,
+      parsedTx,
+      executionResult.networkGasPriceInWeiBars,
+      executionResult.execLockResult,
+      requestDetails,
+    );
+    if (!ConfigService.get('USE_ASYNC_TX_PROCESSING')) return await sendRawTransactionProcessorPromise;
+    void sendRawTransactionProcessorPromise.catch(() =>
+      this.logger.error(
+        'Transaction %s failed asynchronously', // More details already logged by sendRawTransactionProcessor
+        parsedTx.hash,
+      ),
+    );
+    return Utils.computeTransactionHash(transactionBuffer);
+  }
+
+  /**
+   * Admits a transaction into the local processing pipeline.
+   *
+   * This method performs nonce-related admission checks under the per-sender
+   * ingress lock to guarantee deterministic transaction ordering and prevent
+   * concurrent nonce races.
+   *
+   * The ingress lock is always released, regardless of success or failure,
+   * allowing callers to retry immediately on precheck failures.
+   *
+   * @private
+   * @param senderAddress - The sender EVM address.
+   * @param parsedTx - Parsed Ethereum transaction.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns Promise resolving to the verified sender balance if available
+   *          from the mirror node artifact.
+   * @throws JsonRpcError when transaction persistence fails.
+   * @throws Re-throws nonce validation and account retrieval errors.
+   */
+  private async admitTransaction(
+    senderAddress: string,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+  ): Promise<{ balance: IAccountBalance | undefined }> {
+    // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the entire ingress-admission phase.
+    // accountService.getTransactionCounts() reaches the Mirror Node (cold path) to read the
+    // confirmed nonce, and precheck.nonce / saveTransaction both depend on that reading — none of
+    // them can run without a Mirror Node call. Per-sender execution ordering is still preserved by
+    // the execution lock acquired in prepareExecution(); the consensus node performs the
+    // authoritative nonce check and rejects out-of-order transactions with WRONG_NONCE.
+    if (ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+      return { balance: undefined };
+    }
+
+    const ingressLockKey = `${senderAddress}:ingress`;
+    const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
+
+    let verifiedBalance: IAccountBalance | undefined;
+    try {
+      const { confirmedCount, pendingCount, mirrorNodeArtifact } = await this.accountService.getTransactionCounts(
+        senderAddress,
+        requestDetails,
+      );
+      verifiedBalance = mirrorNodeArtifact?.balance;
+
+      // When we do NOT enforce ordered processing, we cannot reliably determine the state of all currently
+      // pending transactions being processed. Because of that, the safest approach is to verify only that
+      // the submitted nonce is greater than or equal to the number of transactions already confirmed by
+      // the Mirror Node.
+      const expectedNonce = !ConfigService.get('ENABLE_NONCE_ORDERING')
+        ? confirmedCount
+        : confirmedCount + pendingCount;
+      this.precheck.nonce(parsedTx, expectedNonce);
+
+      // save transaction to pool
+      await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
+    } catch (error) {
+      if (error instanceof JsonRpcError) throw error;
+
+      // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
+      // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
+      // return a wrong pending state.
+      throw predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(error as Error).message}`);
+    } finally {
+      // Release Lock 1 regardless of outcome so that the caller can retry immediately if it was a precheck failure,
+      // or after a short wait if it was an MN or pool failure.
+      if (ingressLockResult) {
+        await this.lockService.releaseLock(ingressLockKey, ingressLockResult.sessionKey, ingressLockResult.acquiredAt);
+      }
+    }
+    return { balance: verifiedBalance };
+  }
+
+  /**
+   * Performs all stateful execution prechecks before the transaction is submitted
+   * to the consensus node.
+   *
+   * This method acquires the per-sender execution lock to preserve FIFO ordering
+   * established during the admission phase and prevent concurrent transaction
+   * execution for the same sender.
+   *
+   * @private
+   * @param senderAddress - The sender EVM address.
+   * @param parsedTx - Parsed Ethereum transaction.
+   * @param verifiedBalance - Previously fetched sender balance if available.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns Promise resolving to the acquired execution lock result and
+   *          normalized network gas price in weibars.
+   * @throws Re-throws any validation or network-related error encountered
+   *         during execution prechecks.
+   */
+  private async prepareExecution(
+    senderAddress: string,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+    verifiedBalance?: IAccountBalance,
+  ): Promise<{ networkGasPriceInWeiBars: number; execLockResult?: LockAcquisitionResult }> {
+    const execLockKey = `${senderAddress}:exec`;
+    let execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
     const disableMnPrechecks = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING');
 
+    let shouldLockBeReleased = false;
     try {
-      // Acquire lock before async operations
-      // This ensures proper nonce ordering for transactions from the same sender
-      if (parsedTx.from) {
-        lockResult = await this.lockService.acquireLock(parsedTx.from);
-      }
       // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node gas-price
       // fetch entirely. Use the user's own signed gas price (from tx.gasPrice or, for
       // EIP-1559, maxFeePerGas + maxPriorityFeePerGas) as the basis for the Hedera
@@ -312,54 +449,37 @@ export class TransactionService implements ITransactionService {
         );
       }
 
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, every Mirror Node-dependent stateful
+      // precheck is skipped: precheck.balance needs the account balance, and
+      // validateReceiverAndGasStateful needs receiver_sig_required plus a network gas-price anchor.
+      // All Mirror Node-free prechecks (including accessList) already ran in
+      // validateBasicPropertiesStateless at the start of sendRawTransaction, so there is nothing
+      // to run here. Underpriced or underfunded transactions are surfaced by the consensus node.
       if (!disableMnPrechecks) {
-        await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
-      } else {
-        // MN-prechecks disabled: only the precheck that needs no Mirror Node data still runs.
-        //   - accessList: pure stateless rejection of tx shapes Hedera does not yet support.
-        // precheck.gasPrice is intentionally skipped — without a Mirror Node reading we have
-        // no independent network gas-price anchor to compare the user's tx against; underpriced
-        // transactions will be surfaced by the consensus node instead.
-        this.precheck.accessList(parsedTx);
+        // precheck sender balance
+        this.precheck.balance(
+          parsedTx,
+          verifiedBalance ?? (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance,
+        );
+
+        // precheck gas price and receiver
+        await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
       }
     } catch (error) {
-      // Release lock on any error during validation or prechecks
-      if (lockResult) {
-        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
-      }
-      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
+      // The lock will be released in the next step, after full transaction is submitted (sendRawTransactionProcessor).
+      // If an error occurs at this stage, however, we should release the lock immediately regardless
+      // of the processing mode, because there will be no submission attempt, and we need to unlock next transactions.
+      shouldLockBeReleased = true;
+      await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
       throw error;
+    } finally {
+      if (execLockResult && shouldLockBeReleased) {
+        await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
+        execLockResult = undefined;
+      }
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      // Fire and forget - lock will be released after consensus submission
-      void this.sendRawTransactionProcessor(
-        transactionBuffer,
-        parsedTx,
-        networkGasPriceInWeiBars,
-        lockResult,
-        requestDetails,
-      );
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
-
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      lockResult,
-      requestDetails,
-    );
+    return { networkGasPriceInWeiBars, execLockResult };
   }
 
   /**
@@ -372,15 +492,12 @@ export class TransactionService implements ITransactionService {
     const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
     const cacheTTL = 15 * 60 * 1000; // 15 minutes
 
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod);
-
+    let currentNetworkExchangeRate = await this.cacheService.get(cacheKey, callingMethod);
     if (!currentNetworkExchangeRate) {
       currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
       await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, cacheTTL);
     }
-
-    const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
-    return exchangeRateInCents;
+    return currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
   }
 
   /**
@@ -604,7 +721,7 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
-   * @param {LockAcquisitionResult | undefined} lockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
+   * @param {LockAcquisitionResult | undefined} execLockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
@@ -612,10 +729,11 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    lockResult: LockAcquisitionResult | undefined,
+    execLockResult: LockAcquisitionResult | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const originalCallerAddress = parsedTx.from?.toString() || '';
+    const senderAddress = parsedTx.from!;
+    const execLockKey = `${senderAddress}:exec`;
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
@@ -623,91 +741,84 @@ export class TransactionService implements ITransactionService {
 
     const { error } = await this.submitTransaction(
       transactionBuffer,
-      originalCallerAddress,
+      senderAddress,
       networkGasPriceInWeiBars,
       requestDetails,
     );
 
-    if (lockResult) {
-      await this.lockService.releaseLock(originalCallerAddress, lockResult.sessionKey, lockResult.acquiredAt);
+    // Release Lock 2 once CN responds, regardless of outcome for other transactions can start being processed ASAP
+    if (execLockResult) {
+      await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
     }
-    // Remove the transaction from the transaction pool after submission
-    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
-    // Handle submission errors - throws for definitive failures, returns when transaction was received by the network
-    await this.handleSubmissionError(error, parsedTx, requestDetails);
+    const { error: submissionError, shouldPollAndCleanup } = await this.handleSubmissionError(
+      error,
+      parsedTx,
+      senderAddress,
+      requestDetails,
+    );
 
-    // At this point, either no error or a post-execution failure
+    if (shouldPollAndCleanup) {
+      if (ConfigService.get('ENABLE_NONCE_ORDERING') && ConfigService.get('ENABLE_TX_POOL')) {
+        void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+      } else {
+        await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
+      }
+    }
+
+    if (submissionError) throw submissionError;
     return Utils.computeTransactionHash(transactionBuffer);
   }
 
   /**
-   * Handles transaction submission errors by classifying and routing them appropriately.
+   * Classifies the CN submission outcome and signals what cleanup the caller should do.
    *
-   * This method serves as the single decision point for error handling after transaction submission.
-   * It evaluates the error type and either throws immediately or returns when the transaction is considered successful
-   * (i.e., no error or a post-execution failure)
+   * Returns { error, shouldPollAndCleanup }:
+   *   error               — the error to throw at the call site, or null on success/post-exec
+   *   shouldPollAndCleanup — true when CN outcome is unknown or the tx landed (poll to clean pool)
+   *                          false on confirmed pre-exec failure (cleanup done here, no poll needed)
    *
-   * Error handling flow:
-   * 1. No error → return (proceed)
-   * 2. Non-SDK error → throw as-is (application-level failure)
-   * 3. SDK timeout error → throw as-is (network failure)
-   * 4. Pre-execution failure (in HEDERA_SPECIFIC_REVERT_STATUSES):
-   *    - WRONG_NONCE: fetch account nonce from MN
-   *      - If nonce too high → throw NONCE_TOO_HIGH
-   *      - If nonce too low → throw NONCE_TOO_LOW
-   *      - If unable to determine → fallback to original status
-   *    - Others: throws TRANSACTION_REJECTED with status details
-   * 5. Post-execution failure → return (proceed)
-   *
-   * @param error - The error from transaction submission, or null/undefined if successful
-   * @param parsedTx - The parsed transaction for nonce comparison (used for WRONG_NONCE handling)
-   * @param requestDetails - Request details for logging and tracking
-   * @throws {JsonRpcError} NONCE_TOO_HIGH or NONCE_TOO_LOW for wrong nonce errors
-   * @throws {JsonRpcError} TRANSACTION_REJECTED for pre-execution failures
-   * @throws {Error} Original error for non-SDK or timeout errors
+   * Classification:
+   *   no error            → success               → { null, true }
+   *   non-SDK error       → outcome unknown        → { error, true }
+   *   SDK timeout/dropped → outcome unknown        → { error, true }
+   *   pre-exec failure    → nonce didn't move      → rollback + { preExecError, false }
+   *   post-exec failure   → nonce moved            → { null, true }
    */
   private async handleSubmissionError(
     error: any,
     parsedTx: EthersTransaction,
+    senderAddress: string,
     requestDetails: RequestDetails,
-  ): Promise<void> {
-    // No error - proceed to txhash retrieval
-    if (!error) {
-      return;
-    }
+  ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
+    if (!error || !(error instanceof SDKClientError)) return { error: error ?? null, shouldPollAndCleanup: true };
 
-    // Non-SDK errors are definitive failures - propagate as-is
-    if (!(error instanceof SDKClientError)) {
-      throw error;
-    }
-
-    // Update metrics for SDK errors
     this.hapiService.decrementErrorCounter(error.statusCode);
 
-    // SDK timeout errors - propagate as-is
     if (error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout()) {
-      throw error;
+      return { error, shouldPollAndCleanup: true };
     }
 
-    // Check if this is a pre-execution failure
     const preExecutionFailures: string[] = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
     if (preExecutionFailures.includes(error.status.toString())) {
-      // WRONG_NONCE requires special handling to determine if nonce is too high or too low
-      // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
+      let preExecError: JsonRpcError;
+
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
         if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
           this.wrongNonceMetric.labels('none').inc();
         } else {
           this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
         }
+
         let accountNonce: number | null = null;
         // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node lookup and fall
         // through to the generic TRANSACTION_REJECTED response below — operators in this
         // mode have opted out of MN-validated error classification.
         if (!ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
           try {
-            accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
+            const txCounts = await this.accountService.getTransactionCounts(parsedTx.from!, requestDetails);
+            // Decrementing because currently investigated transaction is still placed on the pending queue.
+            accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
           } catch (mirrorNodeError) {
             // Mirror Node request failed (e.g., 404, 429, 5xx)
             // Simply ignore and fallback to the original rejection to avoid masking the true error
@@ -715,23 +826,26 @@ export class TransactionService implements ITransactionService {
           }
         }
 
-        // Determine if nonce is too high or too low
         if (accountNonce != null && accountNonce !== parsedTx.nonce) {
-          if (parsedTx.nonce > accountNonce) {
-            throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
-          } else {
-            throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
-          }
+          preExecError =
+            parsedTx.nonce > accountNonce
+              ? predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce)
+              : predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
+        } else {
+          preExecError = predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
         }
+      } else {
+        preExecError = predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
       }
 
-      // All other pre-execution failures throw TRANSACTION_REJECTED (-32003)
-      throw predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
+      // pre-execution failure would not have moved the nonce, safe to roll back and clean up here without needing to poll MN for certainty
+      await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+
+      return { error: preExecError, shouldPollAndCleanup: false };
     }
 
-    // Post-execution failure (e.g. CONTRACT_REVERT_EXECUTED, INVALID_ALIAS_KEY, etc.),
-    // proceed anyway: details can be obtained using the getTransactionReceipt method
-    return;
+    // Post-exec: nonce moved, leave pool entry for the MN-poll watcher
+    return { error: null, shouldPollAndCleanup: true };
   }
 
   /**
@@ -802,5 +916,31 @@ export class TransactionService implements ITransactionService {
     }
 
     return { submittedTransactionId, error };
+  }
+
+  // ===== MN poll cleanup =====
+  // Polls MN for the receipt; removes the pool entry once MN reflects, or after max attempts (zombie cleanup).
+  private async pollMirrorNodeAndCleanup(parsedTx: EthersTransaction, requestDetails: RequestDetails): Promise<void> {
+    const senderAddress = parsedTx.from!.toString();
+    const txHash = parsedTx.hash!;
+    const maxAttempts = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS');
+    const intervalMs = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS');
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
+        if (result?.hash) {
+          await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
+          return;
+        }
+      } catch {
+        this.logger.error('Mirror Node poll failed for transaction %s on %d attempt', txHash, i);
+      }
+    }
+    // zombie cleanup: max attempts reached, remove anyway
+    // we don't know if the transaction was actually executed or not...
+    this.logger.error('Zombie cleanup: transaction %s not found in Mirror Node after %d attempts', txHash, maxAttempts);
+    await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
   }
 }

@@ -162,12 +162,22 @@ export class ConfigService {
       'DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled. eth_sendRawTransaction will skip every ' +
         'Mirror Node precheck before submitting to the consensus node:\n' +
         '  - account existence, balance, nonce and receiver-signature-required checks are no longer verified locally;\n' +
+        '  - transactions are submitted without ingress-admission to the transaction pool, so the ' +
+        'txpool_* endpoints will not reflect in-flight transactions;\n' +
         '  - the signed transaction gas price is used directly as the Hedera maxTransactionFee basis ' +
         'instead of the current network gas price (no network anchor to detect underpriced transactions).\n' +
         'Underfunded, underpriced, wrong-nonce or otherwise invalid transactions will be rejected by the ' +
         'consensus node with generic errors rather than locally with descriptive JSON-RPC errors. ' +
         'This trades validation accuracy and error quality for lower latency — only keep it enabled if you accept that trade-off.',
     );
+
+    if (this.get('ENABLE_NONCE_ORDERING')) {
+      logger.warn(
+        'DISABLE_MN_PRECHECKS_ON_TX_SENDING and ENABLE_NONCE_ORDERING are both enabled, but they ' +
+          'conflict: nonce ordering relies on transaction-pool state that is not populated while ' +
+          'Mirror Node prechecks are disabled. Nonce ordering will NOT be enforced — disable one of the two flags.',
+      );
+    }
   }
 
   private validateReadOnlyMode(): void {
