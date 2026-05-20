@@ -156,7 +156,7 @@ export class CommonService implements ICommonService {
       fromBlock = constants.BLOCK_LATEST;
     }
 
-    let fromBlockNum = 0;
+    let fromBlockNum: number;
     let toBlockNum;
     params.timestamp = [];
 

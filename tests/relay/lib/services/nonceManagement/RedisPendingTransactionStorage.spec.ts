@@ -51,21 +51,21 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('addToList (Set-based)', () => {
     it('adds first transaction and returns size 1', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('deduplicates the same transaction hash', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp1);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('adds multiple distinct tx hashes and returns correct size', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });
@@ -78,8 +78,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('returns size after multiple adds', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });
@@ -87,26 +87,70 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('removeFromList (Set-based)', () => {
     it('removes existing tx and returns new size', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
       await storage.removeFromList(addr1, rlp1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('is idempotent when removing non-existent tx', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
       await storage.removeFromList(addr1, rlp2);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
   });
 
+  describe('getConfirmedCount', () => {
+    it('returns null when no baseline is cached for address', async () => {
+      const count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(null);
+    });
+
+    it('returns the baseline set via addToList and does not overwrite on subsequent adds (SET NX)', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 10);
+      let count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(10);
+
+      // Attempt to set a different baseline; NX should prevent overwrite
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 42);
+      count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(10);
+    });
+
+    it('increments baseline on confirmed removal', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+      await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1);
+      const count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(4);
+    });
+
+    it('does not increment baseline on rejected/unspecified removal', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 7);
+      await storage.removeFromList(addr1, rlp1);
+      let count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(7);
+
+      // unspecified (undefined)
+      await storage.removeFromList(addr1, rlp2);
+      count = await storage.getConfirmedCount(addr1);
+      expect(count).to.equal(7);
+    });
+
+    it('does not start from 1 when incrementing without pre-existing baseline (confirmedCount key expired)', async () => {
+      // No addToList call to set NX baseline
+      await storage.removeFromListAndIncrementConfirmedCount(addr2, rlp3);
+      const count = await storage.getConfirmedCount(addr2);
+      expect(count).to.be.null;
+    });
+  });
+
   describe('removeAll', () => {
     it('deletes all txpool:pending:* keys', async () => {
-      await storage.addToList(addr1, tx1);
-      await storage.addToList(addr1, tx2);
-      await storage.addToList(addr2, tx3);
+      await storage.addToListAndSetConfirmedCount(addr1, tx1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, tx2, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, tx3, 0);
 
       await storage.removeAll();
 
@@ -118,8 +162,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
     it('should not delete keys from other namespaces (cache:, txpool:queue:)', async () => {
       // Add some txpool:pending keys
-      await storage.addToList(addr1, tx1);
-      await storage.addToList(addr2, tx2);
+      await storage.addToListAndSetConfirmedCount(addr1, tx1, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, tx2, 0);
 
       // Add keys from other namespaces to simulate other services
       await redisClient.set('cache:eth_blockNumber', '123');
@@ -151,7 +195,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('Payload retrieval', () => {
     it('should save and retrieve payload atomically', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
 
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
@@ -165,7 +209,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should remove payload when removed from list', async () => {
-      await storage.addToList(addr1, rlp1);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
 
       await storage.removeFromList(addr1, rlp1);
 
@@ -180,9 +224,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should handle multiple transactions with payloads', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
-      await storage.addToList(addr2, rlp3);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp3, 0);
 
       const count1 = await storage.getList(addr1);
       const count2 = await storage.getList(addr2);
@@ -199,9 +243,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should retrieve payloads for specific address only', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr1, rlp2);
-      await storage.addToList(addr2, rlp3);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp3, 0);
 
       const payloads = await storage.getTransactionPayloads(addr1);
       expect(payloads.size).to.equal(2);
@@ -217,8 +261,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
 
     it('should get all transaction payloads across addresses', async () => {
-      await storage.addToList(addr1, rlp1);
-      await storage.addToList(addr2, rlp2);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp2, 0);
 
       const allPayloads = await storage.getAllTransactionPayloads();
       expect(allPayloads.size).to.equal(2);
