@@ -4,6 +4,8 @@
     "lib": ["es6", "es2022.error"],
     "module": "commonjs",
     "moduleResolution": "node",
+    "rootDir": "./src",
+    "ignoreDeprecations": "6.0",
     "outDir": "./dist",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
