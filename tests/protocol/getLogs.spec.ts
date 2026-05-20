@@ -3,7 +3,6 @@
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
-import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
@@ -243,23 +242,18 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
       });
 
       it('should be able to use `address` param with a large block range', async () => {
-        const blockRangeLimit = ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
-        let customBlockRangeLimit = 10;
-        try {
-          //when we pass only address, it defaults to the latest block
-          const logs = (await client.call(METHOD_NAME, [
-            {
-              fromBlock: numberTo0x(latestBlock - customBlockRangeLimit - 1),
-              address: contractAddress,
-            },
-          ])) as any[];
-          expect(logs.length).to.be.greaterThan(0);
+        const customBlockRangeLimit = 10;
+        //when we pass only address, it defaults to the latest block
+        const logs = (await client.call(METHOD_NAME, [
+          {
+            fromBlock: numberTo0x(latestBlock - customBlockRangeLimit - 1),
+            address: contractAddress,
+          },
+        ])) as any[];
+        expect(logs.length).to.be.greaterThan(0);
 
-          for (const i in logs) {
-            expect(logs[i].address.toLowerCase()).to.equal(contractAddress.toLowerCase());
-          }
-        } finally {
-          customBlockRangeLimit = blockRangeLimit;
+        for (const i in logs) {
+          expect(logs[i].address.toLowerCase()).to.equal(contractAddress.toLowerCase());
         }
       });
 
