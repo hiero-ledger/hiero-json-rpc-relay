@@ -80,6 +80,8 @@ export class ConfigService {
       for (const name in this.envs) {
         logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
       }
+
+      this.warnDisabledMnPrechecks();
     }
 
     this.validateReadOnlyMode();
@@ -141,6 +143,31 @@ export class ConfigService {
     }
 
     return maskedEnvs;
+  }
+
+  /**
+   * Emits a detailed startup warning when `DISABLE_MN_PRECHECKS_ON_TX_SENDING` is enabled.
+   *
+   * This is not a generic "the variable is set" notice — the masked env dump already prints
+   * that. The point here is to spell out the behavioural trade-off so an operator who flipped
+   * the flag understands exactly what protection they gave up and why a previously-rejected
+   * transaction may now reach the consensus node.
+   */
+  private warnDisabledMnPrechecks(): void {
+    if (!this.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+      return;
+    }
+
+    logger.warn(
+      'DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled. eth_sendRawTransaction will skip every ' +
+        'Mirror Node precheck before submitting to the consensus node:\n' +
+        '  - account existence, balance, nonce and receiver-signature-required checks are no longer verified locally;\n' +
+        '  - the signed transaction gas price is used directly as the Hedera maxTransactionFee basis ' +
+        'instead of the current network gas price (no network anchor to detect underpriced transactions).\n' +
+        'Underfunded, underpriced, wrong-nonce or otherwise invalid transactions will be rejected by the ' +
+        'consensus node with generic errors rather than locally with descriptive JSON-RPC errors. ' +
+        'This trades validation accuracy and error quality for lower latency — only keep it enabled if you accept that trade-off.',
+    );
   }
 
   private validateReadOnlyMode(): void {
