@@ -5,7 +5,7 @@
     "hiero-relay": "./bin/hiero-relay.js"
   },
   "devDependencies": {
-    "@eslint/js": "^9.38.0",
+    "@eslint/js": "^10.0.1",
     "@octokit/core": "^6.1.6",
     "@open-rpc/schema-utils-js": "^2.2.1",
     "@types/chai": "^5.2.3",
@@ -29,7 +29,7 @@
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "chai-exclude": "^3.0.0",
-    "eslint": "^9.34.0",
+    "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^17.24.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",

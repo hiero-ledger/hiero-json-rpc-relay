@@ -219,7 +219,7 @@ export class AccountService implements IAccountService {
     // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
     else {
       let currentBalance = 0;
-      let balanceFromTxs = 0;
+      let balanceFromTxs: number;
       mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
         limit: ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
         transactions: true,

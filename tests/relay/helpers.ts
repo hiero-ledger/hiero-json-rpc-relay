@@ -1196,7 +1196,7 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService) => {
             throw new Error(`Unsupported task type ${task.type}`);
         }
       } catch (e) {
-        throw new Error(JSON.stringify(e));
+        throw new Error(JSON.stringify(e), { cause: e });
       }
     },
   } as Piscina<any, any>;
