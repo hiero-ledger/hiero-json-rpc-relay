@@ -7,6 +7,8 @@ import { createSandbox } from 'sinon';
 
 import { predefined } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type CommonService } from '../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
@@ -115,9 +117,9 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   const stubBlockAndFeesFunc = (sandbox: sinon.SinonSandbox) => {
     const gasPrice = 12500000000000000000;
-    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
-    sandbox.stub(ethImpl, <any>'getBlockByHash').resolves(DEFAULT_BLOCK);
-    sandbox.stub(ethImpl['common'], <any>'getGasPriceInWeibars').resolves(gasPrice);
+    sandbox.stub(ethImpl['common'], <keyof CommonService>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sandbox.stub(ethImpl, <keyof EthImpl>'getBlockByHash').resolves(DEFAULT_BLOCK);
+    sandbox.stub(ethImpl['common'], <keyof CommonService>'getGasPriceInWeibars').resolves(gasPrice);
   };
 
   this.afterEach(async () => {

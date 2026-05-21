@@ -31,7 +31,7 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as Koa.Context;
 }
 
 describe('Subscribe Controller', function () {
@@ -44,7 +44,7 @@ describe('Subscribe Controller', function () {
   let stubConnectionLimiter: ConnectionLimiter;
   let stubMirrorNodeClient: MirrorNodeClient;
   let stubSubscriptionService: SubscriptionService;
-  let stubConfigService: ConfigService;
+  let stubConfigService: sinon.SinonStub;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -53,7 +53,7 @@ describe('Subscribe Controller', function () {
       info: sinon.stub(),
     };
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
-    stubWsMetricRegistry.getCounter.returns({
+    (stubWsMetricRegistry.getCounter as sinon.SinonStub).returns({
       labels: () => {
         return { inc: sinon.stub() };
       },
@@ -97,23 +97,23 @@ describe('Subscribe Controller', function () {
       stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
       const resp = await handleEthSubscribe(defaultParams);
 
-      expect(resp.error.code).to.equal(-32207);
-      expect(resp.error.message).to.contain('WS Subscriptions are disabled');
+      expect((resp as any).error.code).to.equal(-32207);
+      expect((resp as any).error.message).to.contain('WS Subscriptions are disabled');
     });
 
     it('should be able to subscribe for logs ', async function () {
-      stubSubscriptionService.subscribe.returns(subscriptionId);
+      (stubSubscriptionService.subscribe as sinon.SinonStub).returns(subscriptionId);
       const resp = await handleEthSubscribe({
         ...defaultParams,
         params: [constants.SUBSCRIBE_EVENTS.LOGS, {}],
       });
 
-      expect(resp.result).to.equal(subscriptionId);
+      expect((resp as any).result).to.equal(subscriptionId);
     });
 
     it('should not be able to subscribe for logs when multiple addresses are provided as filter ', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
-      stubSubscriptionService.subscribe.returns(subscriptionId);
+      (stubMirrorNodeClient.resolveEntityType as sinon.SinonStub).returns(true);
+      (stubSubscriptionService.subscribe as sinon.SinonStub).returns(subscriptionId);
 
       await expect(
         handleEthSubscribe({
@@ -130,11 +130,11 @@ describe('Subscribe Controller', function () {
     });
 
     it('should be able to subscribe to new heads', async function () {
-      stubSubscriptionService.subscribe.returns(subscriptionId);
+      (stubSubscriptionService.subscribe as sinon.SinonStub).returns(subscriptionId);
       stubConfigService.withArgs('WS_NEW_HEADS_ENABLED').returns(true);
       const resp = await handleEthSubscribe(defaultParams);
 
-      expect(resp.result).to.equal(subscriptionId);
+      expect((resp as any).result).to.equal(subscriptionId);
     });
 
     it('should throw unsupported method for non-existing method', async function () {

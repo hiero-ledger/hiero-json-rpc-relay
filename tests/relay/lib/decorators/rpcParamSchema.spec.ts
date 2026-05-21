@@ -141,6 +141,7 @@ describe('rpcParamValidationRules decorator', () => {
       class TestCustomTypeClass {
         // @ts-ignore
         @rpcParamValidationRules({
+          // @ts-ignore
           0: { type: customType, required: true },
         })
         testMethod() {

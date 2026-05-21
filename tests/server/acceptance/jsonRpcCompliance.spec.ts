@@ -331,7 +331,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
 
   describe('With ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE = 200', function () {
     before(function () {
-      if (!ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE') !== 200) this.skip();
+      if (ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE') === 200) this.skip();
     });
 
     it('Malformed/missing Content-Type but valid JSON body is still processed as JSON-RPC', async function () {

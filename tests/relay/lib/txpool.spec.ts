@@ -117,7 +117,7 @@ describe('Txpool', async function () {
   ];
 
   before(() => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'ensureOperatorHasBalance').resolves();
   });
 
   after(() => {
@@ -155,10 +155,15 @@ describe('Txpool', async function () {
       expect(tx.gas).to.equal(numberTo0x(parsedTx.gasLimit));
       expect(tx.value).to.equal(numberTo0x(parsedTx.value));
       expect(tx.nonce).to.equal(numberTo0x(parsedTx.nonce));
+      // @ts-ignore
       expect(tx.type).to.equal(numberTo0x(parsedTx.type));
+      // @ts-ignore
       expect(tx.gasPrice).to.equal(numberTo0x(parsedTx.gasPrice));
+      // @ts-ignore
       expect(tx.v).to.equal(numberTo0x(parsedTx.signature.v));
+      // @ts-ignore
       expect(tx.r).to.equal(parsedTx.signature.r);
+      // @ts-ignore
       expect(tx.s).to.equal(parsedTx.signature.s);
     });
 
@@ -189,6 +194,7 @@ describe('Txpool', async function () {
 
       const res = await txPool.content();
       expect(res).to.have.keys(['pending', 'queued']);
+      // @ts-ignore
       expect(res.pending).to.have.property(parsedTx.from);
       expect(res.queued).to.deep.equal({});
     });
@@ -198,6 +204,7 @@ describe('Txpool', async function () {
     it('should return grouped transactions by nonce for a specific address', async () => {
       txPoolServiceMock.getTransactions.resolves(rlpTxs);
 
+      // @ts-ignore
       const res = await txPool.contentFrom(parsedTx.from);
       expect(res).to.have.keys(['pending', 'queued']);
       expect(res.pending[parsedTx.nonce]).to.have.property('hash', parsedTx.hash);

@@ -182,7 +182,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       try {
         await ethersWsProvider.send(METHOD_NAME, [constants.INVALID_TRANSACTION]);
         expect.fail('Should have thrown an error');
-      } catch ({ error }) {
+      } catch (error: any) {
         expect(error.code).to.eq(-32000);
         expect(error.message).to.contain('unexpected junk after rlp payload');
       }
@@ -220,7 +220,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       } else {
         try {
           await ethersWsProvider.send(METHOD_NAME, [constants.DETERMINISTIC_DEPLOYER_TRANSACTION]);
-        } catch (error) {
+        } catch (error: any) {
           const expectedNonceTooLowError = predefined.NONCE_TOO_LOW(0, signerNonce);
           expect(error.info.error.code).to.eq(expectedNonceTooLowError.code);
           expect(error.info.error.message).to.contain(expectedNonceTooLowError.message);

@@ -61,10 +61,13 @@ describe('RPC Server', function () {
       CHAIN_ID: '0x12a',
     });
 
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'waitForMirrorNode').resolves();
 
     // Set up spy BEFORE requiring the server module to catch the constructor call
-    populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
+    populatePreconfiguredSpendingPlansSpy = sinon.spy(
+      Relay.prototype,
+      <keyof Relay>'populatePreconfiguredSpendingPlans',
+    );
 
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../../src/server/server')];
@@ -239,7 +242,7 @@ describe('RPC Server', function () {
       try {
         await testClient.post('/', { jsonrpc: '2.0', id: 4, method });
         Assertions.expectedError();
-      } catch (error) {
+      } catch (error: any) {
         BaseTest.invalidRequestSpecError(error.response, -32600, `Invalid Request`);
       }
     });
@@ -2904,6 +2907,8 @@ describe('RPC Server', function () {
         const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
         const syntheticLog = {
           address: contractAddress1,
+          bloom: '0x',
+          contract_id: '0.0.0',
           block_hash:
             '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
           block_number: 668,

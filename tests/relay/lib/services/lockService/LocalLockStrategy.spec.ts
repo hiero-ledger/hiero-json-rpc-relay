@@ -38,6 +38,7 @@ describe('LocalLockStrategy', function () {
   });
 
   function getStateEntry(address: string): LockState | null {
+    // @ts-ignore
     return lockStrategy['localLockStates'].get(address);
   }
 
@@ -49,13 +50,13 @@ describe('LocalLockStrategy', function () {
     expect(result!.sessionKey).to.be.a('string');
     expect(result!.acquiredAt).to.be.a('bigint');
 
-    const lockEntryAfterAcquisition = getStateEntry(address);
+    const lockEntryAfterAcquisition = getStateEntry(address)!;
 
     expect(lockEntryAfterAcquisition).to.not.be.null;
     expect(lockEntryAfterAcquisition.sessionKey).to.not.be.null;
 
     await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
-    const lockEntryAfterRelease = getStateEntry(address);
+    const lockEntryAfterRelease = getStateEntry(address)!;
     expect(lockEntryAfterRelease.sessionKey).to.be.null;
   });
 
@@ -63,20 +64,20 @@ describe('LocalLockStrategy', function () {
     const address = 'test-non-owner';
     const result = await lockStrategy.acquireLock(address);
 
-    const lockEntryAfterAcquisition = getStateEntry(address);
+    const lockEntryAfterAcquisition = getStateEntry(address)!;
     expect(lockEntryAfterAcquisition.sessionKey).to.equal(result!.sessionKey);
 
     const wrongKey = 'fake-session';
     const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
     await lockStrategy.releaseLock(address, wrongKey, process.hrtime.bigint());
 
-    const lockEntryAfterFakeRelease = getStateEntry(address);
+    const lockEntryAfterFakeRelease = getStateEntry(address)!;
     expect(lockEntryAfterFakeRelease.sessionKey).to.equal(result!.sessionKey);
     expect(doReleaseSpy.called).to.be.false;
 
     await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
 
-    const lockEntryAfterRelease = getStateEntry(address);
+    const lockEntryAfterRelease = getStateEntry(address)!;
     expect(lockEntryAfterRelease.sessionKey).to.be.null;
   });
 
@@ -142,13 +143,13 @@ describe('LocalLockStrategy', function () {
     const state = lockStrategy['localLockStates'].get(address);
 
     expect(state).to.not.be.undefined;
-    expect(state.sessionKey).to.equal(result!.sessionKey);
-    expect(state.lockTimeoutId).to.not.be.null;
+    expect(state!.sessionKey).to.equal(result!.sessionKey);
+    expect(state!.lockTimeoutId).to.not.be.null;
 
     await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
 
-    expect(state.sessionKey).to.be.null;
-    expect(state.lockTimeoutId).to.be.null;
+    expect(state!.sessionKey).to.be.null;
+    expect(state!.lockTimeoutId).to.be.null;
   });
 
   it('should ignore forceReleaseExpiredLock if session key does not match', async () => {
@@ -157,10 +158,10 @@ describe('LocalLockStrategy', function () {
 
     const state = lockStrategy['localLockStates'].get(address);
     expect(state).to.not.be.undefined;
-    expect(state.sessionKey).to.equal(result!.sessionKey);
+    expect(state!.sessionKey).to.equal(result!.sessionKey);
 
     // Modify session key to simulate ownership change
-    state.sessionKey = 'different-key';
+    state!.sessionKey = 'different-key';
 
     const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
     await lockStrategy['forceReleaseExpiredLock'](address, result!.sessionKey, process.hrtime.bigint());

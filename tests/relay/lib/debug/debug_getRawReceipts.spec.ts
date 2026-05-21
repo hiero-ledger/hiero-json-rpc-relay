@@ -118,7 +118,7 @@ describe('debug_getRawReceipts', function () {
   ];
 
   before(async function () {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
 
     debugService = new DebugImpl(
       mirrorNodeInstance,

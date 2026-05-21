@@ -1076,7 +1076,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         '0x0000000000000000000000000000000000000000000000000000000000000000',
         'latest',
       ]);
-      const blockNumberBeforeChange = `0x${(blockNumber - 1).toString(16)}`;
+      const blockNumberBeforeChange = `0x${(parseInt(blockNumber, 16) - 1).toString(16)}`;
       const storageValBeforeChange = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
         storageContractAddress,
         '0x0000000000000000000000000000000000000000000000000000000000000000',

@@ -1368,6 +1368,7 @@ describe('@debug API Acceptance Tests', function () {
         const transfers = [];
         for (let i = 0; i < 3; i++) {
           transfers.push(
+            // @ts-ignore
             new TransferTransaction()
               .addTokenTransfer(htsTokenId2, accounts[0].accountId, -transferAmount)
               .addTokenTransfer(htsTokenId2, accounts[1].accountId, transferAmount)

@@ -45,7 +45,7 @@ describe('@ethGetCode using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));

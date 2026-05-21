@@ -165,10 +165,12 @@ describe('ConfigService tests', async function () {
     });
 
     after(() => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = initialPaymasterAccounts;
     });
 
     it('should validate a correct config', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
       ] as any;
@@ -177,6 +179,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid account id format', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
       ] as any;
@@ -187,6 +190,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid key type', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'RSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
       ] as any;
@@ -197,6 +201,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid hex private key', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x1234', '80'],
       ] as any;
@@ -207,6 +212,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid der private key', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '30300201003', '80'],
       ] as any;
@@ -217,6 +223,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should pass on valid hex private key', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
       ] as any;
@@ -225,6 +232,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should pass on valid der ecdsa private key', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         [
           '0.0.8031491',
@@ -238,6 +246,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should pass on valid der ed25519 private key', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         [
           '0.0.8031491',
@@ -251,6 +260,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid allowanceInHBAR', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '0'],
       ] as any;
@@ -261,6 +271,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw if payment account array length is incorrect', () => {
+      // @ts-ignore
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA']] as any;
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(

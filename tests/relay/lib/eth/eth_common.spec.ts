@@ -20,8 +20,8 @@ describe('@ethCommon', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_commonTest', ipAddress: '0.0.0.0' });
 
   this.beforeAll(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'waitForMirrorNode').resolves();
     relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 
@@ -31,7 +31,7 @@ describe('@ethCommon', async function () {
 
   describe('@ethCommon', async function () {
     it('should execute "eth_chainId"', async function () {
-      const chainId = relay.eth().chainId(requestDetails);
+      const chainId = relay.eth().chainId();
       expect(chainId).to.be.equal(ConfigService.get('CHAIN_ID'));
     });
 
@@ -63,7 +63,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_hashrate"', async function () {
-      const result = await relay.eth().hashrate(requestDetails);
+      const result = await relay.eth().hashrate();
       expect(result).to.eq('0x0');
     });
 
@@ -73,17 +73,17 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_submitWork"', async function () {
-      const result = await relay.eth().submitWork(requestDetails);
+      const result = await relay.eth().submitWork();
       expect(result).to.eq(false);
     });
 
     it('should execute "eth_syncing"', async function () {
-      const result = await relay.eth().syncing(requestDetails);
+      const result = await relay.eth().syncing();
       expect(result).to.eq(false);
     });
 
     it('should execute "eth_getWork"', async function () {
-      const result = relay.eth().getWork(requestDetails);
+      const result = relay.eth().getWork();
       expect(result).to.have.property('code');
       expect(result.code).to.be.equal(-32601);
       expect(result).to.have.property('message');
@@ -91,7 +91,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getProof"', async function () {
-      const result = relay.eth().getProof(requestDetails);
+      const result = relay.eth().getProof();
       expect(result).to.have.property('code');
       expect(result.code).to.be.equal(-32601);
       expect(result).to.have.property('message');
@@ -99,7 +99,7 @@ describe('@ethCommon', async function () {
     });
 
     it(`should execute "eth_createAccessList`, async function () {
-      const result = relay.eth().createAccessList(requestDetails);
+      const result = relay.eth().createAccessList();
       expect(result).to.have.property('code');
       expect(result.code).to.be.equal(-32601);
       expect(result).to.have.property('message');
@@ -107,7 +107,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_blobBaseFee"', async function () {
-      const result = relay.eth().blobBaseFee(requestDetails);
+      const result = relay.eth().blobBaseFee();
       expect(result).to.have.property('code');
       expect(result.code).to.be.equal(-32601);
       expect(result).to.have.property('message');
@@ -115,7 +115,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_maxPriorityFeePerGas"', async function () {
-      const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
+      const result = await relay.eth().maxPriorityFeePerGas();
       expect(result).to.eq('0x0');
     });
   });

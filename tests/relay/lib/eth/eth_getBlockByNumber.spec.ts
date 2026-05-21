@@ -114,17 +114,17 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   }
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
   });
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     restMock.resetHandlers();
 
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(hapiServiceInstance as any, 'getSDKClient').returns(sdkClientStub);
     const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
     modifiedNetworkFees.fees[2].gas *= 100;
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
@@ -632,7 +632,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
         await ethImpl.getBlockByNumber(BLOCK_HASH, false, requestDetails);
         expect.fail('should have thrown an error');
-      } catch (error) {
+      } catch (error: any) {
         expect(error).to.exist;
         const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
         expect(error.code).to.equal(predefinedError.code);

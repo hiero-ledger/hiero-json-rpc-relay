@@ -31,7 +31,7 @@ describe('@erc20 Acceptance Tests', async function () {
   let initialHolder;
   let anotherAccount;
 
-  const contracts: [any] = [];
+  const contracts: any[] = [];
 
   const name = Utils.randomString(10);
   const symbol = Utils.randomString(5);
@@ -264,9 +264,8 @@ describe('@erc20 Acceptance Tests', async function () {
                     try {
                       await Assertions.expectRevert(
                         contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
-                        Constants.CALL_EXCEPTION,
                       );
-                    } catch (e) {
+                    } catch (e: any) {
                       // eth_estimateGas gets called by ethers
                       // so we need to catch the error and check that the reason is the expected one,
                       // in addition to validating the CALL_EXCEPTION
@@ -301,9 +300,8 @@ describe('@erc20 Acceptance Tests', async function () {
                     try {
                       await Assertions.expectRevert(
                         contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
-                        Constants.CALL_EXCEPTION,
                       );
-                    } catch (e) {
+                    } catch (e: any) {
                       // eth_estimateGas gets called by ethers
                       // so we need to catch the error and check that the reason is the expected one,
                       // in addition to validating the CALL_EXCEPTION
@@ -326,9 +324,8 @@ describe('@erc20 Acceptance Tests', async function () {
                     try {
                       await Assertions.expectRevert(
                         contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
-                        Constants.CALL_EXCEPTION,
                       );
-                    } catch (e) {
+                    } catch (e: any) {
                       // eth_estimateGas gets called by ethers
                       // so we need to catch the error and check that the reason is the expected one,
                       // in addition to validating the CALL_EXCEPTION
@@ -354,11 +351,8 @@ describe('@erc20 Acceptance Tests', async function () {
 
               it('reverts', async function () {
                 try {
-                  await Assertions.expectRevert(
-                    contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
-                    Constants.CALL_EXCEPTION,
-                  );
-                } catch (e) {
+                  await Assertions.expectRevert(contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount));
+                } catch (e: any) {
                   // eth_estimateGas gets called by ethers
                   // so we need to catch the error and check that the reason is the expected one,
                   // in addition to validating the CALL_EXCEPTION

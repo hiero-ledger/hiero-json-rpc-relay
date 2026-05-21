@@ -46,8 +46,8 @@ describe('LoggerService tests', async function () {
     expect(res).to.contain(paymaster0[3]);
     expect(res).to.contain(paymaster1[3]);
 
-    expect(res.match(/\*{10}/g).length).to.equal(2);
-    expect(res.match(/HEX_ECDSA/g).length).to.equal(2);
+    expect((res.match(/\*{10}/g) ?? []).length).to.equal(2);
+    expect((res.match(/HEX_ECDSA/g) ?? []).length).to.equal(2);
     expect(res).to.not.contain(paymaster0[2]);
     expect(res).to.not.contain(paymaster1[2]);
   });

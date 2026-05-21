@@ -19,27 +19,19 @@ import chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 
 describe('validations unit test', async function () {
-  const FAKE_REQUEST_ID = '3';
-  const FAKE_CONNECTION_ID = '9';
-  const requestDetails = new RequestDetails({
-    requestId: FAKE_REQUEST_ID,
-    ipAddress: '0.0.0.0',
-    connectionId: FAKE_CONNECTION_ID,
-  });
-
   it('Should execute validateJsonRpcRequest() to validate valid JSON RPC request and return true', () => {
-    const VALID_REQEST = {
+    const VALID_REQUEST = {
       id: 1,
-      jsonrpc: '2.0',
+      jsonrpc: '2.0' as const,
       method: 'eth_chainId',
       params: [],
     };
 
-    expect(validateJsonRpcRequest(VALID_REQEST, logger, requestDetails)).to.be.true;
+    expect(validateJsonRpcRequest(VALID_REQUEST, logger)).to.be.true;
   });
 
   it('Should execute validateJsonRpcRequest() to validate invalid JSON RPC requests and return false', () => {
-    const INVALID_REQUESTS = [
+    const INVALID_REQUESTS: any[] = [
       {
         jsonrpc: '2.0',
         method: 'eth_chainId',
@@ -58,20 +50,19 @@ describe('validations unit test', async function () {
     ];
 
     INVALID_REQUESTS.forEach((request) => {
-      // @ts-ignore
-      expect(validateJsonRpcRequest(request, logger, requestDetails)).to.be.false;
+      expect(validateJsonRpcRequest(request, logger)).to.be.false;
     });
   });
 
   WsTestHelper.withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: 'true' }, () => {
     it('Should execute validateJsonRpcRequest() to validate JSON RPC request that has no id field but return true because REQUEST_ID_IS_OPTIONAL=true', () => {
       const REQUEST = {
-        jsonrpc: '2.0',
+        id: 1,
+        jsonrpc: '2.0' as const,
         method: 'eth_chainId',
         params: [],
       };
-      // @ts-ignore
-      expect(validateJsonRpcRequest(REQUEST, logger, requestDetails)).to.be.true;
+      expect(validateJsonRpcRequest(REQUEST, logger)).to.be.true;
     });
   });
 
@@ -130,7 +121,7 @@ describe('validations unit test', async function () {
     });
 
     it('should throw error if passed address as string is non-existing', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(false);
+      (stubMirrorNodeClient.resolveEntityType as sinon.SinonStub).returns(false);
 
       await expect(
         validateSubscribeEthLogsParams(
@@ -144,7 +135,7 @@ describe('validations unit test', async function () {
     });
 
     it('should throw error if passed address as array is non-existing', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(false);
+      (stubMirrorNodeClient.resolveEntityType as sinon.SinonStub).returns(false);
 
       await expect(
         validateSubscribeEthLogsParams(
@@ -158,7 +149,7 @@ describe('validations unit test', async function () {
     });
 
     it('should be able to pass address as a string', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      (stubMirrorNodeClient.resolveEntityType as sinon.SinonStub).returns(true);
 
       await validateSubscribeEthLogsParams(
         {
@@ -170,7 +161,7 @@ describe('validations unit test', async function () {
     });
 
     it('should be able to pass address as an array', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      (stubMirrorNodeClient.resolveEntityType as sinon.SinonStub).returns(true);
 
       await validateSubscribeEthLogsParams(
         {

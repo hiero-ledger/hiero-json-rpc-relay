@@ -621,14 +621,14 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         ]);
 
         Assertions.expectedError();
-      } catch (e) {
+      } catch (e: any) {
         return e.info.error;
       }
     }
 
     it('revert: payable function', async () => {
       const err = await sendAndRevertCall({
-        value: ONE_TINYBAR,
+        value: Number(ONE_TINYBAR),
         data: '0xd0efd7ef', // revertPayable()
       });
 
@@ -849,11 +849,11 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         DeployerContractJson.bytecode,
         accounts[0].wallet,
       );
-      deployerContractAddress = deployerContract.target.toLowerCase() as string;
+      deployerContractAddress = (deployerContract.target as string).toLowerCase();
     });
 
     it('should return to = null for contract deployment tx', async () => {
-      const { hash } = deployerContract.deploymentTransaction();
+      const { hash } = deployerContract.deploymentTransaction()!;
 
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash]);
       expect(res.to).to.be.null;

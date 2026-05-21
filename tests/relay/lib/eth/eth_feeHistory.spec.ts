@@ -30,7 +30,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     restMock.onGet('network/fees').reply(200, DEFAULT_NETWORK_FEES);
   });
@@ -244,7 +244,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: true });
 
     beforeEach(async function () {
-      await cacheService.clear(requestDetails);
+      await cacheService.clear();
       restMock.reset();
       restMock.onGet(`network/fees`).reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     });

@@ -12,8 +12,8 @@ const web3Impl = new Web3Impl();
 
 describe('Web3', function () {
   before(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <keyof Relay>'waitForMirrorNode').resolves();
   });
 
   after(() => {
