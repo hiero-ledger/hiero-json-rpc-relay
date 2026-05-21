@@ -28,6 +28,7 @@ import { predefined } from './errors/JsonRpcError';
 import { BlockFactory } from './factories/blockFactory';
 import { type Block, Log } from './model';
 import {
+  AccountService,
   BlockService,
   CommonService,
   type IBlockService,
@@ -144,6 +145,7 @@ export class DebugImpl implements Debug {
       cacheService,
       chainId,
       this.common,
+      new AccountService(cacheService, this.common, this.logger, this.mirrorNodeClient, transactionPoolService),
       new EventEmitter<TypedEvents>(),
       hapiService,
       logger,

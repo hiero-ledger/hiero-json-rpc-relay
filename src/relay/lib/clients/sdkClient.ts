@@ -264,9 +264,9 @@ export class SDKClient {
     originalCallerAddress?: string,
   ): Promise<T> {
     const queryConstructorName = query.constructor.name;
-    let queryResponse: any = null;
-    let queryCost: number | undefined = undefined;
-    let status: string = '';
+    let queryResponse: any;
+    let queryCost: number | undefined;
+    let status!: string;
 
     this.logger.info(`Execute %s query.`, queryConstructorName);
 
@@ -626,7 +626,7 @@ export class SDKClient {
   ): Promise<ITransactionRecordMetric> {
     let gasUsed: number = 0;
     let transactionFee: number = 0;
-    let txRecordChargeAmount: number = 0;
+    let txRecordChargeAmount: number;
     try {
       this.logger.debug(
         `Get transaction record via consensus node: transactionId=%s, txConstructorName=%s`,

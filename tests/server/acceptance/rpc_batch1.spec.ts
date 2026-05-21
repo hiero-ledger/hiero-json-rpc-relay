@@ -493,23 +493,18 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should be able to use `address` param with a large block range', async () => {
-        const blockRangeLimit = ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
-        let customBlockRangeLimit = 10;
-        try {
-          //when we pass only address, it defaults to the latest block
-          const logs = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS, [
-            {
-              fromBlock: numberTo0x(latestBlock - customBlockRangeLimit - 1),
-              address: contractAddress,
-            },
-          ]);
-          expect(logs.length).to.be.greaterThan(0);
+        const customBlockRangeLimit = 10;
+        //when we pass only address, it defaults to the latest block
+        const logs = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS, [
+          {
+            fromBlock: numberTo0x(latestBlock - customBlockRangeLimit - 1),
+            address: contractAddress,
+          },
+        ]);
+        expect(logs.length).to.be.greaterThan(0);
 
-          for (const i in logs) {
-            expect(logs[i].address.toLowerCase()).to.equal(contractAddress.toLowerCase());
-          }
-        } finally {
-          customBlockRangeLimit = blockRangeLimit;
+        for (const i in logs) {
+          expect(logs[i].address.toLowerCase()).to.equal(contractAddress.toLowerCase());
         }
       });
 

@@ -73,36 +73,19 @@ export class Precheck {
     this.gasLimit(parsedTx);
     this.chainId(parsedTx);
     this.value(parsedTx);
+    this.accessList(parsedTx);
   }
 
   /**
-   * Performs additional, stateful validation checks (required for example
-   * before sending a transaction that was retrieved from the transaction pool).
-   *
-   * This method MUST only be used for transactions that have already
-   * passed {@link validateBasicPropertiesStateless}.
-   *
-   * @param parsedTx - Parsed Ethereum transaction from the tx pool.
-   * @param networkGasPriceInWeiBars - Current network gas price in weiBars
-   * @param requestDetails - Request metadata used for logging and tracking.
-   * @throws If the transaction does not meet send-time requirements.
+   * Network-state stateful prechecks: gas price, access list, receiver.
+   * Runs inside Lock 2 (execution), after pool save and before CN submission.
    */
-  async validateAccountAndNetworkStateful(
+  async validateReceiverAndGasStateful(
     parsedTx: Transaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
-    const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-
-    // We expect this check to be executed against a transaction that is already
-    // in the TxPool, which is why we subtract 1 from the TxPool size, to avoid
-    // counting it twice.
-    const pendingTransactions = await this.transactionPoolService.getPendingCount(parsedTx.from!, 1);
-    const signerNonce = mirrorAccountInfo.ethereum_nonce + pendingTransactions - 1;
-    this.nonce(parsedTx, signerNonce);
-    this.balance(parsedTx, mirrorAccountInfo.balance);
-    this.accessList(parsedTx);
     await this.receiverAccount(parsedTx, requestDetails);
   }
 
