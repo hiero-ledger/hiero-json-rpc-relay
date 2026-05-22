@@ -8,7 +8,7 @@ import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 /**
  * Protocol-level rate limiting tests.
  */
-describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
+describe('@protocol-acceptance @protocol-acceptance-eth-plain @ratelimiter Rate Limiting', function () {
   this.timeout(30_000);
 
   WsTestHelper.overrideEnvsInMochaDescribe({
