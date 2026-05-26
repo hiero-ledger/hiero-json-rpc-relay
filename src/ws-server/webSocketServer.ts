@@ -98,7 +98,16 @@ export async function initializeWsServer(
 
   const pingInterval = ConfigService.get('WS_PING_INTERVAL');
 
-  const app = websockify(new Koa());
+  const inputSizeLimitMb = ConfigService.get('INPUT_SIZE_LIMIT');
+  if (inputSizeLimitMb <= 0) {
+    logger.warn(
+      `INPUT_SIZE_LIMIT=${inputSizeLimitMb} disables WebSocket payload enforcement — ws treats maxPayload ≤ 0 as unlimited, set a positive value to enforce a limit`,
+    );
+  }
+  const maxPayloadBytes = inputSizeLimitMb * 1024 * 1024;
+  logger.info(`Configured WebSocket maxPayload: ${maxPayloadBytes} bytes (${inputSizeLimitMb} MB)`);
+
+  const app = websockify(new Koa(), { maxPayload: maxPayloadBytes });
 
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);

@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import http from 'http';
 import { type AddressInfo } from 'net';
+import { Registry } from 'prom-client';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 
@@ -118,6 +119,7 @@ describe('webSocketServer http endpoints', () => {
 
 describe('webSocketServer websocket handling', () => {
   let server: http.Server<any, any>;
+  let wsApp: any;
   const sockets: WebSocket[] = [];
 
   async function openWsServerAndUpdateSockets(server, socketsArr) {
@@ -136,6 +138,7 @@ describe('webSocketServer websocket handling', () => {
     };
     sinon.stub(Relay, 'init').resolves(mockRelay as any);
     const { app } = await webSocketServer.initializeWsServer();
+    wsApp = app;
 
     // Start the WebSocket server and wait for it to start
     await new Promise<void>((resolve) => {
@@ -268,5 +271,112 @@ describe('webSocketServer websocket handling', () => {
     expect(setIntervalSpy.called).to.be.true;
     setIntervalSpy.restore();
     await ws.close();
+  });
+
+  it('should process WebSocket messages under INPUT_SIZE_LIMIT normally', async () => {
+    sinon.stub(jsonRpcController, 'getRequestResult').resolves({ id: 1, jsonrpc: '2.0', result: 'ok' });
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }));
+
+    await new Promise((r) => setTimeout(r, 50));
+    await ws.close();
+
+    expect(sendToClientStub.calledOnce).to.be.true;
+  });
+
+  it('should configure WebSocket maxPayload from INPUT_SIZE_LIMIT', () => {
+    const limitBytes = (ConfigService.get('INPUT_SIZE_LIMIT') as number) * 1024 * 1024;
+    // Verify maxPayload is wired to the config value at construction time.
+    expect((wsApp.ws.server as any).options.maxPayload).to.equal(limitBytes);
+  });
+
+  it('should process WebSocket batch requests under payload limit', async () => {
+    sinon.stub(ConfigService, 'get').callsFake(((key: string) => {
+      if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
+      return process.env[key] as any;
+    }) as any);
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(3);
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    const grrStub = sinon.stub(jsonRpcController, 'getRequestResult');
+    grrStub.onCall(0).resolves({ id: 1, jsonrpc: '2.0', result: 'a' });
+    grrStub.onCall(1).resolves({ id: 2, jsonrpc: '2.0', result: 'b' });
+    grrStub.onCall(2).resolves({ id: 3, jsonrpc: '2.0', result: 'c' });
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(
+      JSON.stringify([
+        { id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] },
+        {
+          id: 2,
+          jsonrpc: '2.0',
+          method: 'eth_getBalance',
+          params: ['0x0000000000000000000000000000000000000000', 'latest'],
+        },
+        { id: 3, jsonrpc: '2.0', method: 'eth_chainId', params: [] },
+      ]),
+    );
+
+    await new Promise((r) => setTimeout(r, 50));
+    await ws.close();
+
+    expect(grrStub.callCount).to.equal(3);
+    expect(sendToClientStub.calledOnce).to.be.true;
+    const { args } = sendToClientStub.getCall(0);
+    expect(Array.isArray(args[2])).to.be.true;
+  });
+
+  for (const value of [0, -1]) {
+    it(`should warn when INPUT_SIZE_LIMIT is ${value}`, async () => {
+      const warnSpy = sinon.spy(webSocketServer.logger, 'warn');
+      sinon
+        .stub(ConfigService, 'get')
+        .callsFake(((key: string) => (key === 'INPUT_SIZE_LIMIT' ? value : (process.env[key] as any))) as any);
+
+      const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+      await webSocketServer.initializeWsServer(mockRelayInstance as any, new Registry());
+
+      expect(warnSpy.calledWithMatch(sinon.match(/INPUT_SIZE_LIMIT/))).to.be.true;
+      expect(warnSpy.calledWithMatch(sinon.match(/unlimited/))).to.be.true;
+    });
+  }
+
+  it('should not warn when INPUT_SIZE_LIMIT is positive', async () => {
+    const warnSpy = sinon.spy(webSocketServer.logger, 'warn');
+    sinon
+      .stub(ConfigService, 'get')
+      .callsFake(((key: string) => (key === 'INPUT_SIZE_LIMIT' ? 1 : (process.env[key] as any))) as any);
+
+    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    await webSocketServer.initializeWsServer(mockRelayInstance as any, new Registry());
+
+    expect(warnSpy.getCalls().some((c) => /INPUT_SIZE_LIMIT/.test(c.args[0]))).to.be.false;
+  });
+
+  it('should not reject messages with 1009 when INPUT_SIZE_LIMIT is 0 (unlimited, not reject-all like HTTP)', async () => {
+    sinon
+      .stub(ConfigService, 'get')
+      .callsFake(((key: string) => (key === 'INPUT_SIZE_LIMIT' ? 0 : (process.env[key] as any))) as any);
+
+    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const { app: testApp } = await webSocketServer.initializeWsServer(mockRelayInstance as any, new Registry());
+
+    const testServer: http.Server = await new Promise((resolve) => {
+      const s = testApp.listen(0, '127.0.0.1', () => resolve(s));
+    });
+
+    const ws = new WebSocket(wsUrl(testServer));
+    sockets.push(ws);
+    await new Promise((resolve) => ws.on('open', resolve));
+
+    const closed = new Promise<number>((resolve) => ws.on('close', (code) => resolve(code)));
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }));
+    const closeCode = await Promise.race([closed, new Promise<null>((r) => setTimeout(() => r(null), 100))]);
+
+    await new Promise<void>((resolve) => testServer.close(resolve));
+
+    expect(closeCode).to.not.equal(1009);
   });
 });
