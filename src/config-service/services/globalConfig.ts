@@ -686,6 +686,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 60000,
   },
+  SERVER_KEEPALIVE_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 650000,
+  },
+  SERVER_HEADERS_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 660000,
+  },
   SUBSCRIPTIONS_ENABLED: {
     type: 'boolean',
     required: false,
