@@ -150,8 +150,8 @@ export class ConfigService {
    *
    * This is not a generic "the variable is set" notice — the masked env dump already prints
    * that. The point here is to spell out the behavioural trade-off so an operator who flipped
-   * the flag understands exactly what protection they gave up and why a previously-rejected
-   * transaction may now reach the consensus node.
+   * the flag understands exactly what protection they gave up and which features stop
+   * reflecting in-flight transactions as a result.
    */
   private warnDisabledMnPrechecks(): void {
     if (!this.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
@@ -159,25 +159,28 @@ export class ConfigService {
     }
 
     logger.warn(
-      'DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled. eth_sendRawTransaction will skip every ' +
-        'Mirror Node precheck before submitting to the consensus node:\n' +
-        '  - account existence, balance, nonce and receiver-signature-required checks are no longer verified locally;\n' +
-        '  - transactions are submitted without ingress-admission to the transaction pool, so the ' +
-        'txpool_* endpoints will not reflect in-flight transactions;\n' +
-        '  - the signed transaction gas price is used directly as the Hedera maxTransactionFee basis ' +
-        'instead of the current network gas price (no network anchor to detect underpriced transactions).\n' +
-        'Underfunded, underpriced, wrong-nonce or otherwise invalid transactions will be rejected by the ' +
-        'consensus node with generic errors rather than locally with descriptive JSON-RPC errors. ' +
-        'This trades validation accuracy and error quality for lower latency — only keep it enabled if you accept that trade-off.',
+      'DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled. eth_sendRawTransaction will skip the ' +
+        'ingress-admission phase entirely and submit signed transactions straight to the consensus node. ' +
+        'Local validation reduces to the Mirror Node-free stateless prechecks only (RLP, chain id, ' +
+        'signature, tx type/size, gas limit, call-data size, value, access-list rejection). ' +
+        'Direct effects on eth_sendRawTransaction:\n' +
+        '  - account existence, balance and receiver_sig_required are no longer verified locally — ' +
+        'underfunded transactions and transactions to receivers that require a signature reach the ' +
+        'consensus node and come back as a generic TRANSACTION_REJECTED instead of a descriptive JSON-RPC error;\n' +
+        '  - the network gas-price anchor is not fetched — the signed transaction gas price is used ' +
+        'directly as the Hedera maxTransactionFee basis, so underpriced transactions are no longer ' +
+        'rejected locally;\n' +
+        '  - the post-rejection Mirror Node nonce lookup is skipped, so WRONG_NONCE errors come back ' +
+        'as a generic TRANSACTION_REJECTED instead of NONCE_TOO_LOW / NONCE_TOO_HIGH.\n' +
+        'Side effects on other features (the transaction pool is bypassed even when ENABLE_TX_POOL=true):\n' +
+        '  - txpool_content, txpool_content_from, txpool_status and txpool_inspect always return empty / zero, ' +
+        'regardless of TXPOOL_API_ENABLED;\n' +
+        '  - eth_getTransactionCount with the "pending" block tag returns the confirmed Mirror Node nonce only ' +
+        '(it no longer reflects in-flight transactions and behaves the same as "latest").\n' +
+        'Unaffected: per-sender FIFO ordering is still enforced by the execution lock, so ENABLE_NONCE_ORDERING ' +
+        'continues to work; the consensus node remains the authoritative nonce checker; and the HBAR limiter ' +
+        'still reconciles actual fees post-execution. Only keep this flag enabled if these trade-offs are acceptable.',
     );
-
-    if (this.get('ENABLE_NONCE_ORDERING')) {
-      logger.warn(
-        'DISABLE_MN_PRECHECKS_ON_TX_SENDING and ENABLE_NONCE_ORDERING are both enabled, but they ' +
-          'conflict: nonce ordering relies on transaction-pool state that is not populated while ' +
-          'Mirror Node prechecks are disabled. Nonce ordering will NOT be enforced — disable one of the two flags.',
-      );
-    }
   }
 
   private validateReadOnlyMode(): void {
