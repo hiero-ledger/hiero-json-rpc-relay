@@ -35,6 +35,25 @@ describe('utils.ts', () => {
         expect(spy.calledWith(60000)).to.eq(true);
       });
     });
+
+    withOverriddenEnvsInMochaTest({ SERVER_KEEPALIVE_TIMEOUT_MS: 700000, SERVER_HEADERS_TIMEOUT_MS: 710000 }, () => {
+      it('should set keepAliveTimeout and headersTimeout from environment variables', () => {
+        utils.setServerTimeout(server);
+        expect(server.keepAliveTimeout).to.equal(700000);
+        expect(server.headersTimeout).to.equal(710000);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest(
+      { SERVER_KEEPALIVE_TIMEOUT_MS: undefined, SERVER_HEADERS_TIMEOUT_MS: undefined },
+      () => {
+        it('should set keepAliveTimeout and headersTimeout to GCP-compatible defaults when not set', () => {
+          utils.setServerTimeout(server);
+          expect(server.keepAliveTimeout).to.equal(650000);
+          expect(server.headersTimeout).to.equal(660000);
+        });
+      },
+    );
   });
 
   describe('getBatchRequestsMaxSize', () => {
