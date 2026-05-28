@@ -116,7 +116,7 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
   });
 
   describe('WebSocket payload size limit', () => {
-    WsTestHelper.withOverriddenEnvsInMochaTest({ INPUT_SIZE_LIMIT: 1 }, () => {
+    WsTestHelper.withOverriddenEnvsInMochaTest({ WS_INPUT_SIZE_LIMIT: 1 }, () => {
       it('Should close connection with code 1009 when message exceeds payload limit', async () => {
         const webSocket = new WebSocket(WsTestConstant.WS_RELAY_URL);
         const oversizedPayload = JSON.stringify(WsTestHelper.prepareJsonRpcObject('eth_blockNumber', [])).padEnd(
