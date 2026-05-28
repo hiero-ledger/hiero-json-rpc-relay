@@ -1232,5 +1232,186 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
     });
+
+    describe('DISABLE_MN_PRECHECKS_ON_TX_SENDING', function () {
+      /**
+       * The objective of DISABLE_MN_PRECHECKS_ON_TX_SENDING=true is that sendRawTransaction performs
+       * ZERO Mirror Node calls before submitting to the consensus node.
+       *
+       * Skipped MN calls (compared to the default flow):
+       *   - network/fees           (gas price)
+       *   - network/exchangerate   (HBAR rate)
+       *   - accounts/<from>        (ingress-admission nonce lookup via getTransactionCounts)
+       *   - accounts/<from>        (balance / receiver_sig_required stateful prechecks)
+       *   - accounts/<from>        (WRONG_NONCE post-rejection nonce lookup)
+       *
+       * In place of MN readings: the user-signed gas price is used as the Hedera max-fee basis,
+       * a 0 exchange-rate sentinel is passed, and the consensus node performs the authoritative
+       * nonce check.
+       */
+
+      const wasAnyMirrorNodeCallMade = (): boolean => restMock.history.get.length > 0;
+
+      withOverriddenEnvsInMochaTest(
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false },
+        () => {
+          it('should submit the transaction with zero Mirror Node calls on the happy path', async function () {
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            // Reset history AFTER all setup, so we only count calls made during sendRawTransaction.
+            restMock.resetHistory();
+
+            const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            expect(resultingHash).to.equal(ethereumHash);
+            // The acid test: no Mirror Node HTTP calls at all during the send flow.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
+            // And we still submitted to the consensus node.
+            sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+          });
+
+          it('should derive the Hedera max-fee basis from the user-signed gas price and pass 0 exchange rate', async function () {
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+            restMock.resetHistory();
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // submitEthereumTransaction(buffer, callerName, requestDetails, originalCaller,
+            //                           networkGasPriceInWeiBars, exchangeRateInCents)
+            const call = sdkClientStub.submitEthereumTransaction.getCall(0);
+            // The user signed with `transaction.gasPrice` ('0xad78ebc5ac620000') — the relay
+            // must use exactly that as the basis for the Hedera max-fee cap (after the
+            // GAS_PRICE_PERCENTAGE_BUFFER, which is 0 by default in tests).
+            const expectedWeibars = Utils.addPercentageBufferToGasPrice(Number(BigInt(transaction.gasPrice)));
+            expect(call.args[4]).to.equal(expectedWeibars);
+            // 0 is the "no Mirror Node reading available" sentinel.
+            expect(call.args[5]).to.equal(0);
+          });
+
+          it('should return a generic TRANSACTION_REJECTED on WRONG_NONCE without polling Mirror Node', async function () {
+            const signed = await signTransaction({ ...transaction, nonce: 10 });
+
+            const wrongNonceError = new SDKClientError(
+              { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+              'WRONG_NONCE',
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+            restMock.resetHistory();
+
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+              .to.be.rejectedWith(JsonRpcError)
+              .and.eventually.satisfy(
+                (error: JsonRpcError) =>
+                  expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                  expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
+              );
+
+            // No MN call to classify the nonce as TOO_LOW / TOO_HIGH.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
+          });
+
+          it('should NOT run the Mirror Node-dependent prechecks', async function () {
+            const precheck = ethImpl['transactionService']['precheck'];
+            const balanceSpy = sinon.spy(precheck, 'balance');
+            const verifyAccountSpy = sinon.spy(precheck, 'verifyAccount');
+            const receiverAndGasSpy = sinon.spy(precheck, 'validateReceiverAndGasStateful');
+            const nonceSpy = sinon.spy(precheck, 'nonce');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // Each of these needs a Mirror Node reading, so none may run when the flag is on.
+            sinon.assert.notCalled(balanceSpy);
+            sinon.assert.notCalled(verifyAccountSpy);
+            sinon.assert.notCalled(receiverAndGasSpy);
+            sinon.assert.notCalled(nonceSpy);
+          });
+
+          it('should skip transaction-pool ingress admission', async function () {
+            const ts = ethImpl['transactionService'];
+            const saveSpy = sinon.spy(ts['transactionPoolService'], 'saveTransaction');
+            const getCountsSpy = sinon.spy(ts['accountService'], 'getTransactionCounts');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // admitTransaction is bypassed entirely: no MN-backed nonce lookup, no pool write.
+            sinon.assert.notCalled(getCountsSpy);
+            sinon.assert.notCalled(saveSpy);
+          });
+
+          // precheck.gasPrice is intentionally skipped (no MN value to compare against), but
+          // precheck.accessList is purely stateless and still rejects unsupported tx shapes.
+          it('should still run precheck.accessList but NOT precheck.gasPrice', async function () {
+            const gasPriceSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'gasPrice');
+            const accessListSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'accessList');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            sinon.assert.notCalled(gasPriceSpy);
+            sinon.assert.calledOnce(accessListSpy);
+            // Sanity: still no MN call.
+            expect(wasAnyMirrorNodeCallMade()).to.be.false;
+          });
+        },
+      );
+
+      // Sanity: with the flag off, the existing prechecks DO run and DO make MN calls.
+      // This guards against accidental regressions in the other direction.
+      withOverriddenEnvsInMochaTest(
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false },
+        () => {
+          it('should still run the stateful prechecks when the flag is off', async function () {
+            const receiverAndGasStub = sinon.stub(
+              ethImpl['transactionService']['precheck'],
+              'validateReceiverAndGasStateful',
+            );
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            sinon.assert.calledOnce(receiverAndGasStub);
+          });
+        },
+      );
+    });
   });
 });
