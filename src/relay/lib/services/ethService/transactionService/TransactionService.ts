@@ -352,6 +352,16 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     requestDetails: RequestDetails,
   ): Promise<{ balance: IAccountBalance | undefined }> {
+    // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the entire ingress-admission phase.
+    // accountService.getTransactionCounts() reaches the Mirror Node (cold path) to read the
+    // confirmed nonce, and precheck.nonce / saveTransaction both depend on that reading — none of
+    // them can run without a Mirror Node call. Per-sender execution ordering is still preserved by
+    // the execution lock acquired in prepareExecution(); the consensus node performs the
+    // authoritative nonce check and rejects out-of-order transactions with WRONG_NONCE.
+    if (ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+      return { balance: undefined };
+    }
+
     const ingressLockKey = `${senderAddress}:ingress`;
     const ingressLockResult = await this.lockService.acquireLock(ingressLockKey);
 
@@ -418,20 +428,43 @@ export class TransactionService implements ITransactionService {
     const execLockKey = `${senderAddress}:exec`;
     let execLockResult = await this.lockService.acquireLock(execLockKey);
     let networkGasPriceInWeiBars: number;
+    const disableMnPrechecks = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING');
 
     let shouldLockBeReleased = false;
     try {
-      // precheck sender balance
-      this.precheck.balance(
-        parsedTx,
-        verifiedBalance ?? (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance,
-      );
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node gas-price
+      // fetch entirely. Use the user's own signed gas price (from tx.gasPrice or, for
+      // EIP-1559, maxFeePerGas + maxPriorityFeePerGas) as the basis for the Hedera
+      // `maxTransactionFee` cap — the user already committed to paying that, so it is the
+      // most defensible local upper bound and avoids guessing with a stale config default.
+      const rawNetworkGasPriceInWeiBars = disableMnPrechecks
+        ? Number(parsedTx.gasPrice ?? parsedTx.maxFeePerGas! + parsedTx.maxPriorityFeePerGas!)
+        : await this.common.getGasPriceInWeibars(requestDetails);
+      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(rawNetworkGasPriceInWeiBars);
 
-      // precheck gas price and receiver
-      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-        await this.common.getGasPriceInWeibars(requestDetails),
-      );
-      await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
+          JSON.stringify(parsedTx),
+        );
+      }
+
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, every Mirror Node-dependent stateful
+      // precheck is skipped: precheck.balance needs the account balance, and
+      // validateReceiverAndGasStateful needs receiver_sig_required plus a network gas-price anchor.
+      // All Mirror Node-free prechecks (including accessList) already ran in
+      // validateBasicPropertiesStateless at the start of sendRawTransaction, so there is nothing
+      // to run here. Underpriced or underfunded transactions are surfaced by the consensus node.
+      if (!disableMnPrechecks) {
+        // precheck sender balance
+        this.precheck.balance(
+          parsedTx,
+          verifiedBalance ?? (await this.precheck.verifyAccount(parsedTx, requestDetails)).balance,
+        );
+
+        // precheck gas price and receiver
+        await this.precheck.validateReceiverAndGasStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      }
     } catch (error) {
       // The lock will be released in the next step, after full transaction is submitted (sendRawTransactionProcessor).
       // If an error occurs at this stage, however, we should release the lock immediately regardless
@@ -778,12 +811,19 @@ export class TransactionService implements ITransactionService {
         }
 
         let accountNonce: number | null = null;
-        try {
-          const txCounts = await this.accountService.getTransactionCounts(parsedTx.from!, requestDetails);
-          // Decrementing because currently investigated transaction is still placed on the pending queue.
-          accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
-        } catch (mirrorNodeError) {
-          this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+        // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node lookup and fall
+        // through to the generic TRANSACTION_REJECTED response below — operators in this
+        // mode have opted out of MN-validated error classification.
+        if (!ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+          try {
+            const txCounts = await this.accountService.getTransactionCounts(parsedTx.from!, requestDetails);
+            // Decrementing because currently investigated transaction is still placed on the pending queue.
+            accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
+          } catch (mirrorNodeError) {
+            // Mirror Node request failed (e.g., 404, 429, 5xx)
+            // Simply ignore and fallback to the original rejection to avoid masking the true error
+            this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+          }
         }
 
         if (accountNonce != null && accountNonce !== parsedTx.nonce) {
@@ -830,13 +870,21 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node exchange-rate
+      // fetch. The rate is only consumed in the HFS (createFile) path for the HBAR rate limiter's
+      // preemptive estimation; 0 is treated as the "skip preemptive estimation" sentinel by
+      // SDKClient.createFile. The HBAR limiter still reconciles actual fees post-hoc.
+      const currentNetworkExchangeRateInCents = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
+        ? 0
+        : await this.getCurrentNetworkExchangeRateInCents(requestDetails);
+
       const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
         transactionBuffer,
         constants.ETH_SEND_RAW_TRANSACTION,
         requestDetails,
         originalCallerAddress,
         networkGasPriceInWeiBars,
-        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        currentNetworkExchangeRateInCents,
       );
 
       fileId = sendRawTransactionResult.fileId;
