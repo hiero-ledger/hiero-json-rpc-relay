@@ -158,6 +158,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  DISABLE_MN_PRECHECKS_ON_TX_SENDING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   E2E_RELAY_HOST: {
     type: 'string',
     required: false,
