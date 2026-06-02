@@ -32,7 +32,6 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let extractBlockNumberOrTagStub: sinon.SinonStub;
 
 const DEFAULTS: Record<string, any> = {
   [CONTRACT_RESULTS_WITH_FILTER_URL_2]: defaultContractResults,
@@ -70,9 +69,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    extractBlockNumberOrTagStub = sinon
-      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
-      .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.reset();
@@ -80,7 +76,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   this.afterEach(() => {
     getSdkClientStub.restore();
-    extractBlockNumberOrTagStub.restore();
     restMock.resetHandlers();
   });
 
