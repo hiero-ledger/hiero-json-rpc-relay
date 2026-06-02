@@ -668,22 +668,22 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
     });
 
-    it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
-      const result = await contractService['extractBlockNumberOrTag'](null);
+    it('should return null when blockParam is null in extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag'](null);
       expect(result).to.be.null;
     });
 
-    it('should return unchanged blockHash when blockHash is passed as a string on extractBlockNumberOrTag', async function () {
-      const result = await contractService['extractBlockNumberOrTag'](BLOCKHASH);
+    it('should return unchanged blockHash when blockHash is passed as a string on extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag'](BLOCKHASH);
       expect(result).to.be.equal(BLOCKHASH);
     });
 
-    it('should return unchanged blockHash when blockHash is passed within an object on extractBlockNumberOrTag', async function () {
-      const result = await contractService['extractBlockNumberOrTag']({ blockHash: BLOCKHASH });
+    it('should return unchanged blockHash when blockHash is passed within an object on extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag']({ blockHash: BLOCKHASH });
       expect(result).to.be.equal(BLOCKHASH);
     });
 
-    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
+    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', function () {
       expect(() => contractService['extractBlockNumberOrTag']({})).to.throw(
         JsonRpcError,
         'neither block nor hash specified',
