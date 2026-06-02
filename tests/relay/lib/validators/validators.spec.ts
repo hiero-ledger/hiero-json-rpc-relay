@@ -768,6 +768,31 @@ describe('Validator', async () => {
     ],
   });
 
+  describe('tracerConfigWrapper accepts unknown top-level params', async () => {
+    const validation = { 0: { type: 'tracerConfigWrapper', required: true } };
+
+    it('does not throw when Geth-style top-level timeout is provided with tracer', async () => {
+      expect(() =>
+        validateParams([{ tracer: Constants.TracerType.CallTracer, timeout: '5s' }], validation),
+      ).to.not.throw();
+    });
+
+    it('does not throw when timeout is provided alongside tracerConfig', async () => {
+      expect(() =>
+        validateParams(
+          [{ tracer: Constants.TracerType.CallTracer, tracerConfig: { onlyTopCall: true }, timeout: '5s' }],
+          validation,
+        ),
+      ).to.not.throw();
+    });
+
+    it('does not throw for other unknown top-level params (reexec, disableReturnData)', async () => {
+      expect(() =>
+        validateParams([{ tracer: Constants.TracerType.CallTracer, reexec: 128, disableReturnData: true }], validation),
+      ).to.not.throw();
+    });
+  });
+
   describe('Other error cases', async () => {
     it('throws an error if validation type is wrong', async () => {
       const validation = { 0: { type: 'wrongType' } };
