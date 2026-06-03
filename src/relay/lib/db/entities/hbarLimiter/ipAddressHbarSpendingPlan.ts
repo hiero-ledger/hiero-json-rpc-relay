@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IIPAddressHbarSpendingPlan } from '../../types/hbarLimiter/ipAddressHbarSpendingPlan';
+import { type IIPAddressHbarSpendingPlan } from '../../types/hbarLimiter/ipAddressHbarSpendingPlan';
 
 export class IPAddressHbarSpendingPlan implements IIPAddressHbarSpendingPlan {
   ipAddress: string;

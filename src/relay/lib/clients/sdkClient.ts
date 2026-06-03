@@ -1,37 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  AccountId,
+  type AccountId,
   Client,
   EthereumTransaction,
   EthereumTransactionData,
-  ExchangeRate,
+  type ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
-  FileId,
+  type FileId,
   FileInfoQuery,
   Hbar,
   HbarUnit,
   Logger as HederaLogger,
   LogLevel,
-  PublicKey,
-  Query,
+  type PublicKey,
+  type Query,
   Status,
-  Transaction,
-  TransactionRecord,
+  type Transaction,
+  type TransactionRecord,
   TransactionRecordQuery,
-  TransactionResponse,
+  type TransactionResponse,
 } from '@hiero-ledger/sdk';
-import { EventEmitter } from 'events';
-import { Logger } from 'pino';
+import { type EventEmitter } from 'events';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../config-service/services';
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService, PaymasterAccount } from '../services';
-import { HbarLimitService } from '../services/hbarLimitService';
-import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
+import { CommonService, type PaymasterAccount } from '../services';
+import { type HbarLimitService } from '../services/hbarLimitService';
+import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -264,9 +264,9 @@ export class SDKClient {
     originalCallerAddress?: string,
   ): Promise<T> {
     const queryConstructorName = query.constructor.name;
-    let queryResponse: any = null;
-    let queryCost: number | undefined = undefined;
-    let status: string = '';
+    let queryResponse: any;
+    let queryCost: number | undefined;
+    let status!: string;
 
     this.logger.info(`Execute %s query.`, queryConstructorName);
 
@@ -508,23 +508,30 @@ export class SDKClient {
   ): Promise<FileId | null> {
     const hexedCallData = Buffer.from(callData).toString('hex');
 
-    const estimatedTxFee = Utils.estimateFileTransactionsFee(
-      hexedCallData.length,
-      this.fileAppendChunkSize,
-      currentNetworkExchangeRateInCents,
-    );
+    // currentNetworkExchangeRateInCents <= 0 is the "no Mirror Node reading available" sentinel
+    // (DISABLE_MN_PRECHECKS_ON_TX_SENDING=true). Without an exchange rate we cannot compute the
+    // estimated tinybar fee (estimateFileTransactionsFee would divide by zero), so skip the
+    // preemptive HBAR rate-limit check. The HBAR limiter still reconciles the actual fee
+    // post-execution.
+    if (currentNetworkExchangeRateInCents > 0) {
+      const estimatedTxFee = Utils.estimateFileTransactionsFee(
+        hexedCallData.length,
+        this.fileAppendChunkSize,
+        currentNetworkExchangeRateInCents,
+      );
 
-    const shouldPreemptivelyLimit = await this.hbarLimitService.shouldLimit(
-      constants.EXECUTION_MODE.TRANSACTION,
-      callerName,
-      this.createFile.name,
-      originalCallerAddress,
-      requestDetails,
-      estimatedTxFee,
-    );
+      const shouldPreemptivelyLimit = await this.hbarLimitService.shouldLimit(
+        constants.EXECUTION_MODE.TRANSACTION,
+        callerName,
+        this.createFile.name,
+        originalCallerAddress,
+        requestDetails,
+        estimatedTxFee,
+      );
 
-    if (shouldPreemptivelyLimit) {
-      throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
+      if (shouldPreemptivelyLimit) {
+        throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
+      }
     }
 
     const fileCreateTx = new FileCreateTransaction()
@@ -626,7 +633,7 @@ export class SDKClient {
   ): Promise<ITransactionRecordMetric> {
     let gasUsed: number = 0;
     let transactionFee: number = 0;
-    let txRecordChargeAmount: number = 0;
+    let txRecordChargeAmount: number;
     try {
       this.logger.debug(
         `Get transaction record via consensus node: transactionId=%s, txConstructorName=%s`,

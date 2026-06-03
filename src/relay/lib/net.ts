@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '../../config-service/services';
-import { JsonRpcError, Net, predefined } from '../index';
+import { type JsonRpcError, type Net, predefined } from '../index';
 import { rpcMethod } from './decorators';
 
 export class NetImpl implements Net {

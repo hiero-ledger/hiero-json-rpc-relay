@@ -7,6 +7,15 @@ export interface CallRawOptions {
   ip?: string;
 }
 
+export interface RpcRawResponse {
+  id?: number;
+  jsonrpc?: string;
+  method?: string;
+  result?: unknown;
+  error?: { code: number; message: string; name?: string };
+  status?: number;
+}
+
 /**
  * Unified transport abstraction for protocol-parameterized acceptance tests.
  * Implementations normalize both HTTP and WebSocket transports to the same
@@ -15,11 +24,7 @@ export interface CallRawOptions {
 export interface RpcProtocolClient {
   readonly label: string;
   call(method: string, params: unknown[]): Promise<unknown>;
-  callRaw(
-    method: string,
-    params: unknown[],
-    options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }>;
+  callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse>;
 }
 
 type TestGlobal = typeof globalThis & {
@@ -36,11 +41,7 @@ class HttpProtocolClient implements RpcProtocolClient {
     return (global as TestGlobal).relay.call(method, params);
   }
 
-  async callRaw(
-    method: string,
-    params: unknown[],
-    options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+  async callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse> {
     const url: string = (global as TestGlobal).relay.provider._getConnection().url;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (options?.ip) {
@@ -51,7 +52,7 @@ class HttpProtocolClient implements RpcProtocolClient {
       headers,
       body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
     });
-    return resp.json();
+    return { ...(await resp.json()), status: resp.status };
   }
 }
 
@@ -66,13 +67,9 @@ class WsProtocolClient implements RpcProtocolClient {
     return response.result;
   }
 
-  async callRaw(
-    method: string,
-    params: unknown[],
-    options?: CallRawOptions,
-  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+  async callRaw(method: string, params: unknown, options?: CallRawOptions): Promise<RpcRawResponse> {
     if (options?.ip) {
-      return WsTestHelper.sendRequestWithIp(method, params, options.ip);
+      return WsTestHelper.sendRequestWithIp(method, Array.isArray(params) ? params : [], options.ip);
     }
     return WsTestHelper.sendRequestToStandardWebSocket(method, params);
   }

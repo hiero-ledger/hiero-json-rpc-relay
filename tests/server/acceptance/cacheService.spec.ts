@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 import pino, { type Logger } from 'pino';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';

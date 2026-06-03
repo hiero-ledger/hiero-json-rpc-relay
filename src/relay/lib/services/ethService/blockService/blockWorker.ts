@@ -17,12 +17,17 @@ import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
-  IRegularTransactionReceiptParams,
+  type IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { Block, Log, Transaction } from '../../../model';
-import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
+import { type Block, type Log, type Transaction } from '../../../model';
+import {
+  type IContractResultsParams,
+  type ITransactionReceipt,
+  type MirrorNodeBlock,
+  type RequestDetails,
+} from '../../../types';
+import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
 
@@ -231,9 +236,9 @@ function encodeLogs(logs: IReceiptRootHashLog[]): SerializedLog[] {
   for (const log of logs) {
     const topics: Uint8Array[] = [];
     for (const topic of log.topics) {
-      topics.push(hexToBytes(topic));
+      topics.push(hexToBytes(topic as `0x${string}`));
     }
-    serializedLogs.push([hexToBytes(log.address), topics, hexToBytes(log.data)]);
+    serializedLogs.push([hexToBytes(log.address as `0x${string}`), topics, hexToBytes(log.data as `0x${string}`)]);
   }
   return serializedLogs;
 }
@@ -241,17 +246,17 @@ function encodeLogs(logs: IReceiptRootHashLog[]): SerializedLog[] {
 function encodeReceipt(receipt: IReceiptRootHash, txType: number): Uint8Array {
   let receiptRoot: Uint8Array;
   if (receipt.root) {
-    receiptRoot = hexToBytes(receipt.root);
-  } else if (bytesToInt(hexToBytes(receipt.status)) === 0) {
+    receiptRoot = hexToBytes(receipt.root as `0x${string}`);
+  } else if (bytesToInt(hexToBytes(receipt.status as `0x${string}`)) === 0) {
     receiptRoot = Uint8Array.from([]);
   } else {
-    receiptRoot = hexToBytes(constants.ONE_HEX);
+    receiptRoot = hexToBytes(constants.ONE_HEX as `0x${string}`);
   }
 
   const encodedReceipt: Uint8Array = RLP.encode([
     receiptRoot,
-    hexToBytes(receipt.cumulativeGasUsed),
-    hexToBytes(receipt.logsBloom),
+    hexToBytes(receipt.cumulativeGasUsed as `0x${string}`),
+    hexToBytes(receipt.logsBloom as `0x${string}`),
     encodeLogs(receipt.logs),
   ]);
 
@@ -276,8 +281,11 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
     const path: Uint8Array =
       receipt.transactionIndex === constants.ZERO_HEX
         ? RLP.encode(Buffer.alloc(0))
-        : RLP.encode(bytesToInt(hexToBytes(receipt.transactionIndex ?? constants.ZERO_HEX)));
-    await trie.put(path, encodeReceipt(receipt, bytesToInt(hexToBytes(receipt.type ?? constants.ZERO_HEX))));
+        : RLP.encode(bytesToInt(hexToBytes((receipt.transactionIndex ?? constants.ZERO_HEX) as `0x${string}`)));
+    await trie.put(
+      path,
+      encodeReceipt(receipt, bytesToInt(hexToBytes((receipt.type ?? constants.ZERO_HEX) as `0x${string}`))),
+    );
   }
 
   trie.checkpoint();

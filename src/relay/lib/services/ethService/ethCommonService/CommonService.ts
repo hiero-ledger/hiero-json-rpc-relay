@@ -1,21 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as _ from 'lodash';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import {
+  type IAccountInfo,
+  type MirrorNodeBlock,
+  type MirrorNodeContractLog,
+  type RequestDetails,
+} from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from './ICommonService';
+import { type ICommonService } from './ICommonService';
 
 export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
 export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]];
@@ -59,7 +64,7 @@ export class CommonService implements ICommonService {
   /**
    * @private
    */
-  private static getLogsBlockRangeLimit() {
+  private static getLogsBlockRangeLimit(): number {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
@@ -132,7 +137,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
     } else {
@@ -151,7 +156,7 @@ export class CommonService implements ICommonService {
       fromBlock = constants.BLOCK_LATEST;
     }
 
-    let fromBlockNum = 0;
+    let fromBlockNum: number;
     let toBlockNum;
     params.timestamp = [];
 
@@ -218,7 +223,11 @@ export class CommonService implements ICommonService {
     return true;
   }
 
-  public async validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails) {
+  public async validateBlockRange(
+    fromBlock: string,
+    toBlock: string,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
     let fromBlockNumber: any = null;
     let toBlockNumber: any = null;
 
@@ -297,16 +306,14 @@ export class CommonService implements ICommonService {
 
     const blockNumber = Number(blockNumberOrTagOrHash);
     if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length < 32 && !isNaN(blockNumber)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      const latestBlock = latestBlockResponse.blocks[0];
+      const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
       if (blockNumber > latestBlock.number + this.maxBlockRange) {
         return null;
       }
     }
 
     if (blockNumberOrTagOrHash == null || this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      const latestBlockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-      return latestBlockResponse.blocks[0];
+      return await this.getLatestBlockFromMirrorNode(requestDetails);
     }
 
     if (blockNumberOrTagOrHash === constants.BLOCK_EARLIEST) {
@@ -321,19 +328,40 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Gets the most recent block number.
+   * Fetches the latest block from the mirror node.
+   *
+   * Acts as the single source of truth for "latest" within this service: callers that need either the
+   * latest block object or just its number should go through here so the empty/null mirror-node response
+   * is handled in one place. The mirror node can transiently return an empty `blocks` array (e.g. right
+   * after a network reset, or against a freshly deployed mirror node that has not finished its initial
+   * sync); in those cases this method throws `COULD_NOT_RETRIEVE_LATEST_BLOCK` rather than letting an
+   * undefined block propagate to callers and crash with a `TypeError`.
+   *
+   * @param requestDetails - request metadata used for logging and tracing
+   * @returns the latest mirror node block
+   * @throws {JsonRpcError} `COULD_NOT_RETRIEVE_LATEST_BLOCK` when the mirror node returns no blocks
    */
-  public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
+  private async getLatestBlockFromMirrorNode(requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      return numberTo0x(blocks[0].number);
+    if (Array.isArray(blocksResponse?.blocks) && blocksResponse.blocks.length > 0) {
+      return blocksResponse.blocks[0];
     }
 
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
   }
 
-  public genericErrorHandler(error: any, logMessage?: string) {
+  /**
+   * Gets the most recent block number from the mirror node (the `latest` block).
+   *
+   * @param {RequestDetails} requestDetails - Request metadata used for logging and tracing.
+   * @returns {Promise<string>} The block number as a 0x-prefixed hexadecimal string (JSON-RPC quantity).
+   */
+  public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
+    const latestBlock = await this.getLatestBlockFromMirrorNode(requestDetails);
+    return numberTo0x(latestBlock.number);
+  }
+
+  public genericErrorHandler(error: any, logMessage?: string): void {
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -352,7 +380,7 @@ export class CommonService implements ICommonService {
     blockHash: string,
     requestDetails: RequestDetails,
     sliceCountWrapper?: { value: number },
-  ) {
+  ): Promise<boolean> {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
       if (block) {
@@ -382,7 +410,7 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null) {
+  public addTopicsToParams(params: any, topics: any[] | null): void {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
         if (!_.isNil(topics[i])) {
@@ -590,11 +618,11 @@ export class CommonService implements ICommonService {
     );
   };
 
-  private isBlockNumValid = (num: string) => {
+  private isBlockNumValid = (num: string): boolean => {
     return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
   };
 
-  public isBlockParamValid = (tag: string | null) => {
+  public isBlockParamValid = (tag: string | null): boolean => {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
 

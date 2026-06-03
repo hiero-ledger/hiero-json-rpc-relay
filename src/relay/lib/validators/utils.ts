@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { JsonRpcError, predefined } from '../errors/JsonRpcError';
-import { IObjectSchema } from './objectTypes';
+import { type IObjectSchema } from './objectTypes';
 import { TYPES } from './types';
 
-export function validateObject<T extends object = any>(object: T, filters: IObjectSchema) {
+export function validateObject<T extends object = any>(object: T, filters: IObjectSchema): boolean {
   for (const property of Object.keys(filters.properties)) {
     const validation = filters.properties[property];
     const param = object[property];
@@ -45,7 +45,7 @@ export function validateObject<T extends object = any>(object: T, filters: IObje
 export function validateArray(array: any[], innerType?: string): boolean {
   if (!innerType) return true;
 
-  const isInnerType = (element: any) => TYPES[innerType].test(element);
+  const isInnerType = (element: any): boolean => TYPES[innerType].test(element);
 
   return array.every(isInnerType);
 }

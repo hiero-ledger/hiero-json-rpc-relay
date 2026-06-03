@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { RequestDetails } from '../../../types';
-import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
-import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
+import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import type { RequestDetails } from '../../../types';
+import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
+import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from '../ethCommonService/ICommonService';
-import { IAccountService } from './IAccountService';
+import { type ICommonService } from '../ethCommonService/ICommonService';
+import { type IAccountService } from './IAccountService';
 
 export class AccountService implements IAccountService {
   /**
@@ -128,7 +129,10 @@ export class AccountService implements IAccountService {
    * @param blockNumberOrTagOrHash
    * @param requestDetails
    */
-  public async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
+  public async extractBlockNumberAndTimestamp(
+    blockNumberOrTagOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<{ latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }> {
     let latestBlock: LatestBlockNumberTimestamp;
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
@@ -171,7 +175,7 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails) {
+  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails): Promise<never[]> {
     let pagedTransactions = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
@@ -191,7 +195,12 @@ export class AccountService implements IAccountService {
    * @param latestBlock
    * @param requestDetails
    */
-  async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+  async getBalanceAtBlockNumber(
+    account,
+    block,
+    latestBlock,
+    requestDetails,
+  ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
     let mirrorAccount;
@@ -210,7 +219,7 @@ export class AccountService implements IAccountService {
     // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
     else {
       let currentBalance = 0;
-      let balanceFromTxs = 0;
+      let balanceFromTxs: number;
       mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
         limit: ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
         transactions: true,
@@ -244,6 +253,30 @@ export class AccountService implements IAccountService {
   }
 
   /**
+   * Get transaction counts associated with an account.
+   *
+   * @param {string} address The account address
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  public async getTransactionCounts(address: string, requestDetails: RequestDetails): Promise<IPendingPoolStatusInfo> {
+    const [confirmedCount, pendingCount] = await Promise.all([
+      this.transactionPoolService.getConfirmedCount(address),
+      this.transactionPoolService.getPendingCount(address),
+    ]);
+    if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
+    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
+    const toResult = (confirmedCount: number): IPendingPoolStatusInfo => ({
+      pendingCount,
+      confirmedCount,
+      mirrorNodeArtifact: accountData,
+    });
+
+    if (!accountData) return toResult(0);
+    if (accountData.ethereum_nonce == null) return toResult(1);
+    return toResult(Number(accountData.ethereum_nonce));
+  }
+
+  /**
    * Gets the number of transactions that have been executed for the given address.
    * This goes to the consensus nodes to determine the ethereumNonce.
    *
@@ -263,11 +296,8 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (blockNumOrTag === constants.BLOCK_PENDING) {
-        return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
-      }
-      return mnNonce;
+      const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
+      return numberTo0x(blockNumOrTag === constants.BLOCK_PENDING ? confirmedCount + pendingCount : confirmedCount);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {
@@ -311,7 +341,7 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
+  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;

@@ -7,9 +7,9 @@ import { ethers } from 'ethers';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import MirrorClient from '../../clients/mirrorClient';
-import RelayClient from '../../clients/relayClient';
-import ServicesClient from '../../clients/servicesClient';
+import type MirrorClient from '../../clients/mirrorClient';
+import type RelayClient from '../../clients/relayClient';
+import type ServicesClient from '../../clients/servicesClient';
 import HederaTokenServiceImplJson from '../../contracts/HederaTokenServiceImpl.json';
 import IHederaTokenServiceJson from '../../contracts/IHederaTokenService.json';
 import IERC20Json from '../../contracts/openzeppelin/IERC20.json';
@@ -22,7 +22,7 @@ import TokenManagementContractJson from '../../contracts/TokenManagementContract
 import Constants from '../../helpers/constants';
 import RelayCall from '../../helpers/constants';
 import { Utils } from '../../helpers/utils';
-import { AliasAccount } from '../../types/AliasAccount';
+import { type AliasAccount } from '../../types/AliasAccount';
 
 describe('@precompile-calls Tests for eth_call with HTS', async function () {
   this.timeout(240 * 1000); // 240 seconds
