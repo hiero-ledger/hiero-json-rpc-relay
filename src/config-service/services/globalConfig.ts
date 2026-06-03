@@ -158,6 +158,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  DISABLE_MN_PRECHECKS_ON_TX_SENDING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   E2E_RELAY_HOST: {
     type: 'string',
     required: false,
@@ -661,6 +666,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 133120, // 130 KB
   },
+  SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 2000, // 2s
+  },
+  SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10, // 10 attempts
+  },
   SERVER_HOST: {
     type: 'string',
     required: false,
@@ -675,6 +690,16 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 60000,
+  },
+  SERVER_KEEPALIVE_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 650000,
+  },
+  SERVER_HEADERS_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 660000,
   },
   SUBSCRIPTIONS_ENABLED: {
     type: 'boolean',
@@ -706,10 +731,10 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
+  EXTRA_PER_PENDING_TRANSACTION_STORAGE_TTL: {
     type: 'number',
     required: false,
-    defaultValue: 30,
+    defaultValue: 5,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',

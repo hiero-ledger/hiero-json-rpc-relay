@@ -858,7 +858,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             while (totalHbarSpent + estimatedTxFee < totalHbarBudget) {
               for (const accountAlias of allAccountAliases) {
-                let deploymentCounts = 0;
+                let deploymentCounts: number;
                 const maxSpendingLimit = HbarLimitService.TIER_LIMITS[accountAlias.hbarSpendingPlan.subscriptionTier]
                   .toTinybars()
                   .toNumber();
@@ -910,7 +910,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         // This should set the remaining HBAR limit to zero
         const remainingHbarsBefore = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
         expect(remainingHbarsBefore).to.eq(0);
-        let deploymentCounts = 0;
+        let deploymentCounts: number;
 
         const operatorBalanceBefore = (await mirrorNode.get(`/accounts/${operatorAccount}`)).balance.balance;
 

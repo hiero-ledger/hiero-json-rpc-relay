@@ -2,12 +2,42 @@
 affinity: {}
 
 autoscaling:
-  # need to test
   enabled: false
-  minReplicas: 2
-  maxReplicas: 6
+  # When unset, minReplicas defaults to .Values.replicaCount
+  # minReplicas: 2
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+  # Load balancer RPS-based autoscaling. Uses an External metric exposed by a
+  # metrics adapter (e.g. Prometheus Adapter, Stackdriver, CloudWatch). The HPA
+  # scales up when the total observed RPS exceeds targetUtilizationPercentage
+  # of totalRPS. For cloud-provider native signals (e.g. GCP GCLB capacity
+  # utilization) prefer `autoscaling.extraMetrics` below.
+  loadBalancerRPS:
+    enabled: false
+    # Total target RPS capacity for the load balancer fronting this service
+    totalRPS: 1000
+    # Scale up when current total RPS exceeds this percentage of totalRPS
+    targetUtilizationPercentage: 80
+    # Name of the external metric exposed by the metrics adapter
+    metricName: loadbalancer_requests_per_second
+    # Optional matchLabels selector to identify the metric series
+    metricSelector: {}
+  # Arbitrary additional HPA metric entries appended verbatim to spec.metrics.
+  # Use this for cloud-provider native metrics that don't map cleanly to the
+  # generic loadBalancerRPS block. Example (GCP GCLB capacity utilization):
+  #   extraMetrics:
+  #     - type: External
+  #       external:
+  #         metric:
+  #           name: "autoscaling.googleapis.com|gclb-capacity-utilization"
+  #           selector:
+  #             matchLabels:
+  #               resource.labels.backend_target_name: "<backend-service-name>"
+  #         target:
+  #           type: AverageValue
+  #           averageValue: "0.8"   # scale at 80% of maxRatePerEndpoint
+  extraMetrics: []
 
 # For full reference and defaults see .env.http.example
 config:

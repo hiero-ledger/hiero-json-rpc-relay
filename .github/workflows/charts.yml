@@ -19,7 +19,7 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -44,7 +44,7 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -85,7 +85,7 @@ jobs:
               mirrors = ["https://hub.mirror.docker.lat.ope.eng.hashgraph.io"]
 
       - name: Build and push images
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max

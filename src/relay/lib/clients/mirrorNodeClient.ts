@@ -1544,7 +1544,7 @@ export class MirrorNodeClient {
   getQueryParams(params: object): string {
     let paramString = '';
     for (const [key, value] of Object.entries(params)) {
-      let additionalString = '';
+      let additionalString: string;
       if (Array.isArray(value)) {
         additionalString = value.map((v) => `${key}=${v}`).join('&');
       } else {

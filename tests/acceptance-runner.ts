@@ -202,7 +202,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
       const shouldStartWs = wsServer === 'always' || (wsServer === 'config' && ConfigService.get('TEST_WS_SERVER'));
       if (shouldStartWs) {
         logger.info(`Start ws-server on port ${constants.WEB_SOCKET_PORT}`);
-        const { app: wsApp } = await initializeWsServer();
+        const { app: wsApp } = await initializeWsServer(wsServer === 'always' ? relay : undefined);
         global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT });
       }
     }
