@@ -35,7 +35,7 @@ spec:
         - configMapRef:
             name: {{ include "json-rpc-relay.fullname" . }}
         - secretRef:
-            name: {{ include "json-rpc-relay.fullname" . }}
+            name: {{ .Values.existingSecret | default (include "json-rpc-relay.fullname" .) }}
         {{- with .Values.extraEnvFrom }}
           {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}

@@ -39,6 +39,11 @@ autoscaling:
   #           averageValue: "0.8"   # scale at 80% of maxRatePerEndpoint
   extraMetrics: []
 
+# Name of an existing Kubernetes Secret containing OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
+# When set, the chart will not create a Secret and will use this one instead.
+# The secret must contain keys named OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
+existingSecret: ''
+
 # For full reference and defaults see .env.http.example
 config:
   # Transport Selection
