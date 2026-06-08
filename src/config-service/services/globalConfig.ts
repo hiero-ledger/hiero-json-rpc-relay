@@ -360,6 +360,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 1,
   },
+  WS_INPUT_SIZE_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 1,
+  },
   JUMBO_TX_ENABLED: {
     type: 'boolean',
     required: false,
