@@ -1540,12 +1540,7 @@ export class MirrorNodeClient {
   getQueryParams(params: object) {
     let paramString = '';
     for (const [key, value] of Object.entries(params)) {
-      let additionalString = '';
-      if (Array.isArray(value)) {
-        additionalString = value.map((v) => `${key}=${v}`).join('&');
-      } else {
-        additionalString = `${key}=${value}`;
-      }
+      const additionalString = Array.isArray(value) ? value.map((v) => `${key}=${v}`).join('&') : `${key}=${value}`;
       paramString += paramString === '' ? `?${additionalString}` : `&${additionalString}`;
     }
     return paramString;
@@ -1991,7 +1986,16 @@ export class MirrorNodeClient {
       type,
       entity: data.value,
     };
-    await this.cacheService.set(cachedLabel, response, callerName);
+
+    // An account's EIP-7702 / HIP-1340 delegation designator (`delegation_address`) is mutable: an EOA can set,
+    // change, or clear its delegation at any time. Caching a latest-state ACCOUNT entity would therefore serve a
+    // stale `delegation_address` to `eth_getCode` and hide delegation changes until the TTL expires. Contracts,
+    // tokens, and schedules are immutable, and historical (timestamped) account lookups reflect fixed state, so
+    // those remain safe to cache.
+    if (type !== constants.TYPE_ACCOUNT || timestamp) {
+      await this.cacheService.set(cachedLabel, response, callerName);
+    }
+
     return response;
   }
 

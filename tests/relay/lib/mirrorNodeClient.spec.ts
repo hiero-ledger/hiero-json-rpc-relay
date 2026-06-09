@@ -1566,6 +1566,78 @@ describe('MirrorNodeClient', async function () {
       expect(entityType!.type).to.eq('SCHEDULE');
       expect(entityType!.entity.schedule_id).to.eq(scheduleId);
     });
+
+    it('does not cache latest `ACCOUNT` results so EIP-7702 delegation changes are not hidden', async () => {
+      const accountEntityId = '0.0.1014';
+      const delegationAddress = '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512';
+      const accountWithoutDelegation = { ...mockData.account, delegation_address: '0x' };
+      const accountWithDelegation = { ...mockData.account, delegation_address: delegationAddress };
+
+      mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .replyOnce(200, JSON.stringify(accountWithoutDelegation));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .replyOnce(200, JSON.stringify(accountWithDelegation));
+
+      const first = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(first!.type).to.eq('ACCOUNT');
+      expect(first!.entity.delegation_address).to.eq('0x');
+
+      // The second lookup must re-fetch from the mirror node (not the cache) and reflect the new delegation.
+      const second = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(second!.type).to.eq('ACCOUNT');
+      expect(second!.entity.delegation_address).to.eq(delegationAddress);
+    });
+
+    it('caches historical (timestamped) `ACCOUNT` results since past state is immutable', async () => {
+      const accountEntityId = '0.0.1014';
+      const timestamp = '1780495075.931109906';
+      const accountWithDelegation = {
+        ...mockData.account,
+        delegation_address: '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512',
+      };
+
+      mock
+        .onGet(`contracts/${mockData.accountEvmAddress}?timestamp=${timestamp}`)
+        .reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}?timestamp=${timestamp}&transactions=false`)
+        .replyOnce(200, JSON.stringify(accountWithDelegation));
+
+      const first = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
+        undefined,
+        timestamp,
+      );
+      expect(first!.type).to.eq('ACCOUNT');
+
+      // Second lookup is served from cache (the `accounts` endpoint only had a single `replyOnce` handler).
+      const second = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
+        undefined,
+        timestamp,
+      );
+      expect(second!.type).to.eq('ACCOUNT');
+      expect(second!.entity.delegation_address).to.eq(accountWithDelegation.delegation_address);
+    });
   });
 
   describe('getTransactionById', async () => {
