@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const hre = require('hardhat');
-const { expect } = require('chai');
+import hre from 'hardhat';
+import { expect } from 'chai';
 
 function topicToAddress(topic) {
   return '0x' + topic.slice(-40);

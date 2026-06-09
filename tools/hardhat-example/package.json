@@ -1,5 +1,6 @@
 {
   "name": "hardhat-project",
+  "type": "module",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat --network hardhat test"

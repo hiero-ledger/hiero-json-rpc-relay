@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
-require('dotenv').config();
-require('@nomicfoundation/hardhat-toolbox');
-require('@nomicfoundation/hardhat-chai-matchers');
+import 'dotenv/config';
+import '@nomicfoundation/hardhat-toolbox';
+import { task } from 'hardhat/config';
 
-task('show-balance', async () => {
-  const showBalance = require('./scripts/showBalance');
+task('show-balance').setAction(async () => {
+  const { default: showBalance } = await import('./scripts/showBalance.js');
   return showBalance();
 });
 
-task('transfer-hbars', async () => {
-  const transferHbar = require('./scripts/transferHbars');
+task('transfer-hbars').setAction(async () => {
+  const { default: transferHbar } = await import('./scripts/transferHbars.js');
   return transferHbar();
 });
 
-task('deploy-contract', async () => {
-  const deployContract = require('./scripts/deployContract');
+task('deploy-contract').setAction(async () => {
+  const { default: deployContract } = await import('./scripts/deployContract.js');
   return deployContract();
 });
 
-task('contract-view-call', async (taskArgs) => {
-  const contractViewCall = require('./scripts/contractViewCall');
+task('contract-view-call').setAction(async (taskArgs) => {
+  const { default: contractViewCall } = await import('./scripts/contractViewCall.js');
   return contractViewCall(taskArgs.contractAddress);
 });
 
-task('contract-call', async (taskArgs) => {
-  const contractCall = require('./scripts/contractCall');
+task('contract-call').setAction(async (taskArgs) => {
+  const { default: contractCall } = await import('./scripts/contractCall.js');
   return contractCall(taskArgs.contractAddress, taskArgs.msg);
 });
 
@@ -35,7 +35,7 @@ if (!mnemonic) {
 }
 
 /** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default {
   mocha: {
     timeout: 3600000,
   },
