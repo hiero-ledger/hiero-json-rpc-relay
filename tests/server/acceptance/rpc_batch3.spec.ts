@@ -1327,4 +1327,21 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       generateTest(method, params);
     }
   });
+
+  it('should return balance for eth_getBalance called with a block number within the last 15 minutes', async function () {
+    const blocksRes = await mirrorNode.get('/blocks?limit=1&order=desc');
+    const latestBlock = blocksRes.blocks[0];
+
+    // 5 blocks back: blockDiff=5 > latestBlockTolerance(1), so delta path is taken.
+    // At ~2s/block this is ~10s old, well within the 900s BALANCES_UPDATE_INTERVAL.
+    const targetBlockNumber = latestBlock.number - 5;
+
+    const balance = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
+      accounts[0].address,
+      numberTo0x(targetBlockNumber),
+    ]);
+
+    expect(balance).to.not.be.null;
+    expect(balance).to.match(/^0x[0-9a-f]+$/i);
+  });
 });

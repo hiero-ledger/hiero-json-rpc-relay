@@ -182,7 +182,7 @@ export class AccountService implements IAccountService {
     const nextPageTimeMarker = nextPageParams.get('timestamp');
     // if nextPageTimeMarker is greater than the block.timestamp.to, then we need to paginate to get the transactions for the block.timestamp.to
     if (nextPageTimeMarker && nextPageTimeMarker?.split(':')[1] >= block.timestamp.to) {
-      pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails);
+      pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails, block.timestamp.to);
     }
     // if nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
 
