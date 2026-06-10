@@ -1089,6 +1089,11 @@ describe('Precheck', async function () {
         ...overrides,
       }) as unknown as Transaction;
 
+    // EIP-7702 (type 4) "set code" transaction whose single authorization tuple carries a
+    // nonce of 2**64, which overflows the uint64 maximum (taken from the reported issue #5462).
+    const txWithAuthorizationNonceOverflow =
+      '0x04f8d582012a80843b9aca0085a54f4c3c00830186a09400000000000000000000000000000000000000008080c0f865f863809400000000000000000000000000000000000000008901000000000000000001a0dbe49ec5146e214ce1c19405e88d43631e522b918b69a11a69dda9f9fd7f1fc6a052661856135d47a70999dfbcb53675bd1b30236effcd8f2c63221536e02d625e80a0e88f2d0ec9488b5208740bf3e39897b10582136e71f4fe18465c3f5007912182a03e47de17890240f0ccdd452f2ded3739dcee197cede52919e56f4bf1b5987a14';
+
     it('should not throw for type 4 tx with non-empty authorizationList and valid to', () => {
       expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry] }))).not.to.throw();
     });
@@ -1097,6 +1102,40 @@ describe('Precheck', async function () {
       expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry], to: null }))).to.throw(
         'type 4 transaction cannot be used to create contract',
       );
+    });
+
+    it('should accept an authorization nonce at the uint64 maximum', () => {
+      const entry = { ...authEntry, nonce: constants.UINT64_MAX };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).not.to.throw();
+    });
+
+    it('should accept an authorization chainId at the uint256 maximum', () => {
+      const entry = { ...authEntry, chainId: constants.UINT256_MAX };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).not.to.throw();
+    });
+
+    it('should throw when an authorization chainId overflows uint256', () => {
+      const entry = { ...authEntry, chainId: constants.UINT256_MAX + BigInt(1) };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).to.throw(
+        'exceeds uint256 maximum',
+      );
+    });
+
+    it('should throw when an authorization nonce overflows uint64', () => {
+      const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
+      try {
+        precheck.authorizationList(tx);
+        expectedError();
+      } catch (e: any) {
+        expect(e).to.be.an.instanceOf(JsonRpcError);
+        expect(e.code).to.eq(-32602);
+        expect(e.message).to.contain('exceeds uint64 maximum');
+      }
+    });
+
+    it('should reject the overflow transaction via validateBasicPropertiesStateless', () => {
+      const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
+      expect(() => precheck.validateBasicPropertiesStateless(tx)).to.throw('exceeds uint64 maximum');
     });
   });
 });

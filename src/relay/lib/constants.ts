@@ -72,6 +72,10 @@ export default {
   HEDERA_NODE_REWARD_ACCOUNT_ADDRESS: '0x0000000000000000000000000000000000000321', // more info https://hips.hedera.com/hip/hip-1259
   HBAR_TO_TINYBAR_COEF: 100_000_000,
   NANOS_PER_SECOND: BigInt('1000000000'),
+  // Inclusive upper bounds for unsigned integer fields. EIP-7702 authorization tuples encode
+  // `nonce` as a uint64 and `chainId` as a uint256; values above these bounds are invalid.
+  UINT64_MAX: BigInt('18446744073709551615'),
+  UINT256_MAX: BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935'),
   TINYBAR_TO_WEIBAR_COEF: 10_000_000_000,
   TOTAL_SUPPLY_TINYBARS: 5_000_000_000_000_000_000,
   CACHE_KEY,
