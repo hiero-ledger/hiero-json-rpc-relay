@@ -16,6 +16,19 @@ import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from '../ethCommonService/ICommonService';
 import { type IAccountService } from './IAccountService';
 
+/**
+ * Result of resolving a block identifier for balance retrieval.
+ *
+ * Discriminated on `isLatest` so callers can route without having to re-inspect the
+ * resolved block tag:
+ *  - `isLatest: true`  → the request targets the chain tip; read the live balance.
+ *  - `isLatest: false` → the request targets a historical (archival) block identified by
+ *    `blockNumberOrTagOrHash`; read the balance as of that block.
+ */
+export type BalanceBlockResolution =
+  | { isLatest: true; latestBlock: LatestBlockNumberTimestamp }
+  | { isLatest: false; latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string };
+
 export class AccountService implements IAccountService {
   /**
    * The service used for caching items from requests.
@@ -126,16 +139,57 @@ export class AccountService implements IAccountService {
   }
 
   /**
-   * @param blockNumberOrTagOrHash
-   * @param requestDetails
+   * Resolves whether a block identifier refers to the chain tip ("latest") or a historical
+   * (archival) block, returning a discriminated union so callers can route without re-parsing
+   * the block tag.
+   *
+   * The flow is:
+   *  1. Resolve the latest block (from cache or the mirror node).
+   *  2. Resolve the requested block identifier (hash or number) to a block number.
+   *  3. If that block is within `LATEST_BLOCK_TOLERANCE` of the latest block, treat it as the tip
+   *     and return `{ isLatest: true }`.
+   *  4. Otherwise return `{ isLatest: false }` with the original identifier, ensuring the latest
+   *     block timestamp is populated for the downstream historical balance calculation.
+   *
+   * @param blockNumberOrTagOrHash the block number or hash to resolve (never `latest`/`pending`;
+   *   callers must short-circuit those tags before calling this method)
+   * @param requestDetails the request details for logging and tracking
    */
   public async extractBlockNumberAndTimestamp(
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
-  ): Promise<{ latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }> {
-    let latestBlock: LatestBlockNumberTimestamp;
-    const latestBlockTolerance = 1;
-    let blockHashNumber, isHash;
+  ): Promise<BalanceBlockResolution> {
+    let latestBlock = await this.getLatestBlockFromCacheOrMirror(requestDetails);
+
+    const isHash = blockNumberOrTagOrHash.length > 32;
+    const requestedBlockNumber = isHash
+      ? Number((await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails)).number)
+      : Number(blockNumberOrTagOrHash);
+
+    const blockDiff = Number(latestBlock.blockNumber) - requestedBlockNumber;
+    if (blockDiff <= constants.LATEST_BLOCK_TOLERANCE) {
+      return { isLatest: true, latestBlock };
+    }
+
+    // The request targets an archival block. If the latest block came from cache it only carries the
+    // block number (timeStampTo === '0'); fetch the full block so the historical balance calculation
+    // has the finality timestamp. This should rarely happen.
+    if (latestBlock.timeStampTo === '0') {
+      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
+    }
+
+    return { isLatest: false, latestBlock, blockNumberOrTagOrHash };
+  }
+
+  /**
+   * Returns the latest block, preferring the cached block number when available. A cache hit yields
+   * only the block number (with `timeStampTo` set to '0' as a sentinel for "not yet fetched");
+   * callers that need the timestamp must fetch the full block separately.
+   *
+   * @param requestDetails the request details for logging and tracking
+   * @private
+   */
+  private async getLatestBlockFromCacheOrMirror(requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
     const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
 
@@ -143,30 +197,10 @@ export class AccountService implements IAccountService {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`returning cached value %s:%s`, cacheKey, JSON.stringify(blockNumberCached));
       }
-      latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
-    } else {
-      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
+      return { blockNumber: blockNumberCached, timeStampTo: '0' };
     }
 
-    if (blockNumberOrTagOrHash.length > 32) {
-      isHash = true;
-      blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
-    }
-
-    const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
-
-    const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
-    if (blockDiff <= latestBlockTolerance) {
-      blockNumberOrTagOrHash = constants.BLOCK_LATEST;
-    }
-
-    // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
-    // This should rarely happen.
-    if (blockNumberOrTagOrHash !== constants.BLOCK_LATEST && latestBlock.timeStampTo === '0') {
-      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
-    }
-
-    return { latestBlock, blockNumberOrTagOrHash };
+    return this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
   }
 
   /**

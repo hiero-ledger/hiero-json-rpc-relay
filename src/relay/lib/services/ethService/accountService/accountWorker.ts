@@ -8,7 +8,6 @@ import constants from '../../../constants';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { type RequestDetails } from '../../../types';
-import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
 import { LocalPendingTransactionStorage } from '../../transactionPoolService/LocalPendingTransactionStorage';
 import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
@@ -43,44 +42,39 @@ export async function getBalance(
   requestDetails: RequestDetails,
 ): Promise<string> {
   try {
-    let latestBlock: LatestBlockNumberTimestamp | null | undefined;
-    // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
-    // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
-    // `blockTagIsLatestOrPending` is called twice because `extractBlockNumberAndTimestamp` can change the state of `blockNumberOrTagOrHash` in place
-    // so we need to check again if it is still `latest` or `pending` after extracting the block number and timestamp, if it was not `latest` or `pending` before
-    if (!commonService.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      ({ latestBlock, blockNumberOrTagOrHash } = await accountService.extractBlockNumberAndTimestamp(
-        blockNumberOrTagOrHash,
-        requestDetails,
-      ));
-    }
-
-    let blockNumber = null;
+    let blockNumber: number | null = null;
     let balanceFound = false;
     let weibars = BigInt(0);
-    let mirrorAccount;
 
+    // `latest`/`pending` always resolve to the live balance. For any other block identifier we ask
+    // `extractBlockNumberAndTimestamp` whether it actually targets a historical block: it may still
+    // resolve to the chain tip when the requested block is within `LATEST_BLOCK_TOLERANCE` of latest
+    // (e.g. Metamask passing the latest block as an explicit number). The discriminated result makes
+    // that routing explicit, so no second tag check is needed here.
     if (!commonService.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      const block = await commonService.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
-      if (block) {
-        blockNumber = block.number;
-        // A blockNumberOrTag has been provided. If it is `latest` or `pending` retrieve the balance from /accounts/{account.id}
-        // If the parsed blockNumber is the same as the one from the latest block retrieve the balance from /accounts/{account.id}
-        if (latestBlock && block.number !== latestBlock.blockNumber) {
-          ({ balanceFound, weibars } = await accountService.getBalanceAtBlockNumber(
-            account,
-            block,
-            latestBlock,
-            requestDetails,
-          ));
+      const resolution = await accountService.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+
+      if (!resolution.isLatest) {
+        const { latestBlock, blockNumberOrTagOrHash: archivalBlock } = resolution;
+        const block = await commonService.getHistoricalBlockResponse(requestDetails, archivalBlock, true);
+        if (block) {
+          blockNumber = block.number;
+          // If the resolved block is the latest block, fall through to the live balance below.
+          if (block.number !== latestBlock.blockNumber) {
+            ({ balanceFound, weibars } = await accountService.getBalanceAtBlockNumber(
+              account,
+              block,
+              latestBlock,
+              requestDetails,
+            ));
+          }
         }
       }
     }
 
-    if (!balanceFound && !mirrorAccount) {
-      // If no balance and no account, then we need to make a request to the mirror node for the account.
-      mirrorAccount = await mirrorNodeClient.getAccount(account, requestDetails);
-      // Test if exists here
+    if (!balanceFound) {
+      // No historical balance was resolved, so fetch the account's live balance from the mirror node.
+      const mirrorAccount = await mirrorNodeClient.getAccount(account, requestDetails);
       if (mirrorAccount != null) {
         balanceFound = true;
         weibars = BigInt(mirrorAccount.balance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);

@@ -728,6 +728,67 @@ describe('@ethGetBalance using MirrorNode', async function () {
     });
   });
 
+  describe('extractBlockNumberAndTimestamp', async function () {
+    // 0x2710 === 10000, the latest block number in MOCK_BLOCKS_FOR_BALANCE_RES
+    const latestBlockHex = '0x2710';
+    const latestBlockTimestampTo = '1651560389.060890949';
+
+    const extractBlockNumberAndTimestamp = (blockNumberOrTagOrHash: string) =>
+      ethImpl['accountService'].extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+
+    beforeEach(() => {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));
+    });
+
+    it('returns isLatest=true when the requested block equals the latest block', async () => {
+      const result = await extractBlockNumberAndTimestamp(latestBlockHex);
+
+      expect(result.isLatest).to.equal(true);
+      expect(result.latestBlock.blockNumber).to.equal(latestBlockHex);
+      expect(result).to.not.have.property('blockNumberOrTagOrHash');
+    });
+
+    it('returns isLatest=true when the requested block is within LATEST_BLOCK_TOLERANCE of the latest block', async () => {
+      // 0x270f === 9999, one behind the latest block (within the tolerance of 1)
+      const result = await extractBlockNumberAndTimestamp('0x270f');
+
+      expect(result.isLatest).to.equal(true);
+    });
+
+    it('returns isLatest=false with the original identifier for an archival block', async () => {
+      const result = await extractBlockNumberAndTimestamp('0x2');
+
+      expect(result.isLatest).to.equal(false);
+      if (!result.isLatest) {
+        expect(result.blockNumberOrTagOrHash).to.equal('0x2');
+        expect(result.latestBlock.timeStampTo).to.equal(latestBlockTimestampTo);
+      }
+    });
+
+    it('resolves a block hash to its block number before comparing against the latest block', async () => {
+      const blockHash = '0x43da6a71f66d6d46d2b487c8231c04f01b3ba3bd91d165266d8eb39de3c0152b';
+      restMock.onGet(`blocks/${blockHash}`).reply(200, JSON.stringify({ number: 2 }));
+
+      const result = await extractBlockNumberAndTimestamp(blockHash);
+
+      expect(result.isLatest).to.equal(false);
+      if (!result.isLatest) {
+        expect(result.blockNumberOrTagOrHash).to.equal(blockHash);
+      }
+    });
+
+    it('refetches the latest block to populate the timestamp when only the block number is cached', async () => {
+      await cacheService.set(constants.CACHE_KEY.ETH_BLOCK_NUMBER, latestBlockHex, constants.ETH_GET_BALANCE);
+
+      const result = await extractBlockNumberAndTimestamp('0x2');
+
+      expect(result.isLatest).to.equal(false);
+      if (!result.isLatest) {
+        expect(result.latestBlock.timeStampTo).to.equal(latestBlockTimestampTo);
+      }
+    });
+  });
+
   describe('Calculate balance at block timestamp via getBalanceAtBlockTimestamp', async function () {
     const timestamp1 = 1651550386;
 
