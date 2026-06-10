@@ -863,6 +863,7 @@ export class MirrorNodeClient {
     return null;
   }
 
+  //
   public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails) {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
@@ -1890,7 +1891,15 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      return cachedResponse;
+      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
+      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
+      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
+      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
+      // safe to return.
+      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
+      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
+        return cachedResponse;
+      }
     }
 
     const buildPromise = (fn) =>

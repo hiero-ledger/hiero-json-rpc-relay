@@ -1638,6 +1638,34 @@ describe('MirrorNodeClient', async function () {
       expect(second!.type).to.eq('ACCOUNT');
       expect(second!.entity.delegation_address).to.eq(accountWithDelegation.delegation_address);
     });
+
+    it('ignores pre-fix cached latest `ACCOUNT` entries on read and re-resolves them (transitional read-guard)', async () => {
+      const accountEntityId = '0.0.1014';
+      const delegationAddress = '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512';
+      const staleCachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${mockData.accountEvmAddress}`;
+
+      // Simulate a stale entry written before the write-guard existed: a latest-state ACCOUNT with no delegation.
+      await cacheService.set(
+        staleCachedLabel,
+        { type: constants.TYPE_ACCOUNT, entity: { ...mockData.account, delegation_address: '0x' } },
+        constants.ETH_GET_CODE,
+      );
+
+      mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .reply(200, JSON.stringify({ ...mockData.account, delegation_address: delegationAddress }));
+
+      // The read-guard must skip the stale cached ACCOUNT and re-resolve from the mirror node.
+      const result = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(result!.type).to.eq('ACCOUNT');
+      expect(result!.entity.delegation_address).to.eq(delegationAddress);
+    });
   });
 
   describe('getTransactionById', async () => {
