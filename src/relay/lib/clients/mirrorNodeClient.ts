@@ -863,7 +863,6 @@ export class MirrorNodeClient {
     return null;
   }
 
-  //
   public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails) {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
