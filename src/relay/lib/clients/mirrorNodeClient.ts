@@ -1540,12 +1540,7 @@ export class MirrorNodeClient {
   getQueryParams(params: object) {
     let paramString = '';
     for (const [key, value] of Object.entries(params)) {
-      let additionalString = '';
-      if (Array.isArray(value)) {
-        additionalString = value.map((v) => `${key}=${v}`).join('&');
-      } else {
-        additionalString = `${key}=${value}`;
-      }
+      const additionalString = Array.isArray(value) ? value.map((v) => `${key}=${v}`).join('&') : `${key}=${value}`;
       paramString += paramString === '' ? `?${additionalString}` : `&${additionalString}`;
     }
     return paramString;
@@ -1895,7 +1890,15 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      return cachedResponse;
+      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
+      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
+      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
+      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
+      // safe to return.
+      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
+      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
+        return cachedResponse;
+      }
     }
 
     const buildPromise = (fn) =>
@@ -1991,7 +1994,16 @@ export class MirrorNodeClient {
       type,
       entity: data.value,
     };
-    await this.cacheService.set(cachedLabel, response, callerName);
+
+    // An account's EIP-7702 / HIP-1340 delegation designator (`delegation_address`) is mutable: an EOA can set,
+    // change, or clear its delegation at any time. Caching a latest-state ACCOUNT entity would therefore serve a
+    // stale `delegation_address` to `eth_getCode` and hide delegation changes until the TTL expires. Contracts,
+    // tokens, and schedules are immutable, and historical (timestamped) account lookups reflect fixed state, so
+    // those remain safe to cache.
+    if (type !== constants.TYPE_ACCOUNT || timestamp) {
+      await this.cacheService.set(cachedLabel, response, callerName);
+    }
+
     return response;
   }
 
