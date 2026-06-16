@@ -39,9 +39,9 @@ autoscaling:
   #           averageValue: "0.8"   # scale at 80% of maxRatePerEndpoint
   extraMetrics: []
 
-# Name of an existing Kubernetes Secret containing OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
-# When set, the chart will not create a Secret and will use this one instead.
-# The secret must contain keys named OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
+# Name of a pre-existing Kubernetes Secret containing the operator credentials.
+# Required. The secret must contain keys OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
+# Create the secret externally (e.g. kubectl create secret generic <name> --from-literal=OPERATOR_ID_MAIN=... --from-literal=OPERATOR_KEY_MAIN=...)
 existingSecret: ''
 
 # For full reference and defaults see .env.http.example
@@ -55,9 +55,6 @@ config:
   HEDERA_NETWORK: ''
   MIRROR_NODE_URL: ''
 
-  # Operator Account (Required for transaction execution)
-  OPERATOR_ID_MAIN: ''
-  OPERATOR_KEY_MAIN: ''
   # OPERATOR_KEY_FORMAT:
 
   # ========== NETWORK & CONNECTION SETTINGS ==========
