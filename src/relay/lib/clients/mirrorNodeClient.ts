@@ -676,16 +676,32 @@ export class MirrorNodeClient {
   }
 
   /**
-   * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant `MIRROR_NODE_LIMIT_PARAM`.
+   * Fetches all account transactions newer than `lowerBoundTimestamp` by paginating
+   * the Mirror Node accounts endpoint. Used to reconstruct historical balances for
+   * blocks within the last ~15 minutes, where the `/balances` snapshot is not yet
+   * available.
+   *
+   * @param url - The Mirror Node `links.next` URL from the preceding account response,
+   *   used to extract the account ID and the upper-bound (`lte:`) timestamp cursor.
+   * @param requestDetails - Request metadata for logging and tracing.
+   * @param lowerBoundTimestamp - Hedera consensus timestamp (e.g. `"1779454079.000000000"`)
+   *   added as `timestamp=gte:` to bound pagination; typically `block.timestamp.to`.
    */
-  public async getAccountPaginated(url: string, requestDetails: RequestDetails): Promise<any> {
+  public async getAccountPaginated(
+    url: string,
+    requestDetails: RequestDetails,
+    lowerBoundTimestamp: string,
+  ): Promise<any> {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
     this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
+    // scopes pagination to the lowerBoundTimestamp,
+    // preventing from walking the full account history up to MIRROR_NODE_ACCOUNT_TXS_PG_MAX pages.
+    this.setQueryParam(queryParamObject, 'timestamp', `gte:${lowerBoundTimestamp}`);
+
     const queryParams = this.getQueryParams(queryParamObject);
 
     return this.getPaginatedResults(
