@@ -1,6 +1,4 @@
 # Default values for json-rpc-relay in CI. Configured to testnet
-existingSecret: 'ci-operator-secret'
-
 config:
   CHAIN_ID: '0x128'
   HEDERA_NETWORK: 'testnet'

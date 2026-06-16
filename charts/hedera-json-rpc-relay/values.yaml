@@ -39,9 +39,10 @@ autoscaling:
   #           averageValue: "0.8"   # scale at 80% of maxRatePerEndpoint
   extraMetrics: []
 
-# Name of a pre-existing Kubernetes Secret containing the operator credentials.
-# Required. The secret must contain keys OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
-# Create the secret externally (e.g. kubectl create secret generic <name> --from-literal=OPERATOR_ID_MAIN=... --from-literal=OPERATOR_KEY_MAIN=...)
+# Name of a pre-existing Kubernetes Secret containing operator credentials.
+# When set, the secret is mounted via envFrom.secretRef and must contain keys OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN.
+# Required when READ_ONLY is false (default); the relay enforces this at startup.
+# Create the secret externally before installing: kubectl create secret generic <name> --from-literal=OPERATOR_ID_MAIN=... --from-literal=OPERATOR_KEY_MAIN=...
 existingSecret: ''
 
 # For full reference and defaults see .env.http.example

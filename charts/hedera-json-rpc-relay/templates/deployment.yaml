@@ -34,8 +34,10 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "json-rpc-relay.fullname" . }}
+        {{- if .Values.existingSecret }}
         - secretRef:
-            name: {{ required "existingSecret must be set to the name of a pre-existing Kubernetes Secret containing OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN" .Values.existingSecret }}
+            name: {{ .Values.existingSecret }}
+        {{- end }}
         {{- with .Values.extraEnvFrom }}
           {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
