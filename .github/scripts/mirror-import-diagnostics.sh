@@ -89,4 +89,50 @@ kubectl exec -n "$NS" "$CN" -c root-container -- sh -c '
 echo "-> node healthy (rounds advance, ISS ok) while the stream is dead = upstream writer stall"
 echo "::endgroup::"
 
+# MinIO is the S3 upload target the consensus-node uploader sidecars (section 4) push record/event
+# streams into. A healthy freeze shows MinIO green + idle; if MinIO itself is degraded the uploaders
+# would be *broken* (not idle) and the whole stream pipeline backs up for a different reason. The
+# MinIO Operator (solo-setup ns) reconciles the Tenant CR; the Tenant's pool pods (one-shot ns) run
+# the actual `minio` server + a `sidecar` that watches config.
+OPNS="$(kubectl get pods -A --no-headers 2>/dev/null | grep minio-operator | head -n1 | awk '{print $1}')"
+OP="$(kubectl get pods -A --no-headers 2>/dev/null | grep minio-operator | head -n1 | awk '{print $2}')"
+TNS="$(kubectl get tenants.minio.min.io -A --no-headers 2>/dev/null | head -n1 | awk '{print $1}')"
+TENANT="$(kubectl get tenants.minio.min.io -A --no-headers 2>/dev/null | head -n1 | awk '{print $2}')"
+POOL="$(kubectl get pods -n "$TNS" --no-headers 2>/dev/null | grep minio-pool | head -n1 | awk '{print $1}')"
+
+echo "::group::6. MinIO operator + tenant health (upload target for the uploader sidecars)"
+echo "operator=${OPNS:-?}/${OP:-?}  tenant=${TNS:-?}/${TENANT:-?}  pool=${POOL:-?}"
+
+echo "-- tenant state / health / quorum / usage --"
+kubectl get tenant "$TENANT" -n "$TNS" \
+  -o custom-columns='STATE:.status.currentState,HEALTH:.status.healthStatus,DRIVES_ONLINE:.status.drivesOnline,WRITE_QUORUM:.status.writeQuorum,BUCKETS:.status.provisionedBuckets,USAGE:.status.usage.usage,CAPACITY:.status.usage.capacity' \
+  2>/dev/null
+echo "-> healthy freeze: STATE=Initialized HEALTH=green DRIVES_ONLINE>=WRITE_QUORUM"
+
+echo "-- tenant pool pods (minio + sidecar) --"
+kubectl get pods -n "$TNS" -l 'v1.min.io/tenant' -o wide 2>/dev/null
+
+echo "-- pool StatefulSet(s) (READY must equal DESIRED) --"
+kubectl get statefulset -n "$TNS" -l 'v1.min.io/tenant' 2>/dev/null
+
+echo "-- tenant PVC (data volume must be Bound) --"
+kubectl get pvc -n "$TNS" 2>/dev/null | grep -E "minio|NAME"
+
+echo "-- minio server log (tail) --"
+kubectl logs -n "$TNS" "$POOL" -c minio --tail=30 2>/dev/null \
+  | grep -iE 'error|fatal|panic|unable|denied|quorum|healing|Status:|Endpoint:|Docs:' \
+  | tail -n 20
+echo "-> empty/no errors = MinIO accepting writes; quorum/disk errors here = uploads will stall"
+
+echo "-- pool sidecar log (config watcher; tail) --"
+kubectl logs -n "$TNS" "$POOL" -c sidecar --tail=20 2>/dev/null \
+  | grep -iE 'error|warn|fail|reload|config' \
+  | tail -n 15
+
+echo "-- operator log (reconcile errors) --"
+kubectl logs -n "$OPNS" "$OP" --tail=40 2>/dev/null \
+  | grep -iE 'error|warn|fail|reconcile|tenant' \
+  | tail -n 20
+echo "::endgroup::"
+
 echo "diagnostics complete"
