@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const { ethers } = require('hardhat');
+import { ethers } from 'hardhat';
 
-module.exports = async (amount = 100_000_000_000) => {
+export default async (amount = 100_000_000_000) => {
   const wallet = (await ethers.getSigners())[0];
   const walletReceiver = (await ethers.getSigners())[1];
 
