@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
+import '../bigNumberConfig';
+
 import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
