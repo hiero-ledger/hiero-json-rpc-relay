@@ -163,6 +163,7 @@ jobs:
           ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE: "${{ inputs.on_valid_json_rpc_http_response_status_code }}"
 
       - name: Mirror import diagnostics
+        if: failure()
         run: bash .github/scripts/mirror-import-diagnostics.sh
 
       - name: Upload Heap Snapshots
