@@ -137,11 +137,9 @@ jobs:
         run: |
           npx @hashgraph/solo@${{ inputs.soloVersion || '0.76.0' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
-            --external-address 0.0.0.0 \
             --dev \
             --deploy-explorer=false \
             --deploy-relay=false \
-            --parallel-deploy=false
         timeout-minutes: 15
 
       - name: Start Redis
