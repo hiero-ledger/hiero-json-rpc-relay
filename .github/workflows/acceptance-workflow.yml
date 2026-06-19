@@ -132,7 +132,7 @@ jobs:
         env:
           # solo binds these port-forwards via --external-address; keep the local
           # ports the acceptance tests expect (mirror-node ingress + consensus gRPC).
-          MIRROR_NODE_PORT: 5551
+          MIRROR_NODE_PORT: 38081
           GRPC_LOCAL_PORT: 50211
         run: |
           npx @hashgraph/solo@${{ inputs.soloVersion || '0.76.0' }} one-shot falcon deploy \
