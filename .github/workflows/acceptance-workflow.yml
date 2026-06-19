@@ -141,6 +141,7 @@ jobs:
             --dev \
             --deploy-explorer=false \
             --deploy-relay=false
+            --parallel-deploy=false
         timeout-minutes: 15
 
       - name: Start Redis
