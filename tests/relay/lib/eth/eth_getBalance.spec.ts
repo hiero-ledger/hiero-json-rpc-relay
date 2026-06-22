@@ -583,23 +583,27 @@ describe('@ethGetBalance using MirrorNode', async function () {
         }),
       );
 
-      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`).reply(
-        200,
-        JSON.stringify({
-          account: CONTRACT_ID_1,
-          balance: {
-            balance: balance3,
-            timestamp: '1651550587.060890941',
-          },
-          transactions: [
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550573.060890958' }),
-          ],
-          links: {
-            next: null,
-          },
-        }),
-      );
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:1651550565.060890941`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: {
+              balance: balance3,
+              timestamp: '1651550587.060890941',
+            },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550573.060890958' }),
+            ],
+            links: {
+              next: null,
+            },
+          }),
+        );
 
       const latestBlock = {
         ...DEFAULT_BLOCK,
@@ -652,23 +656,27 @@ describe('@ethGetBalance using MirrorNode', async function () {
         }),
       );
 
-      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`).reply(
-        200,
-        JSON.stringify({
-          account: CONTRACT_ID_1,
-          balance: {
-            balance: balance3,
-            timestamp: '1651550587.060890941',
-          },
-          transactions: [
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
-            buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: '1651550573.060890958' }),
-          ],
-          links: {
-            next: null,
-          },
-        }),
-      );
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:1651550565.060890941`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: {
+              balance: balance3,
+              timestamp: '1651550587.060890941',
+            },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
+              buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: '1651550573.060890958' }),
+            ],
+            links: {
+              next: null,
+            },
+          }),
+        );
 
       const latestBlock = {
         ...DEFAULT_BLOCK,
@@ -688,6 +696,72 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
       const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '1', requestDetails);
       const historicalBalance = numberTo0x(BigInt(balance3 - 80) * TINYBAR_TO_WEIBAR_COEF_BIGINT);
+      expect(resBalance).to.equal(historicalBalance);
+    });
+
+    it('blockNumber is in the latest 15 minutes and pagination is scoped to block.timestamp.to as lower bound to avoid walking full account history', async () => {
+      // Without the gte: lower bound, getAccountPaginated pages through the entire account history
+      // and throws PAGINATION_MAX for high-activity accounts even when only a small window is needed.
+      const blockTimestampTo = '1651550565.060890941';
+      const recentBlockWithinLastfifteen = {
+        ...DEFAULT_BLOCK,
+        number: 1,
+        timestamp: {
+          from: '1651550564.060890921',
+          to: blockTimestampTo,
+        },
+      };
+      restMock.onGet(`blocks/1`).reply(200, JSON.stringify(recentBlockWithinLastfifteen));
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+        200,
+        JSON.stringify({
+          account: CONTRACT_ID_1,
+          balance: {
+            balance: balance3,
+            timestamp: '1651550587.060890941',
+          },
+          transactions: [
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: '1651550587.060890964' }),
+          ],
+          links: {
+            next: `/api/v1/accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`,
+          },
+        }),
+      );
+
+      // The paginated URL must include gte:blockTimestampTo so MN scopes results to the relevant
+      // window only — preventing a full history walk that would hit MIRROR_NODE_ACCOUNT_TXS_PG_MAX.
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:${blockTimestampTo}`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: { balance: balance3, timestamp: '1651550587.060890941' },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550566.060890941' }),
+            ],
+            links: { next: null },
+          }),
+        );
+
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(
+        200,
+        JSON.stringify({
+          blocks: [
+            {
+              ...DEFAULT_BLOCK,
+              number: 4,
+              timestamp: { from: '1651550595.060890941', to: '1651550597.060890941' },
+            },
+          ],
+        }),
+      );
+
+      const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '1', requestDetails);
+      const historicalBalance = numberTo0x(BigInt(balance3 - 150) * TINYBAR_TO_WEIBAR_COEF_BIGINT);
       expect(resBalance).to.equal(historicalBalance);
     });
 
