@@ -441,7 +441,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   describe('eth_getBlockByNumber with tag', async function () {
-    const TOTAL_GET_CALLS_EXECUTED = 12;
+    const TOTAL_GET_CALLS_EXECUTED = 11;
     function confirmResult(result: Block | null) {
       expect(result).to.exist;
       expect(result).to.not.be.null;

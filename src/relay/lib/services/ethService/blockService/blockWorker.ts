@@ -294,20 +294,46 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
   return prepend0x(Buffer.from(trie.root()).toString('hex'));
 }
 
+async function resolveContractResultAddresses(
+  contractResults: any[],
+  requestDetails: RequestDetails,
+): Promise<[Map<string, string>, Map<string, string>]> {
+  const uniqueFromAddresses = new Set<string>();
+  const uniqueToAddresses = new Set<string>();
+  for (const contractResult of contractResults) {
+    if (contractResult.from) uniqueFromAddresses.add(contractResult.from);
+    if (contractResult.to) uniqueToAddresses.add(contractResult.to);
+  }
+
+  return Promise.all([
+    Promise.all(
+      [...uniqueFromAddresses].map(
+        async (address) =>
+          [address, await commonService.resolveEvmAddress(address, requestDetails, [constants.TYPE_ACCOUNT])] as const,
+      ),
+    ).then((entries) => new Map(entries)),
+    Promise.all(
+      [...uniqueToAddresses].map(
+        async (address) => [address, await commonService.resolveEvmAddress(address, requestDetails)] as const,
+      ),
+    ).then((entries) => new Map(entries)),
+  ]);
+}
+
 async function prepareTransactionArray(
   contractResults: any[],
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
-  commonService: CommonService,
 ): Promise<Transaction[] | string[]> {
+  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
+
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
-    [contractResult.from, contractResult.to] = await Promise.all([
-      commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      commonService.resolveEvmAddress(contractResult.to, requestDetails),
-    ]);
-
+    contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
+    contractResult.to = contractResult.to
+      ? (toAddressMap.get(contractResult.to) ?? contractResult.to)
+      : contractResult.to;
     contractResult.chain_id = contractResult.chain_id || chain;
     txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
   }
@@ -361,7 +387,6 @@ export async function getBlock(
       showDetails,
       requestDetails,
       chain,
-      commonService,
     );
 
     txArray = populateSyntheticTransactions(showDetails, logs, txArray, chain);
@@ -415,17 +440,14 @@ export async function getBlockReceipts(
       await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
-    const resolved = await Promise.all(
-      contractResults.map(async (contractResult) => {
-        const logs = logsByHash.get(contractResult.hash) || [];
-        const [from, to] = await Promise.all([
-          commonService.resolveEvmAddress(contractResult.from, requestDetails),
-          contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
-        ]);
+    const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
 
-        return { contractResult, logs, from, to };
-      }),
-    );
+    const resolved = contractResults.map((contractResult) => {
+      const logs = logsByHash.get(contractResult.hash) || [];
+      const from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
+      const to = contractResult.to === null ? null : (toAddressMap.get(contractResult.to) ?? contractResult.to);
+      return { contractResult, logs, from, to };
+    });
 
     const receipts: ITransactionReceipt[] = [];
     let cumulativeGasUsed = 0;

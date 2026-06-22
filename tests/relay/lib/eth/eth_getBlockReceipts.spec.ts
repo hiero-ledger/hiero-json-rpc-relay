@@ -12,8 +12,15 @@ import { type EthImpl } from '../../../../src/relay/lib/eth';
 import { type CommonService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { type ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
-import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1, mockWorkersPool } from '../../helpers';
 import {
+  contractHash3,
+  defaultContractResults,
+  defaultContractResultsOnlyHash2,
+  defaultLogs1,
+  mockWorkersPool,
+} from '../../helpers';
+import {
+  ACCOUNT_ADDRESS_1,
   BLOCK_HASH,
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
@@ -338,6 +345,43 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts.length).to.equal(1);
       expect(receipts[0].from).to.equal('0xresolvedFromAddress');
       expect(receipts[0].to).to.equal(resolvedToAddress);
+
+      resolveEvmAddressStub.restore();
+    });
+  });
+
+  describe('Address deduplication', () => {
+    it('should call resolveEvmAddress once per unique address when transactions share addresses', async function () {
+      const duplicateFrom = results[0].from;
+      const uniqueFrom = ACCOUNT_ADDRESS_1;
+      const sharedTo = results[0].to;
+      const uniqueTo = results[1].to;
+
+      const threeTransactionResults = {
+        results: [
+          { ...results[0], from: duplicateFrom, to: sharedTo },
+          { ...results[1], from: duplicateFrom, to: uniqueTo },
+          { ...results[0], from: uniqueFrom, to: sharedTo, hash: contractHash3, transaction_index: 3 },
+        ],
+        links: { next: null },
+      };
+
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: threeTransactionResults,
+      });
+
+      const resolveEvmAddressStub = sinon
+        .stub(commonService, 'resolveEvmAddress')
+        .callsFake((address) => Promise.resolve(address));
+
+      await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      // 2 unique from + 2 unique to = 4 calls, not 6 (3 from + 3 to without deduplication)
+      expect(resolveEvmAddressStub.callCount).to.equal(4);
+      expect(resolveEvmAddressStub.withArgs(duplicateFrom, sinon.match.any, sinon.match.any).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(uniqueFrom, sinon.match.any, sinon.match.any).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(sharedTo, sinon.match.any).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(uniqueTo, sinon.match.any).callCount).to.equal(1);
 
       resolveEvmAddressStub.restore();
     });
