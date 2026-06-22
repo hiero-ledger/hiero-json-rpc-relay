@@ -27,7 +27,7 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: step-security/foundry-toolchain@52c5ff6279374143a2a36c326a723f9bd3555836 # v1.7.1
+        uses: step-security/foundry-toolchain@1e2de7031ae7e05d5e9ad79202047df62d77955a # v1.8.0
         with:
           version: nightly
 
