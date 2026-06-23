@@ -245,6 +245,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 10,
   },
+  FEE_HISTORY_BLOCK_PAGINATION_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 20,
+  },
   FILE_APPEND_CHUNK_SIZE: {
     type: 'number',
     required: false,

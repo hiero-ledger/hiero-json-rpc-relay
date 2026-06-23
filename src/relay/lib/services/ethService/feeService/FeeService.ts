@@ -192,9 +192,14 @@ export class FeeService implements IFeeService {
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
-    // get fees from oldest to newest blocks
+    const blocksByNumber = await this.getBlocksInRange(oldestBlockNumber, newestBlockNumber, requestDetails);
+
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(blockNumber, requestDetails);
+      const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(
+        blockNumber,
+        requestDetails,
+        blocksByNumber.get(blockNumber),
+      );
 
       feeHistory.baseFeePerGas?.push(fee);
       feeHistory.gasUsedRatio?.push(gasUsedRatio);
@@ -221,28 +226,76 @@ export class FeeService implements IFeeService {
   }
 
   /**
-   * @param blockNumber
-   * @param requestDetails
+   * Retrieves the blocks spanning the inclusive range `[oldestBlockNumber, newestBlockNumber]`,
+   * keyed by block number to give the fee assembly loop constant-time access to each block.
+   *
+   * Block retrieval is treated as best-effort: a failed range query (a transient mirror node
+   * error, or a range wider than `FEE_HISTORY_BLOCK_PAGINATION_MAX` allows) resolves to an empty
+   * map instead of throwing. Each block is then resolved on demand so the `eth_feeHistory`
+   * request still completes instead of failing outright.
+   *
+   * @param oldestBlockNumber - Inclusive lower bound block number (oldest).
+   * @param newestBlockNumber - Inclusive upper bound block number (newest).
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @returns Blocks indexed by block number; empty when the range could not be retrieved.
+   * @private
+   */
+  private async getBlocksInRange(
+    oldestBlockNumber: number,
+    newestBlockNumber: number,
+    requestDetails: RequestDetails,
+  ): Promise<Map<number, MirrorNodeBlock>> {
+    try {
+      const blocks = await this.mirrorNodeClient.getBlocksByRange(
+        requestDetails,
+        oldestBlockNumber,
+        newestBlockNumber,
+      );
+      return new Map(blocks.map((block) => [block.number, block] as [number, MirrorNodeBlock]));
+    } catch (error) {
+      this.logger.warn(
+        error,
+        `Fee history: unable to batch-fetch blocks for range %s-%s; resolving blocks individually`,
+        oldestBlockNumber,
+        newestBlockNumber,
+      );
+      return new Map();
+    }
+  }
+
+  /**
+   * Resolves the base fee per gas and the gas-used ratio for a single block. Unavailable block
+   * data or gas price information degrade to zero values, ensuring one unresolved block does not
+   * fail the surrounding fee history response.
+   *
+   * @param blockNumber - Block whose fee data is requested.
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @param prefetchedBlock - Block already obtained from the range query; when omitted, the block
+   *   is retrieved on demand.
+   * @returns The block's base fee per gas (hex) and its gas-used ratio.
    * @private
    */
   private async getFeeHistoryDataFromBlock(
     blockNumber: number,
     requestDetails: RequestDetails,
+    prefetchedBlock?: MirrorNodeBlock,
   ): Promise<{ fee: string; gasUsedRatio: number }> {
-    let block: MirrorNodeBlock | undefined;
-    try {
-      block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      if (!block) {
-        this.logger.warn(`Fee history: block ${blockNumber} not found. Returning zero fee and gasUsedRatio.`);
+    let block: MirrorNodeBlock | undefined = prefetchedBlock;
+    if (!block) {
+      try {
+        block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+        if (!block) {
+          this.logger.warn(`Fee history: block ${blockNumber} not found. Returning zero fee and gasUsedRatio.`);
+          return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
+        }
+      } catch (error) {
+        this.logger.warn(
+          error,
+          `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
+          blockNumber,
+        );
         return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
       }
-    } catch (error) {
-      this.logger.warn(
-        error,
-        `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
-        blockNumber,
-      );
-      return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
     }
 
     const gasUsedRatio = this.getGasUsedRatioForBlock(block);

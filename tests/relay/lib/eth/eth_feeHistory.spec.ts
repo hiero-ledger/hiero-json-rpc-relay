@@ -28,6 +28,10 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1, ETH_FEE_HISTORY_FIXED: false });
 
+  // URL produced by MirrorNodeClient.getBlocksByRange for the inclusive range [from, to].
+  const blockRangeUrl = (from: number, to: number): string =>
+    `blocks?block.number=gte:${from}&block.number=lte:${to}&limit=100&order=asc`;
+
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
@@ -54,8 +58,15 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     this.beforeEach(() => {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
-      restMock.onGet(`blocks/${previousBlock.number}`).reply(200, JSON.stringify(previousBlock));
-      restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
+      restMock
+        .onGet(blockRangeUrl(previousBlock.number, latestBlock.number))
+        .reply(200, JSON.stringify({ blocks: [previousBlock, latestBlock], links: { next: null } }));
+      restMock
+        .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
+        .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
+      restMock
+        .onGet(blockRangeUrl(0, 0))
+        .reply(200, JSON.stringify({ blocks: [{ ...DEFAULT_BLOCK, number: 0 }], links: { next: null } }));
       restMock
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(previousFees));
@@ -130,9 +141,13 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     restMock
       .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
       .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
-    Array.from(Array(11).keys()).map((blockNumber) =>
-      restMock.onGet(`blocks/${blockNumber}`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, number: blockNumber })),
-    );
+    // newest 0x9 with the default cap of 10 yields the inclusive range [0, 9]
+    const rangeBlocks = Array.from(Array(10).keys()).map((number) => ({ ...DEFAULT_BLOCK, number }));
+    restMock
+      .onGet(blockRangeUrl(0, 9))
+      .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+    // latest (10) is beyond the newest requested block, so the "next" block is still fetched singly
+    restMock.onGet(`blocks/10`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, number: 10 }));
 
     const feeHistory = await ethImpl.feeHistory(200, '0x9', [0], requestDetails);
 
@@ -149,7 +164,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     const hexBlockNumber = `0x${latestBlock.number.toString(16)}`;
 
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
-    restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
+    restMock
+      .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
+      .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
     restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(200, JSON.stringify(latestFees));
 
     const firstFeeHistory = await ethImpl.feeHistory(1, hexBlockNumber, null, requestDetails);
@@ -176,7 +193,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     this.beforeEach(() => {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
-      restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
+      restMock
+        .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
+        .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
       restMock
         .onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`)
         .reply(404, JSON.stringify(NOT_FOUND_RES));
@@ -202,6 +221,10 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     this.beforeEach(() => {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+      // the range query returns no block, and the on-demand lookup also reports it missing
+      restMock
+        .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
+        .reply(200, JSON.stringify({ blocks: [], links: { next: null } }));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
     });
 
