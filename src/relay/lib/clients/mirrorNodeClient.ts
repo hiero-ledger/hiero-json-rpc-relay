@@ -1445,7 +1445,7 @@ export class MirrorNodeClient {
     blockEndTimestamp: string | undefined,
     limit: number,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     // retrieve the timestamp of the contract
     const contractResultsParams: IContractResultsParams = blockEndTimestamp
       ? { timestamp: `lte:${blockEndTimestamp}` }
