@@ -19,7 +19,7 @@ export interface ICommonService {
 
   getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
 
-  getContractAddressFromReceipt(contractResult: MirrorNodeContractResultBase): string;
+  getContractAddressFromReceipt(contractResult: MirrorNodeContractResultBase): string | null;
 
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 

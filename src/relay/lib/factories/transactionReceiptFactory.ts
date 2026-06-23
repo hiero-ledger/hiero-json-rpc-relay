@@ -142,7 +142,7 @@ class TransactionReceiptFactory {
    * @param receiptResponse Mirror node contract result response
    * @returns {string} Contract address or null
    */
-  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string {
+  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
