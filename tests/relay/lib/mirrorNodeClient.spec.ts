@@ -773,9 +773,9 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResult(transactionId, requestDetails);
     expect(result).to.exist;
-    expect(result.contract_id).equal(detailedContractResult.contract_id);
-    expect(result.to).equal(detailedContractResult.to);
-    expect(result.v).equal(detailedContractResult.v);
+    expect(result!.contract_id).equal(detailedContractResult.contract_id);
+    expect(result!.to).equal(detailedContractResult.to);
+    expect(result!.v).equal(detailedContractResult.v);
   });
 
   it('`getContractResults` by hash', async () => {
@@ -784,9 +784,9 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResult(hash, requestDetails);
     expect(result).to.exist;
-    expect(result.contract_id).equal(detailedContractResult.contract_id);
-    expect(result.to).equal(detailedContractResult.to);
-    expect(result.v).equal(detailedContractResult.v);
+    expect(result!.contract_id).equal(detailedContractResult.contract_id);
+    expect(result!.to).equal(detailedContractResult.to);
+    expect(result!.v).equal(detailedContractResult.v);
   });
 
   it('`getContractResults` by hash using cache', async () => {
@@ -961,18 +961,35 @@ describe('MirrorNodeClient', async function () {
   });
 
   it('`getContractResults` detailed', async () => {
+    // a HAPI (non-ethereum) call leaves the ethereum transaction fields null
+    const hapiContractResult = {
+      ...detailedContractResult,
+      chain_id: null,
+      gas_price: null,
+      r: null,
+      s: null,
+      type: null,
+      v: null,
+      nonce: null,
+      access_list: null,
+    };
     mock
       .onGet(`contracts/results?limit=100&order=asc&hbar=false`)
-      .reply(200, JSON.stringify({ results: [detailedContractResult], links: { next: null } }));
+      .reply(200, JSON.stringify({ results: [detailedContractResult, hapiContractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getContractResults(requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.not.exist;
-    expect(result.length).to.gt(0);
+    expect(result.length).to.equal(2);
     const firstResult = result[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.to).equal(detailedContractResult.to);
     expect(firstResult.v).equal(detailedContractResult.v);
+    // nullable ethereum transaction fields are preserved as null for HAPI results
+    const secondResult = result[1];
+    expect(secondResult.chain_id).to.equal(null);
+    expect(secondResult.r).to.equal(null);
+    expect(secondResult.type).to.equal(null);
+    expect(secondResult.access_list).to.equal(null);
   });
 
   const contractResult = {
@@ -997,10 +1014,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(contractId, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
@@ -1014,10 +1031,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(address, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);

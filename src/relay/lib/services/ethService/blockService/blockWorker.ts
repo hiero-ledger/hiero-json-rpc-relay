@@ -25,6 +25,8 @@ import {
   type IContractResultsParams,
   type ITransactionReceipt,
   type MirrorNodeBlock,
+  type MirrorNodeContractResult,
+  type MirrorNodeContractResultReceipt,
   type RequestDetails,
 } from '../../../types';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
@@ -61,7 +63,7 @@ interface IReceiptRootHash {
   cumulativeGasUsed: string;
   logs: IReceiptRootHashLog[];
   logsBloom: string;
-  root: string;
+  root: string | undefined;
   status: string;
   transactionIndex: string;
   type: string | null;
@@ -157,11 +159,15 @@ function populateSyntheticTransactions(
  * @param logs - Log entries returned by the mirror node for the block.
  * @returns An array of receipt objects, sorted by transaction index.
  */
-function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
+function buildReceiptRootHashes(
+  txHashes: string[],
+  contractResults: MirrorNodeContractResult[],
+  logs: Log[],
+): IReceiptRootHash[] {
   const items: {
     transactionIndex: number;
     logsPerTx: Log[];
-    crPerTx: any;
+    crPerTx: MirrorNodeContractResultReceipt | undefined;
   }[] = [];
 
   //build lookup maps for logs and contract results by transaction hash to avoid O(n^2) complexity
@@ -172,7 +178,7 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
     logsByTxHash.set(log.transactionHash, list);
   }
 
-  const contractResultByHash = new Map<string, any>(contractResults.map((cr) => [cr.hash, cr]));
+  const contractResultByHash = new Map<string, MirrorNodeContractResult>(contractResults.map((cr) => [cr.hash, cr]));
 
   for (const txHash of txHashes) {
     const logsPerTx = logsByTxHash.get(txHash) ?? [];
@@ -295,24 +301,32 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
 }
 
 async function prepareTransactionArray(
-  contractResults: any[],
+  contractResults: MirrorNodeContractResult[],
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
   commonService: CommonService,
 ): Promise<Transaction[] | string[]> {
-  const txArray: Transaction[] | string[] = [];
+  const detailedTxArray: Transaction[] = [];
+  const hashArray: string[] = [];
   for (const contractResult of contractResults) {
     [contractResult.from, contractResult.to] = await Promise.all([
       commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      commonService.resolveEvmAddress(contractResult.to, requestDetails),
+      contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
     ]);
 
     contractResult.chain_id = contractResult.chain_id || chain;
-    txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
+    if (showDetails) {
+      const transaction = createTransactionFromContractResult(contractResult);
+      if (transaction) {
+        detailedTxArray.push(transaction);
+      }
+    } else {
+      hashArray.push(contractResult.hash);
+    }
   }
 
-  return txArray;
+  return showDetails ? detailedTxArray : hashArray;
 }
 
 export async function getBlock(
@@ -339,11 +353,10 @@ export async function getBlock(
     );
 
     const [contractResults, logs] = await Promise.all([
-      mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
-        requestDetails,
-        params,
-        undefined,
-      ]),
+      mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
+        mirrorNodeClient.getContractResults.name,
+        [requestDetails, params, undefined],
+      ),
       commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
@@ -551,7 +564,7 @@ async function loadBlockExecutionData(
   requestDetails: RequestDetails,
 ): Promise<{
   block: MirrorNodeBlock | null;
-  contractResults: any[];
+  contractResults: MirrorNodeContractResult[];
   logsByHash: Map<string, Log[]>;
 }> {
   const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
@@ -588,14 +601,18 @@ async function loadBlockExecutionData(
  *   contract result data, associated logs, and the cumulative gas used.
  * @returns Minimal receipt data suitable for RLP encoding.
  */
-function createReceiptRlpInput(logs: Log[], receiptResponse: any, cumulativeGasUsed: number): IReceiptRlpInput {
+function createReceiptRlpInput(
+  logs: Log[],
+  receiptResponse: MirrorNodeContractResultReceipt,
+  cumulativeGasUsed: number,
+): IReceiptRlpInput {
   return {
     cumulativeGasUsed: numberTo0x(cumulativeGasUsed),
     logs: logs,
     logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
     root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
     status: receiptResponse.status,
-    transactionIndex: numberTo0x(receiptResponse.transaction_index),
+    transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
     type: nanOrNumberTo0x(receiptResponse.type),
   };
 }

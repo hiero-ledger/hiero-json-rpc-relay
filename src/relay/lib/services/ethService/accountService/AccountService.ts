@@ -467,7 +467,7 @@ export class AccountService implements IAccountService {
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     }
 
-    return numberTo0x(transactionResult.nonce + 1); // nonce is 0 indexed
+    return numberTo0x((transactionResult.nonce ?? 0) + 1); // nonce is 0 indexed
   }
 
   /**

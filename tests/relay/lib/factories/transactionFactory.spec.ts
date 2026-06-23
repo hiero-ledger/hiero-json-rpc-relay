@@ -9,6 +9,7 @@ import {
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
 import { type AuthorizationListEntry, type Log, type Transaction } from '../../../../src/relay/lib/model';
+import { type MirrorNodeContractResult } from '../../../../src/relay/lib/types/mirrorNode';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -251,7 +252,7 @@ describe('TransactionFactory', () => {
       type: 2,
       v: 1,
       nonce: 2,
-    };
+    } as MirrorNodeContractResult;
 
     const contractResultZeroPrefixedSignatureS = {
       ...contractResult,
@@ -289,7 +290,6 @@ describe('TransactionFactory', () => {
         s: null,
         transaction_index: null,
         v: null,
-        value: null,
       });
       expectFormattedResult(formattedResult, {
         blockNumber: null,
@@ -315,7 +315,11 @@ describe('TransactionFactory', () => {
     });
 
     it('Should return null when contract result type is undefined', async function () {
-      const formattedResult = createTransactionFromContractResult({ ...contractResult, type: undefined });
+      // mirror node always sets a numeric `type`; this deliberately invalid input verifies the defensive null return
+      const formattedResult = createTransactionFromContractResult({
+        ...contractResult,
+        type: undefined,
+      } as unknown as MirrorNodeContractResult);
       expect(formattedResult).to.be.null;
     });
   });
@@ -367,7 +371,7 @@ describe('TransactionFactory', () => {
         v: 1,
         authorization_list: input,
         nonce: 2,
-      })!['authorizationList'];
+      } as MirrorNodeContractResult)!['authorizationList'];
 
     it('filters out null items and non-object items', () => {
       const input = [null, undefined, 123, 'abc', true, () => ({}), { chainId: '1' }, { nonce: '2' }];

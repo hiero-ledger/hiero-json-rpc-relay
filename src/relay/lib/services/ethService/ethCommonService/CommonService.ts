@@ -17,6 +17,7 @@ import {
   type IAccountInfo,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
+  type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
@@ -656,7 +657,7 @@ export class CommonService implements ICommonService {
    * @param {any} receiptResponse - The receipt response object.
    * @returns {string} The contract address.
    */
-  public getContractAddressFromReceipt(receiptResponse: any): string {
+  public getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
