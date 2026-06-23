@@ -294,6 +294,18 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
   return prepend0x(Buffer.from(trie.root()).toString('hex'));
 }
 
+/**
+ * Resolves unique `from` and `to` addresses from an array of contract results in parallel,
+ * returning two Maps for O(1) lookup. Deduplicates addresses before resolution to avoid
+ * redundant mirror node or cache calls for addresses shared across multiple transactions.
+ *
+ * `from` addresses are resolved as account types only, since transaction signers are always EOAs.
+ * `to` addresses are resolved against all searchable types (contract, token, account).
+ *
+ * @param contractResults - Array of contract results whose addresses to resolve
+ * @param requestDetails - The request details for logging and tracking
+ * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to resolved evm address
+ */
 async function resolveContractResultAddresses(
   contractResults: any[],
   requestDetails: RequestDetails,
@@ -331,9 +343,7 @@ async function prepareTransactionArray(
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
     contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-    contractResult.to = contractResult.to
-      ? (toAddressMap.get(contractResult.to) ?? contractResult.to)
-      : contractResult.to;
+    contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
     contractResult.chain_id = contractResult.chain_id || chain;
     txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
   }
@@ -445,7 +455,7 @@ export async function getBlockReceipts(
     const resolved = contractResults.map((contractResult) => {
       const logs = logsByHash.get(contractResult.hash) || [];
       const from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-      const to = contractResult.to === null ? null : (toAddressMap.get(contractResult.to) ?? contractResult.to);
+      const to = toAddressMap.get(contractResult.to) ?? contractResult.to;
       return { contractResult, logs, from, to };
     });
 

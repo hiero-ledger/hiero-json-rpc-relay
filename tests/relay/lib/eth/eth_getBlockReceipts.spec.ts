@@ -378,8 +378,12 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       // 2 unique from + 2 unique to = 4 calls, not 6 (3 from + 3 to without deduplication)
       expect(resolveEvmAddressStub.callCount).to.equal(4);
-      expect(resolveEvmAddressStub.withArgs(duplicateFrom, sinon.match.any, sinon.match.any).callCount).to.equal(1);
-      expect(resolveEvmAddressStub.withArgs(uniqueFrom, sinon.match.any, sinon.match.any).callCount).to.equal(1);
+
+      // from addresses resolved with TYPE_ACCOUNT filter (EOAs only), each unique address called once
+      expect(resolveEvmAddressStub.withArgs(duplicateFrom, sinon.match.any, ['ACCOUNT']).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(uniqueFrom, sinon.match.any, ['ACCOUNT']).callCount).to.equal(1);
+
+      // to addresses resolved without type filter, each unique address called once
       expect(resolveEvmAddressStub.withArgs(sharedTo, sinon.match.any).callCount).to.equal(1);
       expect(resolveEvmAddressStub.withArgs(uniqueTo, sinon.match.any).callCount).to.equal(1);
 
