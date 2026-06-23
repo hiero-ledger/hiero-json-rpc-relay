@@ -1048,10 +1048,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getLatestContractResultsByAddress(address, undefined, 1, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
@@ -1070,10 +1070,10 @@ describe('MirrorNodeClient', async function () {
       requestDetails,
     );
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
