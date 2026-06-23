@@ -55,25 +55,22 @@ export async function getBalance(
       const resolution = await accountService.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
 
       if (!resolution.isLatest) {
-        const { latestBlock, blockNumberOrTagOrHash: archivalBlock } = resolution;
-        const block = await commonService.getHistoricalBlockResponse(requestDetails, archivalBlock, true);
+        const block = await commonService.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
         if (block) {
           blockNumber = block.number;
-          // If the resolved block is the latest block, fall through to the live balance below.
-          if (block.number !== latestBlock.blockNumber) {
-            ({ balanceFound, weibars } = await accountService.getBalanceAtBlockNumber(
-              account,
-              block,
-              latestBlock,
-              requestDetails,
-            ));
-          }
+          ({ balanceFound, weibars } = await accountService.getBalanceAtBlockNumber(
+            account,
+            block,
+            resolution.latestBlock,
+            requestDetails,
+          ));
         }
       }
     }
 
     if (!balanceFound) {
-      // No historical balance was resolved, so fetch the account's live balance from the mirror node.
+      // Resolve the live balance: either the request targeted the tip, or no historical balance was
+      // produced. Fetch the account's current balance from the mirror node.
       const mirrorAccount = await mirrorNodeClient.getAccount(account, requestDetails);
       if (mirrorAccount != null) {
         balanceFound = true;

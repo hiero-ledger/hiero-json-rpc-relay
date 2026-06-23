@@ -744,8 +744,8 @@ describe('@ethGetBalance using MirrorNode', async function () {
       const result = await extractBlockNumberAndTimestamp(latestBlockHex);
 
       expect(result.isLatest).to.equal(true);
-      expect(result.latestBlock.blockNumber).to.equal(latestBlockHex);
-      expect(result).to.not.have.property('blockNumberOrTagOrHash');
+      // the chain-tip variant carries no extra fields; the caller already has what it needs
+      expect(result).to.not.have.property('latestBlock');
     });
 
     it('returns isLatest=true when the requested block is within LATEST_BLOCK_TOLERANCE of the latest block', async () => {
@@ -755,14 +755,29 @@ describe('@ethGetBalance using MirrorNode', async function () {
       expect(result.isLatest).to.equal(true);
     });
 
-    it('returns isLatest=false with the original identifier for an archival block', async () => {
+    it('returns isLatest=false just outside LATEST_BLOCK_TOLERANCE', async () => {
+      // 0x270e === 9998, two behind the latest block (10000) - outside the tolerance of 1.
+      // Guards the upper edge: if LATEST_BLOCK_TOLERANCE is later bumped to 2 this must be revisited.
+      const result = await extractBlockNumberAndTimestamp('0x270e');
+
+      expect(result.isLatest).to.equal(false);
+    });
+
+    it('returns isLatest=false with the latest block timestamp populated for an archival block', async () => {
       const result = await extractBlockNumberAndTimestamp('0x2');
 
       expect(result.isLatest).to.equal(false);
       if (!result.isLatest) {
-        expect(result.blockNumberOrTagOrHash).to.equal('0x2');
         expect(result.latestBlock.timeStampTo).to.equal(latestBlockTimestampTo);
       }
+    });
+
+    it("treats a non-numeric tag ('earliest') as archival because the block diff is NaN", async () => {
+      // Number('earliest') is NaN, so `blockDiff <= LATEST_BLOCK_TOLERANCE` is false and the request
+      // falls through to the historical (archival) path rather than being treated as the tip.
+      const result = await extractBlockNumberAndTimestamp(constants.BLOCK_EARLIEST);
+
+      expect(result.isLatest).to.equal(false);
     });
 
     it('resolves a block hash to its block number before comparing against the latest block', async () => {
@@ -771,10 +786,8 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
       const result = await extractBlockNumberAndTimestamp(blockHash);
 
+      // block 2 is far behind the latest block (10000), so the hash resolves to an archival block
       expect(result.isLatest).to.equal(false);
-      if (!result.isLatest) {
-        expect(result.blockNumberOrTagOrHash).to.equal(blockHash);
-      }
     });
 
     it('refetches the latest block to populate the timestamp when only the block number is cached', async () => {

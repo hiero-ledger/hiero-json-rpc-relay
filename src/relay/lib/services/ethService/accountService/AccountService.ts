@@ -21,13 +21,13 @@ import { type IAccountService } from './IAccountService';
  *
  * Discriminated on `isLatest` so callers can route without having to re-inspect the
  * resolved block tag:
- *  - `isLatest: true`  → the request targets the chain tip; read the live balance.
- *  - `isLatest: false` → the request targets a historical (archival) block identified by
- *    `blockNumberOrTagOrHash`; read the balance as of that block.
+ *  - `isLatest: true`  → the request targets the chain tip; read the live balance (the caller
+ *    already has everything it needs, so no extra fields are carried).
+ *  - `isLatest: false` → the request targets a historical (archival) block; read the balance as of
+ *    that block. `latestBlock` carries the finality timestamp the historical calculation needs; the
+ *    block identifier itself is still the one the caller passed in, so it is not echoed back.
  */
-export type BalanceBlockResolution =
-  | { isLatest: true; latestBlock: LatestBlockNumberTimestamp }
-  | { isLatest: false; latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string };
+type BalanceBlockResolution = { isLatest: true } | { isLatest: false; latestBlock: LatestBlockNumberTimestamp };
 
 export class AccountService implements IAccountService {
   /**
@@ -148,8 +148,8 @@ export class AccountService implements IAccountService {
    *  2. Resolve the requested block identifier (hash or number) to a block number.
    *  3. If that block is within `LATEST_BLOCK_TOLERANCE` of the latest block, treat it as the tip
    *     and return `{ isLatest: true }`.
-   *  4. Otherwise return `{ isLatest: false }` with the original identifier, ensuring the latest
-   *     block timestamp is populated for the downstream historical balance calculation.
+   *  4. Otherwise return `{ isLatest: false }`, ensuring the latest block timestamp is populated for
+   *     the downstream historical balance calculation.
    *
    * @param blockNumberOrTagOrHash the block number or hash to resolve (never `latest`/`pending`;
    *   callers must short-circuit those tags before calling this method)
@@ -168,7 +168,7 @@ export class AccountService implements IAccountService {
 
     const blockDiff = Number(latestBlock.blockNumber) - requestedBlockNumber;
     if (blockDiff <= constants.LATEST_BLOCK_TOLERANCE) {
-      return { isLatest: true, latestBlock };
+      return { isLatest: true };
     }
 
     // The request targets an archival block. If the latest block came from cache it only carries the
@@ -178,7 +178,7 @@ export class AccountService implements IAccountService {
       latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
     }
 
-    return { isLatest: false, latestBlock, blockNumberOrTagOrHash };
+    return { isLatest: false, latestBlock };
   }
 
   /**
