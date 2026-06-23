@@ -233,7 +233,7 @@ export interface MirrorNodeContractResultBase {
   /** The maximum amount of gas allowed for the transaction. */
   gas_limit: number | null;
   /** The actual amount of gas used by the transaction. */
-  gas_used: number;
+  gas_used: number | null;
   /** The consensus timestamp of the transaction. */
   timestamp: string;
   /** The address of the contract being called. */

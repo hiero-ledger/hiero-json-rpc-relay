@@ -448,7 +448,7 @@ export async function getBlockReceipts(
 
       const { contractResult, logs, from, to } = item;
 
-      cumulativeGasUsed += contractResult.gas_used;
+      cumulativeGasUsed += contractResult.gas_used ?? 0;
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
         from,
@@ -523,7 +523,7 @@ export async function getRawReceipts(
       .map((contractResult) => {
         const logs = logsByHash.get(contractResult.hash) || [];
 
-        cumulativeGasUsed += contractResult.gas_used;
+        cumulativeGasUsed += contractResult.gas_used ?? 0;
         const receiptRlpInput = createReceiptRlpInput(logs, contractResult, cumulativeGasUsed);
         return TransactionReceiptFactory.encodeReceiptToHex(receiptRlpInput);
       })

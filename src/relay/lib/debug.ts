@@ -743,7 +743,7 @@ export class DebugImpl implements Debug {
         to: resolvedTo,
         value,
         gas: nanOrNumberTo0x(gas),
-        gasUsed: numberTo0x(gasUsed),
+        gasUsed: nanOrNumberTo0x(gasUsed),
         input,
         output: result !== constants.SUCCESS && error ? (isHex(error) ? error : prepend0x(toHexString(error))) : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),

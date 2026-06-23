@@ -654,7 +654,7 @@ export class TransactionService implements ITransactionService {
         }
       }
     } else {
-      cumulativeGasUsed = receiptResponse.gas_used;
+      cumulativeGasUsed = receiptResponse.gas_used ?? 0;
     }
 
     return TransactionReceiptFactory.createRegularReceipt({
