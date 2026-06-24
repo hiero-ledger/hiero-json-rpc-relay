@@ -351,25 +351,27 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   });
 
   describe('Address deduplication', () => {
-    it('should call resolveEvmAddress once per unique address when transactions share addresses', async function () {
-      const duplicateFrom = results[0].from;
-      const uniqueFrom = ACCOUNT_ADDRESS_1;
-      const sharedTo = results[0].to;
-      const uniqueTo = results[1].to;
+    const duplicateFrom = results[0].from;
+    const uniqueFrom = ACCOUNT_ADDRESS_1;
+    const sharedTo = results[0].to;
+    const uniqueTo = results[1].to;
 
-      const threeTransactionResults = {
-        results: [
-          { ...results[0], from: duplicateFrom, to: sharedTo },
-          { ...results[1], from: duplicateFrom, to: uniqueTo },
-          { ...results[0], from: uniqueFrom, to: sharedTo, hash: contractHash3, transaction_index: 3 },
-        ],
-        links: { next: null },
-      };
+    const threeTransactionResults = {
+      results: [
+        { ...results[0], from: duplicateFrom, to: sharedTo },
+        { ...results[1], from: duplicateFrom, to: uniqueTo },
+        { ...results[1], from: uniqueFrom, to: sharedTo, hash: contractHash3, transaction_index: 3 },
+      ],
+      links: { next: null },
+    };
 
+    beforeEach(() => {
       setupStandardResponses({
         [CONTRACT_RESULTS_WITH_FILTER_URL_2]: threeTransactionResults,
       });
+    });
 
+    it('should call resolveEvmAddress once per unique address when transactions share addresses', async function () {
       const resolveEvmAddressStub = sinon
         .stub(commonService, 'resolveEvmAddress')
         .callsFake((address) => Promise.resolve(address));
@@ -386,6 +388,23 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       // to addresses resolved without type filter, each unique address called once
       expect(resolveEvmAddressStub.withArgs(sharedTo, sinon.match.any).callCount).to.equal(1);
       expect(resolveEvmAddressStub.withArgs(uniqueTo, sinon.match.any).callCount).to.equal(1);
+
+      resolveEvmAddressStub.restore();
+    });
+
+    it('should map each resolved address to the correct receipt and null out to for contract creation txs', async function () {
+      const resolveEvmAddressStub = sinon
+        .stub(commonService, 'resolveEvmAddress')
+        .callsFake((address) => Promise.resolve(`${address}-resolved`));
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts![0].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts![0].to).to.equal(null); // result[0] is a contract creation transaction, so `to` should be null
+      expect(receipts![1].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts![1].to).to.equal(`${uniqueTo}-resolved`);
+      expect(receipts![2].from).to.equal(`${uniqueFrom}-resolved`);
+      expect(receipts![2].to).to.equal(`${sharedTo}-resolved`);
 
       resolveEvmAddressStub.restore();
     });
