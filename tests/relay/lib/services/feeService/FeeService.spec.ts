@@ -75,15 +75,15 @@ describe('FeeService', function () {
         expect(mirrorStub.getBlock.called).to.be.false;
       });
 
-      it('batches multiple blocks and fetches only the next block via getBlock when newest < latest', async function () {
+      it('batches multiple blocks including the next-fee block when newest < latest', async function () {
         const blockCount = 3;
         const newest = 99;
         const oldest = newest - blockCount + 1; // 97
         commonStub.translateBlockTag.withArgs(numberTo0x(newest), requestDetails).resolves(newest);
 
-        const rangeBlocks = [oldest, oldest + 1, newest].map((n) => minimalMirrorBlock(n, 1_000_000, '0.0.0'));
-        mirrorStub.getBlocksByRange.withArgs(requestDetails, oldest, newest).resolves(rangeBlocks);
-        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(minimalMirrorBlock(head, 1_000_000, '0.0.0'));
+        // range extends one past newest to include the next-fee block in the same batch
+        const rangeBlocks = [oldest, oldest + 1, newest, head].map((n) => minimalMirrorBlock(n, 1_000_000, '0.0.0'));
+        mirrorStub.getBlocksByRange.withArgs(requestDetails, oldest, newest + 1).resolves(rangeBlocks);
 
         const result = await feeService.feeHistory(blockCount, numberTo0x(newest), null, requestDetails);
 
@@ -91,8 +91,8 @@ describe('FeeService', function () {
         expect(feeHistory.oldestBlock).to.equal(numberTo0x(oldest));
         expect(feeHistory.gasUsedRatio).to.have.lengthOf(blockCount);
         expect(feeHistory.baseFeePerGas).to.have.lengthOf(blockCount + 1);
-        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, oldest, newest)).to.be.true;
-        expect(mirrorStub.getBlock.calledOnceWithExactly(head, requestDetails)).to.be.true;
+        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, oldest, newest + 1)).to.be.true;
+        expect(mirrorStub.getBlock.called).to.be.false;
       });
 
       it('returns zero fee and zero gasUsedRatio for a block missing from the batch response', async function () {

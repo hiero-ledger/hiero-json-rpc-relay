@@ -192,7 +192,8 @@ export class FeeService implements IFeeService {
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
-    const blocksByNumber = await this.getBlocksInRange(oldestBlockNumber, newestBlockNumber, requestDetails);
+    const rangeEnd = latestBlockNumber > newestBlockNumber ? newestBlockNumber + 1 : newestBlockNumber;
+    const blocksByNumber = await this.getBlocksInRange(oldestBlockNumber, rangeEnd, requestDetails);
 
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
       const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(
@@ -210,8 +211,9 @@ export class FeeService implements IFeeService {
     let nextBaseFeePerGas: string = _.last(feeHistory.baseFeePerGas);
 
     if (latestBlockNumber > newestBlockNumber) {
-      // get next block fee if the newest block is not the latest
-      nextBaseFeePerGas = (await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails)).fee;
+      nextBaseFeePerGas = (
+        await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails, blocksByNumber.get(newestBlockNumber + 1))
+      ).fee;
     }
 
     if (nextBaseFeePerGas) {

@@ -65,8 +65,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
         .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
         .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
       restMock
-        .onGet(blockRangeUrl(0, 0))
-        .reply(200, JSON.stringify({ blocks: [{ ...DEFAULT_BLOCK, number: 0 }], links: { next: null } }));
+        .onGet(blockRangeUrl(0, 1))
+        .reply(200, JSON.stringify({ blocks: [{ ...DEFAULT_BLOCK, number: 0 }, { ...DEFAULT_BLOCK, number: 1 }], links: { next: null } }));
       restMock
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(previousFees));
@@ -142,12 +142,11 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
       .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     // newest 0x9 with the default cap of 10 yields the inclusive range [0, 9]
-    const rangeBlocks = Array.from(Array(10).keys()).map((number) => ({ ...DEFAULT_BLOCK, number }));
+    // range extends to 10 (newestBlock+1) so the next-fee block is included in the same batch
+    const rangeBlocks = Array.from(Array(11).keys()).map((number) => ({ ...DEFAULT_BLOCK, number }));
     restMock
-      .onGet(blockRangeUrl(0, 9))
+      .onGet(blockRangeUrl(0, 10))
       .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
-    // latest (10) is beyond the newest requested block, so the "next" block is still fetched singly
-    restMock.onGet(`blocks/10`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, number: 10 }));
 
     const feeHistory = await ethImpl.feeHistory(200, '0x9', [0], requestDetails);
 
