@@ -317,7 +317,7 @@ async function resolveContractResultAddresses(
   contractResults: any[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
-  const concurrencyLimit = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS') || 300;
+  const concurrencyLimit = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS');
 
   const seenFrom = new Set<string>();
   const seenTo = new Set<string>();
