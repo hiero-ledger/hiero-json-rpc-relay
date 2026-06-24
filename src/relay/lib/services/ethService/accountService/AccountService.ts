@@ -132,10 +132,12 @@ export class AccountService implements IAccountService {
   public async extractBlockNumberAndTimestamp(
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
+  ): Promise<
+    | { isLatest: true; latestBlock: LatestBlockNumberTimestamp }
+    | { isLatest: false; latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }
+  > {
   ): Promise<{ latestBlock: LatestBlockNumberTimestamp; blockNumberOrTagOrHash: string }> {
     let latestBlock: LatestBlockNumberTimestamp;
-    const latestBlockTolerance = 1;
-    let blockHashNumber, isHash;
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
     const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
 
@@ -148,25 +150,28 @@ export class AccountService implements IAccountService {
       latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
     }
 
+    let blockNumber: number;
     if (blockNumberOrTagOrHash.length > 32) {
-      isHash = true;
-      blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
+      const blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
+      blockNumber = Number(blockHashNumber.number);
+    } else {
+      blockNumber = Number(blockNumberOrTagOrHash);
     }
 
-    const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
+    const blockDiff = Number(latestBlock.blockNumber) - blockNumber;
+    const isLatest = blockDiff <= constants.LATEST_BLOCK_TOLERANCE;
 
-    const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
-    if (blockDiff <= latestBlockTolerance) {
-      blockNumberOrTagOrHash = constants.BLOCK_LATEST;
+    if (isLatest) {
+      return { isLatest: true, latestBlock };
     }
 
     // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
     // This should rarely happen.
-    if (blockNumberOrTagOrHash !== constants.BLOCK_LATEST && latestBlock.timeStampTo === '0') {
+    if (latestBlock.timeStampTo === '0') {
       latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
     }
 
-    return { latestBlock, blockNumberOrTagOrHash };
+    return { isLatest: false, latestBlock, blockNumberOrTagOrHash };
   }
 
   /**
