@@ -295,41 +295,62 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
 }
 
 /**
- * Resolves unique `from` and `to` addresses from an array of contract results in parallel,
- * returning two Maps for O(1) lookup. Deduplicates addresses before resolution to avoid
- * redundant mirror node or cache calls for addresses shared across multiple transactions.
+ * Resolves unique `from` and `to` addresses from an array of contract results concurrently,
+ * returning two Maps for O(1) lookup.
  *
- * `from` addresses are resolved as account types only, since transaction signers are always EOAs.
- * `to` addresses are resolved against all searchable types (contract, token, account).
+ * Addresses are deduplicated across all contract results before resolution — if the same address
+ * appears in multiple transactions it is resolved exactly once. `from` and `to` are tracked
+ * separately because the same address may appear in both roles and each role uses a different
+ * resolver signature: `from` is resolved as account-type only (transaction signers are always EOAs),
+ * while `to` is resolved against all searchable types (contract, token, account).
+ *
+ * All unique addresses — both `from` and `to` — are placed into a single shared queue processed
+ * by up to `MIRROR_NODE_HTTP_MAX_SOCKETS` concurrent async functions. Using a shared queue ensures
+ * the cap applies globally across both address types: as soon as any function finishes it picks
+ * the next address immediately, keeping throughput maximised without ever exceeding the connection pool limit.
  *
  * @param contractResults - Array of contract results whose addresses to resolve
- * @param requestDetails - The request details for logging and tracking
- * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to resolved evm address
+ * @param requestDetails - Request details for logging and tracking
+ * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to its resolved EVM address
  */
 async function resolveContractResultAddresses(
   contractResults: any[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
-  const uniqueFromAddresses = new Set<string>();
-  const uniqueToAddresses = new Set<string>();
+  const concurrencyLimit = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS') || 300;
+
+  const seenFrom = new Set<string>();
+  const seenTo = new Set<string>();
+  const queue: { address: string; type: 'from' | 'to' }[] = [];
   for (const contractResult of contractResults) {
-    if (contractResult.from) uniqueFromAddresses.add(contractResult.from);
-    if (contractResult.to) uniqueToAddresses.add(contractResult.to);
+    if (contractResult.from && !seenFrom.has(contractResult.from)) {
+      seenFrom.add(contractResult.from);
+      queue.push({ address: contractResult.from, type: 'from' });
+    }
+    if (contractResult.to && !seenTo.has(contractResult.to)) {
+      seenTo.add(contractResult.to);
+      queue.push({ address: contractResult.to, type: 'to' });
+    }
   }
 
-  return Promise.all([
-    Promise.all(
-      [...uniqueFromAddresses].map(
-        async (address) =>
-          [address, await commonService.resolveEvmAddress(address, requestDetails, [constants.TYPE_ACCOUNT])] as const,
-      ),
-    ).then((entries) => new Map(entries)),
-    Promise.all(
-      [...uniqueToAddresses].map(
-        async (address) => [address, await commonService.resolveEvmAddress(address, requestDetails)] as const,
-      ),
-    ).then((entries) => new Map(entries)),
-  ]);
+  const fromResolved = new Map<string, string>();
+  const toResolved = new Map<string, string>();
+
+  async function processNext(): Promise<void> {
+    while (queue.length > 0) {
+      const job = queue.shift()!;
+      const resolved =
+        job.type === 'from'
+          ? await commonService.resolveEvmAddress(job.address, requestDetails, [constants.TYPE_ACCOUNT])
+          : await commonService.resolveEvmAddress(job.address, requestDetails);
+      (job.type === 'from' ? fromResolved : toResolved).set(job.address, resolved);
+    }
+  }
+
+  const workerCount = Math.min(concurrencyLimit, queue.length);
+  await Promise.all(Array.from({ length: workerCount }, processNext));
+
+  return [fromResolved, toResolved];
 }
 
 async function prepareTransactionArray(
@@ -338,17 +359,20 @@ async function prepareTransactionArray(
   requestDetails: RequestDetails,
   chain: string,
 ): Promise<Transaction[] | string[]> {
-  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
-
-  const txArray: Transaction[] | string[] = [];
-  for (const contractResult of contractResults) {
-    contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-    contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
-    contractResult.chain_id = contractResult.chain_id || chain;
-    txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
+  if (!showDetails) {
+    return contractResults.map((cr) => cr.hash);
   }
 
-  return txArray;
+  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
+
+  return contractResults
+    .map((contractResult) => {
+      contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
+      contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
+      contractResult.chain_id = contractResult.chain_id || chain;
+      return createTransactionFromContractResult(contractResult);
+    })
+    .filter((tx) => tx !== null);
 }
 
 export async function getBlock(
@@ -402,7 +426,7 @@ export async function getBlock(
     txArray = populateSyntheticTransactions(showDetails, logs, txArray, chain);
 
     const receipts: IReceiptRootHash[] = buildReceiptRootHashes(
-      txArray.map((tx) => (showDetails ? (tx as Transaction).hash : (tx as string))),
+      txArray.map((tx: Transaction | string) => (showDetails ? (tx as Transaction).hash : (tx as string))),
       contractResults,
       logs,
     );
