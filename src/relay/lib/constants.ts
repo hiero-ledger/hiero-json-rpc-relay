@@ -106,8 +106,9 @@ export default {
   // EIP-7623: Calldata floor pricing constants
   TOTAL_COST_FLOOR_PER_TOKEN: 10,
 
-  // EIP-3860: Initcode cost for contract creation
+  // EIP-3860: Initcode cost and size limit for contract creation
   INITCODE_WORD_COST: 2,
+  MAX_INITCODE_SIZE: 49152,
 
   // EIP-7702: Authorization list cost for type 4 transactions
   PER_EMPTY_ACCOUNT_COST: 25_000,
