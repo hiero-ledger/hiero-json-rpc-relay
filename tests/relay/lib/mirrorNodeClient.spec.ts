@@ -693,7 +693,7 @@ describe('MirrorNodeClient', async function () {
   });
 
   const detailedContractResult = {
-    access_list: '0x',
+    access_list: [],
     amount: 2000000000,
     block_gas_used: 50000000,
     block_hash: '0x6ceecd8bb224da491',
