@@ -33,7 +33,13 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import type { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
+import type {
+  ContractAction,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  MirrorNodeContractResultDetails,
+  MirrorNodeContractResultsPage,
+} from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
@@ -564,15 +570,15 @@ export class MirrorNodeClient {
     throw mirrorError;
   }
 
-  async getPaginatedResults(
+  async getPaginatedResults<T = any>(
     url: string,
     pathLabel: string,
     resultProperty: string,
     requestDetails: RequestDetails,
-    results = [],
+    results: T[] = [],
     page = 1,
     pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
-  ): Promise<any> {
+  ): Promise<T[]> {
     const result = await this.get(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
@@ -891,7 +897,10 @@ export class MirrorNodeClient {
     return null;
   }
 
-  public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails): Promise<any> {
+  public async getContractResult(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 
@@ -942,7 +951,7 @@ export class MirrorNodeClient {
    * @param args - The arguments to be passed to the specified method for fetching contract results.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry(methodName: string, args: any[]): Promise<any> {
+  public async getContractResultWithRetry<T = any>(methodName: string, args: any[]): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -1001,12 +1010,12 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResult[]> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
     const queryParams = this.getQueryParams(queryParamObject);
-    return this.getPaginatedResults(
+    return this.getPaginatedResults<MirrorNodeContractResult>(
       MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
       MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
       'results',
@@ -1021,8 +1030,8 @@ export class MirrorNodeClient {
     contractId: string,
     timestamp: string,
     requestDetails: RequestDetails,
-  ): Promise<any> {
-    return this.get(
+  ): Promise<MirrorNodeContractResultDetails | null> {
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(this.getContractResultsDetailsByContractIdAndTimestamp(contractId, timestamp)),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT,
       requestDetails,
@@ -1059,7 +1068,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
@@ -1077,9 +1086,9 @@ export class MirrorNodeClient {
     contractIdOrAddress: string,
     timestamp: string,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const apiPath = MirrorNodeClient.getContractResultsByAddressAndTimestampPath(contractIdOrAddress, timestamp);
-    return this.get(
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(apiPath),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT,
       requestDetails,
@@ -1436,7 +1445,7 @@ export class MirrorNodeClient {
     blockEndTimestamp: string | undefined,
     limit: number,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     // retrieve the timestamp of the contract
     const contractResultsParams: IContractResultsParams = blockEndTimestamp
       ? { timestamp: `lte:${blockEndTimestamp}` }

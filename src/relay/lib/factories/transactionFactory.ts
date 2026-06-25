@@ -19,10 +19,11 @@ import {
   Transaction2930,
   Transaction7702,
 } from '../model';
+import { type MirrorNodeContractResult } from '../types/mirrorNode';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number, fields: any): Transaction | null {
+  public static createTransactionByType(type: number | null, fields: any): Transaction | null {
     switch (type) {
       case 0:
         return new Transaction(fields); // eip 155 fields
@@ -129,7 +130,7 @@ const formatGasFee = (gasFee: any): string =>
  * @param cr The contract result object from the mirror node
  * @returns {Transaction | null} A Transaction object or null if creation fails
  */
-export const createTransactionFromContractResult = (cr: any): Transaction | null => {
+export const createTransactionFromContractResult = (cr: MirrorNodeContractResult | null): Transaction | null => {
   if (cr === null) {
     return null;
   }

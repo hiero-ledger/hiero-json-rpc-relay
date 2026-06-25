@@ -10,6 +10,7 @@ import {
   isHex,
   mapKeysAndValues,
   nanOrNumberInt64To0x,
+  nanOrNumberTo0x,
   numberTo0x,
   prepend0x,
   strip0x,
@@ -52,7 +53,12 @@ import type {
   TxHashToContractResultOrActionsMap,
   TypedEvents,
 } from './types';
-import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
+import type {
+  ContractAction,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  MirrorNodeContractResultDetails,
+} from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -629,10 +635,11 @@ export class DebugImpl implements Debug {
 
       if (!response) {
         // Fetch contract result to check for pre-execution validation failure
-        const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
-          this.mirrorNodeClient.getContractResult.name,
-          [transactionIdOrHash, requestDetails],
-        );
+        const contractResult =
+          await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
+            this.mirrorNodeClient.getContractResult.name,
+            [transactionIdOrHash, requestDetails],
+          );
 
         if (contractResult) {
           return this.getEmptyTracerObject(TracerType.OpcodeLogger) as OpcodeLoggerResult;
@@ -735,8 +742,8 @@ export class DebugImpl implements Debug {
         from: resolvedFrom,
         to: resolvedTo,
         value,
-        gas: numberTo0x(gas),
-        gasUsed: numberTo0x(gasUsed),
+        gas: nanOrNumberTo0x(gas),
+        gasUsed: nanOrNumberTo0x(gasUsed),
         input,
         output: result !== constants.SUCCESS && error ? (isHex(error) ? error : prepend0x(toHexString(error))) : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),
@@ -925,11 +932,10 @@ export class DebugImpl implements Debug {
 
     // Fetch both contract results and all logs in the block in parallel
     const [contractResults, allLogs] = await Promise.all([
-      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
-        requestDetails,
-        { timestamp: timestampRange },
-        undefined,
-      ]),
+      this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
+        this.mirrorNodeClient.getContractResults.name,
+        [requestDetails, { timestamp: timestampRange }, undefined],
+      ),
       this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, sliceCount, {
         timestamp: timestampRange,
       }),
