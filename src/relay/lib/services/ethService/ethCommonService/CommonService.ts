@@ -519,10 +519,10 @@ export class CommonService implements ICommonService {
   }
 
   public async resolveEvmAddress(
-    address: string,
+    address: string | null,
     requestDetails: RequestDetails,
     searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
+  ): Promise<string | null> {
     if (!address) return address;
 
     const entity = await this.mirrorNodeClient.resolveEntityType(

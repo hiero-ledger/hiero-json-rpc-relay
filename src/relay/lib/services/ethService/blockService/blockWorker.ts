@@ -310,10 +310,12 @@ async function prepareTransactionArray(
   const detailedTxArray: Transaction[] = [];
   const hashArray: string[] = [];
   for (const contractResult of contractResults) {
-    [contractResult.from, contractResult.to] = await Promise.all([
+    const [resolvedFrom, resolvedTo] = await Promise.all([
       commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
+      commonService.resolveEvmAddress(contractResult.to, requestDetails),
     ]);
+    contractResult.from = resolvedFrom!;
+    contractResult.to = resolvedTo;
 
     contractResult.chain_id = contractResult.chain_id || chain;
     if (showDetails) {
@@ -433,7 +435,7 @@ export async function getBlockReceipts(
         const logs = logsByHash.get(contractResult.hash) || [];
         const [from, to] = await Promise.all([
           commonService.resolveEvmAddress(contractResult.from, requestDetails),
-          contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
+          commonService.resolveEvmAddress(contractResult.to, requestDetails),
         ]);
 
         return { contractResult, logs, from, to };
@@ -451,7 +453,7 @@ export async function getBlockReceipts(
       cumulativeGasUsed += contractResult.gas_used ?? 0;
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
-        from,
+        from: from!,
         logs,
         receiptResponse: contractResult,
         to,

@@ -140,7 +140,7 @@ class TransactionReceiptFactory {
    * Helper method to determine if a receipt response includes a contract address
    *
    * @param receiptResponse Mirror node contract result response
-   * @returns {string} Contract address or null
+   * @returns {string | null} Contract address or null
    */
   private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(

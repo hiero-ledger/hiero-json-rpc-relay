@@ -231,15 +231,14 @@ export class TransactionService implements ITransactionService {
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
       constants.TYPE_ACCOUNT,
     ]);
-    const toAddress =
-      contractResult.to === null || contractResult.created_contract_ids.includes(contractResult.contract_id)
-        ? null
-        : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
+    const toAddress = contractResult.created_contract_ids.includes(contractResult.contract_id)
+      ? null
+      : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
     return createTransactionFromContractResult({
       ...contractResult,
-      from: fromAddress,
+      from: fromAddress!,
       to: toAddress,
     });
   }
@@ -538,13 +537,13 @@ export class TransactionService implements ITransactionService {
     }
 
     const [resolvedToAddress, resolvedFromAddress] = await Promise.all([
-      contractResults[0].to === null ? null : this.common.resolveEvmAddress(contractResults[0].to, requestDetails),
+      this.common.resolveEvmAddress(contractResults[0].to, requestDetails),
       this.common.resolveEvmAddress(contractResults[0].from, requestDetails, [constants.TYPE_ACCOUNT]),
     ]);
 
     return createTransactionFromContractResult({
       ...contractResults[0],
-      from: resolvedFromAddress,
+      from: resolvedFromAddress!,
       to: resolvedToAddress,
     });
   }
@@ -630,7 +629,7 @@ export class TransactionService implements ITransactionService {
     });
     const [from, to] = await Promise.all([
       this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
-      receiptResponse.to === null ? null : this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
+      this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
 
     let cumulativeGasUsed = 0;
@@ -659,7 +658,7 @@ export class TransactionService implements ITransactionService {
 
     return TransactionReceiptFactory.createRegularReceipt({
       effectiveGas,
-      from,
+      from: from!,
       logs,
       receiptResponse,
       to,
