@@ -260,8 +260,8 @@ export interface MirrorNodeContractResult {
   status: string;
   /** The failed contract init code, if applicable, otherwise null. */
   failed_initcode: string | null;
-  /** The access list for EIP-2930 transactions. */
-  access_list: string;
+  /** The access list for EIP-2930 transactions. MirrorNode v0.156+ returns this as an array of objects. */
+  access_list: { address: string; storage_keys: string[] }[] | null;
   /** The total gas used in the block. */
   block_gas_used: number;
   /** The chain ID of the network. */

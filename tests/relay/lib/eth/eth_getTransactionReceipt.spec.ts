@@ -69,7 +69,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       },
     ],
     status: '0x1',
-    access_list: '0x',
+    access_list: [],
     block_gas_used: 50000000,
     chain_id: '0x12a',
     gas_price: '0x4a817c80',
