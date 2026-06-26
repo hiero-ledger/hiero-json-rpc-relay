@@ -814,6 +814,56 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Retrieves every block in the inclusive numeric range `[fromBlock, toBlock]` as a flat list
+   * ordered from oldest to newest, following the Mirror Node `links.next` cursor so the full
+   * range is returned regardless of the server's per-page limit.
+   *
+   * Traversal is capped at `FEE_HISTORY_BLOCK_PAGINATION_MAX` pages to bound the number of
+   * upstream requests a single range can generate, limiting the relay's exposure to
+   * resource exhaustion from an excessively wide range.
+   *
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @param fromBlock - Inclusive lower bound block number (oldest).
+   * @param toBlock - Inclusive upper bound block number (newest).
+   * @returns Blocks in ascending order by block number.
+   */
+  public async getBlocksByRange(
+    requestDetails: RequestDetails,
+    fromBlock: number,
+    toBlock: number,
+  ): Promise<MirrorNodeBlock[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'block.number', [`gte:${fromBlock}`, `lte:${toBlock}`]);
+    this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
+    this.setQueryParam(queryParamObject, 'order', MirrorNodeClient.ORDER.ASC);
+    const queryParams = this.getQueryParams(queryParamObject);
+
+    const blocks: MirrorNodeBlock[] = await this.getPaginatedResults(
+      `${MirrorNodeClient.GET_BLOCKS_ENDPOINT}${queryParams}`,
+      MirrorNodeClient.GET_BLOCKS_ENDPOINT,
+      'blocks',
+      requestDetails,
+      [],
+      1,
+      ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX'),
+    );
+
+    // Populate the per-block cache so subsequent getBlock(number) calls from any service
+    // resolve from cache rather than issuing a new upstream request.
+    await Promise.all(
+      blocks.map((block) =>
+        this.cacheService.set(
+          `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
+          block,
+          MirrorNodeClient.GET_BLOCK_ENDPOINT,
+        ),
+      ),
+    );
+
+    return blocks;
+  }
+
   public async getContract(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
