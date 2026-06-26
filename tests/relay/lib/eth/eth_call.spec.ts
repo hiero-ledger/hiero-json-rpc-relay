@@ -55,6 +55,8 @@ interface ContractServiceTest extends ContractService {
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
 
+const BLOCKHASH = '0x378e5993d3756648e1ef0141e646d6290af5a652181055516a1a69e76e04b5db';
+
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
@@ -666,19 +668,26 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
     });
 
-    it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
-      const result = await contractService['extractBlockNumberOrTag'](null, requestDetails);
+    it('should return null when blockParam is null in extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag'](null);
       expect(result).to.be.null;
     });
 
-    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
-      await expect(contractService['extractBlockNumberOrTag']({}, requestDetails))
-        .to.be.rejectedWith(JsonRpcError)
-        .and.eventually.satisfy((error: JsonRpcError) => {
-          expect(error.code).to.equal(-32000);
-          expect(error.message).to.contain('neither block nor hash specified');
-          return true;
-        });
+    it('should return unchanged blockHash when blockHash is passed as a string on extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag'](BLOCKHASH);
+      expect(result).to.be.equal(BLOCKHASH);
+    });
+
+    it('should return unchanged blockHash when blockHash is passed within an object on extractBlockNumberOrTag', function () {
+      const result = contractService['extractBlockNumberOrTag']({ blockHash: BLOCKHASH });
+      expect(result).to.be.equal(BLOCKHASH);
+    });
+
+    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', function () {
+      expect(() => contractService['extractBlockNumberOrTag']({})).to.throw(
+        JsonRpcError,
+        'neither block nor hash specified',
+      );
     });
 
     it('should handle invalid contract address in validateContractAddress', async function () {

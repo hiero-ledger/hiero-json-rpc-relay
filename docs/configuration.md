@@ -21,9 +21,10 @@ These properties are noted below and should be custom set per deployment.
 
 **Note**: The default logging level in the TypeScript application is set to trace.
 
-> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.151.0** or later.
-> Older versions do not support the `hbar` query parameter and return HTTP 400 on contract
-> result endpoints. The relay always logs a compatibility warning at startup.
+> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.154.0** or later.
+> Older versions do not support `blockHash` as a parameter on `POST /api/v1/contracts/call`;
+> passing a block hash to `eth_call` on earlier versions returns HTTP 400.
+> The relay always logs a compatibility warning at startup.
 
 ## Relay
 
