@@ -1,0 +1,4 @@
+state.mainClassNameOverride,                   com.hedera.services.ServicesMain
+state.saveStatePeriod,                         60
+# Stores MerkleDb state indices on disk instead of off-heap (default false). See solo#4694.
+merkleDb.useDiskIndices,                        true
