@@ -128,18 +128,31 @@ jobs:
           verbosity: 3
           wait: 120s
 
+      - name: Checkout solo (branch 04354-fix-crashing-pinger)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: hiero-ledger/solo
+          ref: 04354-fix-crashing-pinger
+          path: solo
+
+      - name: Install solo
+        run: npm ci
+        working-directory: solo
+
       - name: Start the solo node
         env:
           # solo binds these port-forwards via --external-address; keep the local
           # ports the acceptance tests expect (mirror-node ingress + consensus gRPC).
           MIRROR_NODE_PORT: 38081
           GRPC_LOCAL_PORT: 50211
+        working-directory: solo
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.76.0' }} one-shot falcon deploy \
-            --values-file .github/falcon.yml \
+          npm run solo-test -- one-shot falcon deploy \
+            --values-file ${{ github.workspace }}/.github/falcon.yml \
             --dev \
             --deploy-explorer=false \
             --deploy-relay=false \
+            --external-address=0.0.0.0
         timeout-minutes: 15
 
       - name: Start Redis
