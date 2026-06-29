@@ -157,6 +157,11 @@ export class ContractService implements IContractService {
     blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string> {
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `eth_estimateGas request: transaction=${JSON.stringify(transaction)}, blockParam=${blockParam}`,
+      );
+    }
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
@@ -167,12 +172,16 @@ export class ContractService implements IContractService {
         throw predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
 
-      return prepend0x(trimPrecedingZeros(response.result) ?? '0');
+      const estimate = prepend0x(trimPrecedingZeros(response.result) ?? '0');
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(`eth_estimateGas estimate: ${estimate}`);
+      }
+      return estimate;
     } catch (e: any) {
       if (e instanceof JsonRpcError) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
-      this.logger.error(e, 'Failed to successfully estimate gas');
+      this.logger.error(e, `Failed to successfully estimate gas for transaction=${JSON.stringify(transaction)}`);
       throw predefined.INTERNAL_ERROR(e.message.toString());
     }
   }
@@ -378,7 +387,14 @@ export class ContractService implements IContractService {
   ): Promise<IContractCallResponse | null> {
     await this.contractCallFormat(transaction, requestDetails);
     const callData = { ...transaction, estimate: true };
-    return this.mirrorNodeClient.postContractCall(callData, requestDetails);
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`POST contracts/call request body: ${JSON.stringify(callData)}`);
+    }
+    const response = await this.mirrorNodeClient.postContractCall(callData, requestDetails);
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`POST contracts/call response: ${JSON.stringify(response)}`);
+    }
+    return response;
   }
 
   /**
