@@ -102,6 +102,7 @@ jobs:
         timeout-minutes: 15
 
       - name: Wait for mirror node to import genesis state
+        working-directory: .
         run: bash .github/scripts/mirror-node-readiness-check.sh
         timeout-minutes: 5
 
