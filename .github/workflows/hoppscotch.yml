@@ -111,6 +111,10 @@ jobs:
             --deploy-relay=false
         timeout-minutes: 15
 
+      - name: Wait for mirror node to import genesis state
+        run: bash .github/scripts/mirror-node-readiness-check.sh
+        timeout-minutes: 5
+
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
