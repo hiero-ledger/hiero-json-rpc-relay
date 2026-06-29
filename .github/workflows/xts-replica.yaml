@@ -21,25 +21,51 @@ env:
   SOLO_NAMESPACE: "solo-rpc-relay-e2e"
   SOLO_DEPLOYMENT: "solo-rpc-relay-deployment"
   SOLO_CLUSTER_SETUP_NAMESPACE: "solo-setup"
+  GRADLE_EXEC: ionice -c 2 -n 2 nice -n 19 ./gradlew
 
 jobs:
   json-rpc-relay-regression:
     name: XTS Replica
     runs-on: hiero-smart-contracts-linux-large
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
+      # Check out the relay (this repo) — tests will run from here
       - name: Checkout JSON-RPC Relay
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           fetch-tags: true
 
+      # Check out CN source so we can build the node binary for solo
+      - name: Checkout hiero-consensus-node
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: hiero-ledger/hiero-consensus-node
+          path: hiero-consensus-node
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
+        with:
+          cache-read-only: false
+
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
 
-      - name: Install NodeJS Dependencies
+      # Build CN artifacts — solo needs these via --local-build-path
+      - name: Build hiero-consensus-node
+        run: ${GRADLE_EXEC} assemble
+        working-directory: hiero-consensus-node
+
+      - name: Install NodeJS Dependencies (json-rpc-relay)
         run: npm ci
 
       - name: Install Solo
@@ -65,10 +91,13 @@ jobs:
           solo keys consensus generate --gossip-keys --tls-keys --deployment "${SOLO_DEPLOYMENT}"
           solo cluster-ref config setup -s "${SOLO_CLUSTER_SETUP_NAMESPACE}"
           solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
-          solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
+          solo consensus node setup --deployment "${SOLO_DEPLOYMENT}" --local-build-path ./hiero-consensus-node/hedera-node/data
           solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
           solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 
+      # Solo 0.79.0 changed mirror ingress port-forward to 38081.
+      # /health/readiness goes green before the REST backend is fully ready,
+      # so poll the data plane directly to avoid socket hang up on relay startup.
       - name: Wait for Mirror Node REST API to stabilize
         run: |
           for i in $(seq 1 30); do
