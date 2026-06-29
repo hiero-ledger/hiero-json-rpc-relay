@@ -31,7 +31,7 @@ describe('RedisLockStrategy Test Suite', function () {
     mockRedisClient = {
       lPush: sinon.stub(),
       lIndex: sinon.stub(),
-      lPos: sinon.stub(),
+      lRange: sinon.stub(),
       set: sinon.stub(),
       lRem: sinon.stub(),
       lLen: sinon.stub(),
@@ -39,9 +39,9 @@ describe('RedisLockStrategy Test Suite', function () {
       exists: sinon.stub(),
     } as any;
 
-    // Default: session is present in the queue (at position 0). Individual tests
-    // override with `.resolves(null)` to exercise the rejoin path.
-    mockRedisClient.lPos.resolves(0);
+    // Default: session is present in the queue. Individual tests override with
+    // `.resolves([])` to exercise the rejoin path.
+    mockRedisClient.lRange.resolves(['test-session-key']);
 
     // Create a mock metrics service
     mockMetricsService = {
@@ -565,12 +565,12 @@ describe('RedisLockStrategy Test Suite', function () {
     // without waiting LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS of wall clock per test.
     overrideEnvsInMochaDescribe({ LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS: 0 });
 
-    it('should rejoin the queue when lPos reports the session is missing', async () => {
+    it('should rejoin the queue when lRange reports the session is missing', async () => {
       const sessionKey = 'test-session-key';
 
       mockRedisClient.lPush.resolves(1);
       // First iteration: session is missing, rejoin. Second iteration: present at head.
-      mockRedisClient.lPos.onFirstCall().resolves(null).onSecondCall().resolves(0);
+      mockRedisClient.lRange.onFirstCall().resolves([]).onSecondCall().resolves([sessionKey]);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
       mockRedisClient.lRem.resolves(1);
@@ -583,7 +583,7 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(result).to.not.be.undefined;
       expect(result!.sessionKey).to.equal(sessionKey);
 
-      // Should have pushed twice. Once to join, once to rejoin
+      // Should have pushed twice: once to join, once to rejoin.
       expect(mockRedisClient.lPush.callCount).to.equal(2);
       expect(mockMetricsService.recordQueueRejoin.calledOnceWith('redis')).to.be.true;
     });
@@ -592,10 +592,10 @@ describe('RedisLockStrategy Test Suite', function () {
       const sessionKey = 'test-session-key';
 
       mockRedisClient.lPush.resolves(1);
-      // Two consecutive "not in queue" responses, then present
-      mockRedisClient.lPos.onCall(0).resolves(null).onCall(1).resolves(null).onCall(2).resolves(0);
+      // Two consecutive "not in queue" responses, then present.
+      mockRedisClient.lRange.onCall(0).resolves([]).onCall(1).resolves([]).onCall(2).resolves([sessionKey]);
       // Simulate Redis being reset: lIndex reports an empty queue on the first
-      // two iterations (so the loop doesn't acquire and lPos runs again next
+      // two iterations (so the loop doesn't acquire and lRange runs again next
       // iteration), then we are at the head and acquire on the third.
       mockRedisClient.lIndex.onCall(0).resolves(null).onCall(1).resolves(null).onCall(2).resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
@@ -611,11 +611,11 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(mockMetricsService.recordQueueRejoin.callCount).to.equal(2);
     });
 
-    it('should not record a rejoin when lPos returns a valid position', async () => {
+    it('should not record a rejoin when lRange returns the session', async () => {
       const sessionKey = 'test-session-key';
 
       mockRedisClient.lPush.resolves(1);
-      mockRedisClient.lPos.resolves(0);
+      mockRedisClient.lRange.resolves([sessionKey]);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
       mockRedisClient.lRem.resolves(1);
@@ -631,11 +631,11 @@ describe('RedisLockStrategy Test Suite', function () {
   });
 
   describe('Queue membership check interval', () => {
-    it('should not call lPos on the happy path before the interval elapses', async () => {
+    it('should not call lRange on the happy path before the interval elapses', async () => {
       const sessionKey = 'test-session-key';
 
       // Default LOCK_QUEUE_MEMBERSHIP_CHECK_INTERVAL_MS (10s) — well above
-      // the time a single mocked iteration takes — so lPos must be skipped.
+      // the time a single mocked iteration takes — so lRange must be skipped.
       mockRedisClient.lPush.resolves(1);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
@@ -647,7 +647,7 @@ describe('RedisLockStrategy Test Suite', function () {
       const result = await redisLockStrategy.acquireLock(testAddress);
 
       expect(result).to.not.be.undefined;
-      expect(mockRedisClient.lPos.called).to.be.false;
+      expect(mockRedisClient.lRange.called).to.be.false;
       expect(mockMetricsService.recordQueueRejoin.called).to.be.false;
     });
   });
