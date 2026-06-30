@@ -63,7 +63,7 @@ jobs:
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "v0.157.0"
+            --mirror-node-version: "v0.158.0-rc1"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -79,7 +79,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@0.78.0 one-shot falcon deploy \
+          npx @hashgraph/solo@0.80.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \
