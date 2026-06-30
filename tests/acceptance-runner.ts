@@ -5,7 +5,7 @@ import type { Server } from 'node:http';
 import path from 'node:path';
 import { GCProfiler } from 'node:v8';
 
-import { AccountId, Hbar } from '@hiero-ledger/sdk';
+import { Hbar } from '@hiero-ledger/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
@@ -120,7 +120,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     });
 
     after(async () => {
-      const operatorAddress = `0x${AccountId.fromString(OPERATOR_ID).toSolidityAddress()}`;
+      const { evm_address: operatorAddress } = await global.mirrorNode.get(`accounts/${OPERATOR_ID}`);
       const accounts: AliasAccount[] = global.accounts;
       for (let i = 0; i < accounts.length; i++) {
         const account = accounts[i];
