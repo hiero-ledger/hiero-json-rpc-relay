@@ -547,7 +547,7 @@ describe('SdkClient', async function () {
         requestDetails,
         randomAccountAddress,
         mockedNetworkGasPrice,
-        mockedExchangeRateIncents,
+        () => Promise.resolve(mockedExchangeRateIncents),
       );
     };
 
@@ -969,7 +969,7 @@ describe('SdkClient', async function () {
             requestDetails,
             randomAccountAddress,
             mockedNetworkGasPrice,
-            mockedExchangeRateIncents,
+            () => Promise.resolve(mockedExchangeRateIncents),
           );
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (error: any) {
@@ -1028,7 +1028,7 @@ describe('SdkClient', async function () {
           requestDetails,
           randomAccountAddress,
           mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
+          () => Promise.resolve(mockedExchangeRateIncents),
         );
 
         expect(queryStub.called).to.be.true;
