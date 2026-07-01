@@ -125,7 +125,7 @@ export class ContractService implements IContractService {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
       }
 
-      const blockNumberOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
+      const blockNumberOrTag = this.extractBlockNumberOrTag(blockParam);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
@@ -399,14 +399,10 @@ export class ContractService implements IContractService {
    * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
    *
    * @param {string | object | null} blockParam - The block parameter (string, object, or null)
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string | null>} The extracted block number or tag, or null if not provided
    * @private
    */
-  private async extractBlockNumberOrTag(
-    blockParam: string | object | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
+  private extractBlockNumberOrTag(blockParam: string | object | null): string | null {
     if (!blockParam) {
       return null;
     }
@@ -419,7 +415,7 @@ export class ContractService implements IContractService {
       }
 
       if (blockParam['blockHash'] != null) {
-        return await this.getBlockNumberFromHash(blockParam['blockHash'], requestDetails);
+        return blockParam['blockHash'];
       }
 
       // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
@@ -428,32 +424,10 @@ export class ContractService implements IContractService {
 
     // if blockParam is a string, could be a blockNumber or blockTag or blockHash
     if (blockParam.length > 0) {
-      // if string is a blockHash, we return its corresponding blockNumber
-      if (this.common.isBlockHash(blockParam)) {
-        return await this.getBlockNumberFromHash(blockParam, requestDetails);
-      } else {
-        return blockParam;
-      }
+      return blockParam;
     }
 
     return null;
-  }
-
-  /**
-   * Gets the block number from a block hash.
-   *
-   * @param {string} blockHash - The block hash
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string>} The block number as a hex string
-   * @private
-   */
-  private async getBlockNumberFromHash(blockHash: string, requestDetails: RequestDetails): Promise<string> {
-    const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
-    if (block != null) {
-      return numberTo0x(block.number);
-    } else {
-      throw predefined.RESOURCE_NOT_FOUND(`Block Hash: '${blockHash}'`);
-    }
   }
 
   /**

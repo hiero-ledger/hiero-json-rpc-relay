@@ -120,7 +120,6 @@ export default {
 
   // block ranges
   MAX_BLOCK_RANGE: 5,
-  BLOCK_HASH_REGEX: '^0[xX][a-fA-F0-9]',
 
   DEFAULT_RATE_LIMIT: {
     TIER_1: 100,
