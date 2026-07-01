@@ -198,7 +198,7 @@ export class SDKClient {
     requestDetails: RequestDetails,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
-    currentNetworkExchangeRateInCents: number,
+    getExchangeRateInCents: () => Promise<number>,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -211,6 +211,8 @@ export class SDKClient {
       ethereumTransaction.setEthereumData(ethereumTransactionData.toBytes());
     } else {
       // if JUMBO_TX_ENABLED is false and callData's size is greater than `fileAppendChunkSize` => employ HFS to create new file to carry the rest of the contents of callData
+      // Fetch the exchange rate lazily — only here, so JUMBO_TX_ENABLED=true never pays the cost.
+      const currentNetworkExchangeRateInCents = await getExchangeRateInCents();
       fileId = await this.createFile(
         ethereumTransactionData.callData,
         requestDetails,
