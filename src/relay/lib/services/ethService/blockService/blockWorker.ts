@@ -25,6 +25,8 @@ import {
   type IContractResultsParams,
   type ITransactionReceipt,
   type MirrorNodeBlock,
+  type MirrorNodeContractResult,
+  type MirrorNodeContractResultReceipt,
   type RequestDetails,
 } from '../../../types';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
@@ -61,7 +63,7 @@ interface IReceiptRootHash {
   cumulativeGasUsed: string;
   logs: IReceiptRootHashLog[];
   logsBloom: string;
-  root: string;
+  root: string | undefined;
   status: string;
   transactionIndex: string;
   type: string | null;
@@ -157,11 +159,15 @@ function populateSyntheticTransactions(
  * @param logs - Log entries returned by the mirror node for the block.
  * @returns An array of receipt objects, sorted by transaction index.
  */
-function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
+function buildReceiptRootHashes(
+  txHashes: string[],
+  contractResults: MirrorNodeContractResult[],
+  logs: Log[],
+): IReceiptRootHash[] {
   const items: {
     transactionIndex: number;
     logsPerTx: Log[];
-    crPerTx: any;
+    crPerTx: MirrorNodeContractResultReceipt | undefined;
   }[] = [];
 
   //build lookup maps for logs and contract results by transaction hash to avoid O(n^2) complexity
@@ -172,7 +178,7 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
     logsByTxHash.set(log.transactionHash, list);
   }
 
-  const contractResultByHash = new Map<string, any>(contractResults.map((cr) => [cr.hash, cr]));
+  const contractResultByHash = new Map<string, MirrorNodeContractResult>(contractResults.map((cr) => [cr.hash, cr]));
 
   for (const txHash of txHashes) {
     const logsPerTx = logsByTxHash.get(txHash) ?? [];
@@ -343,7 +349,9 @@ async function resolveContractResultAddresses(
         job.type === 'from'
           ? await commonService.resolveEvmAddress(job.address, requestDetails, [constants.TYPE_ACCOUNT])
           : await commonService.resolveEvmAddress(job.address, requestDetails);
-      (job.type === 'from' ? fromResolved : toResolved).set(job.address, resolved);
+      if (resolved !== null) {
+        (job.type === 'from' ? fromResolved : toResolved).set(job.address, resolved);
+      }
     }
   }
 
@@ -354,7 +362,7 @@ async function resolveContractResultAddresses(
 }
 
 async function prepareTransactionArray(
-  contractResults: any[],
+  contractResults: MirrorNodeContractResult[],
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
@@ -368,7 +376,9 @@ async function prepareTransactionArray(
   return contractResults
     .map((contractResult) => {
       contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-      contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
+      if (contractResult.to !== null) {
+        contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
+      }
       contractResult.chain_id = contractResult.chain_id || chain;
       return createTransactionFromContractResult(contractResult);
     })
@@ -399,11 +409,10 @@ export async function getBlock(
     );
 
     const [contractResults, logs] = await Promise.all([
-      mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
-        requestDetails,
-        params,
-        undefined,
-      ]),
+      mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
+        mirrorNodeClient.getContractResults.name,
+        [requestDetails, params, undefined],
+      ),
       commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
@@ -479,7 +488,7 @@ export async function getBlockReceipts(
     const resolved = contractResults.map((contractResult) => {
       const logs = logsByHash.get(contractResult.hash) || [];
       const from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-      const to = toAddressMap.get(contractResult.to) ?? contractResult.to;
+      const to = contractResult.to !== null ? (toAddressMap.get(contractResult.to) ?? contractResult.to) : null;
       return { contractResult, logs, from, to };
     });
 
@@ -491,10 +500,10 @@ export async function getBlockReceipts(
 
       const { contractResult, logs, from, to } = item;
 
-      cumulativeGasUsed += contractResult.gas_used;
+      cumulativeGasUsed += contractResult.gas_used ?? 0;
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
-        from,
+        from: from!,
         logs,
         receiptResponse: contractResult,
         to,
@@ -566,7 +575,7 @@ export async function getRawReceipts(
       .map((contractResult) => {
         const logs = logsByHash.get(contractResult.hash) || [];
 
-        cumulativeGasUsed += contractResult.gas_used;
+        cumulativeGasUsed += contractResult.gas_used ?? 0;
         const receiptRlpInput = createReceiptRlpInput(logs, contractResult, cumulativeGasUsed);
         return TransactionReceiptFactory.encodeReceiptToHex(receiptRlpInput);
       })
@@ -607,7 +616,7 @@ async function loadBlockExecutionData(
   requestDetails: RequestDetails,
 ): Promise<{
   block: MirrorNodeBlock | null;
-  contractResults: any[];
+  contractResults: MirrorNodeContractResult[];
   logsByHash: Map<string, Log[]>;
 }> {
   const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
@@ -644,14 +653,18 @@ async function loadBlockExecutionData(
  *   contract result data, associated logs, and the cumulative gas used.
  * @returns Minimal receipt data suitable for RLP encoding.
  */
-function createReceiptRlpInput(logs: Log[], receiptResponse: any, cumulativeGasUsed: number): IReceiptRlpInput {
+function createReceiptRlpInput(
+  logs: Log[],
+  receiptResponse: MirrorNodeContractResultReceipt,
+  cumulativeGasUsed: number,
+): IReceiptRlpInput {
   return {
     cumulativeGasUsed: numberTo0x(cumulativeGasUsed),
     logs: logs,
     logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
     root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
     status: receiptResponse.status,
-    transactionIndex: numberTo0x(receiptResponse.transaction_index),
+    transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
     type: nanOrNumberTo0x(receiptResponse.type),
   };
 }

@@ -6,7 +6,7 @@ import { type Logger } from 'pino';
 import { Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../../config-service/services';
-import { numberTo0x, toHash32 } from '../../../../formatters';
+import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
@@ -25,6 +25,8 @@ import type {
   IContractResultsParams,
   ITransactionReceipt,
   LockAcquisitionResult,
+  MirrorNodeContractResult,
+  MirrorNodeContractResultDetails,
   RequestDetails,
   TypedEvents,
 } from '../../../types';
@@ -201,10 +203,11 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResult.name,
-      [hash, requestDetails],
-    );
+    const contractResult =
+      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
+        this.mirrorNodeClient.getContractResult.name,
+        [hash, requestDetails],
+      );
 
     if (contractResult === null || contractResult.hash === undefined) {
       // handle synthetic transactions
@@ -235,7 +238,7 @@ export class TransactionService implements ITransactionService {
 
     return createTransactionFromContractResult({
       ...contractResult,
-      from: fromAddress,
+      from: fromAddress!,
       to: toAddress,
     });
   }
@@ -247,10 +250,11 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResult.name,
-      [hash, requestDetails],
-    );
+    const receiptResponse =
+      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
+        this.mirrorNodeClient.getContractResult.name,
+        [hash, requestDetails],
+      );
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
@@ -515,7 +519,7 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry(
+    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
       this.mirrorNodeClient.getContractResults.name,
       [
         requestDetails,
@@ -539,7 +543,7 @@ export class TransactionService implements ITransactionService {
 
     return createTransactionFromContractResult({
       ...contractResults[0],
-      from: resolvedFromAddress,
+      from: resolvedFromAddress!,
       to: resolvedToAddress,
     });
   }
@@ -604,7 +608,7 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt>} A promise that resolves to a transaction receipt
    */
   private async handleRegularTransactionReceipt(
-    receiptResponse: any,
+    receiptResponse: MirrorNodeContractResultDetails,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt> {
     const effectiveGas = await this.common.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
@@ -613,14 +617,14 @@ export class TransactionService implements ITransactionService {
       return new Log({
         address: log.address,
         blockHash: toHash32(receiptResponse.block_hash),
-        blockNumber: numberTo0x(receiptResponse.block_number),
+        blockNumber: nanOrNumberTo0x(receiptResponse.block_number),
         blockTimestamp: numberTo0x(Number(receiptResponse.timestamp.split('.')[0])),
         data: log.data,
         logIndex: numberTo0x(log.index),
         removed: false,
         topics: log.topics,
         transactionHash: toHash32(receiptResponse.hash),
-        transactionIndex: numberTo0x(receiptResponse.transaction_index),
+        transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
       });
     });
     const [from, to] = await Promise.all([
@@ -629,9 +633,9 @@ export class TransactionService implements ITransactionService {
     ]);
 
     let cumulativeGasUsed = 0;
-    if (receiptResponse.transaction_index > 0) {
+    if (receiptResponse.transaction_index != null && receiptResponse.transaction_index > 0) {
       const params: IContractResultsParams = {
-        blockNumber: receiptResponse.block_number,
+        blockNumber: receiptResponse.block_number ?? undefined,
       };
 
       const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
@@ -649,12 +653,12 @@ export class TransactionService implements ITransactionService {
         }
       }
     } else {
-      cumulativeGasUsed = receiptResponse.gas_used;
+      cumulativeGasUsed = receiptResponse.gas_used ?? 0;
     }
 
     return TransactionReceiptFactory.createRegularReceipt({
       effectiveGas,
-      from,
+      from: from!,
       logs,
       receiptResponse,
       to,

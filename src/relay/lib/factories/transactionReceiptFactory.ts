@@ -7,7 +7,11 @@ import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, to
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
 import { type Log } from '../model';
-import { type ITransactionReceipt } from '../types';
+import {
+  type ITransactionReceipt,
+  type MirrorNodeContractResultBase,
+  type MirrorNodeContractResultReceipt,
+} from '../types';
 import { type IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
@@ -25,7 +29,7 @@ interface IRegularTransactionReceiptParams {
   effectiveGas: string;
   from: string;
   logs: Log[];
-  receiptResponse: any;
+  receiptResponse: MirrorNodeContractResultReceipt;
   to: string | null;
   cumulativeGasUsed: number;
 }
@@ -106,7 +110,7 @@ class TransactionReceiptFactory {
     // Create the receipt object
     const receipt: ITransactionReceipt = {
       blockHash: toHash32(receiptResponse.block_hash),
-      blockNumber: numberTo0x(receiptResponse.block_number),
+      blockNumber: nanOrNumberTo0x(receiptResponse.block_number),
       from: from,
       to: to,
       cumulativeGasUsed: cumulativeGasUsed ? numberTo0x(cumulativeGasUsed) : constants.ZERO_HEX,
@@ -115,7 +119,7 @@ class TransactionReceiptFactory {
       logs: logs,
       logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
       transactionHash: toHash32(receiptResponse.hash),
-      transactionIndex: numberTo0x(receiptResponse.transaction_index),
+      transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
       effectiveGasPrice: effectiveGas,
       root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
       status: receiptResponse.status,
@@ -136,9 +140,9 @@ class TransactionReceiptFactory {
    * Helper method to determine if a receipt response includes a contract address
    *
    * @param receiptResponse Mirror node contract result response
-   * @returns {string} Contract address or null
+   * @returns {string | null} Contract address or null
    */
-  private static getContractAddressFromReceipt(receiptResponse: any): string {
+  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
