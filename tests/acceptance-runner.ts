@@ -117,7 +117,22 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
       );
 
       global.accounts = new Array<AliasAccount>(initialAccount);
-      await global.mirrorNode.get(`/accounts/${initialAccount.address}`);
+
+      // Poll until the just-created account is importable, so a transient mirror-node lag
+      // doesn't abort the whole suite.
+      const MAX_ATTEMPTS = 4;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          await global.mirrorNode.get(`/accounts/${initialAccount.address}`);
+          break;
+        } catch (error) {
+          if (attempt === MAX_ATTEMPTS) throw error;
+          logger.warn(
+            `Initial account ${initialAccount.address} not yet queryable on mirror node (attempt ${attempt}/${MAX_ATTEMPTS}); retrying...`,
+          );
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+      }
     });
 
     after(async () => {

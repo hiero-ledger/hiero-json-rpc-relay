@@ -100,7 +100,17 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     });
 
     describe('txpool_* RPC methods', async () => {
+      // Each txpool test that submits a transaction gets its own dedicated account, so they never
+      // share a nonce stream — this avoids cross-test WRONG_NONCE contention under async tx
+      // processing. `emptyPoolAccount` never submits, so its pool is deterministically empty.
+      let contentPoolAccount: AliasAccount;
+      let contentFromPoolAccount: AliasAccount;
+      let statusPoolAccount: AliasAccount;
+      let emptyPoolAccount: AliasAccount;
+
       before(async () => {
+        [contentPoolAccount, contentFromPoolAccount, statusPoolAccount, emptyPoolAccount] =
+          await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 4, initialBalance);
         await new Promise((r) => setTimeout(r, 2000));
       });
       after(async () => {
@@ -204,8 +214,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be able to execute txpool_contentFrom for a valid address and get an empty object if there are no transactions for that signer', async () => {
-          await new Promise((r) => setTimeout(r, 2000)); // wait for at least one block if there are any pending transactions in the pool
-          const res = await relay.call('txpool_contentFrom', [accounts[1].address]);
+          // emptyPoolAccount never submits a tx, so its pool is deterministically empty.
+          const res = await relay.call('txpool_contentFrom', [emptyPoolAccount.address]);
 
           expect(res.pending).to.be.empty;
         });
@@ -231,7 +241,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be able to execute txpool_content when there is a contract deployment tx', async () => {
-          const expectedTx = await sendContractDeploymentTransaction(accounts[2]);
+          const expectedTx = await sendContractDeploymentTransaction(contentPoolAccount);
           const res = await relay.call('txpool_content', []);
           expect(res.pending).to.not.be.empty;
 
@@ -242,8 +252,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be able to execute txpool_contentFrom when there is a contract deployment tx', async () => {
-          const expectedTx = await sendContractDeploymentTransaction(accounts[2]);
-          const res = await relay.call('txpool_contentFrom', [accounts[2].address]);
+          const expectedTx = await sendContractDeploymentTransaction(contentFromPoolAccount);
+          const res = await relay.call('txpool_contentFrom', [contentFromPoolAccount.address]);
           expect(res.pending).to.not.be.empty;
 
           const tx = res.pending[Number(expectedTx.nonce)];
@@ -253,7 +263,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be able to execute txpool_status when there is a contract deployment tx', async () => {
-          await sendContractDeploymentTransaction(accounts[2]);
+          await sendContractDeploymentTransaction(statusPoolAccount);
           const res = await relay.call('txpool_status', []);
           expect(Number(res.pending)).to.be.greaterThanOrEqual(1);
         });

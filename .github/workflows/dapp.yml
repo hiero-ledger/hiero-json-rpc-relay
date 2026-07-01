@@ -53,10 +53,12 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "v0.72.0"
+            --application-env: "${{ github.workspace }}/.github/scripts/cn-application.env"
+            --settings-txt: "${{ github.workspace }}/.github/scripts/cn-settings.txt"
+            --release-tag: "v0.73.0"
             --node-aliases: "node1"
           setup:
-            --release-tag: "v0.72.0"
+            --release-tag: "v0.73.0"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
@@ -78,16 +80,23 @@ jobs:
           wait: 120s
 
       - name: Start the solo node
+        env:
+          # solo binds these port-forwards via --external-address; keep the local
+          # ports the acceptance tests expect (mirror-node ingress + consensus gRPC).
+          MIRROR_NODE_PORT: 5551
+          GRPC_LOCAL_PORT: 50211
         run: |
-          npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
+          npx @hashgraph/solo@0.79.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
+            --external-address 0.0.0.0 \
             --dev \
             --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 
-      - name: Forward solo ports
-        run: .github/scripts/forward-ports.sh
+      - name: Wait for mirror node to import genesis state
+        run: bash .github/scripts/mirror-node-readiness-check.sh
+        timeout-minutes: 5
 
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine

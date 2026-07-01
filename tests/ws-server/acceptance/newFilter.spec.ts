@@ -72,7 +72,9 @@ describe('@web-socket-batch-2 eth_newFilter', async function () {
 
       expect(filterId).to.exist;
       expect(filterId.startsWith('0x')).to.be.true;
-      expect(filterId.slice(2).length).to.eq(32); // 16 bytes
+      // Filter IDs are QUANTITY values: the relay trims leading zeros, so a 16-byte id is up to
+      // 32 hex chars (fewer when the random value has leading zero nibbles) — not exactly 32.
+      expect(filterId.slice(2).length).to.be.within(1, 32);
     });
   });
 
@@ -90,7 +92,9 @@ describe('@web-socket-batch-2 eth_newFilter', async function () {
 
       expect(filterId).to.exist;
       expect(filterId.startsWith('0x')).to.be.true;
-      expect(filterId.slice(2).length).to.eq(32); // 16 bytes
+      // Filter IDs are QUANTITY values: the relay trims leading zeros, so a 16-byte id is up to
+      // 32 hex chars (fewer when the random value has leading zero nibbles) — not exactly 32.
+      expect(filterId.slice(2).length).to.be.within(1, 32);
     });
   });
 });
