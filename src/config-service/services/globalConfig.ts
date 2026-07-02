@@ -856,6 +856,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  WS_MULTIPLE_ADDRESSES_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
   WS_NEW_HEADS_ENABLED: {
     type: 'boolean',
     required: false,
