@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 
 import { JsonRpcError, MirrorNodeClientError, predefined } from '../../../../../src/relay';
+import { resetWorkerContext } from '../../../../../src/relay/lib/services/workersService/workerContext';
 import { WorkersPool } from '../../../../../src/relay/lib/services/workersService/WorkersPool';
 import { overrideEnvsInMochaDescribe } from '../../../helpers';
 
@@ -22,6 +23,7 @@ describe('WorkersPool Test Suite', () => {
   beforeEach(() => {
     // Reset all static state before each test to prevent cross-test contamination.
     WorkersPool['handleTaskFn'] = null;
+    resetWorkerContext();
     WorkersPool['instance'] = undefined as any;
     (WorkersPool as any)['mirrorNodeClient'] = undefined;
     (WorkersPool as any)['cacheService'] = undefined;
@@ -49,7 +51,7 @@ describe('WorkersPool Test Suite', () => {
       const result = await WorkersPool.run(task, null as any, null as any);
 
       expect(handleTaskStub.calledOnce).to.be.true;
-      expect(handleTaskStub.calledWith(task)).to.be.true;
+      expect(handleTaskStub.calledWith(task, sinon.match.any)).to.be.true;
       expect(result).to.equal(expectedResult);
       expect(WorkersPool['instance']).to.be.undefined;
     });
@@ -112,9 +114,27 @@ describe('WorkersPool Test Suite', () => {
       await WorkersPool.run(task, fakeClient, fakeCacheService);
 
       // In local mode the static client/cache fields must remain untouched — the
-      // worker modules maintain their own module-level singletons.
+      // passed client/cache are reused to build the
+      // local worker context instead.
       expect((WorkersPool as any)['mirrorNodeClient']).to.be.undefined;
       expect((WorkersPool as any)['cacheService']).to.be.undefined;
+    });
+
+    it('should reuse the relay-provided client and services with no duplicate instances', async () => {
+      const handleTaskStub = sinon.stub().resolves(null);
+      WorkersPool['handleTaskFn'] = handleTaskStub;
+
+      const fakeClient = { label: 'relay-client' } as any;
+      const fakeCacheService = { label: 'relay-cache' } as any;
+      const task = { type: 'getRawReceipts' as const, blockHashOrBlockNumber: '0x1', requestDetails: {} as any };
+
+      await WorkersPool.run(task, fakeClient, fakeCacheService);
+
+      // The context handed to the handler must reuse the exact client/cache passed to run() —
+      // proving local mode opens no new MirrorNodeClient (and no new socket pools) on the main thread.
+      const ctx = handleTaskStub.firstCall.args[1];
+      expect(ctx.mirrorNodeClient).to.equal(fakeClient);
+      expect(ctx.cacheService).to.equal(fakeCacheService);
     });
   });
 

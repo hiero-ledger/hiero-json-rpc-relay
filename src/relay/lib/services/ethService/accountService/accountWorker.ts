@@ -1,46 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
-import pino from 'pino';
-
-import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { CacheClientFactory } from '../../../factories/cacheClientFactory';
-import { RegistryFactory } from '../../../factories/registryFactory';
 import { type RequestDetails } from '../../../types';
-import { LocalPendingTransactionStorage } from '../../transactionPoolService/LocalPendingTransactionStorage';
-import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
+import { type WorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
-import { CommonService } from '../ethCommonService/CommonService';
-import { AccountService } from './AccountService';
-
-const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-const register = RegistryFactory.getInstance();
-const cacheService = CacheClientFactory.create(logger, register);
-const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
-const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
-// Can use LocalPendingTransactionStorage() as transactionPoolService is required in AccountService constructor but not used for getBalance
-const transactionPoolService = new TransactionPoolService(new LocalPendingTransactionStorage(), logger, register);
-const accountService = new AccountService(
-  cacheService,
-  commonService,
-  logger,
-  mirrorNodeClient,
-  transactionPoolService,
-);
 
 /**
  * Gets the balance of an account as of the given block from the mirror node.
  *
+ * @param {WorkerContext} ctx The shared worker context providing the clients and services
  * @param {string} account The account to get the balance from
  * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
  * @param {RequestDetails} requestDetails The request details for logging and tracking
  */
 export async function getBalance(
+  ctx: WorkerContext,
   account: string,
   blockNumberOrTagOrHash: string,
   requestDetails: RequestDetails,
 ): Promise<string> {
+  const { commonService, accountService, mirrorNodeClient, logger } = ctx;
   try {
     let blockNumber: number | null = null;
     let balanceFound = false;
