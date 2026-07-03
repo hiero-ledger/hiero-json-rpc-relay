@@ -130,6 +130,7 @@ const formatAccessList = (accessList: unknown): AccessListEntry[] =>
         .filter((item: unknown) => item !== null && typeof item === 'object')
         .map((item: any) => ({
           address: formatAddress(item.address),
+          // MN v0.156+ guarantees 32-byte padded storage keys, so normalization is intentionally skipped.
           storageKeys: item.storage_keys ?? [],
         }))
     : [];
