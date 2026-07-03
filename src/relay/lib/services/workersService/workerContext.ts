@@ -29,10 +29,6 @@ const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' }
 
 /**
  * Single per-thread cache for the worker context.
- *
- * A module is instantiated once per thread, so this variable is effectively a per-thread singleton: each
- * Piscina worker thread caches its own self-contained context, while the main thread (local execution mode)
- * caches the relay-supplied one. The two never collide because a given thread only ever builds one shape.
  */
 let cachedContext: WorkerContext | null = null;
 
