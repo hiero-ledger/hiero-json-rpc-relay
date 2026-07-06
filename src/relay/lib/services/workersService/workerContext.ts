@@ -16,7 +16,7 @@ import { TransactionPoolService } from '../transactionPoolService/transactionPoo
 /**
  * Clients and services shared by every worker task within one execution context.
  */
-export interface WorkerContext {
+export interface IWorkerContext {
   logger: Logger;
   cacheService: ICacheClient;
   mirrorNodeClient: MirrorNodeClient;
@@ -27,10 +27,10 @@ export interface WorkerContext {
 /**
  * Single per-thread cache for the worker context.
  */
-let cachedContext: WorkerContext | null = null;
+let cachedContext: IWorkerContext | null = null;
 
 /**
- * Creates a {@link WorkerContext}. Each argument is reused if supplied and instantiated otherwise, so
+ * Creates a {@link IWorkerContext}. Each argument is reused if supplied and instantiated otherwise, so
  * callers pass whatever they want to share (e.g. the relay's client in local mode); with no client, a
  * self-contained context is built around a fresh one.
  *
@@ -39,7 +39,7 @@ let cachedContext: WorkerContext | null = null;
  * @param commonService - Existing common service to reuse; instantiated if omitted.
  * @param transactionPoolService - Existing transaction pool service to reuse; instantiated if omitted.
  * @param accountService - Existing account service to reuse; instantiated if omitted.
- * @returns A fully wired {@link WorkerContext}.
+ * @returns A fully wired {@link IWorkerContext}.
  */
 export function createWorkerContext(
   mirrorNodeClient?: MirrorNodeClient,
@@ -47,7 +47,7 @@ export function createWorkerContext(
   commonService?: CommonService,
   transactionPoolService?: TransactionPoolService,
   accountService?: AccountService,
-): WorkerContext {
+): IWorkerContext {
   const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
   const register = RegistryFactory.getInstance();
   if (!cacheService) {
@@ -72,7 +72,7 @@ export function createWorkerContext(
 }
 
 /**
- * Returns the thread's cached {@link WorkerContext}, building it once via {@link createWorkerContext} on first
+ * Returns the thread's cached {@link IWorkerContext}, building it once via {@link createWorkerContext} on first
  * use. All arguments are forwarded to the builder on that first call and ignored thereafter.
  *
  * @param mirrorNodeClient - Existing client to reuse; omit on a worker thread to create one.
@@ -80,7 +80,7 @@ export function createWorkerContext(
  * @param commonService - Existing common service to reuse; instantiated if omitted.
  * @param transactionPoolService - Existing transaction pool service to reuse; instantiated if omitted.
  * @param accountService - Existing account service to reuse; instantiated if omitted.
- * @returns A fully wired {@link WorkerContext}.
+ * @returns A fully wired {@link IWorkerContext}.
  */
 export function getWorkerContext(
   mirrorNodeClient?: MirrorNodeClient,
@@ -88,7 +88,7 @@ export function getWorkerContext(
   commonService?: CommonService,
   transactionPoolService?: TransactionPoolService,
   accountService?: AccountService,
-): WorkerContext {
+): IWorkerContext {
   if (!cachedContext) {
     cachedContext = createWorkerContext(
       mirrorNodeClient,

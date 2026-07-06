@@ -2,19 +2,19 @@
 import { numberTo0x } from '../../../../formatters';
 import constants from '../../../constants';
 import { type RequestDetails } from '../../../types';
-import { type WorkerContext } from '../../workersService/workerContext';
+import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 
 /**
  * Gets the balance of an account as of the given block from the mirror node.
  *
- * @param {WorkerContext} ctx The shared worker context providing the clients and services
+ * @param {IWorkerContext} ctx The shared worker context providing the clients and services
  * @param {string} account The account to get the balance from
  * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
  * @param {RequestDetails} requestDetails The request details for logging and tracking
  */
 export async function getBalance(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   account: string,
   blockNumberOrTagOrHash: string,
   requestDetails: RequestDetails,

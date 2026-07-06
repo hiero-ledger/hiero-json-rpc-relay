@@ -2,11 +2,11 @@
 
 import { type Log } from '../../../model';
 import { type RequestDetails } from '../../../types';
-import { type WorkerContext } from '../../workersService/workerContext';
+import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 
 export async function getLogs(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   blockHash: string | null,
   fromBlock: string | 'latest',
   toBlock: string | 'latest',

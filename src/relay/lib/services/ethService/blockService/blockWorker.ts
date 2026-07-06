@@ -26,7 +26,7 @@ import {
   type RequestDetails,
 } from '../../../types';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
-import { type WorkerContext } from '../../workersService/workerContext';
+import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 
 interface IReceiptRootHashLog {
@@ -297,7 +297,7 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
  * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to its resolved EVM address
  */
 async function resolveContractResultAddresses(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   contractResults: any[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
@@ -341,7 +341,7 @@ async function resolveContractResultAddresses(
 }
 
 async function prepareTransactionArray(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   contractResults: MirrorNodeContractResult[],
   showDetails: boolean,
   requestDetails: RequestDetails,
@@ -366,7 +366,7 @@ async function prepareTransactionArray(
 }
 
 export async function getBlock(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   blockHashOrNumber: string,
   showDetails: boolean,
   requestDetails: RequestDetails,
@@ -451,7 +451,7 @@ export async function getBlock(
 }
 
 export async function getBlockReceipts(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<ITransactionReceipt[] | null> {
@@ -550,7 +550,7 @@ export async function getBlockReceipts(
  *   when running inside a worker thread, or propagates natively on the main thread.
  */
 export async function getRawReceipts(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<string[]> {
@@ -607,7 +607,7 @@ export async function getRawReceipts(
  *   - `logsByHash`: Map of transaction hash → log entries for that tx
  */
 async function loadBlockExecutionData(
-  ctx: WorkerContext,
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<{

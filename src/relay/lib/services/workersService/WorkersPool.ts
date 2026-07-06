@@ -8,7 +8,7 @@ import { ConfigService } from '../../../../config-service/services';
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { type ICacheClient } from '../../clients/cache/ICacheClient';
 import { RegistryFactory } from '../../factories/registryFactory';
-import { getWorkerContext, type WorkerContext } from './workerContext';
+import { getWorkerContext, type IWorkerContext } from './workerContext';
 import type { WorkerTask } from './workers';
 import { unwrapError } from './WorkersErrorUtils';
 
@@ -74,7 +74,7 @@ export class WorkersPool {
    *
    * Populated on the first invocation of {@link run} to avoid repeating the dynamic import on every call.
    */
-  private static handleTaskFn: ((task: WorkerTask, ctx: WorkerContext) => Promise<any>) | null = null;
+  private static handleTaskFn: ((task: WorkerTask, ctx: IWorkerContext) => Promise<any>) | null = null;
 
   /**
    * Updates a metric either by delegating the update to a worker thread

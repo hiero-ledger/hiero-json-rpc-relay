@@ -4,7 +4,7 @@ import { type RequestDetails } from '../../types';
 import { getBalance } from '../ethService/accountService/accountWorker';
 import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';
-import { getWorkerContext, type WorkerContext } from './workerContext';
+import { getWorkerContext, type IWorkerContext } from './workerContext';
 
 interface GetBlockTask {
   type: 'getBlock';
@@ -56,7 +56,7 @@ export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | Get
  * @returns A promise that resolves to the handler's result.
  * @throws {Error} If `task.type` does not match any known task variant.
  */
-export default async function handleTask(task: WorkerTask, ctx?: WorkerContext): Promise<any> {
+export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext): Promise<any> {
   // On a worker thread Piscina invokes this with no ctx; fall back to the shared per-thread cached context.
   if (!ctx) {
     ctx = getWorkerContext();
