@@ -69,6 +69,7 @@ export class Precheck {
    */
   validateBasicPropertiesStateless(parsedTx: Transaction) {
     this.callDataSize(parsedTx);
+    this.initcodeSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
     this.gasLimit(parsedTx);
@@ -370,6 +371,23 @@ export class Precheck {
     const callDataSizeLimit = constants.CALL_DATA_SIZE_LIMIT;
     if (totalCallDataSizeInBytes > callDataSizeLimit) {
       throw predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(totalCallDataSizeInBytes, callDataSizeLimit);
+    }
+  }
+
+  /**
+   * Validates that the initcode size does not exceed the EIP-3860 limit for contract creation transactions.
+   * Only applies when `tx.to` is null (i.e. the transaction is a contract deployment).
+   * The data field of a contract creation transaction IS the initcode.
+   *
+   * @param tx - The transaction to validate.
+   * @throws {JsonRpcError} If the initcode size exceeds the EIP-3860 limit of 49152 bytes.
+   * @see https://eips.ethereum.org/EIPS/eip-3860
+   */
+  initcodeSize(tx: Transaction): void {
+    if (tx.to !== null) return;
+    const initcodeSizeInBytes = tx.data.replace('0x', '').length / 2;
+    if (initcodeSizeInBytes > constants.MAX_INITCODE_SIZE) {
+      throw predefined.INITCODE_SIZE_LIMIT_EXCEEDED(initcodeSizeInBytes, constants.MAX_INITCODE_SIZE);
     }
   }
 

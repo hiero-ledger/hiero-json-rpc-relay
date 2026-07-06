@@ -939,6 +939,77 @@ describe('Precheck', async function () {
     });
   });
 
+  describe('initcodeSize', function () {
+    const createContractCreationTx = async (dataSize: number) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        value: ONE_TINYBAR_IN_WEI_HEX,
+        gasPrice: defaultGasPrice,
+        gasLimit: defaultGasLimit,
+        chainId: defaultChainId,
+        nonce: 5,
+        data: '0x' + '00'.repeat(dataSize),
+      };
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    const createRegularTx = async (dataSize: number) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        value: ONE_TINYBAR_IN_WEI_HEX,
+        gasPrice: defaultGasPrice,
+        gasLimit: defaultGasLimit,
+        chainId: defaultChainId,
+        nonce: 5,
+        to: contractAddress1,
+        data: '0x' + '00'.repeat(dataSize),
+      };
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    it('should accept contract creation with initcode exactly at the limit', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE);
+      expect(() => precheck.initcodeSize(tx)).not.to.throw();
+    });
+
+    it('should reject contract creation with initcode exceeding the limit', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE + 1);
+      try {
+        precheck.initcodeSize(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.INITCODE_SIZE_LIMIT_EXCEEDED(
+          constants.MAX_INITCODE_SIZE + 1,
+          constants.MAX_INITCODE_SIZE,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+
+    it('should not apply the initcode limit to regular call transactions', async () => {
+      const tx = await createRegularTx(constants.MAX_INITCODE_SIZE + 1);
+      expect(() => precheck.initcodeSize(tx)).not.to.throw();
+    });
+
+    it('should reject oversized initcode via validateBasicPropertiesStateless', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE + 1);
+      try {
+        precheck.validateBasicPropertiesStateless(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.INITCODE_SIZE_LIMIT_EXCEEDED(
+          constants.MAX_INITCODE_SIZE + 1,
+          constants.MAX_INITCODE_SIZE,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+  });
+
   describe('transactionType', async function () {
     const defaultTx = {
       value: ONE_TINYBAR_IN_WEI_HEX,
