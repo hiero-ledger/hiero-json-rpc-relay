@@ -1063,6 +1063,37 @@ describe('MirrorNodeClient', async function () {
     expect(secondResult.access_list).to.equal(null);
   });
 
+  it('`getLatestContractResultForBlock` returns the most recent contract result for a block', async () => {
+    const block = {
+      timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
+    } as any;
+    mock
+      .onGet(
+        `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
+      )
+      .reply(200, JSON.stringify({ results: [detailedContractResult] }));
+
+    const result = await mirrorNodeInstance.getLatestContractResultForBlock(block, requestDetails);
+    expect(result).to.exist;
+    expect(result!.contract_id).to.equal(detailedContractResult.contract_id);
+    expect(result!.gas_price).to.equal(detailedContractResult.gas_price);
+    expect(result!.gas_used).to.equal(detailedContractResult.gas_used);
+  });
+
+  it('`getLatestContractResultForBlock` returns null when the block has no contract results', async () => {
+    const block = {
+      timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
+    } as any;
+    mock
+      .onGet(
+        `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
+      )
+      .reply(200, JSON.stringify({ results: [] }));
+
+    const result = await mirrorNodeInstance.getLatestContractResultForBlock(block, requestDetails);
+    expect(result).to.be.null;
+  });
+
   const contractResult = {
     amount: 30,
     bloom: '0x0505',

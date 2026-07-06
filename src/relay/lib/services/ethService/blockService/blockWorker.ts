@@ -385,6 +385,45 @@ async function prepareTransactionArray(
     .filter((tx) => tx !== null);
 }
 
+/**
+ * Computes the block gas price (the baseFeePerGas equivalent for Hedera blocks)
+ * as the gas-used-weighted average of each transaction's gas_price (in tinybars
+ * from MN), converted to weibars. Falls back to the fee-schedule rate at the
+ * block's closing timestamp when no transaction has valid gas data (empty block
+ * or all-null gas_price).
+ *
+ * @param contractResults - Contract results for the block (may be null or empty).
+ * @param blockTimestampTo - Closing consensus timestamp of the block (used for the fallback fee-schedule lookup).
+ * @param requestDetails - Request metadata for logging and tracing.
+ */
+export async function computeBlockGasPrice(
+  contractResults: MirrorNodeContractResult[] | null,
+  blockTimestampTo: string,
+  requestDetails: RequestDetails,
+): Promise<string> {
+  const validResults = (contractResults ?? []).filter((cr) => {
+    if (cr.gas_price === null) return false;
+    const priceTinybars = parseInt(cr.gas_price, 16);
+    return priceTinybars > 0 && (cr.gas_used ?? 0) > 0;
+  });
+
+  if (validResults.length === 0) {
+    return numberTo0x(await commonService.getGasPriceInWeibars(requestDetails, `lte:${blockTimestampTo}`));
+  }
+
+  let weightedSum = 0;
+  let totalGasUsed = 0;
+  for (const cr of validResults) {
+    const priceTinybars = parseInt(cr.gas_price!, 16);
+    const gasUsed = cr.gas_used!;
+    weightedSum += priceTinybars * gasUsed;
+    totalGasUsed += gasUsed;
+  }
+
+  const weightedAvgTinybars = Math.round(weightedSum / totalGasUsed);
+  return numberTo0x(weightedAvgTinybars * constants.TINYBAR_TO_WEIBAR_COEF);
+}
+
 export async function getBlock(
   blockHashOrNumber: string,
   showDetails: boolean,
@@ -442,7 +481,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await commonService.gasPrice(requestDetails);
+    const gasPrice = await computeBlockGasPrice(contractResults, blockResponse.timestamp.to, requestDetails);
 
     // Log the error here rather than inside BlockFactory to preserve its static-only design.
     // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,
