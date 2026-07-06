@@ -24,9 +24,6 @@ export interface WorkerContext {
   accountService: AccountService;
 }
 
-/** Created once per thread and shared by every context on that thread. */
-const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-
 /**
  * Single per-thread cache for the worker context.
  */
@@ -51,6 +48,7 @@ export function createWorkerContext(
   transactionPoolService?: TransactionPoolService,
   accountService?: AccountService,
 ): WorkerContext {
+  const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
   const register = RegistryFactory.getInstance();
   if (!cacheService) {
     cacheService = CacheClientFactory.create(logger, register);
