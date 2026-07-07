@@ -553,6 +553,10 @@ export const defaultContractResults = {
   },
 };
 
+export const DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS = numberTo0x(
+  BigInt(defaultContractResults.results[0].gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF),
+);
+
 export const defaultContractResultsOnlyHash2 = {
   results: [
     {

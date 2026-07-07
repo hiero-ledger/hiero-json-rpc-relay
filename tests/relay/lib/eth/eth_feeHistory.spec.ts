@@ -37,6 +37,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     await cacheService.clear(requestDetails);
     restMock.reset();
     restMock.onGet('network/fees').reply(200, DEFAULT_NETWORK_FEES);
+    restMock.onGet(/contracts\/results.*limit=1&order=desc&hbar=false/).reply(200, JSON.stringify({ results: [] }));
   });
 
   this.afterEach(() => {
@@ -64,9 +65,16 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock
         .onGet(blockRangeUrl(latestBlock.number, latestBlock.number))
         .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
-      restMock
-        .onGet(blockRangeUrl(0, 1))
-        .reply(200, JSON.stringify({ blocks: [{ ...DEFAULT_BLOCK, number: 0 }, { ...DEFAULT_BLOCK, number: 1 }], links: { next: null } }));
+      restMock.onGet(blockRangeUrl(0, 1)).reply(
+        200,
+        JSON.stringify({
+          blocks: [
+            { ...DEFAULT_BLOCK, number: 0 },
+            { ...DEFAULT_BLOCK, number: 1 },
+          ],
+          links: { next: null },
+        }),
+      );
       restMock
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(previousFees));
@@ -144,9 +152,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     // newest 0x9 with the default cap of 10 yields the inclusive range [0, 9]
     // range extends to 10 (newestBlock+1) so the next-fee block is included in the same batch
     const rangeBlocks = Array.from(Array(11).keys()).map((number) => ({ ...DEFAULT_BLOCK, number }));
-    restMock
-      .onGet(blockRangeUrl(0, 10))
-      .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+    restMock.onGet(blockRangeUrl(0, 10)).reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
 
     const feeHistory = await ethImpl.feeHistory(200, '0x9', [0], requestDetails);
 

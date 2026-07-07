@@ -7,7 +7,6 @@ import { type JsonRpcError } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import constants from '../../src/relay/lib/constants';
 import { type Block, type Transaction } from '../../src/relay/lib/model';
-import { BASE_FEE_PER_GAS_DEFAULT } from './lib/eth/eth-config';
 
 chai.use(chaiAsPromised);
 
@@ -114,6 +113,10 @@ export default class RelayAssertions {
       }
     }
 
+    if (expectedBlock.baseFeePerGas !== undefined) {
+      expect(block.baseFeePerGas).equal(expectedBlock.baseFeePerGas);
+    }
+
     // verify expected constants
     this.verifyBlockConstants(block);
   };
@@ -135,7 +138,6 @@ export default class RelayAssertions {
 
   static verifyBlockConstants = (block: Block) => {
     expect(block.gasLimit).equal(numberTo0x(constants.DEFAULT_BLOCK_GAS_LIMIT));
-    expect(block.baseFeePerGas).equal(BASE_FEE_PER_GAS_DEFAULT);
     expect(block.difficulty).equal(constants.ZERO_HEX);
     expect(block.extraData).equal(constants.EMPTY_HEX);
     expect(block.miner).equal(constants.ZERO_ADDRESS_HEX);
