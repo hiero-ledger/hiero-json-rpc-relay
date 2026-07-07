@@ -1,31 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import pino from 'pino';
-
-import { ConfigService } from '../../../../../config-service/services';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
-import { CacheClientFactory } from '../../../factories/cacheClientFactory';
-import { RegistryFactory } from '../../../factories/registryFactory';
 import { type Log } from '../../../model';
 import { type RequestDetails } from '../../../types';
+import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
-import { CommonService } from './CommonService';
-
-const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-const register = RegistryFactory.getInstance();
-const cacheService = CacheClientFactory.create(logger, register);
-const mirrorNodeClient = new MirrorNodeClient(
-  ConfigService.get('MIRROR_NODE_URL'),
-  logger,
-  register,
-  cacheService,
-  undefined,
-  undefined,
-  undefined,
-);
-const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 
 export async function getLogs(
+  ctx: IWorkerContext,
   blockHash: string | null,
   fromBlock: string | 'latest',
   toBlock: string | 'latest',
@@ -33,6 +14,7 @@ export async function getLogs(
   topics: any[] | null,
   requestDetails: RequestDetails,
 ): Promise<Log[]> {
+  const { commonService } = ctx;
   try {
     const EMPTY_RESPONSE = [];
     const params: any = {};

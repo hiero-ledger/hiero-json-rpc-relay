@@ -3,18 +3,14 @@
 import { RLP } from '@ethereumjs/rlp';
 import { Trie } from '@ethereumjs/trie';
 import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethereumjs/util';
-import pino from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
 import { Utils } from '../../../../utils';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
-import { CacheClientFactory } from '../../../factories/cacheClientFactory';
-import { RegistryFactory } from '../../../factories/registryFactory';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
   type IRegularTransactionReceiptParams,
@@ -30,28 +26,8 @@ import {
   type RequestDetails,
 } from '../../../types';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
+import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
-import { CommonService } from '../ethCommonService/CommonService';
-
-/**
- * Worker threads run in separate V8 Isolates with isolated memory heaps.
- * Complex objects (like network clients with sockets) cannot be shared by reference.
- * Therefore, we must instantiate separate clients for the worker.
- * Ref: https://nodejs.org/api/worker_threads.html#worker-threads
- */
-const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-const register = RegistryFactory.getInstance();
-const cacheService = CacheClientFactory.create(logger, register);
-const mirrorNodeClient = new MirrorNodeClient(
-  ConfigService.get('MIRROR_NODE_URL'),
-  logger,
-  register,
-  cacheService,
-  undefined,
-  undefined,
-  undefined,
-);
-const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 
 interface IReceiptRootHashLog {
   address: string;
@@ -315,14 +291,17 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
  * the cap applies globally across both address types: as soon as any function finishes it picks
  * the next address immediately, keeping throughput maximised without ever exceeding the connection pool limit.
  *
+ * @param ctx - The shared worker context providing the clients and services
  * @param contractResults - Array of contract results whose addresses to resolve
  * @param requestDetails - Request details for logging and tracking
  * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to its resolved EVM address
  */
 async function resolveContractResultAddresses(
+  ctx: IWorkerContext,
   contractResults: any[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
+  const { commonService } = ctx;
   const concurrencyLimit = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS');
 
   const seenFrom = new Set<string>();
@@ -362,6 +341,7 @@ async function resolveContractResultAddresses(
 }
 
 async function prepareTransactionArray(
+  ctx: IWorkerContext,
   contractResults: MirrorNodeContractResult[],
   showDetails: boolean,
   requestDetails: RequestDetails,
@@ -371,7 +351,7 @@ async function prepareTransactionArray(
     return contractResults.map((cr) => cr.hash);
   }
 
-  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
+  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(ctx, contractResults, requestDetails);
 
   return contractResults
     .map((contractResult) => {
@@ -392,15 +372,18 @@ async function prepareTransactionArray(
  * block's closing timestamp when no transaction has valid gas data (empty block
  * or all-null gas_price).
  *
+ * @param ctx - The shared worker context providing the clients and services.
  * @param contractResults - Contract results for the block (may be null or empty).
  * @param blockTimestampTo - Closing consensus timestamp of the block (used for the fallback fee-schedule lookup).
  * @param requestDetails - Request metadata for logging and tracing.
  */
 export async function computeBlockGasPrice(
+  ctx: IWorkerContext,
   contractResults: MirrorNodeContractResult[] | null,
   blockTimestampTo: string,
   requestDetails: RequestDetails,
 ): Promise<string> {
+  const { commonService } = ctx;
   const validResults = (contractResults ?? []).filter((cr) => {
     if (cr.gas_price === null) return false;
     const priceTinybars = parseInt(cr.gas_price, 16);
@@ -425,11 +408,13 @@ export async function computeBlockGasPrice(
 }
 
 export async function getBlock(
+  ctx: IWorkerContext,
   blockHashOrNumber: string,
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
 ): Promise<Block | null> {
+  const { commonService, mirrorNodeClient, logger } = ctx;
   try {
     const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
       requestDetails,
@@ -465,6 +450,7 @@ export async function getBlock(
     }
 
     let txArray: Transaction[] | string[] = await prepareTransactionArray(
+      ctx,
       contractResults,
       showDetails,
       requestDetails,
@@ -481,7 +467,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await computeBlockGasPrice(contractResults, blockResponse.timestamp.to, requestDetails);
+    const gasPrice = await computeBlockGasPrice(ctx, contractResults, blockResponse.timestamp.to, requestDetails);
 
     // Log the error here rather than inside BlockFactory to preserve its static-only design.
     // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,
@@ -507,11 +493,17 @@ export async function getBlock(
 }
 
 export async function getBlockReceipts(
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<ITransactionReceipt[] | null> {
+  const { commonService } = ctx;
   try {
-    const { block, contractResults, logsByHash } = await loadBlockExecutionData(blockHashOrBlockNumber, requestDetails);
+    const { block, contractResults, logsByHash } = await loadBlockExecutionData(
+      ctx,
+      blockHashOrBlockNumber,
+      requestDetails,
+    );
     if (!block) return null;
 
     if ((!contractResults || contractResults.length === 0) && logsByHash.size === 0) {
@@ -522,7 +514,7 @@ export async function getBlockReceipts(
       await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
-    const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(contractResults, requestDetails);
+    const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(ctx, contractResults, requestDetails);
 
     const resolved = contractResults.map((contractResult) => {
       const logs = logsByHash.get(contractResult.hash) || [];
@@ -600,11 +592,16 @@ export async function getBlockReceipts(
  *   when running inside a worker thread, or propagates natively on the main thread.
  */
 export async function getRawReceipts(
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<string[]> {
   try {
-    const { block, contractResults, logsByHash } = await loadBlockExecutionData(blockHashOrBlockNumber, requestDetails);
+    const { block, contractResults, logsByHash } = await loadBlockExecutionData(
+      ctx,
+      blockHashOrBlockNumber,
+      requestDetails,
+    );
     if (!block || ((!contractResults || contractResults.length === 0) && logsByHash.size === 0)) {
       return [];
     }
@@ -642,6 +639,7 @@ export async function getRawReceipts(
  * Fetches the block by hash or number, then in parallel loads contract results and logs
  * for the block's timestamp range. Logs are grouped by transaction hash for quick lookup.
  *
+ * @param ctx - The shared worker context providing the clients and services
  * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
  * @param requestDetails - The request details for logging and tracking
  * @returns Promise resolving to `{ block, contractResults, logsByHash }`. If the block is
@@ -651,6 +649,7 @@ export async function getRawReceipts(
  *   - `logsByHash`: Map of transaction hash → log entries for that tx
  */
 async function loadBlockExecutionData(
+  ctx: IWorkerContext,
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<{
@@ -658,6 +657,7 @@ async function loadBlockExecutionData(
   contractResults: MirrorNodeContractResult[];
   logsByHash: Map<string, Log[]>;
 }> {
+  const { commonService, mirrorNodeClient } = ctx;
   const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
   if (!block) return { block: null, contractResults: [], logsByHash: new Map() };
 

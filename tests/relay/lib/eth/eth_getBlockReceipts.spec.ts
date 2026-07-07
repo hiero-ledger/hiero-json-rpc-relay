@@ -71,7 +71,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService);
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
   });
 
   this.beforeEach(async () => {
