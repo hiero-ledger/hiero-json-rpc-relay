@@ -631,6 +631,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
+  REDIS_ERROR_LOG_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
   REDIS_URL: {
     type: 'string',
     required: false,
