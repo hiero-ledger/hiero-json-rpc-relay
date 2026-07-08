@@ -874,13 +874,13 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
-      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, skip the Mirror Node exchange-rate
-      // fetch. The rate is only consumed in the HFS (createFile) path for the HBAR rate limiter's
-      // preemptive estimation; 0 is treated as the "skip preemptive estimation" sentinel by
-      // SDKClient.createFile. The HBAR limiter still reconciles actual fees post-hoc.
-      const currentNetworkExchangeRateInCents = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
-        ? 0
-        : await this.getCurrentNetworkExchangeRateInCents(requestDetails);
+      // Pass a lazy getter so the exchange rate is only fetched when the HFS path is actually
+      // taken (JUMBO_TX_ENABLED=false AND callData.length > fileAppendChunkSize).
+      // When DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled, the getter returns 0 (sentinel
+      // that skips the preemptive HBAR rate-limit check inside SDKClient.createFile).
+      const exchangeRateGetter: () => Promise<number> = ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
+        ? (): Promise<number> => Promise.resolve(0)
+        : (): Promise<number> => this.getCurrentNetworkExchangeRateInCents(requestDetails);
 
       const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
         transactionBuffer,
@@ -888,7 +888,7 @@ export class TransactionService implements ITransactionService {
         requestDetails,
         originalCallerAddress,
         networkGasPriceInWeiBars,
-        currentNetworkExchangeRateInCents,
+        exchangeRateGetter,
       );
 
       fileId = sendRawTransactionResult.fileId;
