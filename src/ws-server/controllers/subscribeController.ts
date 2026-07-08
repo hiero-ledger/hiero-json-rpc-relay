@@ -18,7 +18,6 @@ import { type SubscriptionService } from '../service/subscriptionService';
 import {
   areSubscriptionsEnabled,
   constructValidLogSubscriptionFilter,
-  getMultipleAddressesEnabled,
   sendSubscriptionsDisabledError,
 } from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
@@ -78,8 +77,8 @@ const handleEthSubscribeNewHeads = (
 
 /**
  * Handles the subscription request for logs events.
- * Validates the subscription parameters, checks if multiple addresses are enabled,
- * and subscribes to the event or sends an error response accordingly.
+ * Validates the subscription parameters (including the multiple-address policy and per-filter
+ * address limit) and subscribes to the event.
  * @param {any} filters - The filters object specifying criteria for the subscription.
  * @param {IJsonRpcRequest} request - The request object received from the client.
  * @param {Context} ctx - The context object containing information about the WebSocket connection.
@@ -101,13 +100,6 @@ const handleEthSubscribeLogs = async (
   const validFiltersObject = constructValidLogSubscriptionFilter(filters);
 
   await validateSubscribeEthLogsParams(validFiltersObject, mirrorNodeClient, requestDetails);
-  if (
-    !getMultipleAddressesEnabled() &&
-    Array.isArray(validFiltersObject['address']) &&
-    validFiltersObject['address'].length > 1
-  ) {
-    throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
-  }
   const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, validFiltersObject);
   return jsonRespResult(request.id, subscriptionId) as SubscriptionResponse;
 };
