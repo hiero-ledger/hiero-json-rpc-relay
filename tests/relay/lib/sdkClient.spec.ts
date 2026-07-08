@@ -540,14 +540,15 @@ describe('SdkClient', async function () {
       to: '0x0000000000000000000000000000000000001f41',
     };
 
-    const callSubmit = (buffer: Buffer) => {
+    let getExchangeRateInCentsSpy: sinon.SinonSpy;
+    const callSubmit = (buffer: Buffer, getExchangeRateFn?: () => Promise<number>) => {
       return sdkClient.submitEthereumTransaction(
         buffer,
         mockedCallerName,
         requestDetails,
         randomAccountAddress,
         mockedNetworkGasPrice,
-        mockedExchangeRateIncents,
+        getExchangeRateFn ?? getExchangeRateInCentsSpy,
       );
     };
 
@@ -584,6 +585,7 @@ describe('SdkClient', async function () {
       hbarLimitServiceMock = sinon.mock(hbarLimitService);
       setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
       setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
+      getExchangeRateInCentsSpy = sinon.spy(() => Promise.resolve(mockedExchangeRateIncents));
       smallBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE - 500);
       largeBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
     });
@@ -605,6 +607,7 @@ describe('SdkClient', async function () {
         expect(transactionStub.called).to.be.true;
         expect(sendRawTransactionResult.fileId).to.be.null;
         expect(sendRawTransactionResult.txResponse).to.exist;
+        expect(getExchangeRateInCentsSpy.called).to.be.false;
       });
     });
 
@@ -667,6 +670,7 @@ describe('SdkClient', async function () {
         // Verify results
         expect(sendRawTransactionResult.fileId).to.equal(fileId);
         expect(sendRawTransactionResult.txResponse).to.exist;
+        expect(getExchangeRateInCentsSpy.calledOnce).to.be.true;
 
         // Note: createFile internally calls executeTransaction, executeAllTransaction, and executeQuery
         // but we're stubbing createFile itself, so those won't be called in this test.
@@ -969,7 +973,7 @@ describe('SdkClient', async function () {
             requestDetails,
             randomAccountAddress,
             mockedNetworkGasPrice,
-            mockedExchangeRateIncents,
+            () => Promise.resolve(mockedExchangeRateIncents),
           );
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (error: any) {
@@ -1028,7 +1032,7 @@ describe('SdkClient', async function () {
           requestDetails,
           randomAccountAddress,
           mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
+          () => Promise.resolve(mockedExchangeRateIncents),
         );
 
         expect(queryStub.called).to.be.true;
