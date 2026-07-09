@@ -65,7 +65,8 @@ jobs:
       test_ws_server: ${{ matrix.test.test_ws_server || false }}
       test_rate_limits: ${{ matrix.test.test_rate_limits || false }}
       on_valid_json_rpc_http_response_status_code: ${{ matrix.test.on_valid_json_rpc_http_response_status_code || 400 }}
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish_results:
     name: Publish Results
