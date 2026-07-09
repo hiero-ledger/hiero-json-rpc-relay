@@ -665,4 +665,97 @@ describe('TransactionFactory', () => {
       expect(out.chainId).to.equal('0x12a');
     });
   });
+
+  describe('formatAddress', () => {
+    /**
+     * Test helper that exercises the private `formatAddress` logic in isolation.
+     *
+     * `formatAddress` is not exported, but it is the sole transformation applied
+     * to the `address` field of every access list entry. This helper therefore
+     * routes a single-item `access_list` through `createTransactionFromContractResult`
+     * and returns the resulting `accessList[0].address`, which is exactly
+     * `formatAddress(input)` with no other normalization mixed in.
+     *
+     * The surrounding transaction fields are static, deterministic values and are
+     * irrelevant to the assertions; only the transformation of `address` is under test.
+     *
+     * @param {unknown} address - The raw address value (may be any type).
+     * @returns {string} The formatted address as produced by the internal formatter.
+     */
+    const formatAddress = (address: unknown): string =>
+      (
+        createTransactionFromContractResult({
+          amount: 0,
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          function_parameters: '0x08090033',
+          gas_used: 400000,
+          gas_limit: 500_000,
+          to: '0x0000000000000000000000000000000000000409',
+          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+          block_hash:
+            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+          block_number: 528,
+          transaction_index: 9,
+          chain_id: '0x12a',
+          gas_price: '0x',
+          max_fee_per_gas: '0x59',
+          max_priority_fee_per_gas: '0x',
+          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+          type: 2,
+          v: 1,
+          nonce: 2,
+          access_list: [{ address, storage_keys: [] }],
+        }) as Transaction1559
+      ).accessList![0].address;
+
+    it('returns the zero address for non-string input', () => {
+      expect(formatAddress(null)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(undefined)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(1234)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(true)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress({})).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress([])).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(new Uint8Array([0x12, 0x34]))).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns the zero address for an empty string', () => {
+      expect(formatAddress('')).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns the zero address for a bare "0x" string', () => {
+      expect(formatAddress('0x')).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('left-pads a short address to 40 hex chars and re-adds the 0x prefix', () => {
+      expect(formatAddress('0x1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('accepts an address without a 0x prefix', () => {
+      expect(formatAddress('1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('strips the leading 0x prefix case-insensitively (0X)', () => {
+      expect(formatAddress('0X1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('leaves a full 40-char address untouched', () => {
+      const address = `0x${'a'.repeat(40)}`;
+      expect(formatAddress(address)).to.equal(address);
+    });
+
+    it('keeps only the last 40 hex chars of an oversized address', () => {
+      const address = `0x${'a'.repeat(60)}`;
+      expect(formatAddress(address)).to.equal(`0x${'a'.repeat(40)}`);
+    });
+
+    it('preserves the original casing of the address', () => {
+      const address = '0xAbCdEf0000000000000000000000000000001234';
+      expect(formatAddress(address)).to.equal(address);
+    });
+
+    it('strips only the leading 0x, leaving an embedded 0x intact', () => {
+      expect(formatAddress('0x12000x34')).to.equal('0x0000000000000000000000000000000012000x34');
+    });
+  });
 });
