@@ -20,8 +20,8 @@ on:
           - testnet
           - previewnet
 
-permissions:
-  contents: read
+#permissions:
+#  contents: read
 
 jobs:
   release-tests:
