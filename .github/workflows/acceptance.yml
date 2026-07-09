@@ -11,8 +11,8 @@ concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-#permissions:
-#  contents: read
+permissions:
+  contents: read
 
 jobs:
   acceptance_tests:
@@ -48,11 +48,11 @@ jobs:
           - { name: 'Protocol Transaction Service', testfilter: 'protocol-transaction-service', test_ws_server: true }
           - { name: 'Protocol Fee Service', testfilter: 'protocol-fee-service', test_ws_server: true }
           - {
-            name: 'Protocol Eth Plain',
-            testfilter: 'protocol-eth-plain',
-            test_ws_server: true,
-            test_rate_limits: true,
-          }
+              name: 'Protocol Eth Plain',
+              testfilter: 'protocol-eth-plain',
+              test_ws_server: true,
+              test_rate_limits: true,
+            }
           - { name: 'Server Config', testfilter: 'serverconfig' }
           - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
           - name: "Semantics and default OK response status"
@@ -72,9 +72,9 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' && !cancelled() }}
     needs: [acceptance_tests]
     runs-on: hiero-smart-contracts-linux-medium
-    permissions:
-      checks: write
-      contents: read
+#    permissions:
+#      checks: write
+#      contents: read
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
