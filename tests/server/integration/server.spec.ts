@@ -901,6 +901,38 @@ describe('RPC Server', function () {
       BaseTest.batchRequestLimitError(response, requests.length, 100);
     });
 
+    function getEthGetLogsRequest(id, addresses) {
+      return {
+        id: `${id}`,
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS,
+        params: [{ address: addresses, fromBlock: 'latest', toBlock: 'latest' }],
+      };
+    }
+
+    withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 2 }, async function () {
+      it('should reject the whole batch when the address total across entries exceeds the cap', async function () {
+        // 2 + 1 = 3 addresses across two eth_getLogs entries, over the cap of 2
+        const requests = [getEthGetLogsRequest(1, ['0xa', '0xb']), getEthGetLogsRequest(2, ['0xc'])];
+        const response = await testClient.post('/', requests);
+
+        BaseTest.batchRequestAddressLimitError(response, 3, 2);
+        // the whole batch is rejected: every position carries the same error
+        expect(response.data.length).to.equal(requests.length);
+        response.data.forEach((entry: any) => expect(entry.error.code).to.eq(-32204));
+      });
+
+      it('should not reject a batch with no address-bearing methods under a low cap', async function () {
+        const response = await testClient.post('/', [getEthChainIdRequest(1), getEthChainIdRequest(2)]);
+
+        BaseTest.baseDefaultResponseChecks(response);
+        response.data.forEach((entry: any) => {
+          expect(entry.error?.code).to.not.eq(-32204);
+          expect(entry.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+        });
+      });
+    });
+
     withOverriddenEnvsInMochaTest({ BATCH_REQUESTS_ENABLED: false }, async function () {
       it('should not execute batch request when disabled', async function () {
         try {
@@ -3521,6 +3553,15 @@ class BaseTest {
       requestIdRegex(`Batch request amount ${amount} exceeds max ${max}`),
     );
     expect(response.data[0].error.code).to.eq(-32203);
+  }
+
+  static batchRequestAddressLimitError(response: any, total: number, max: number) {
+    expect(response.status).to.eq(200);
+    expect(response.statusText).to.be.equal('OK');
+    expect(response.data[0].error.message).to.match(
+      requestIdRegex(`Batch request address total ${total} exceeds max ${max}`),
+    );
+    expect(response.data[0].error.code).to.eq(-32204);
   }
 
   static invalidParamError(response: any, code: number, message: string) {

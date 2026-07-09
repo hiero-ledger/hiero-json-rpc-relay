@@ -400,6 +400,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  MAX_ADDRESSES_PER_REQUEST: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,

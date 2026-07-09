@@ -291,6 +291,11 @@ export const predefined = {
       code: -32203,
       message: `Batch request amount ${amount} exceeds max ${max}`,
     }),
+  BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED: (total: number, max: number): JsonRpcError =>
+    new JsonRpcError({
+      code: -32204,
+      message: `Batch request address total ${total} exceeds max ${max}`,
+    }),
   WS_BATCH_REQUESTS_DISABLED: new JsonRpcError({
     code: -32205,
     message: 'WS batch requests are disabled',
@@ -304,6 +309,11 @@ export const predefined = {
     code: -32207,
     message: 'WS Subscriptions are disabled',
   }),
+  WS_BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED: (total: number, max: number): JsonRpcError =>
+    new JsonRpcError({
+      code: -32208,
+      message: `Batch request address total ${total} exceeds max ${max}`,
+    }),
   INVALID_ARGUMENTS: (message: string): JsonRpcError =>
     new JsonRpcError({
       code: -32000,
