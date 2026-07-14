@@ -251,6 +251,13 @@ export default {
   BLOCK_FINALIZED: 'finalized',
   BLOCK_HASH_LENGTH: 66,
 
+  // Maximum number of blocks a requested block can lag behind the latest block while still being
+  // treated as the chain tip ("latest") for balance resolution. A tolerance of 1 absorbs the small
+  // race between a client reading the latest block number and passing it back here as an explicit
+  // number (e.g. Metamask), so a request for the second-to-latest block still resolves the live
+  // balance instead of triggering a needless historical lookup.
+  LATEST_BLOCK_TOLERANCE: 1,
+
   ETH_FEE_HISTORY: 'eth_feeHistory',
   ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',
   ETH_GET_TRANSACTION_COUNT_BY_HASH: 'eth_getTransactionCountByHash',

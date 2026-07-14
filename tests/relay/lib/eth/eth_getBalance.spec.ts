@@ -583,23 +583,27 @@ describe('@ethGetBalance using MirrorNode', async function () {
         }),
       );
 
-      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`).reply(
-        200,
-        JSON.stringify({
-          account: CONTRACT_ID_1,
-          balance: {
-            balance: balance3,
-            timestamp: '1651550587.060890941',
-          },
-          transactions: [
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550573.060890958' }),
-          ],
-          links: {
-            next: null,
-          },
-        }),
-      );
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:1651550565.060890941`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: {
+              balance: balance3,
+              timestamp: '1651550587.060890941',
+            },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550573.060890958' }),
+            ],
+            links: {
+              next: null,
+            },
+          }),
+        );
 
       const latestBlock = {
         ...DEFAULT_BLOCK,
@@ -652,23 +656,27 @@ describe('@ethGetBalance using MirrorNode', async function () {
         }),
       );
 
-      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`).reply(
-        200,
-        JSON.stringify({
-          account: CONTRACT_ID_1,
-          balance: {
-            balance: balance3,
-            timestamp: '1651550587.060890941',
-          },
-          transactions: [
-            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
-            buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: '1651550573.060890958' }),
-          ],
-          links: {
-            next: null,
-          },
-        }),
-      );
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:1651550565.060890941`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: {
+              balance: balance3,
+              timestamp: '1651550587.060890941',
+            },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 200, { timestamp: '1651550574.060890964' }),
+              buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: '1651550573.060890958' }),
+            ],
+            links: {
+              next: null,
+            },
+          }),
+        );
 
       const latestBlock = {
         ...DEFAULT_BLOCK,
@@ -688,6 +696,72 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
       const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '1', requestDetails);
       const historicalBalance = numberTo0x(BigInt(balance3 - 80) * TINYBAR_TO_WEIBAR_COEF_BIGINT);
+      expect(resBalance).to.equal(historicalBalance);
+    });
+
+    it('blockNumber is in the latest 15 minutes and pagination is scoped to block.timestamp.to as lower bound to avoid walking full account history', async () => {
+      // Without the gte: lower bound, getAccountPaginated pages through the entire account history
+      // and throws PAGINATION_MAX for high-activity accounts even when only a small window is needed.
+      const blockTimestampTo = '1651550565.060890941';
+      const recentBlockWithinLastfifteen = {
+        ...DEFAULT_BLOCK,
+        number: 1,
+        timestamp: {
+          from: '1651550564.060890921',
+          to: blockTimestampTo,
+        },
+      };
+      restMock.onGet(`blocks/1`).reply(200, JSON.stringify(recentBlockWithinLastfifteen));
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+        200,
+        JSON.stringify({
+          account: CONTRACT_ID_1,
+          balance: {
+            balance: balance3,
+            timestamp: '1651550587.060890941',
+          },
+          transactions: [
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: '1651550587.060890964' }),
+          ],
+          links: {
+            next: `/api/v1/accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941`,
+          },
+        }),
+      );
+
+      // The paginated URL must include gte:blockTimestampTo so MN scopes results to the relevant
+      // window only — preventing a full history walk that would hit MIRROR_NODE_ACCOUNT_TXS_PG_MAX.
+      restMock
+        .onGet(
+          `accounts/${CONTRACT_ID_1}?limit=100&timestamp=lt:1651550575.060890941&timestamp=gte:${blockTimestampTo}`,
+        )
+        .reply(
+          200,
+          JSON.stringify({
+            account: CONTRACT_ID_1,
+            balance: { balance: balance3, timestamp: '1651550587.060890941' },
+            transactions: [
+              buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: '1651550566.060890941' }),
+            ],
+            links: { next: null },
+          }),
+        );
+
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(
+        200,
+        JSON.stringify({
+          blocks: [
+            {
+              ...DEFAULT_BLOCK,
+              number: 4,
+              timestamp: { from: '1651550595.060890941', to: '1651550597.060890941' },
+            },
+          ],
+        }),
+      );
+
+      const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '1', requestDetails);
+      const historicalBalance = numberTo0x(BigInt(balance3 - 150) * TINYBAR_TO_WEIBAR_COEF_BIGINT);
       expect(resBalance).to.equal(historicalBalance);
     });
 
@@ -725,6 +799,80 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
       const resBalance = await ethImpl.getBalance(notFoundEvmAddress, '2', requestDetails);
       expect(resBalance).to.equal(constants.ZERO_HEX);
+    });
+  });
+
+  describe('extractBlockNumberAndTimestamp', async function () {
+    // 0x2710 === 10000, the latest block number in MOCK_BLOCKS_FOR_BALANCE_RES
+    const latestBlockHex = '0x2710';
+    const latestBlockTimestampTo = '1651560389.060890949';
+
+    const extractBlockNumberAndTimestamp = (blockNumberOrTagOrHash: string) =>
+      ethImpl['accountService'].extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+
+    beforeEach(() => {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));
+    });
+
+    it('returns isLatest=true when the requested block equals the latest block', async () => {
+      const result = await extractBlockNumberAndTimestamp(latestBlockHex);
+
+      expect(result.isLatest).to.equal(true);
+      // the chain-tip variant carries no extra fields; the caller already has what it needs
+      expect(result).to.not.have.property('latestBlock');
+    });
+
+    it('returns isLatest=true when the requested block is within LATEST_BLOCK_TOLERANCE of the latest block', async () => {
+      // 0x270f === 9999, one behind the latest block (within the tolerance of 1)
+      const result = await extractBlockNumberAndTimestamp('0x270f');
+
+      expect(result.isLatest).to.equal(true);
+    });
+
+    it('returns isLatest=false just outside LATEST_BLOCK_TOLERANCE', async () => {
+      // 0x270e === 9998, two behind the latest block (10000) - outside the tolerance of 1.
+      // Guards the upper edge: if LATEST_BLOCK_TOLERANCE is later bumped to 2 this must be revisited.
+      const result = await extractBlockNumberAndTimestamp('0x270e');
+
+      expect(result.isLatest).to.equal(false);
+    });
+
+    it('returns isLatest=false with the latest block timestamp populated for an archival block', async () => {
+      const result = await extractBlockNumberAndTimestamp('0x2');
+
+      expect(result.isLatest).to.equal(false);
+      if (!result.isLatest) {
+        expect(result.latestBlock.timeStampTo).to.equal(latestBlockTimestampTo);
+      }
+    });
+
+    it("treats a non-numeric tag ('earliest') as archival because the block diff is NaN", async () => {
+      // Number('earliest') is NaN, so `blockDiff <= LATEST_BLOCK_TOLERANCE` is false and the request
+      // falls through to the historical (archival) path rather than being treated as the tip.
+      const result = await extractBlockNumberAndTimestamp(constants.BLOCK_EARLIEST);
+
+      expect(result.isLatest).to.equal(false);
+    });
+
+    it('resolves a block hash to its block number before comparing against the latest block', async () => {
+      const blockHash = '0x43da6a71f66d6d46d2b487c8231c04f01b3ba3bd91d165266d8eb39de3c0152b';
+      restMock.onGet(`blocks/${blockHash}`).reply(200, JSON.stringify({ number: 2 }));
+
+      const result = await extractBlockNumberAndTimestamp(blockHash);
+
+      // block 2 is far behind the latest block (10000), so the hash resolves to an archival block
+      expect(result.isLatest).to.equal(false);
+    });
+
+    it('refetches the latest block to populate the timestamp when only the block number is cached', async () => {
+      await cacheService.set(constants.CACHE_KEY.ETH_BLOCK_NUMBER, latestBlockHex, constants.ETH_GET_BALANCE);
+
+      const result = await extractBlockNumberAndTimestamp('0x2');
+
+      expect(result.isLatest).to.equal(false);
+      if (!result.isLatest) {
+        expect(result.latestBlock.timeStampTo).to.equal(latestBlockTimestampTo);
+      }
     });
   });
 

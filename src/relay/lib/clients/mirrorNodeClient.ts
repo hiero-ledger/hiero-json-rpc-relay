@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
+import '../bigNumberConfig';
+
 import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
@@ -30,7 +33,13 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import type { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
+import type {
+  ContractAction,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  MirrorNodeContractResultDetails,
+  MirrorNodeContractResultsPage,
+} from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
@@ -561,15 +570,15 @@ export class MirrorNodeClient {
     throw mirrorError;
   }
 
-  async getPaginatedResults(
+  async getPaginatedResults<T = any>(
     url: string,
     pathLabel: string,
     resultProperty: string,
     requestDetails: RequestDetails,
-    results = [],
+    results: T[] = [],
     page = 1,
     pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
-  ): Promise<any> {
+  ): Promise<T[]> {
     const result = await this.get(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
@@ -676,16 +685,32 @@ export class MirrorNodeClient {
   }
 
   /**
-   * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant `MIRROR_NODE_LIMIT_PARAM`.
+   * Fetches all account transactions newer than `lowerBoundTimestamp` by paginating
+   * the Mirror Node accounts endpoint. Used to reconstruct historical balances for
+   * blocks within the last ~15 minutes, where the `/balances` snapshot is not yet
+   * available.
+   *
+   * @param url - The Mirror Node `links.next` URL from the preceding account response,
+   *   used to extract the account ID and the upper-bound (`lte:`) timestamp cursor.
+   * @param requestDetails - Request metadata for logging and tracing.
+   * @param lowerBoundTimestamp - Hedera consensus timestamp (e.g. `"1779454079.000000000"`)
+   *   added as `timestamp=gte:` to bound pagination; typically `block.timestamp.to`.
    */
-  public async getAccountPaginated(url: string, requestDetails: RequestDetails): Promise<any> {
+  public async getAccountPaginated(
+    url: string,
+    requestDetails: RequestDetails,
+    lowerBoundTimestamp: string,
+  ): Promise<any> {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
     this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
+    // scopes pagination to the lowerBoundTimestamp,
+    // preventing from walking the full account history up to MIRROR_NODE_ACCOUNT_TXS_PG_MAX pages.
+    this.setQueryParam(queryParamObject, 'timestamp', `gte:${lowerBoundTimestamp}`);
+
     const queryParams = this.getQueryParams(queryParamObject);
 
     return this.getPaginatedResults(
@@ -795,6 +820,56 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Retrieves every block in the inclusive numeric range `[fromBlock, toBlock]` as a flat list
+   * ordered from oldest to newest, following the Mirror Node `links.next` cursor so the full
+   * range is returned regardless of the server's per-page limit.
+   *
+   * Traversal is capped at `FEE_HISTORY_BLOCK_PAGINATION_MAX` pages to bound the number of
+   * upstream requests a single range can generate, limiting the relay's exposure to
+   * resource exhaustion from an excessively wide range.
+   *
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @param fromBlock - Inclusive lower bound block number (oldest).
+   * @param toBlock - Inclusive upper bound block number (newest).
+   * @returns Blocks in ascending order by block number.
+   */
+  public async getBlocksByRange(
+    requestDetails: RequestDetails,
+    fromBlock: number,
+    toBlock: number,
+  ): Promise<MirrorNodeBlock[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'block.number', [`gte:${fromBlock}`, `lte:${toBlock}`]);
+    this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
+    this.setQueryParam(queryParamObject, 'order', MirrorNodeClient.ORDER.ASC);
+    const queryParams = this.getQueryParams(queryParamObject);
+
+    const blocks: MirrorNodeBlock[] = await this.getPaginatedResults(
+      `${MirrorNodeClient.GET_BLOCKS_ENDPOINT}${queryParams}`,
+      MirrorNodeClient.GET_BLOCKS_ENDPOINT,
+      'blocks',
+      requestDetails,
+      [],
+      1,
+      ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX'),
+    );
+
+    // Populate the per-block cache so subsequent getBlock(number) calls from any service
+    // resolve from cache rather than issuing a new upstream request.
+    await Promise.all(
+      blocks.map((block) =>
+        this.cacheService.set(
+          `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
+          block,
+          MirrorNodeClient.GET_BLOCK_ENDPOINT,
+        ),
+      ),
+    );
+
+    return blocks;
+  }
+
   public async getContract(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
@@ -872,7 +947,10 @@ export class MirrorNodeClient {
     return null;
   }
 
-  public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails): Promise<any> {
+  public async getContractResult(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 
@@ -923,7 +1001,7 @@ export class MirrorNodeClient {
    * @param args - The arguments to be passed to the specified method for fetching contract results.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry(methodName: string, args: any[]): Promise<any> {
+  public async getContractResultWithRetry<T = any>(methodName: string, args: any[]): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -982,12 +1060,12 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResult[]> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
     const queryParams = this.getQueryParams(queryParamObject);
-    return this.getPaginatedResults(
+    return this.getPaginatedResults<MirrorNodeContractResult>(
       MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
       MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
       'results',
@@ -1002,8 +1080,8 @@ export class MirrorNodeClient {
     contractId: string,
     timestamp: string,
     requestDetails: RequestDetails,
-  ): Promise<any> {
-    return this.get(
+  ): Promise<MirrorNodeContractResultDetails | null> {
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(this.getContractResultsDetailsByContractIdAndTimestamp(contractId, timestamp)),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT,
       requestDetails,
@@ -1040,7 +1118,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
@@ -1058,9 +1136,9 @@ export class MirrorNodeClient {
     contractIdOrAddress: string,
     timestamp: string,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const apiPath = MirrorNodeClient.getContractResultsByAddressAndTimestampPath(contractIdOrAddress, timestamp);
-    return this.get(
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(apiPath),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT,
       requestDetails,
@@ -1417,7 +1495,7 @@ export class MirrorNodeClient {
     blockEndTimestamp: string | undefined,
     limit: number,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     // retrieve the timestamp of the contract
     const contractResultsParams: IContractResultsParams = blockEndTimestamp
       ? { timestamp: `lte:${blockEndTimestamp}` }

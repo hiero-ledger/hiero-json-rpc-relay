@@ -625,6 +625,77 @@ describe('MirrorNodeClient', async function () {
     expect(firstBlock.number).equal(block.number);
   });
 
+  it('`getBlocksByRange` returns a flat, oldest-to-newest list for a single-page range', async () => {
+    const fromBlock = 5;
+    const toBlock = 7;
+    const rangeBlocks = [
+      { ...block, number: 5 },
+      { ...block, number: 6 },
+      { ...block, number: 7 },
+    ];
+    mock
+      .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
+      .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+
+    expect(result).to.be.an('array').with.lengthOf(3);
+    expect(result.map((b) => b.number)).to.deep.equal([5, 6, 7]);
+  });
+
+  it('`getBlocksByRange` follows links.next and concatenates every page', async () => {
+    const fromBlock = 1;
+    const toBlock = 4;
+    const firstPageUrl = `blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const nextPageUrl = `blocks?block.number=gte:3&block.number=lte:${toBlock}&limit=100&order=asc`;
+    mock.onGet(firstPageUrl).reply(
+      200,
+      JSON.stringify({
+        blocks: [
+          { ...block, number: 1 },
+          { ...block, number: 2 },
+        ],
+        links: { next: `/api/v1/${nextPageUrl}` },
+      }),
+    );
+    mock.onGet(nextPageUrl).reply(
+      200,
+      JSON.stringify({
+        blocks: [
+          { ...block, number: 3 },
+          { ...block, number: 4 },
+        ],
+        links: { next: null },
+      }),
+    );
+
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+
+    expect(result.map((b) => b.number)).to.deep.equal([1, 2, 3, 4]);
+  });
+
+  it('`getBlocksByRange` warms the per-block cache so subsequent getBlock calls resolve without a network request', async () => {
+    const fromBlock = 10;
+    const toBlock = 11;
+    const rangeBlocks = [
+      { ...block, number: 10 },
+      { ...block, number: 11 },
+    ];
+    // replyOnce: the range endpoint is available exactly once; any repeat fetch would throw
+    mock
+      .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
+      .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+    // no mock registered for blocks/10 or blocks/11 — MockAdapter throws on unmatched requests
+
+    await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+
+    // Both blocks must now be served from cache; if either hits the network, MockAdapter throws
+    const b10 = await mirrorNodeInstance.getBlock(10, requestDetails);
+    const b11 = await mirrorNodeInstance.getBlock(11, requestDetails);
+    expect(b10.number).to.equal(10);
+    expect(b11.number).to.equal(11);
+  });
+
   it('`getContract`', async () => {
     mock.onGet(`contracts/${mockData.contractEvmAddress}`).reply(200, JSON.stringify(mockData.contract));
     const result = await mirrorNodeInstance.getContract(mockData.contractEvmAddress, requestDetails);
@@ -773,9 +844,9 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResult(transactionId, requestDetails);
     expect(result).to.exist;
-    expect(result.contract_id).equal(detailedContractResult.contract_id);
-    expect(result.to).equal(detailedContractResult.to);
-    expect(result.v).equal(detailedContractResult.v);
+    expect(result!.contract_id).equal(detailedContractResult.contract_id);
+    expect(result!.to).equal(detailedContractResult.to);
+    expect(result!.v).equal(detailedContractResult.v);
   });
 
   it('`getContractResults` by hash', async () => {
@@ -784,9 +855,9 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResult(hash, requestDetails);
     expect(result).to.exist;
-    expect(result.contract_id).equal(detailedContractResult.contract_id);
-    expect(result.to).equal(detailedContractResult.to);
-    expect(result.v).equal(detailedContractResult.v);
+    expect(result!.contract_id).equal(detailedContractResult.contract_id);
+    expect(result!.to).equal(detailedContractResult.to);
+    expect(result!.v).equal(detailedContractResult.v);
   });
 
   it('`getContractResults` by hash using cache', async () => {
@@ -961,18 +1032,35 @@ describe('MirrorNodeClient', async function () {
   });
 
   it('`getContractResults` detailed', async () => {
+    // a HAPI (non-ethereum) call leaves the ethereum transaction fields null
+    const hapiContractResult = {
+      ...detailedContractResult,
+      chain_id: null,
+      gas_price: null,
+      r: null,
+      s: null,
+      type: null,
+      v: null,
+      nonce: null,
+      access_list: null,
+    };
     mock
       .onGet(`contracts/results?limit=100&order=asc&hbar=false`)
-      .reply(200, JSON.stringify({ results: [detailedContractResult], links: { next: null } }));
+      .reply(200, JSON.stringify({ results: [detailedContractResult, hapiContractResult], links: { next: null } }));
 
     const result = await mirrorNodeInstance.getContractResults(requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.not.exist;
-    expect(result.length).to.gt(0);
+    expect(result.length).to.equal(2);
     const firstResult = result[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.to).equal(detailedContractResult.to);
     expect(firstResult.v).equal(detailedContractResult.v);
+    // nullable ethereum transaction fields are preserved as null for HAPI results
+    const secondResult = result[1];
+    expect(secondResult.chain_id).to.equal(null);
+    expect(secondResult.r).to.equal(null);
+    expect(secondResult.type).to.equal(null);
+    expect(secondResult.access_list).to.equal(null);
   });
 
   const contractResult = {
@@ -997,10 +1085,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(contractId, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
@@ -1014,10 +1102,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getContractResultsByAddress(address, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
@@ -1031,10 +1119,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getLatestContractResultsByAddress(address, undefined, 1, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);
@@ -1053,10 +1141,10 @@ describe('MirrorNodeClient', async function () {
       requestDetails,
     );
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.results.length).to.gt(0);
-    const firstResult = result.results[0];
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.equal(null);
+    expect(result!.results.length).to.gt(0);
+    const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
     expect(firstResult.function_parameters).equal(contractResult.function_parameters);
     expect(firstResult.to).equal(contractResult.to);

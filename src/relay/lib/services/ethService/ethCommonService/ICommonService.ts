@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Log } from '../../../model';
-import { type IAccountInfo, type MirrorNodeContractLog, type RequestDetails } from '../../../types';
+import {
+  type IAccountInfo,
+  type MirrorNodeContractLog,
+  type MirrorNodeContractResultBase,
+  type RequestDetails,
+} from '../../../types';
 
 export interface ICommonService {
   addTopicsToParams(params: any, topics: any[] | null): void;
@@ -14,7 +19,7 @@ export interface ICommonService {
 
   getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
 
-  getContractAddressFromReceipt(contractResult: any): string;
+  getContractAddressFromReceipt(contractResult: MirrorNodeContractResultBase): string | null;
 
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
@@ -53,7 +58,7 @@ export interface ICommonService {
 
   isBlockParamValid(tag: string | null): boolean;
 
-  resolveEvmAddress(address: string, requestDetails: RequestDetails, types?: string[]): Promise<string>;
+  resolveEvmAddress(address: string | null, requestDetails: RequestDetails, types?: string[]): Promise<string | null>;
 
   translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number>;
 

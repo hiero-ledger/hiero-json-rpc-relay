@@ -11,6 +11,7 @@ import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
 
 import { ConfigService } from '../src/config-service/services';
+import { RedisClientManager } from '../src/relay/lib/clients/redisClientManager';
 import constants from '../src/relay/lib/constants';
 import { setServerTimeout } from '../src/server/koaJsonRpc/lib/utils';
 import { initializeServer } from '../src/server/server';
@@ -202,7 +203,14 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
       const shouldStartWs = wsServer === 'always' || (wsServer === 'config' && ConfigService.get('TEST_WS_SERVER'));
       if (shouldStartWs) {
         logger.info(`Start ws-server on port ${constants.WEB_SOCKET_PORT}`);
-        const { app: wsApp } = await initializeWsServer(wsServer === 'always' ? relay : undefined);
+        const redisClient = RedisClientManager.isRedisEnabled()
+          ? await RedisClientManager.getClient(logger)
+          : undefined;
+        const { app: wsApp } = await initializeWsServer(
+          wsServer === 'always' ? relay : undefined,
+          undefined,
+          redisClient,
+        );
         global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT });
       }
     }
