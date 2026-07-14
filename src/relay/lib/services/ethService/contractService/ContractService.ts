@@ -125,7 +125,7 @@ export class ContractService implements IContractService {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
       }
 
-      const blockNumberOrTag = this.extractBlockNumberOrTag(blockParam);
+      const blockNumberOrTag = this.extractBlockParam(blockParam);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
@@ -395,14 +395,14 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Extracts the block number or tag from a block parameter.
+   * Extracts the block number, hash or tag from a block parameter.
    * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
    *
    * @param {string | object | null} blockParam - The block parameter (string, object, or null)
-   * @returns {Promise<string | null>} The extracted block number or tag, or null if not provided
+   * @returns {string | null} The extracted block number, hash or tag, or null if not provided
    * @private
    */
-  private extractBlockNumberOrTag(blockParam: string | object | null): string | null {
+  private extractBlockParam(blockParam: string | object | null): string | null {
     if (!blockParam) {
       return null;
     }
