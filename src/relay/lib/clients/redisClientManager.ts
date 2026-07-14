@@ -16,7 +16,6 @@ export class RedisClientManager {
 
   public static async connect(): Promise<void> {
     await this.client.connect();
-
     this.connected = true;
   }
 
