@@ -11,6 +11,7 @@ export const BLOCK_PARAMS_ERROR = `Expected ${HASH_ERROR} in object, 0x prefixed
 export const BLOCK_HASH_ERROR = `Expected ${HASH_ERROR} of a block`;
 export const TRANSACTION_HASH_ERROR = `Expected ${HASH_ERROR} of a transaction`;
 export const TOPIC_HASH_ERROR = `Expected ${HASH_ERROR} of a topic`;
+export const REWARD_PERCENTILES_ERROR = 'Expected an array of numbers between 0 and 100';
 export const INVALID_BLOCK_HASH_TAG_NUMBER = 'The value passed is not a valid blockHash/blockNumber/blockTag value:';
 export enum TracerType {
   CallTracer = 'callTracer',

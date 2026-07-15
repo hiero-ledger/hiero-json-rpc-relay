@@ -80,6 +80,39 @@ describe('Validator', async () => {
     });
   });
 
+  describe('validates rewardPercentiles type correctly', async () => {
+    const validation = { 0: { type: 'rewardPercentiles' } };
+    const error = Constants.REWARD_PERCENTILES_ERROR;
+
+    it('throws an error if the param is not an array', async () => {
+      expect(() => validateParams(['random string'], validation)).to.throw(
+        expectInvalidParam(0, error, 'random string'),
+      );
+      expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
+      expect(() => validateParams([{}], validation)).to.throw(expectInvalidParam(0, error, '{}'));
+    });
+
+    it('throws an error if an element is below 0', async () => {
+      expect(() => validateParams([[-1, 50]], validation)).to.throw(expectInvalidParam(0, error, '[-1,50]'));
+    });
+
+    it('throws an error if an element is above 100', async () => {
+      expect(() => validateParams([[50, 150]], validation)).to.throw(expectInvalidParam(0, error, '[50,150]'));
+    });
+
+    it('throws an error if an element is not a number', async () => {
+      expect(() => validateParams([[25, '50']], validation)).to.throw(expectInvalidParam(0, error, '[25,"50"]'));
+    });
+
+    it('does not throw an error for an empty array', async () => {
+      expect(validateParams([[]], validation)).to.eq(undefined);
+    });
+
+    it('does not throw an error for valid percentiles including bounds', async () => {
+      expect(validateParams([[0, 25.5, 50, 100]], validation)).to.eq(undefined);
+    });
+  });
+
   describe('validates blockHash type correctly', async () => {
     const validation = { 0: { type: 'blockHash' } };
 

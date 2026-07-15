@@ -196,7 +196,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'hex', required: true },
     1: { type: 'blockNumber', required: true },
-    2: { type: 'array', required: false },
+    2: { type: 'rewardPercentiles', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
   @cache({
