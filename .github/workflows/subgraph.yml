@@ -69,7 +69,7 @@ jobs:
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "v0.158.0-rc1"
+            --mirror-node-version: "v0.159.0"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
