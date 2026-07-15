@@ -367,10 +367,11 @@ async function prepareTransactionArray(
 
 /**
  * Computes the block gas price (the baseFeePerGas equivalent for Hedera blocks)
- * as the gas-used-weighted average of each transaction's gas_price (in tinybars
- * from MN), converted to weibars. Falls back to the fee-schedule rate at the
- * block's closing timestamp when no transaction has valid gas data (empty block
- * or all-null gas_price).
+ * as the gas-used-weighted average of each transaction's gas_price. Contract
+ * results are fetched from the mirror node with `hbar=false`, so gas_price is
+ * already in weibars. Falls back to the fee-schedule rate (also in weibars)
+ * at the block's closing timestamp when no transaction has valid gas data
+ * (empty block or all-null gas_price).
  *
  * @param ctx - The shared worker context providing the clients and services.
  * @param contractResults - Contract results for the block (may be null or empty).
@@ -386,8 +387,8 @@ export async function computeBlockGasPrice(
   const { commonService } = ctx;
   const validResults = (contractResults ?? []).filter((cr) => {
     if (cr.gas_price === null) return false;
-    const priceTinybars = parseInt(cr.gas_price, 16);
-    return priceTinybars > 0 && (cr.gas_used ?? 0) > 0;
+    const priceWeibars = parseInt(cr.gas_price, 16);
+    return priceWeibars > 0 && (cr.gas_used ?? 0) > 0;
   });
 
   if (validResults.length === 0) {
@@ -397,14 +398,14 @@ export async function computeBlockGasPrice(
   let weightedSum = 0;
   let totalGasUsed = 0;
   for (const cr of validResults) {
-    const priceTinybars = parseInt(cr.gas_price!, 16);
+    const priceWeibars = parseInt(cr.gas_price!, 16);
     const gasUsed = cr.gas_used!;
-    weightedSum += priceTinybars * gasUsed;
+    weightedSum += priceWeibars * gasUsed;
     totalGasUsed += gasUsed;
   }
 
-  const weightedAvgTinybars = Math.round(weightedSum / totalGasUsed);
-  return numberTo0x(weightedAvgTinybars * constants.TINYBAR_TO_WEIBAR_COEF);
+  const weightedAvgWeibars = Math.round(weightedSum / totalGasUsed);
+  return numberTo0x(weightedAvgWeibars);
 }
 
 export async function getBlock(

@@ -267,7 +267,8 @@ export class FeeService implements IFeeService {
 
   /**
    * Resolves the base fee per gas and the gas-used ratio for a single block. The fee is taken
-   * from the latest transaction's gas_price within the block (converted from tinybars to weibars).
+   * from the latest transaction's gas_price within the block, which the mirror node already
+   * returns in weibars.
    * Falls back to the fee-schedule rate at the block's closing timestamp when the block is empty
    * or the latest result has no valid gas_price. Unavailable block data or fee retrieval errors
    * degrade to zero values, ensuring one unresolved block does not fail the surrounding fee
@@ -307,10 +308,10 @@ export class FeeService implements IFeeService {
 
     try {
       const latestResult = await this.mirrorNodeClient.getLatestContractResultForBlock(block, requestDetails);
-      const gasPriceTinybars = latestResult?.gas_price ? parseInt(latestResult.gas_price, 16) : null;
+      const gasPriceWeibars = latestResult?.gas_price ? parseInt(latestResult.gas_price, 16) : null;
 
-      const fee = gasPriceTinybars
-        ? numberTo0x(gasPriceTinybars * constants.TINYBAR_TO_WEIBAR_COEF)
+      const fee = gasPriceWeibars
+        ? numberTo0x(gasPriceWeibars)
         : numberTo0x(await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`));
 
       return { fee, gasUsedRatio };

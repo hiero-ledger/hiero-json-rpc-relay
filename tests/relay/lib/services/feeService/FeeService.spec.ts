@@ -137,8 +137,6 @@ describe('FeeService', function () {
   });
 
   describe('getFeeHistoryDataFromBlock — gas price source', function () {
-    const TINYBAR_TO_WEIBAR = 10_000_000_000;
-
     let feeService: FeeService;
     let mirrorStub: {
       getBlock: sinon.SinonStub;
@@ -161,14 +159,14 @@ describe('FeeService', function () {
         sinon.restore();
       });
 
-      it('uses latest transaction gas_price converted from tinybars when the block has a contract result', async function () {
+      it('uses the latest transaction gas_price in weibars when the block has a contract result', async function () {
         const block = minimalMirrorBlock(1, 1_000_000, '0.0.0');
         mirrorStub.getBlock.resolves(block);
-        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: '0x72' }); // 114 tinybars
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: '0x72' }); // 114 weibars
 
         const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(1, requestDetails, block);
 
-        expect(fee).to.equal(numberTo0x(114 * TINYBAR_TO_WEIBAR));
+        expect(fee).to.equal(numberTo0x(114));
         expect(commonStub.getGasPriceInWeibars.called).to.be.false;
       });
 
