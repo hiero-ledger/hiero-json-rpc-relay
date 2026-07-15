@@ -132,4 +132,24 @@ describe('computeBlockGasPrice', function () {
 
     expect(result).to.equal(numberTo0x(115));
   });
+
+  it('computes the weighted average exactly with BigInt when the sum exceeds Number.MAX_SAFE_INTEGER', async function () {
+    // Realistic weibar prices (~1e12) across a busy block. The intermediate weighted sum
+    // (~2.1e19) exceeds Number.MAX_SAFE_INTEGER (~9e15): plain-number arithmetic rounds the
+    // result to 1000000542245, while the exact BigInt result is 1000000542244.
+    const results = [
+      makeResult(numberTo0x(1_000_000_515_930), 12_612_355),
+      makeResult(numberTo0x(1_000_000_580_494), 8_676_919),
+    ];
+
+    const result = await computeBlockGasPrice(
+      ctx,
+      results as MirrorNodeContractResult[],
+      blockTimestampTo,
+      requestDetails,
+    );
+
+    expect(result).to.equal(numberTo0x(1_000_000_542_244));
+    expect(getGasPriceStub.called).to.be.false;
+  });
 });

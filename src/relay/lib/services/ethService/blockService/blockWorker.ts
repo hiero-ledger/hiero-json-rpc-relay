@@ -395,16 +395,17 @@ export async function computeBlockGasPrice(
     return numberTo0x(await commonService.getGasPriceInWeibars(requestDetails, `lte:${blockTimestampTo}`));
   }
 
-  let weightedSum = 0;
-  let totalGasUsed = 0;
+  let weightedSum = BigInt(0);
+  let totalGasUsed = BigInt(0);
   for (const cr of validResults) {
-    const priceWeibars = parseInt(cr.gas_price!, 16);
-    const gasUsed = cr.gas_used!;
+    const priceWeibars = BigInt(prepend0x(cr.gas_price!));
+    const gasUsed = BigInt(cr.gas_used!);
     weightedSum += priceWeibars * gasUsed;
     totalGasUsed += gasUsed;
   }
 
-  const weightedAvgWeibars = Math.round(weightedSum / totalGasUsed);
+  // Gas-used-weighted average, rounded to the nearest weibar (exact .5 ties round up).
+  const weightedAvgWeibars = (BigInt(2) * weightedSum + totalGasUsed) / (BigInt(2) * totalGasUsed);
   return numberTo0x(weightedAvgWeibars);
 }
 
