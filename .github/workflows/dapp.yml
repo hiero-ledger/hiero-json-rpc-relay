@@ -79,7 +79,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@0.80.0 one-shot falcon deploy \
+          npx @hashgraph/solo@0.82.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \
