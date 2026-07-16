@@ -102,7 +102,7 @@ jobs:
         run: .github/scripts/forward-ports.sh
 
       - name: Start Redis
-        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
 
       - name: Start the local relay http server
         run: npm run start &
