@@ -63,8 +63,11 @@ jobs:
           title: 'chore: bump Solo, consensus node, and mirror node versions'
           body: |
             Automated version bump opened by the weekly bump-network-versions workflow.
+
             The following pinned versions in `.github/network-versions.env` were updated to the latest published releases:
+
             ${{ steps.bump.outputs.summary }}
+
             CI on this PR runs the full suite against the new versions. Review the results before merging.
           branch: chore/bump-network-versions
           base: main
