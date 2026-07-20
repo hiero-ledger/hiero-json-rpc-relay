@@ -9,7 +9,7 @@
 #   - CN/MN: GitHub's `releases/latest` endpoint (excludes drafts & pre-releases)
 #
 # Runnable locally for testing (requires: an authenticated `gh`, and `npm`):
-#   .github/scripts/bump-versions.sh
+#   .github/scripts/bump-network-versions.sh
 #
 # In GitHub Actions it also writes `changed` and `summary` step outputs.
 set -euo pipefail

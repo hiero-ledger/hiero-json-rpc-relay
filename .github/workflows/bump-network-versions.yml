@@ -38,7 +38,7 @@ jobs:
         id: bump
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .github/scripts/bump-versions.sh
+        run: .github/scripts/bump-network-versions.sh
 
       - name: Import GPG Key
         if: ${{ steps.bump.outputs.changed == 'true' }}
