@@ -20,6 +20,8 @@ import {
   type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
+import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -411,15 +413,16 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null): void {
+  public addTopicsToParams(params: any, topics: LogTopic[] | null): void {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
-        if (!_.isNil(topics[i])) {
-          if (Array.isArray(topics[i])) {
-            if (topics[i].length > 100) {
+        const topic = topics[i];
+        if (!_.isNil(topic)) {
+          if (Array.isArray(topic)) {
+            if (topic.length > 100) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
             }
-            const trimmedTopics = topics[i].map((t: string, j: number) => {
+            const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
               if (trimmed === null) {
                 throw predefined.INVALID_PARAMETER(i, `Topic ${i}[${j}] is not a valid hex string`);
@@ -428,7 +431,7 @@ export class CommonService implements ICommonService {
             });
             params[`topic${i}`] = trimmedTopics;
           } else {
-            const trimmed = trimPrecedingZeros(topics[i]);
+            const trimmed = trimPrecedingZeros(topic);
             if (trimmed === null) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} is not a valid hex string`);
             }
@@ -500,9 +503,12 @@ export class CommonService implements ICommonService {
     fromBlock: string | 'latest',
     toBlock: string | 'latest',
     address: string | string[] | null,
-    topics: any[] | null,
+    topics: LogTopic[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
+    // Bound the address fan-out before dispatching to the worker, so an oversized array is rejected up front.
+    assertAddressCountWithinLimit(address);
+
     return WorkersPool.run(
       {
         type: 'getLogs',

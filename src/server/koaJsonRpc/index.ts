@@ -11,7 +11,7 @@ import { methodConfiguration } from '../../relay/lib/config/methodConfiguration'
 import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
-import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/batchAddressCounter';
+import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';

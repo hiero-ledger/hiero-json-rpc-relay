@@ -269,6 +269,36 @@ describe('Filter API Test Suite', async function () {
       });
     });
 
+    withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 2 }, () => {
+      it('rejects creating a filter whose address count exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.INVALID_PARAMETER('address', 'A maximum of 2 addresses are allowed'),
+          filterService.newFilter,
+          true,
+          filterService,
+          [
+            {
+              fromBlock: numberHex,
+              toBlock: 'latest',
+              address: [defaultEvmAddress, defaultEvmAddress, defaultEvmAddress],
+            },
+            requestDetails,
+          ],
+        );
+      });
+
+      it('allows creating a filter whose address count is at the cap', async function () {
+        expect(
+          RelayAssertions.validateUint(
+            await filterService.newFilter(
+              { fromBlock: numberHex, toBlock: 'latest', address: [defaultEvmAddress, defaultEvmAddress] },
+              requestDetails,
+            ),
+          ),
+        ).to.eq(true);
+      });
+    });
+
     it('validates fromBlock and toBlock', async function () {
       // reject if fromBlock is larger than toBlock
       await RelayAssertions.assertRejection(

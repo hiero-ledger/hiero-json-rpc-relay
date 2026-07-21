@@ -16,7 +16,7 @@ import { RedisClientManager } from '../relay/lib/clients/redisClientManager';
 import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '../relay/lib/services';
 import { RequestDetails } from '../relay/lib/types';
-import { countBatchAddresses, WS_BATCH_ADDRESS_METHODS } from '../relay/lib/utils/batchAddressCounter';
+import { countBatchAddresses, WS_BATCH_ADDRESS_METHODS } from '../relay/lib/utils/addressLimit';
 import KoaJsonRpc from '../server/koaJsonRpc';
 import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';

@@ -1,5 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
+import { predefined } from '../errors/JsonRpcError';
+
+/**
+ * Counts the caller-supplied addresses in a log-filter `address` field (single = 1, array = length, absent = 0).
+ *
+ * @param address - The `address` filter value: a single address, an array of addresses, or null/undefined.
+ * @returns The number of caller-supplied addresses.
+ */
+export function countAddresses(address: unknown): number {
+  if (address === null || address === undefined) {
+    return 0;
+  }
+
+  return Array.isArray(address) ? address.length : 1;
+}
+
+/**
+ * Enforces the shared `MAX_ADDRESSES_PER_REQUEST` cap on a single request's address filter, before any Mirror Node fan-out.
+ *
+ * @param address - The `address` filter value to bound.
+ * @throws {JsonRpcError} INVALID_PARAMETER when the address count exceeds `MAX_ADDRESSES_PER_REQUEST`.
+ */
+export function assertAddressCountWithinLimit(address: unknown): void {
+  const maxAddresses = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+  const count = countAddresses(address);
+  if (count > maxAddresses) {
+    throw predefined.INVALID_PARAMETER('address', `A maximum of ${maxAddresses} addresses are allowed`);
+  }
+}
+
 // Param index holding each method's address filter (eth_getLogs at params[0], eth_subscribe at params[1]).
 const ADDRESS_PARAM_INDEX: Readonly<Record<string, number>> = {
   eth_getLogs: 0,
@@ -24,12 +55,7 @@ function countAddressesInEntry(method: string, params: unknown): number {
     return 0;
   }
 
-  const address = (filter as { address?: unknown }).address;
-  if (address === undefined || address === null) {
-    return 0;
-  }
-
-  return Array.isArray(address) ? address.length : 1;
+  return countAddresses((filter as { address?: unknown }).address);
 }
 
 /**

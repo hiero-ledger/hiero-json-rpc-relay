@@ -15,7 +15,11 @@ import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
 import { predefined } from '../../../../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../../../../src/relay/lib/services';
+import { getLogs as runGetLogsWorker } from '../../../../../../src/relay/lib/services/ethService/ethCommonService/commonWorker';
+import { type IWorkerContext } from '../../../../../../src/relay/lib/services/workersService/workerContext';
+import { WorkersPool } from '../../../../../../src/relay/lib/services/workersService/WorkersPool';
 import { RequestDetails } from '../../../../../../src/relay/lib/types';
+import { withOverriddenEnvsInMochaTest } from '../../../../helpers';
 
 describe('CommonService', () => {
   describe('getPaymasterIfTxCanBeSubsidized', async () => {
@@ -203,6 +207,63 @@ describe('CommonService', () => {
       await expect(commonService.getLatestBlockNumber(requestDetails)).to.be.rejectedWith(
         predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK.message,
       );
+    });
+  });
+
+  describe('getLogs address cap', () => {
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+
+    let commonService: CommonService;
+
+    beforeEach(() => {
+      const logger = pino({ level: 'silent' });
+      const registry = new Registry();
+      const cacheService = CacheClientFactory.create(logger, registry);
+      const mirrorNodeClient = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: 'mirror-node' }),
+        registry,
+        cacheService,
+      );
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 2 }, () => {
+      it('rejects before any Mirror Node fan-out when the address count exceeds the cap', async () => {
+        const workerRun = sinon.stub(WorkersPool, 'run');
+
+        await expect(
+          commonService.getLogs(null, '0x0', 'latest', ['0xa', '0xb', '0xc'], null, requestDetails),
+        ).to.be.rejected.and.eventually.satisfy((err) => err.code === predefined.INVALID_PARAMETER('address', '').code);
+        expect(workerRun.notCalled).to.equal(true, 'worker must not be dispatched once the cap is exceeded');
+      });
+
+      it('dispatches to the worker when the address count is at the cap', async () => {
+        const workerRun = sinon.stub(WorkersPool, 'run').resolves([]);
+
+        await commonService.getLogs(null, '0x0', 'latest', ['0xa', '0xb'], null, requestDetails);
+        expect(workerRun.calledOnce).to.equal(true);
+      });
+
+      it('re-checks at the worker entry, before touching the common service', async () => {
+        // Defense-in-depth: the worker is a second entry point, so the guard must fire before any commonService call.
+        const validateBlockRange = sinon.stub();
+        const ctx = {
+          commonService: { validateBlockRangeAndAddTimestampToParams: validateBlockRange },
+        } as unknown as IWorkerContext;
+
+        await expect(
+          runGetLogsWorker(ctx, null, '0x0', 'latest', ['0xa', '0xb', '0xc'], null, requestDetails),
+        ).to.be.rejected.and.eventually.satisfy((err) => err.code === predefined.INVALID_PARAMETER('address', '').code);
+        expect(validateBlockRange.notCalled).to.equal(
+          true,
+          'block-range validation must not run once the cap is exceeded',
+        );
+      });
     });
   });
 });
