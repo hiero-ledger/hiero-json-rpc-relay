@@ -1130,4 +1130,44 @@ describe('Validator', async () => {
       });
     });
   }
+
+  describe('validates blockParams type correctly', async () => {
+    const validation = { 0: { type: 'blockParams' } };
+
+    it('throws an error for an invalid block tag', async () => {
+      expect(() => validateParams(['newest'], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, 'newest'),
+      );
+    });
+
+    it('throws an error for a non-hex block number', async () => {
+      expect(() => validateParams(['123'], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, '123'),
+      );
+    });
+
+    it('throws an error for a hex string that is neither a valid block number nor a 32-byte hash', async () => {
+      const notHashNotNumber = '0x' + 'a'.repeat(63);
+      expect(() => validateParams([notHashNotNumber], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, notHashNotNumber),
+      );
+    });
+
+    it('does not throw for valid block tags', async () => {
+      for (const tag of ['latest', 'earliest', 'pending', 'finalized', 'safe']) {
+        const result = validateParams([tag], validation);
+        expect(result).to.eq(undefined);
+      }
+    });
+
+    it('does not throw for a valid hex block number', async () => {
+      const result = validateParams(['0x1'], validation);
+      expect(result).to.eq(undefined);
+    });
+
+    it('does not throw for a valid 32-byte block hash string', async () => {
+      const result = validateParams(['0x' + 'a'.repeat(64)], validation);
+      expect(result).to.eq(undefined);
+    });
+  });
 });
