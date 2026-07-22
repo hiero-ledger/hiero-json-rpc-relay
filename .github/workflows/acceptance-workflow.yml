@@ -148,11 +148,11 @@ jobs:
 
       - name: Run acceptance tests
         run: |
-            if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
-              echo "Overriding OPERATOR_KEY_MAIN with the secret value"
-              export OPERATOR_KEY_MAIN="$OPERATOR_KEY"
-            fi
-            npm run acceptancetest:${{ inputs.testfilter }}
+          if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
+            echo "Overriding OPERATOR_KEY_MAIN with the secret value"
+            export OPERATOR_KEY_MAIN="$OPERATOR_KEY"
+          fi
+          npm run acceptancetest:${{ inputs.testfilter }}
         env:
           TEST_WS_SERVER: ${{ inputs.test_ws_server }}
           SUBSCRIPTIONS_ENABLED: ${{ inputs.test_ws_server }}
@@ -160,7 +160,26 @@ jobs:
           GITHUB_PR_NUMBER: ${{ github.event.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           OPERATOR_KEY: ${{ secrets.operator_key }}
-          ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE: "${{ inputs.on_valid_json_rpc_http_response_status_code }}"
+          ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE: '${{ inputs.on_valid_json_rpc_http_response_status_code }}'
+
+      - name: Capture mirror node logs
+        if: failure()
+        run: |
+          NS="$(kubectl get ns -o name | sed 's|^namespace/||' | grep 'hiero' | head -n1)"
+          mkdir -p mirror-node-logs
+          kubectl get pods -n "$NS" -o wide > mirror-node-logs/pods.txt 2>&1 || true
+          for pod in $(kubectl get pods -n "$NS" --no-headers -o custom-columns=:metadata.name | grep -E 'mirror|web3'); do
+            kubectl logs -n "$NS" "$pod" --all-containers --tail=5000 > "mirror-node-logs/${pod}.log" 2>&1 || true
+            kubectl describe pod -n "$NS" "$pod" > "mirror-node-logs/${pod}.describe.txt" 2>&1 || true
+          done
+
+      - name: Upload mirror node logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mirror-node-logs-${{ inputs.testfilter }}-${{ inputs.on_valid_json_rpc_http_response_status_code }}
+          path: mirror-node-logs/
+          if-no-files-found: warn
 
       - name: Upload Heap Snapshots
         if: ${{ !cancelled() }}

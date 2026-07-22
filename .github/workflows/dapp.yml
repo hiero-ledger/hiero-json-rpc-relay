@@ -124,5 +124,5 @@ jobs:
         if: ${{ always() && !cancelled() }}
         with:
           check_name: Dapp Test Report
-          report_paths: "**/*.xml"
+          report_paths: '**/*.xml'
           detailed_summary: true
