@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
+import mainConstants from '../../../../src/relay/lib/constants';
 import { OBJECTS_VALIDATIONS, TYPES, validateParams } from '../../../../src/relay/lib/validators';
 import * as Constants from '../../../../src/relay/lib/validators/constants';
 import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes';
@@ -102,6 +103,18 @@ describe('Validator', async () => {
 
     it('throws an error if an element is not a number', async () => {
       expect(() => validateParams([[25, '50']], validation)).to.throw(expectInvalidParam(0, error, '[25,"50"]'));
+    });
+
+    it('throws an error if the array exceeds the maximum allowed size', async () => {
+      const oversized = Array(mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE + 1).fill(50);
+      expect(() => validateParams([oversized], validation)).to.throw(
+        expectInvalidParam(0, error, `[${oversized.join(',')}]`),
+      );
+    });
+
+    it('does not throw an error for an array at the maximum allowed size', async () => {
+      const maxSized = Array(mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE).fill(50);
+      expect(validateParams([maxSized], validation)).to.eq(undefined);
     });
 
     it('does not throw an error for an empty array', async () => {

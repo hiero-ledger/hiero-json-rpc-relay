@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import mainConstants from '../constants';
+
 export const BASE_HEX_REGEX = '^0[xX][a-fA-F0-9]';
 export const DEFAULT_HEX_ERROR = 'Expected 0x prefixed hexadecimal value';
 export const EVEN_HEX_ERROR = `${DEFAULT_HEX_ERROR} with even length`;
@@ -11,7 +13,7 @@ export const BLOCK_PARAMS_ERROR = `Expected ${HASH_ERROR} in object, 0x prefixed
 export const BLOCK_HASH_ERROR = `Expected ${HASH_ERROR} of a block`;
 export const TRANSACTION_HASH_ERROR = `Expected ${HASH_ERROR} of a transaction`;
 export const TOPIC_HASH_ERROR = `Expected ${HASH_ERROR} of a topic`;
-export const REWARD_PERCENTILES_ERROR = 'Expected an array of numbers between 0 and 100';
+export const REWARD_PERCENTILES_ERROR = `Expected an array of up to ${mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE} numbers, each between 0 and 100`;
 export const INVALID_BLOCK_HASH_TAG_NUMBER = 'The value passed is not a valid blockHash/blockNumber/blockTag value:';
 export enum TracerType {
   CallTracer = 'callTracer',

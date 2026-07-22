@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import mainConstants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
   type ICallTracerConfig,
@@ -91,6 +92,7 @@ export const TYPES = {
   rewardPercentiles: {
     test: (param: any): boolean =>
       Array.isArray(param) &&
+      param.length <= mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE &&
       param.every(
         (element) => typeof element === 'number' && Number.isFinite(element) && element >= 0 && element <= 100,
       ),
