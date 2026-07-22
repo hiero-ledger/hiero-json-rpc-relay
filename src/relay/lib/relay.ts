@@ -273,7 +273,7 @@ export class Relay {
     await this.waitForMirrorNode();
 
     this.logger.warn(
-      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.151.0. ' +
+      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.154.0. ' +
         'If you encounter HTTP 400 errors from the mirror node, please verify your mirror node version is compatible.',
     );
 

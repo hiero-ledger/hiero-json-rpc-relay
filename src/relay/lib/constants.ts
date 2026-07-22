@@ -92,7 +92,7 @@ export default {
   CONTRACT_CALL_GAS_LIMIT: 50_000_000,
   ISTANBUL_TX_DATA_NON_ZERO_COST: 16,
   TX_BASE_COST: 21_000,
-  MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS: 587_000,
+  MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS: 610_000,
   TX_CONTRACT_CALL_AVERAGE_GAS: 500_000,
   TX_DEFAULT_GAS_DEFAULT: 400_000,
   TX_CREATE_EXTRA: 32_000,
@@ -120,7 +120,6 @@ export default {
 
   // block ranges
   MAX_BLOCK_RANGE: 5,
-  BLOCK_HASH_REGEX: '^0[xX][a-fA-F0-9]',
 
   DEFAULT_RATE_LIMIT: {
     TIER_1: 100,
@@ -205,21 +204,22 @@ export default {
     CREATE_NON_FUNGIBLE_WITH_CUSTOM_FEES_TOKEN_FUNCTION_SELECTOR_V3,
   ],
 
-  // The fee is calculated via the fee calculator: https://docs.hedera.com/hedera/networks/mainnet/fees
-  // The maximum fileAppendChunkSize is currently set to 5KB by default; therefore, the estimated fees for FileCreate below are based on a file size of 5KB.
-  // FILE_APPEND_BASE_FEE & FILE_APPEND_RATE_PER_BYTE are calculated based on data colelction from the fee calculator:
-  // - 0 bytes = 3.9 cents
-  // - 100 bytes = 4.01 cents = 3.9 + (100 * 0.0011)
-  // - 500 bytes = 4.45 cents = 3.9 + (500 * 0.0011)
-  // - 1000 bytes = 5.01 cents = 3.9 + (1000 * 0.0011)
-  // - 5120 bytes = 9.53 cents = 3.9 + (5120 * 0.0011)
-  // final equation: cost_in_cents = base_cost + (bytes × rate_per_byte)
+  // Fees below reflect the HIP-1261 "Simple Fees" schedule (enabled in consensus node v0.73+), which
+  // repriced HFS operations to roughly 5x the previous schedule. Values are in USD cents, calibrated
+  // from actual on-chain fees (charged_tx_fee) at an exchange rate of 12 cents/HBAR.
+  // The maximum fileAppendChunkSize is 5KB by default, so FILE_CREATE/FILE_APPEND_PER_5_KB assume a full 5KB chunk.
+  // FILE_APPEND_BASE_FEE & FILE_APPEND_RATE_PER_BYTE (per hex char of call data) fit the measured points:
+  // - 1576 chars = 11.14 cents  (-6.201 + 1576 * 0.011)
+  // - 1710 chars = 12.61 cents  (-6.201 + 1710 * 0.011)
+  // - 5120 chars = 50.11 cents  (-6.201 + 5120 * 0.011) ≈ FILE_APPEND_PER_5_KB
+  // final equation: cost_in_cents = base_cost + (chars × rate_per_byte); intercept is negative because
+  // the measured fees are linear over the chunk-size range with a sub-zero extrapolated intercept.
   NETWORK_FEES_IN_CENTS: {
     TRANSACTION_GET_RECORD: 0.01,
-    FILE_CREATE_PER_5_KB: 9.51,
-    FILE_APPEND_PER_5_KB: 9.55,
-    FILE_APPEND_BASE_FEE: 3.9,
-    FILE_APPEND_RATE_PER_BYTE: 0.0011,
+    FILE_CREATE_PER_5_KB: 50.184,
+    FILE_APPEND_PER_5_KB: 50.141,
+    FILE_APPEND_BASE_FEE: -6.201,
+    FILE_APPEND_RATE_PER_BYTE: 0.011,
   },
 
   EXECUTION_MODE: {
