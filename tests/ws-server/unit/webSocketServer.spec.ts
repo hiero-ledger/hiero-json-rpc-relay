@@ -200,6 +200,33 @@ describe('webSocketServer websocket handling', () => {
     await ws.close();
   });
 
+  it('should return WS_BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED when the batch address total exceeds the cap', async () => {
+    // Delegate to the real config for every key except the cap, so the connection limiter keeps its real TTL.
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon
+      .stub(ConfigService, 'get')
+      .callsFake(((key: string) => (key === 'MAX_ADDRESSES_PER_REQUEST' ? 2 : originalGet(key as any))) as any);
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+    const grrStub = sinon.stub(jsonRpcController, 'getRequestResult');
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(
+      JSON.stringify([
+        { id: 1, jsonrpc: '2.0', method: 'eth_getLogs', params: [{ address: ['0xa', '0xb'] }] },
+        { id: 2, jsonrpc: '2.0', method: 'eth_subscribe', params: ['logs', { address: ['0xc', '0xd'] }] },
+      ]),
+    );
+
+    const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+    const parsed = JSON.parse(msg);
+    expect(Array.isArray(parsed)).to.be.true;
+    expect(parsed[0].error?.code).to.equal(-32208);
+    // the whole batch is rejected before any entry is dispatched
+    expect(grrStub.called).to.be.false;
+    await ws.close();
+  });
+
   it('shuold be able to process a single request', async () => {
     const sendToClientStub = sinon.stub(utils, 'sendToClient');
     sinon.stub(jsonRpcController, 'getRequestResult').resolves({ id: 1, jsonrpc: '2.0', result: 'ok' });

@@ -67,8 +67,8 @@ export const validateSubscribeEthLogsParams = async (
 
       // Enforce the count bound before any Mirror Node lookup, otherwise a large address array fans out
       // into one lookup per address before being rejected. Disabled => one address; enabled => capped by
-      // WS_MULTIPLE_ADDRESSES_LIMIT, so the fan-out stays bounded.
-      const maxAddresses = getMultipleAddressesEnabled() ? ConfigService.get('WS_MULTIPLE_ADDRESSES_LIMIT') : 1;
+      // MAX_ADDRESSES_PER_REQUEST, so the fan-out stays bounded.
+      const maxAddresses = getMultipleAddressesEnabled() ? ConfigService.get('MAX_ADDRESSES_PER_REQUEST') : 1;
       if (uniqueAddresses.length > maxAddresses) {
         throw predefined.INVALID_PARAMETER(
           'filters.address',

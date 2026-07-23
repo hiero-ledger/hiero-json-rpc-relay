@@ -400,6 +400,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  MAX_ADDRESSES_PER_REQUEST: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
@@ -860,11 +865,6 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
-  },
-  WS_MULTIPLE_ADDRESSES_LIMIT: {
-    type: 'number',
-    required: false,
-    defaultValue: 1000,
   },
   WS_NEW_HEADS_ENABLED: {
     type: 'boolean',

@@ -11,6 +11,7 @@ import { methodConfiguration } from '../../relay/lib/config/methodConfiguration'
 import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
+import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
@@ -130,6 +131,21 @@ export default class KoaJsonRpc {
       const responseBody = jsonRespError(
         null,
         predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
+        requestId,
+      );
+      ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!
+      ctx.status = 200;
+      ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
+      return;
+    }
+
+    // reject the whole batch when the caller-supplied address total across all entries exceeds the shared cap
+    const maxAddressesPerRequest = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+    const addressTotal = countBatchAddresses(body, HTTP_BATCH_ADDRESS_METHODS);
+    if (addressTotal > maxAddressesPerRequest) {
+      const responseBody = jsonRespError(
+        null,
+        predefined.BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(addressTotal, maxAddressesPerRequest),
         requestId,
       );
       ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!
