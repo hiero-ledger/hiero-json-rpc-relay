@@ -23,6 +23,7 @@ import { CommonService } from '../../../src/relay/lib/services';
 chai.use(chaiAsPromised);
 
 import { MeasurableCache } from '../../../src/relay/lib/clients/cache/measurableCache';
+import { REWARD_PERCENTILES_ERROR } from '../../../src/relay/lib/validators/constants';
 import { initializeServer } from '../../../src/server/server';
 import {
   contractAddress1,
@@ -1946,7 +1947,30 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, ERROR_CODE, `Invalid parameter 2: Expected Array, value: {}`);
+          BaseTest.invalidParamError(
+            error.response,
+            ERROR_CODE,
+            `Invalid parameter 2: ${REWARD_PERCENTILES_ERROR}, value: {}`,
+          );
+        }
+      });
+
+      it('validates parameter 2 reward percentiles are within 0 and 100', async function () {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method: RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY,
+            params: ['0x5', 'latest', [25, 150]],
+          });
+
+          Assertions.expectedError();
+        } catch (error: any) {
+          BaseTest.invalidParamError(
+            error.response,
+            ERROR_CODE,
+            `Invalid parameter 2: ${REWARD_PERCENTILES_ERROR}, value: [25,150]`,
+          );
         }
       });
     });

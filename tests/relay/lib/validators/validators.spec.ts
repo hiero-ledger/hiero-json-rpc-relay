@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
+import mainConstants from '../../../../src/relay/lib/constants';
 import { OBJECTS_VALIDATIONS, TYPES, validateParams } from '../../../../src/relay/lib/validators';
 import * as Constants from '../../../../src/relay/lib/validators/constants';
 import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes';
@@ -77,6 +78,51 @@ describe('Validator', async () => {
 
     it('does not throw an error if param is array', async () => {
       expect(validateParams([['0x1']], validation)).to.eq(undefined);
+    });
+  });
+
+  describe('validates rewardPercentiles type correctly', async () => {
+    const validation = { 0: { type: 'rewardPercentiles' } };
+    const error = Constants.REWARD_PERCENTILES_ERROR;
+
+    it('throws an error if the param is not an array', async () => {
+      expect(() => validateParams(['random string'], validation)).to.throw(
+        expectInvalidParam(0, error, 'random string'),
+      );
+      expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
+      expect(() => validateParams([{}], validation)).to.throw(expectInvalidParam(0, error, '{}'));
+    });
+
+    it('throws an error if an element is below 0', async () => {
+      expect(() => validateParams([[-1, 50]], validation)).to.throw(expectInvalidParam(0, error, '[-1,50]'));
+    });
+
+    it('throws an error if an element is above 100', async () => {
+      expect(() => validateParams([[50, 150]], validation)).to.throw(expectInvalidParam(0, error, '[50,150]'));
+    });
+
+    it('throws an error if an element is not a number', async () => {
+      expect(() => validateParams([[25, '50']], validation)).to.throw(expectInvalidParam(0, error, '[25,"50"]'));
+    });
+
+    it('throws an error if the array exceeds the maximum allowed size', async () => {
+      const oversized = Array(mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE + 1).fill(50);
+      expect(() => validateParams([oversized], validation)).to.throw(
+        expectInvalidParam(0, error, `[${oversized.join(',')}]`),
+      );
+    });
+
+    it('does not throw an error for an array at the maximum allowed size', async () => {
+      const maxSized = Array(mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE).fill(50);
+      expect(validateParams([maxSized], validation)).to.eq(undefined);
+    });
+
+    it('does not throw an error for an empty array', async () => {
+      expect(validateParams([[]], validation)).to.eq(undefined);
+    });
+
+    it('does not throw an error for valid percentiles including bounds', async () => {
+      expect(validateParams([[0, 25.5, 50, 100]], validation)).to.eq(undefined);
     });
   });
 
