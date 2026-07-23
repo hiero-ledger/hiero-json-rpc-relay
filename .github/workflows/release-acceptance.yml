@@ -26,7 +26,7 @@ on:
         type: string
 permissions:
   contents: read
-  
+
 jobs:
   release-acceptance-test:
     runs-on: hiero-smart-contracts-linux-medium
@@ -62,38 +62,41 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-         node-version: 22
-    
+          node-version: 22
+
       - name: Checkout repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install make
         run: sudo apt-get update; sudo apt-get install build-essential -y
-    
+
       - name: Install packages
         run: npm ci
-    
+
       - name: Create .env file
-        run: cp ./tests/server/testnetAcceptance.env .env    
+        run: cp ./tests/server/testnetAcceptance.env .env
 
       - name: Build Typescript
         run: npm run build
+
+      - name: Load pinned versions
+        run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
 
       - name: Generate falcon-values config file
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
+            --release-tag: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           setup:
-            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
+            --release-tag: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.159.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || env.MIRROR_NODE_TAG }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -109,7 +112,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.82.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || env.SOLO_VERSION }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \

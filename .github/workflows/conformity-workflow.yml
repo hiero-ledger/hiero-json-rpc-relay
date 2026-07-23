@@ -93,21 +93,24 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
+      - name: Load pinned versions
+        run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
+
       - name: Generate falcon-values config file
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
+            --release-tag: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           setup:
-            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
+            --release-tag: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.159.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || env.MIRROR_NODE_TAG }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -123,7 +126,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.82.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || env.SOLO_VERSION }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \
