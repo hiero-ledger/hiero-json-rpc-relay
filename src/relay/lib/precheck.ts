@@ -393,7 +393,8 @@ export class Precheck {
 
   /**
    * Validates the transaction type and throws an error if the transaction is unsupported.
-   * Specifically, blob transactions (type 3) are not supported as per HIP 866.
+   * Specifically, blob transactions (type 3) are not supported as per HIP 866, and
+   * EIP-7702 transactions (type 4) are gated behind the `TX_TYPE_4_ENABLED` feature flag.
    * @param tx The transaction object to validate.
    * @throws {Error} Throws a predefined error if the transaction type is unsupported.
    */
@@ -401,6 +402,10 @@ export class Precheck {
     // Blob transactions are not supported as per HIP 866
     if (tx.type === 3) {
       throw predefined.UNSUPPORTED_TRANSACTION_TYPE_3;
+    }
+
+    if (tx.type === 4 && !ConfigService.get('TX_TYPE_4_ENABLED')) {
+      throw predefined.UNSUPPORTED_TRANSACTION_TYPE_4;
     }
   }
 
