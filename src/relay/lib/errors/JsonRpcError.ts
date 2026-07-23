@@ -172,6 +172,10 @@ export const predefined = {
     code: -32611,
     message: `Unsupported transaction type: txType=3`,
   }),
+  UNSUPPORTED_TRANSACTION_TYPE_4: new JsonRpcError({
+    code: -32611,
+    message: `Unsupported transaction type: txType=4`,
+  }),
   VALUE_TOO_LOW: new JsonRpcError({
     code: -32602,
     message: "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",

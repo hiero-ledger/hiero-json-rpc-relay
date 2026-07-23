@@ -712,6 +712,11 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  TX_TYPE_4_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   TXPOOL_API_ENABLED: {
     type: 'boolean',
     required: false,
