@@ -4,9 +4,9 @@ import { expect } from 'chai';
 import type { Transaction } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
-import constants from '../../../src/relay/lib/constants';
 // Other imports
 import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
+import constants from '../../../src/relay/lib/constants';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
@@ -34,6 +34,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     relay,
     initialBalance,
   }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
+
+  const requestDetails = new RequestDetails({ requestId: 'sendRawTransactionPrecheck', ipAddress: '0.0.0.0' });
+  const sendRawTransaction = relay.sendRawTransaction;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(constants.TINYBAR_TO_WEIBAR_COEF));
@@ -227,43 +230,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           expect(transactionInBlock.accessList).to.not.be.empty;
           expect(transactionInBlock.accessList).to.deep.equal(tx.accessList);
         });
-      });
-
-      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async () => {
-        const gasPrice = await relay.gasPrice();
-        const transaction = {
-          type: 2,
-          chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-          to: accounts[0].address,
-        } as unknown as Transaction;
-        transaction.gasLimit = Precheck.transactionIntrinsicGasCost(transaction);
-        transaction.accessList = [
-          {
-            address: accounts[0].address,
-            storageKeys: [],
-          },
-        ];
-        const signedTx = await accounts[1].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-        await relay.pollForValidTransactionReceipt(transactionHash);
-
-        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-        expect(info).to.exist;
-
-        // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
-        const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
-        expect(tx).to.have.property('accessList').that.is.an('array');
-        expect(tx.accessList).to.not.be.empty;
-
-        // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
-        const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
-        expect(block).to.have.property('transactions').that.is.an('array');
-        const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
-        expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
-        expect(transactionInBlock.accessList).to.not.be.empty;
       });
 
       it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
