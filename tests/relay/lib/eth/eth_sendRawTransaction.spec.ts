@@ -11,16 +11,17 @@ import {
   TransactionId,
   TransactionResponse,
 } from '@hiero-ledger/sdk';
-import type MockAdapter from 'axios-mock-adapter';
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import pino from 'pino';
 import sinon, { stub, useFakeTimers } from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { type Eth, JsonRpcError, predefined } from '../../../../src/relay';
-import { formatTransactionIdWithoutQueryParams } from '../../../../src/relay/formatters';
+import { formatTransactionIdWithoutQueryParams, prepend0x } from '../../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
@@ -186,6 +187,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
         const signed = await signTransaction({
           ...transaction,
+          gasLimit: '0x927C0',
           data: '0x' + '22'.repeat(13000),
         });
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
@@ -345,6 +347,61 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         ethImpl,
         [signed, requestDetails],
       );
+    });
+
+    it('should parse type 4 raw string and expose ethers-internal authorizationList format mismatch', async function () {
+      // The authorizationList entries are provided in ethers AuthorizationLike format (BigNumberish chainId/nonce + SignatureLike).
+      const authEntry = {
+        chainId: Number(ConfigService.get('CHAIN_ID')),
+        address: ACCOUNT_ADDRESS_1,
+        nonce: 0,
+        signature: {
+          r: '0x' + 'aa'.repeat(32),
+          s: '0x' + 'bb'.repeat(32),
+          yParity: 0,
+        },
+      };
+      const type4tx = {
+        type: 4,
+        chainId: Number(ConfigService.get('CHAIN_ID')),
+        to: ACCOUNT_ADDRESS_1,
+        maxFeePerGas: gasPrice,
+        maxPriorityFeePerGas: '0x0',
+        gasLimit: MAX_GAS_LIMIT_HEX,
+        value: '0x0',
+        authorizationList: [authEntry],
+      };
+      const signed = await signTransaction(type4tx);
+
+      // When sendRawTransaction receives a string it calls Precheck.parseRawTransaction(transaction),
+      // which internally calls Transaction.from(rawString).
+      // Ethers deserialises the authorization list into its own Authorization format - NOT the relay's AuthorizationListEntry format.
+      const parsedTx = ethers.Transaction.from(signed);
+      expect(parsedTx.type).to.equal(4);
+      expect(parsedTx.authorizationList).to.be.an('array').with.lengthOf(1);
+
+      const ethersEntry = parsedTx.authorizationList![0];
+      // chainId and nonce come back as bigint — not hex strings
+      expect(typeof ethersEntry.chainId).to.equal('bigint');
+      expect(typeof ethersEntry.nonce).to.equal('bigint');
+      // yParity/r/s are nested inside a Signature object — not flat properties
+      expect(ethersEntry).to.not.have.property('yParity');
+      expect(ethersEntry).to.not.have.property('r');
+      expect(ethersEntry).to.not.have.property('s');
+      expect(ethersEntry.signature).to.be.an('object');
+
+      // Despite the format difference, sendRawTransaction should still succeed
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+
+      const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+      expect(result)
+        .to.be.a('string')
+        .that.matches(/^0x[0-9a-fA-F]{64}$/);
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
@@ -762,6 +819,53 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(returnValue).to.equal(undefined);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
           });
+        });
+
+        it('should preserve and propagate accessList from raw transaction to tx pool', async function () {
+          const accessList = [
+            {
+              address: ACCOUNT_ADDRESS_1,
+              storageKeys: [prepend0x('11'.repeat(32))],
+            },
+          ];
+
+          const eip1559Tx = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            type: 2,
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x0',
+            maxFeePerGas: gasPrice,
+            maxPriorityFeePerGas: gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+            accessList,
+          } as const;
+
+          const signed = await signTransaction(eip1559Tx);
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          // Just make sure that the accessList is propagated to the tx pool
+          const saveSpy = sinon.stub(txPool, 'saveTransaction').callsFake(async (_from: unknown, parsedTx: unknown) => {
+            expect(parsedTx).to.have.property('accessList');
+            expect(parsedTx!['accessList']).to.deep.equal(accessList);
+            return Promise.resolve();
+          });
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          await ethImpl.sendRawTransaction(signed, requestDetails);
+          sinon.assert.calledOnce(saveSpy);
         });
       });
     });

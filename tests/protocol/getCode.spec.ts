@@ -9,6 +9,8 @@ import { CommonService } from '../../src/relay/lib/services';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import type ServicesClient from '../server/clients/servicesClient';
+import relayConstants from '../../src/relay/lib/constants';
+import { CommonService } from '../../src/relay/lib/services';
 import basicContractJson from '../server/contracts/Basic.json';
 import TokenCreateJson from '../server/contracts/TokenCreateContract.json';
 import Address from '../server/helpers/constants';
@@ -92,7 +94,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
     describe(client.label, () => {
       it('should execute "eth_getCode" for hts token', async () => {
         const res = (await client.call(METHOD_NAME, [NftHTSTokenContractAddress, 'latest'])) as string;
-        expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
+        expect(res).to.be.equal(CommonService.getDelegationDesignator(relayConstants.HTS_ADDRESS));
       });
 
       it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async () => {

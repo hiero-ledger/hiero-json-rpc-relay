@@ -7,6 +7,7 @@ import {
   type ITracerConfig,
   type ITracerConfigWrapper,
 } from '../types';
+import { validateAuthorizationList } from './authorizationList';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
@@ -20,7 +21,7 @@ export const TYPES = {
     test: (param: string | string[]): boolean => {
       return Array.isArray(param)
         ? validateArray(param.flat(), 'address')
-        : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param);
+        : new RegExp(Constants.ADDRESS_REGEX).test(param);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
@@ -98,7 +99,15 @@ export const TYPES = {
   transaction: {
     test: (param: any): boolean => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        return validateSchema(OBJECTS_VALIDATIONS.transaction, param);
+        if (!validateSchema(OBJECTS_VALIDATIONS.transaction, param)) return false;
+        // Apply the EIP-7702 business rules only when the caller sets an explicit transaction type.
+        // A Transaction Object (e.g. eth_call/eth_estimateGas params) often omits `type`; its
+        // authorizationList is still structurally validated by the schema above, and the type is
+        // resolved downstream, so the type-vs-list consistency check must not fire here.
+        if (param.type != null) {
+          validateAuthorizationList(Number(param.type), param.authorizationList);
+        }
+        return true;
       }
 
       return false;
@@ -163,6 +172,19 @@ export const TYPES = {
       return typeof param === 'object' && !Array.isArray(param);
     },
     error: 'Expected StateOverride object (currently accepting any object structure)',
+  },
+  yParityHex: {
+    test: (param: string) => /^0x([0-9a-fA-F]?){1,2}$/.test(param),
+    error: 'Expected 0x-prefixed yParity value (0 for even, 1 for odd)',
+  },
+  authorizationListEntry: {
+    test: (param: any) => {
+      if (param && typeof param === 'object') {
+        return validateSchema(OBJECTS_VALIDATIONS.authorizationListEntry, param);
+      }
+      return false;
+    },
+    error: 'Expected valid AuthorizationListEntry object',
   },
 } satisfies {
   [paramTypeName: string]: {

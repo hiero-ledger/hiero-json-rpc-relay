@@ -8,7 +8,13 @@ import {
   createTransactionFromContractResult,
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
-import { type AuthorizationListEntry, type Log, type Transaction } from '../../../../src/relay/lib/model';
+import type {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+} from '../../../../src/relay/lib/model';
 import { type MirrorNodeContractResult } from '../../../../src/relay/lib/types/mirrorNode';
 
 describe('TransactionFactory', () => {
@@ -324,6 +330,143 @@ describe('TransactionFactory', () => {
     });
   });
 
+  describe('formatAccessList', () => {
+    /**
+     * Test helper that exposes a private method's formatAccessList logic.
+     *
+     * This function intentionally routes the provided `input` through
+     * `createTransactionFromContractResult` using a mocked transaction payload,
+     * and then extracts the resulting `accessList`.
+     *
+     * It allows unit tests to validate the behavior of the private
+     * `formatAccessList` implementation without exporting or
+     * directly accessing it.
+     *
+     * The surrounding transaction fields are static, deterministic values
+     * and are irrelevant to the assertions, only the transformation of
+     * `access_list` is under test.
+     *
+     * @param {unknown} input - Raw access list input (may contain nulls,
+     *                      malformed items).
+     *
+     * @returns {AccessListEntry[]} The normalized and sanitized
+     * access list as produced by the internal formatter.
+     */
+    const formatAccessList = (input: unknown): AccessListEntry[] =>
+      (
+        createTransactionFromContractResult({
+          amount: 0,
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          function_parameters: '0x08090033',
+          gas_used: 400000,
+          gas_limit: 500_000,
+          to: '0x0000000000000000000000000000000000000409',
+          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+          block_hash:
+            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+          block_number: 528,
+          transaction_index: 9,
+          chain_id: '0x12a',
+          gas_price: '0x',
+          max_fee_per_gas: '0x59',
+          max_priority_fee_per_gas: '0x',
+          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+          type: 2,
+          v: 1,
+          nonce: 2,
+          access_list: input,
+        }) as Transaction1559
+      ).accessList || [];
+
+    it('returns an empty array for nullish/non-array input', () => {
+      expect(formatAccessList(null)).to.deep.equal([]);
+      expect(formatAccessList(undefined)).to.deep.equal([]);
+      expect(formatAccessList('not-an-array')).to.deep.equal([]);
+      expect(formatAccessList(123)).to.deep.equal([]);
+      expect(formatAccessList({})).to.deep.equal([]);
+    });
+
+    it('filters out null items and non-object items', () => {
+      const input = [null, undefined, 123, 'abc', true, () => ({}), { address: '0x1234' }, { storage_keys: [] }];
+
+      const out = formatAccessList(input);
+
+      expect(out).to.have.length(2);
+      expect(out[0]).to.have.property('address').equal('0x0000000000000000000000000000000000001234');
+      expect(out[1]).to.have.property('storageKeys').deep.equal([]);
+    });
+
+    it('falls back to zero defaults for missing/falsy fields', () => {
+      const input = [
+        {
+          address: '',
+          storage_keys: null,
+        },
+      ];
+
+      const [out] = formatAccessList(input);
+
+      expect(out.address).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(out.storageKeys).to.deep.equal([]);
+    });
+
+    it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
+      const input = [
+        { address: '0x1234', storage_keys: [] },
+        { address: '1234', storage_keys: [] },
+        { address: `0x${'a'.repeat(60)}`, storage_keys: [] },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+      expect(out[1].address).to.equal('0x0000000000000000000000000000000000001234');
+      expect(out[2].address).to.equal(`0x${'a'.repeat(60).slice(-40)}`);
+    });
+
+    it('keeps storage_keys as an array when provided', () => {
+      const input = [
+        {
+          address: '0x1234',
+          storage_keys: [`0x${'00'.repeat(31)}01`, `0x${'00'.repeat(31)}02`],
+        },
+      ];
+
+      const [out] = formatAccessList(input);
+
+      expect(out.storageKeys).to.deep.equal([`0x${'00'.repeat(31)}01`, `0x${'00'.repeat(31)}02`]);
+    });
+
+    it('falls back to empty array when storage_keys is missing or malformed', () => {
+      const input = [
+        { address: '0x1234', storage_keys: null },
+        { address: '0x1234', storage_keys: undefined },
+        { address: '0x1234' },
+      ];
+
+      const out = formatAccessList(input);
+
+      expect(out[0].storageKeys).to.deep.equal([]);
+      expect(out[1].storageKeys).to.deep.equal([]);
+      expect(out[2].storageKeys).to.deep.equal([]);
+    });
+
+    it('does NOT preserve extra properties on items', () => {
+      const item: any = {
+        address: '0x1234',
+        storage_keys: ['0x1'],
+        extraField: 'keep-me',
+      };
+
+      const [out] = formatAccessList([item]);
+
+      expect(out.address).to.equal('0x0000000000000000000000000000000000001234');
+      expect(out.storageKeys).to.deep.equal(['0x1']);
+      expect(out).to.not.have.property('extraField').equal('keep-me');
+    });
+  });
+
   describe('formatAuthorizationList', () => {
     /**
      * Test helper that exposes a private method's formatAuthorizationList logic.
@@ -374,7 +517,7 @@ describe('TransactionFactory', () => {
       } as MirrorNodeContractResult)!['authorizationList'];
 
     it('filters out null items and non-object items', () => {
-      const input = [null, undefined, 123, 'abc', true, () => ({}), { chainId: '1' }, { nonce: '2' }];
+      const input = [null, undefined, 123, 'abc', true, () => ({}), { chain_id: '1' }, { nonce: 2 }];
 
       const out = formatAuthorizationList(input);
 
@@ -474,6 +617,149 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out).to.have.property('extraField').equal('keep-me');
+    });
+
+    it('normalizes Mirror Node authorization_list: numeric nonce', () => {
+      const input = [
+        {
+          address: '0x65c1572023cdc2d7b136ec3d3d8241f0eaf0646d',
+          chain_id: '0x12a',
+          nonce: 100,
+          r: '0x61de89c2b2ef991c1ad5717ac0e3d5a42388d2e7bb7710aa8da10e62b021d7d5',
+          s: '0x28cd33b0ca2fd294b0de00de5152a1da4434fc49e4941626ec3dbff768c946cb',
+          yParity: '0x0',
+        },
+      ];
+
+      const [out] = formatAuthorizationList(input);
+
+      expect(out.nonce).to.equal('0x64');
+      expect(out.chainId).to.equal('0x12a');
+      expect(out.address).to.equal('0x65c1572023cdc2d7b136ec3d3d8241f0eaf0646d');
+    });
+
+    it('normalizes Mirror Node authorization_list chain_id "0x" to chainId "0x0"', () => {
+      const input = [
+        {
+          address: '0x33e2766f8e5405779ba16c071a5c0f5228d6421e',
+          chain_id: constants.EMPTY_HEX,
+          nonce: 0,
+          r: '0xb801ff3cf3fb1e5ebafa88ca24dd17892240381a865585908ad5dc3999aef208',
+          s: '0x1d8d1378a49e024d57249c8be4f7135eacd0d3529c1a94f6a3339a58cb540752',
+          yParity: '0x0',
+        },
+      ];
+      const [out] = formatAuthorizationList(input);
+      expect(out.chainId).to.equal(constants.ZERO_HEX);
+    });
+
+    it('omits mirror snake_case chain_id from formatted authorization list entries', () => {
+      const input = [
+        {
+          address: '0x33e2766f8e5405779ba16c071a5c0f5228d6421e',
+          chain_id: '0x12a',
+          nonce: 1,
+          r: '0xb801ff3cf3fb1e5ebafa88ca24dd17892240381a865585908ad5dc3999aef208',
+          s: '0x1d8d1378a49e024d57249c8be4f7135eacd0d3529c1a94f6a3339a58cb540752',
+          yParity: '0x0',
+        },
+      ];
+      const [out] = formatAuthorizationList(input);
+      expect(out).to.not.have.property('chain_id');
+      expect(out.chainId).to.equal('0x12a');
+    });
+  });
+
+  describe('formatAddress', () => {
+    /**
+     * Test helper that exercises the private `formatAddress` logic in isolation.
+     *
+     * `formatAddress` is not exported, but it is the sole transformation applied
+     * to the `address` field of every access list entry. This helper therefore
+     * routes a single-item `access_list` through `createTransactionFromContractResult`
+     * and returns the resulting `accessList[0].address`, which is exactly
+     * `formatAddress(input)` with no other normalization mixed in.
+     *
+     * The surrounding transaction fields are static, deterministic values and are
+     * irrelevant to the assertions; only the transformation of `address` is under test.
+     *
+     * @param {unknown} address - The raw address value (may be any type).
+     * @returns {string} The formatted address as produced by the internal formatter.
+     */
+    const formatAddress = (address: unknown): string =>
+      (
+        createTransactionFromContractResult({
+          amount: 0,
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          function_parameters: '0x08090033',
+          gas_used: 400000,
+          gas_limit: 500_000,
+          to: '0x0000000000000000000000000000000000000409',
+          hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+          block_hash:
+            '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+          block_number: 528,
+          transaction_index: 9,
+          chain_id: '0x12a',
+          gas_price: '0x',
+          max_fee_per_gas: '0x59',
+          max_priority_fee_per_gas: '0x',
+          r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+          s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+          type: 2,
+          v: 1,
+          nonce: 2,
+          access_list: [{ address, storage_keys: [] }],
+        }) as Transaction1559
+      ).accessList![0].address;
+
+    it('returns the zero address for non-string input', () => {
+      expect(formatAddress(null)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(undefined)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(1234)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(true)).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress({})).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress([])).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(formatAddress(new Uint8Array([0x12, 0x34]))).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns the zero address for an empty string', () => {
+      expect(formatAddress('')).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('returns the zero address for a bare "0x" string', () => {
+      expect(formatAddress('0x')).to.equal(constants.ZERO_ADDRESS_HEX);
+    });
+
+    it('left-pads a short address to 40 hex chars and re-adds the 0x prefix', () => {
+      expect(formatAddress('0x1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('accepts an address without a 0x prefix', () => {
+      expect(formatAddress('1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('strips the leading 0x prefix case-insensitively (0X)', () => {
+      expect(formatAddress('0X1234')).to.equal('0x0000000000000000000000000000000000001234');
+    });
+
+    it('leaves a full 40-char address untouched', () => {
+      const address = `0x${'a'.repeat(40)}`;
+      expect(formatAddress(address)).to.equal(address);
+    });
+
+    it('keeps only the last 40 hex chars of an oversized address', () => {
+      const address = `0x${'a'.repeat(60)}`;
+      expect(formatAddress(address)).to.equal(`0x${'a'.repeat(40)}`);
+    });
+
+    it('preserves the original casing of the address', () => {
+      const address = '0xAbCdEf0000000000000000000000000000001234';
+      expect(formatAddress(address)).to.equal(address);
+    });
+
+    it('strips only the leading 0x, leaving an embedded 0x intact', () => {
+      expect(formatAddress('0x12000x34')).to.equal('0x0000000000000000000000000000000012000x34');
     });
   });
 });

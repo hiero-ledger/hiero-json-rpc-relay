@@ -598,7 +598,7 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
-    return TransactionFactory.createTransactionFromLog(this.chain, matchingLog, 0);
+    return TransactionFactory.createTransactionFromLog(this.chain, matchingLog);
   }
 
   /**

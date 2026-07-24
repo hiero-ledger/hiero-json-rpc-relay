@@ -211,4 +211,562 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_CREATE_ACCESS_LIST, []);
     });
   });
+
+  describe('eth_getCode', () => {
+    let mainContract: ethers.Contract;
+    let mainContractAddress: string;
+    let NftHTSTokenContractAddress: string;
+    let blockBeforeContractCreation: number;
+    let basicContract: ethers.Contract;
+    let basicContractAddress: string;
+
+    async function createNftHTSToken(account) {
+      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+      const tx = await mainContract.createNonFungibleTokenPublic(account.wallet.address, {
+        value: BigInt('30000000000000000000'),
+        ...Helper.GAS.LIMIT_5_000_000,
+      });
+      const receipt = await tx.wait();
+      await relay.pollForValidTransactionReceipt(receipt.hash);
+
+      const { tokenAddress } = receipt.logs.filter(
+        (e) => e.fragment.name === RelayCalls.HTS_CONTRACT_EVENTS.CreatedToken,
+      )[0].args;
+
+      return tokenAddress;
+    }
+
+    before(async () => {
+      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
+      basicContractAddress = basicContract.target as string;
+
+      blockBeforeContractCreation = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0].number;
+
+      mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, accounts[3].wallet);
+      mainContractAddress = mainContract.target as string;
+
+      const accountWithContractIdKey = await servicesNode.createAccountWithContractIdKey(
+        ContractId.fromEvmAddress(0, 0, mainContractAddress),
+        60,
+        relay.provider,
+      );
+      NftHTSTokenContractAddress = await createNftHTSToken(accountWithContractIdKey);
+    });
+
+    it('should execute "eth_getCode" for hts token', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [NftHTSTokenContractAddress, 'latest']);
+      expect(res).to.be.equal(CommonService.getDelegationDesignator(Constants.HTS_ADDRESS));
+    });
+
+    it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {
+      const earlierBlock = numberTo0x(blockBeforeContractCreation);
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [NftHTSTokenContractAddress, earlierBlock]);
+      expect(res).to.equal(constants.EMPTY_HEX);
+    });
+
+    it('@release should return empty bytecode for contract when a block earlier than the contract creation is passed', async function () {
+      const earlierBlock = numberTo0x(blockBeforeContractCreation);
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [mainContractAddress, earlierBlock]);
+      expect(res).to.equal(constants.EMPTY_HEX);
+    });
+
+    it('@release should execute "eth_getCode" for contract evm_address', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [basicContractAddress, 'latest']);
+      expect(res).to.eq(basicContractJson.deployedBytecode);
+    });
+
+    it('@release should execute "eth_getCode" for contract with id converted to evm_address', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [basicContractAddress, 'latest']);
+      expect(res).to.eq(basicContractJson.deployedBytecode);
+    });
+
+    it('should return 0x0 for non-existing contract on eth_getCode', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [Address.NON_EXISTING_ADDRESS, 'latest']);
+      expect(res).to.eq(constants.EMPTY_HEX);
+    });
+
+    it('should return 0x0 for account evm_address on eth_getCode', async function () {
+      const evmAddress = Utils.idToEvmAddress(accounts[2].accountId.toString());
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [evmAddress, 'latest']);
+      expect(res).to.eq(constants.EMPTY_HEX);
+    });
+
+    it('should return 0x0 for account alias on eth_getCode', async function () {
+      const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest']);
+      expect(res).to.eq(constants.EMPTY_HEX);
+    });
+
+    /**
+     * HIP-1340 / EIP-7702: {@code eth_getCode} on an EOA with code delegation should return
+     * {@code 0xef0100} concatenated with the 20-byte delegated contract address.
+     */
+    it.skip('should return EIP-7702 delegation designator on eth_getCode after type-4 delegation to a contract for an EOA', async function () {
+      const signer = accounts[1];
+      const gasPrice = await relay.gasPrice();
+      const defaultGasLimit = numberTo0x(3_000_000);
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: basicContractAddress,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const unsignedTx = {
+        type: 4,
+        chainId: Number(CHAIN_ID),
+        nonce: currentNonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        value: ONE_TINYBAR,
+        authorizationList,
+      };
+
+      const signedTx = await signer.wallet.signTransaction(unsignedTx);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const code = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [signer.address, 'latest']);
+      const delegateHex = basicContractAddress.replace(/^0x/i, '').toLowerCase();
+      const expectedCode = `0xef0100${delegateHex}`;
+      expect(code.toLowerCase()).to.equal(expectedCode);
+    });
+
+    // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619
+    // Refactor to consider HIP-868
+    xit('should not return contract bytecode after sefldestruct', async function () {
+      const bytecodeBefore = await relay.call('eth_getCode', [basicContractAddress, 'latest']);
+
+      // @ts-ignore
+      await basicContract.connect(accounts[0].wallet).destroy();
+
+      const bytecodeAfter = await relay.call('eth_getCode', [basicContractAddress, 'latest']);
+      expect(bytecodeAfter).to.not.eq(bytecodeBefore);
+      expect(bytecodeAfter).to.eq('0x');
+    });
+  });
+
+  // Test state changes with getStorageAt
+  describe('eth_getStorageAt', () => {
+    let storageContract: ethers.Contract;
+    let storageContractAddress: string;
+    const STORAGE_CONTRACT_UPDATE = '0x2de4e884';
+
+    this.beforeEach(async () => {
+      storageContract = await Utils.deployContract(
+        storageContractJson.abi,
+        storageContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      storageContractAddress = storageContract.target as string;
+    });
+
+    it('should execute "eth_getStorageAt" request to get current state changes', async function () {
+      const BEGIN_EXPECTED_STORAGE_VAL = '0x000000000000000000000000000000000000000000000000000000000000000f';
+      const END_EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
+
+      const beginStorageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        'latest',
+      ]);
+      expect(beginStorageVal).to.eq(BEGIN_EXPECTED_STORAGE_VAL);
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        value: 0,
+        gasLimit: 50000,
+        chainId: Number(CHAIN_ID),
+        to: storageContractAddress,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        gasPrice: gasPrice,
+        data: STORAGE_CONTRACT_UPDATE,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const storageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        'latest',
+      ]);
+      expect(storageVal).to.eq(END_EXPECTED_STORAGE_VAL);
+    });
+
+    it('should execute "eth_getStorageAt" request to get old state with passing specific block', async function () {
+      const END_EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
+
+      const beginStorageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        'latest',
+      ]);
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        value: 0,
+        gasLimit: 50000,
+        chainId: Number(CHAIN_ID),
+        to: storageContractAddress,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        gasPrice: gasPrice,
+        data: STORAGE_CONTRACT_UPDATE,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      const txReceipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      const blockNumber = txReceipt.blockNumber;
+
+      // wait for the transaction to propogate to mirror node
+      await new Promise((r) => setTimeout(r, 4000));
+
+      const latestStorageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        'latest',
+      ]);
+      const blockNumberBeforeChange = `0x${(blockNumber - 1).toString(16)}`;
+      const storageValBeforeChange = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        blockNumberBeforeChange,
+      ]);
+
+      expect(latestStorageVal).to.eq(END_EXPECTED_STORAGE_VAL);
+      expect(storageValBeforeChange).to.eq(beginStorageVal);
+    });
+
+    it('should execute "eth_getStorageAt" request to get current state changes with passing specific block', async function () {
+      const EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        value: 0,
+        gasLimit: 50000,
+        chainId: Number(CHAIN_ID),
+        to: storageContractAddress,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        gasPrice: gasPrice,
+        data: STORAGE_CONTRACT_UPDATE,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      const txReceipt = await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const blockNumber = txReceipt.blockNumber;
+      const transaction1 = {
+        ...transaction,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        data: STORAGE_CONTRACT_UPDATE,
+      };
+
+      const signedTx1 = await accounts[1].wallet.signTransaction(transaction1);
+      const transactionHash1 = await relay.sendRawTransaction(signedTx1);
+      await relay.pollForValidTransactionReceipt(transactionHash1);
+
+      //Get previous state change with specific block number
+      const storageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        blockNumber,
+      ]);
+      expect(storageVal).to.eq(EXPECTED_STORAGE_VAL);
+    });
+
+    it('should execute "eth_getStorageAt" request to get current state changes with passing specific block hash', async function () {
+      const EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        value: 0,
+        gasLimit: 50000,
+        chainId: Number(CHAIN_ID),
+        to: storageContractAddress,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        gasPrice: gasPrice,
+        data: STORAGE_CONTRACT_UPDATE,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      const txReceipt = await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const blockHash = txReceipt.blockHash;
+
+      const transaction1 = {
+        ...transaction,
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        data: STORAGE_CONTRACT_UPDATE,
+      };
+
+      const signedTx1 = await accounts[1].wallet.signTransaction(transaction1);
+      const transactionHash1 = await relay.sendRawTransaction(signedTx1);
+      await relay.pollForValidTransactionReceipt(transactionHash1);
+
+      //Get previous state change with specific block number
+      const storageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        storageContractAddress,
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        blockHash,
+      ]);
+      expect(storageVal).to.eq(EXPECTED_STORAGE_VAL);
+    });
+
+    it('should execute "eth_getStorageAt" request against an inactive address (contains no data) and receive a 32-byte-zero-hex string ', async function () {
+      const hexString = ethers.ZeroHash;
+      const inactiveAddress = ethers.Wallet.createRandom();
+
+      const storageVal = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        inactiveAddress.address,
+        '0x0',
+        'latest',
+      ]);
+
+      expect(storageVal).to.eq(hexString);
+    });
+  });
+
+  // Only run the following tests against a local node since they only work with the genesis account
+  if (ConfigService.get('LOCAL_NODE')) {
+    describe('Gas Price related RPC endpoints', () => {
+      let lastBlockBeforeUpdate;
+      let lastBlockAfterUpdate;
+      let feeScheduleContentAtStart;
+      let exchangeRateContentAtStart;
+
+      before(async () => {
+        feeScheduleContentAtStart = await servicesNode.getFileContent(FEE_SCHEDULE_FILE_ID);
+        exchangeRateContentAtStart = await servicesNode.getFileContent(EXCHANGE_RATE_FILE_ID);
+
+        await servicesNode.updateFileContent(FEE_SCHEDULE_FILE_ID, FEE_SCHEDULE_FILE_CONTENT_DEFAULT);
+        await servicesNode.updateFileContent(EXCHANGE_RATE_FILE_ID, EXCHANGE_RATE_FILE_CONTENT_DEFAULT);
+        lastBlockBeforeUpdate = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        await servicesNode.updateFileContent(FEE_SCHEDULE_FILE_ID, FEE_SCHEDULE_FILE_CONTENT_UPDATED);
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        lastBlockAfterUpdate = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
+      });
+
+      after(async () => {
+        await servicesNode.updateFileContent(FEE_SCHEDULE_FILE_ID, feeScheduleContentAtStart.toString('hex'));
+        await servicesNode.updateFileContent(EXCHANGE_RATE_FILE_ID, exchangeRateContentAtStart.toString('hex'));
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+      });
+
+      it('should call eth_feeHistory with updated fees', async function () {
+        const blockCountNumber = lastBlockAfterUpdate.number - lastBlockBeforeUpdate.number;
+        const blockCountHex = ethers.toQuantity(blockCountNumber);
+        const defaultGasPriceHex = ethers.toQuantity(Assertions.defaultGasPrice);
+        const newestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number);
+        const oldestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number - blockCountNumber + 1);
+
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, [
+          blockCountHex,
+          newestBlockNumberHex,
+          [0],
+        ]);
+
+        Assertions.feeHistory(res, {
+          resultCount: blockCountNumber,
+          oldestBlock: oldestBlockNumberHex,
+          checkReward: true,
+        });
+        // We expect all values in the array to be from the mirror node. If there is discrepancy in the blocks, the first value is from the consensus node and it's different from expected.
+        expect(res.baseFeePerGas[1]).to.equal(defaultGasPriceHex); // should return defaultGasPriceHex
+        expect(res.baseFeePerGas[res.baseFeePerGas.length - 2]).to.equal(defaultGasPriceHex);
+        expect(res.baseFeePerGas[res.baseFeePerGas.length - 1]).to.equal(defaultGasPriceHex);
+      });
+
+      it('should call eth_feeHistory with newest block > latest', async function () {
+        const blocksAhead = 10;
+
+        const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
+        const errorType = predefined.REQUEST_BEYOND_HEAD_BLOCK(latestBlock.number + blocksAhead, latestBlock.number);
+        const newestBlockNumberHex = ethers.toQuantity(latestBlock.number + blocksAhead);
+        const args = [RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, ['0x1', newestBlockNumberHex, null]];
+
+        await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
+      });
+
+      it('should call eth_feeHistory with zero block count', async function () {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, ['0x0', 'latest', null]);
+
+        expect(res.reward).to.not.exist;
+        expect(res.baseFeePerGas).to.not.exist;
+        expect(res.gasUsedRatio).to.equal(null);
+        expect(res.oldestBlock).to.equal('0x0');
+      });
+    });
+  }
+
+  describe('eth_feeHistory', () => {
+    it('should call eth_feeHistory', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, ['0x1', 'latest']);
+      expect(res.baseFeePerGas).to.exist.to.be.an('Array');
+      expect(res.baseFeePerGas.length).to.be.gt(0);
+      expect(res.gasUsedRatio).to.exist.to.be.an('Array');
+      expect(res.gasUsedRatio.length).to.be.gt(0);
+      expect(res.oldestBlock).to.exist;
+      expect(Number(res.oldestBlock)).to.be.gt(0);
+    });
+
+    it('should call eth_feeHistory with valid rewardPercentiles whose size is less than 100', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, ['0x1', 'latest', [25, 75]]);
+      expect(res.reward).to.exist.to.be.an('Array');
+      expect(res.reward.length).to.be.gt(0);
+    });
+
+    it('should fail to call eth_feeHistory with invalid rewardPercentiles whose size is greater than 100', async function () {
+      const invalidSize = 101;
+      const args = [
+        RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY,
+        ['0x1', 'latest', Array.from({ length: invalidSize }, (_, i) => i)],
+      ];
+
+      await Assertions.assertPredefinedRpcError(
+        predefined.INVALID_PARAMETER(
+          2,
+          `Reward percentiles size ${invalidSize} is greater than the maximum allowed size ${constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE}`,
+        ),
+        relay.call,
+        true,
+        relay,
+        args,
+      );
+    });
+  });
+
+  describe('Formats of addresses in Transaction and Receipt results', () => {
+    const getTxData = async (hash) => {
+      const txByHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash]);
+      const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [hash]);
+      const mirrorResult = await mirrorNode.get(`/contracts/results/${hash}`);
+
+      return { txByHash, receipt, mirrorResult };
+    };
+
+    it('from/to Addresses in transaction between accounts are in evm format', async function () {
+      const tx = await accounts[0].wallet.sendTransaction({
+        to: accounts[1].wallet,
+        value: ethers.parseEther('1'),
+      });
+
+      await tx.wait();
+
+      const { txByHash, receipt, mirrorResult } = await getTxData(tx.hash);
+
+      mirrorResult.from = accounts[0].wallet.address;
+      mirrorResult.to = accounts[1].wallet.address;
+      const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
+      Assertions.transaction(txByHash, mirrorResult);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+      Assertions.evmAddress(txByHash.from);
+      Assertions.evmAddress(txByHash.to);
+      Assertions.evmAddress(receipt.from);
+      Assertions.evmAddress(receipt.to);
+    });
+
+    it('from/to Addresses in transaction to a contract (deployed through the relay) are in evm and long-zero format', async function () {
+      const relayContract = await Utils.deployContractWithEthers([], basicContractJson, accounts[0].wallet, relay);
+
+      const tx = await accounts[0].wallet.sendTransaction({
+        to: relayContract.target,
+        value: ethers.parseEther('1'),
+      });
+
+      await tx.wait();
+
+      const { txByHash, receipt, mirrorResult } = await getTxData(tx.hash);
+
+      mirrorResult.from = accounts[0].wallet.address;
+      mirrorResult.to = relayContract.target;
+      const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
+      Assertions.transaction(txByHash, mirrorResult);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+      Assertions.evmAddress(txByHash.from);
+      Assertions.evmAddress(txByHash.to);
+      Assertions.evmAddress(receipt.from);
+      Assertions.evmAddress(receipt.to);
+    });
+
+    // Should be revised or deleted https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/1726/files#r1320363677
+    xit('from/to Addresses in transaction to a contract (deployed through HAPI tx) are in evm and long-zero format', async function () {
+      const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`);
+      const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
+      const parentContractLongZeroAddress = `0x${parentContractId.toSolidityAddress()}`;
+
+      const tx = await accounts[0].wallet.sendTransaction({
+        to: parentContractLongZeroAddress,
+        value: ethers.parseEther('1'),
+      });
+
+      await tx.wait();
+
+      const { txByHash, receipt, mirrorResult } = await getTxData(tx.hash);
+
+      mirrorResult.from = accounts[0].wallet.address;
+      mirrorResult.to = parentContractLongZeroAddress;
+      const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
+      Assertions.transaction(txByHash, mirrorResult);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+      Assertions.evmAddress(txByHash.from);
+      Assertions.longZeroAddress(txByHash.to);
+      Assertions.evmAddress(receipt.from);
+      Assertions.longZeroAddress(receipt.to);
+    });
+
+    it('from/to Addresses when transferring HTS tokens to the tokenAddress are in evm and long-zero format', async function () {
+      const tokenAsERC20 = new ethers.Contract(htsAddress, ERC20MockJson.abi, accounts[0].wallet);
+      const tx = await tokenAsERC20.transfer(accounts[1].wallet.address, 1, await Utils.gasOptions());
+
+      await tx.wait();
+
+      const { txByHash, receipt, mirrorResult } = await getTxData(tx.hash);
+
+      mirrorResult.from = accounts[0].wallet.address;
+
+      // ignore assertion of logs to keep the test simple
+      receipt.logs = [];
+      mirrorResult.logs = [];
+      const currentPrice = await relay.gasPrice();
+      const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
+      Assertions.transaction(txByHash, mirrorResult);
+      Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);
+
+      Assertions.evmAddress(txByHash.from);
+      Assertions.longZeroAddress(txByHash.to);
+      Assertions.evmAddress(receipt.from);
+      Assertions.longZeroAddress(receipt.to);
+    });
+  });
 });

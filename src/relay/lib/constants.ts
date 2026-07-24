@@ -72,6 +72,10 @@ export default {
   HEDERA_NODE_REWARD_ACCOUNT_ADDRESS: '0x0000000000000000000000000000000000000321', // more info https://hips.hedera.com/hip/hip-1259
   HBAR_TO_TINYBAR_COEF: 100_000_000,
   NANOS_PER_SECOND: BigInt('1000000000'),
+  // Inclusive upper bounds for unsigned integer fields. EIP-7702 authorization tuples encode
+  // `nonce` as a uint64 and `chainId` as a uint256; values above these bounds are invalid.
+  UINT64_MAX: BigInt('18446744073709551615'),
+  UINT256_MAX: BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935'),
   TINYBAR_TO_WEIBAR_COEF: 10_000_000_000,
   TOTAL_SUPPLY_TINYBARS: 5_000_000_000_000_000_000,
   CACHE_KEY,
@@ -81,6 +85,7 @@ export default {
   TYPE_CONTRACT: 'CONTRACT',
   TYPE_ACCOUNT: 'ACCOUNT',
   TYPE_TOKEN: 'TOKEN',
+  TYPE_SCHEDULE: 'SCHEDULE',
 
   DEFAULT_FEE_HISTORY_MAX_RESULTS: 10,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE: 100,
@@ -90,13 +95,30 @@ export default {
   DEFAULT_BLOCK_GAS_LIMIT: 30_000_000,
   MAX_GAS_PER_SEC: 15_000_000,
   CONTRACT_CALL_GAS_LIMIT: 50_000_000,
-  ISTANBUL_TX_DATA_NON_ZERO_COST: 16,
   TX_BASE_COST: 21_000,
   MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS: 610_000,
   TX_CONTRACT_CALL_AVERAGE_GAS: 500_000,
   TX_DEFAULT_GAS_DEFAULT: 400_000,
   TX_CREATE_EXTRA: 32_000,
-  TX_DATA_ZERO_COST: 4,
+
+  STANDARD_TOKEN_COST: 4,
+
+  // EIP-7623: Calldata floor pricing constants
+  TOTAL_COST_FLOOR_PER_TOKEN: 10,
+
+  // EIP-3860: Initcode cost and size limit for contract creation
+  INITCODE_WORD_COST: 2,
+  MAX_INITCODE_SIZE: 49152,
+
+  // EIP-7702: Authorization list cost for type 4 transactions
+  PER_EMPTY_ACCOUNT_COST: 25_000,
+
+  // EIP-2930 Access List cost of a single storage key
+  ACCESS_LIST_STORAGE_KEY_COST: 1_900,
+
+  // EIP-2930 Access List cost of a single address
+  ACCESS_LIST_ADDRESS_COST: 2_400,
+
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
   NEXT_LINK_PREFIX: '/api/v1/',
   QUERY_COST_INCREMENTATION_STEP: 1.1,
@@ -243,6 +265,7 @@ export default {
   ONE_HEX: '0x1',
   TWO_HEX: '0x2',
   HTS_ADDRESS: '0x0000000000000000000000000000000000000167',
+  HSS_ADDRESS: '0x000000000000000000000000000000000000016b',
   DEFAULT_GAS_USED_RATIO: 0.5,
 
   BLOCK_LATEST: 'latest',
@@ -258,6 +281,9 @@ export default {
   // number (e.g. Metamask), so a request for the second-to-latest block still resolves the live
   // balance instead of triggering a needless historical lookup.
   LATEST_BLOCK_TOLERANCE: 1,
+
+  /** EIP-7702 / HIP-1340: prefix returned by eth_getCode for code-delegated addresses (EOAs, HTS tokens, HSS schedules). */
+  EOA_DELEGATION_DESIGNATOR_PREFIX: '0xef0100',
 
   ETH_FEE_HISTORY: 'eth_feeHistory',
   ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',

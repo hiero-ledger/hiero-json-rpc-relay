@@ -10,6 +10,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CommonService, type TransactionPoolService } from './services';
 import { type RequestDetails } from './types';
 import { type IAccountBalance } from './types/mirrorNode';
+import { validateAuthorizationList } from './validators/authorizationList';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -68,12 +69,14 @@ export class Precheck {
    */
   validateBasicPropertiesStateless(parsedTx: Transaction): void {
     this.callDataSize(parsedTx);
+    this.initcodeSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
     this.gasLimit(parsedTx);
     this.chainId(parsedTx);
     this.value(parsedTx);
     this.accessList(parsedTx);
+    this.authorizationList(parsedTx);
   }
 
   /**
@@ -216,7 +219,7 @@ export class Precheck {
    */
   gasLimit(tx: Transaction): void {
     const gasLimit = Number(tx.gasLimit);
-    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx.data);
+    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx);
 
     if (gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD) {
       throw predefined.GAS_LIMIT_TOO_HIGH(gasLimit, constants.MAX_TRANSACTION_FEE_THRESHOLD);
@@ -226,38 +229,102 @@ export class Precheck {
   }
 
   /**
-   * Checks if the value of the access was not set.
-   * @param tx - The transaction.
+   * Checks if the value of the access was not set for legacy transactions.
+   *
+   * @param tx - The transaction to validate.
    */
   accessList(tx: Transaction): void {
-    if (tx.accessList?.length) throw predefined.NOT_YET_IMPLEMENTED;
+    if (Number(tx.type) === 0 && (tx.accessList ?? []).length > 0) {
+      throw predefined.INVALID_PARAMETER('accessList', 'not supported for legacy transactions');
+    }
+  }
+
+  /**
+   * Validates the authorization list entries for EIP-7702 (type 4) transactions.
+   *
+   * @param tx - The transaction to validate.
+   * @throws {JsonRpcError} If any entry contains an invalid address.
+   */
+  authorizationList(tx: Transaction): void {
+    validateAuthorizationList(Number(tx.type), tx.authorizationList);
+
+    // EIP-7702 mandates that tx.to must not be null
+    if (tx.type === 4 && tx.to == null) {
+      throw predefined.INVALID_PARAMETER('to', 'type 4 transaction cannot be used to create contract');
+    }
   }
 
   /**
    * Calculates the intrinsic gas cost based on the number of bytes in the data field.
    * Using a loop that goes through every two characters in the string it counts the zero and non-zero bytes.
    * Every two characters that are packed together and are both zero counts towards zero bytes.
+   *
    * @param data - The data with the bytes to be calculated
    * @returns The intrinsic gas cost.
    * @private
+   * Calculates the intrinsic gas cost based on EIP-7623 floor pricing rules.
+   *
+   * The intrinsic gas is calculated as:
+   *   max(standardIntrinsicGas, floorPrice)
+   *
+   * Where:
+   *   - standardIntrinsicGas = TX_BASE_COST + calldata cost + contract creation cost + auth list cost
+   *   - floorPrice = TX_BASE_COST + TOTAL_COST_FLOOR_PER_TOKEN * tokens_in_calldata
+   *   - tokens_in_calldata = zero_bytes + non_zero_bytes * 4
+   *
+   * @see https://eips.ethereum.org/EIPS/eip-7623
+   * @see https://eips.ethereum.org/EIPS/eip-7702
+   * @see https://eips.ethereum.org/EIPS/eip-3860
+   *
+   * @param tx - The transaction object
+   * @returns The intrinsic gas cost (maximum of standard cost and floor price).
    */
-  public static transactionIntrinsicGasCost(data: string): number {
-    const trimmedData = data.replace('0x', '');
+  public static transactionIntrinsicGasCost(tx: Transaction): number {
+    const calldata = tx.data?.replace('0x', '') || '';
 
-    let zeros = 0;
-    let nonZeros = 0;
-    for (let index = 0; index < trimmedData.length; index += 2) {
-      const bytes = trimmedData[index] + trimmedData[index + 1];
-      if (bytes === '00') {
-        zeros++;
+    // Count zero and non-zero bytes in calldata
+    let zeroBytes = 0;
+    let nonZeroBytes = 0;
+    for (let index = 0; index < calldata.length; index += 2) {
+      const byte = calldata[index] + calldata[index + 1];
+      if (byte === '00') {
+        zeroBytes++;
       } else {
-        nonZeros++;
+        nonZeroBytes++;
       }
     }
 
-    return (
-      constants.TX_BASE_COST + constants.TX_DATA_ZERO_COST * zeros + constants.ISTANBUL_TX_DATA_NON_ZERO_COST * nonZeros
-    );
+    // EIP-7623: tokens_in_calldata = zero_bytes + non_zero_bytes * 4
+    const tokensInCalldata = zeroBytes + nonZeroBytes * 4;
+
+    // Standard intrinsic gas cost (EIP-7623: STANDARD_TOKEN_COST * tokens)
+    let standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokensInCalldata;
+
+    // EIP-3860: Add contract creation cost if tx.to is null (contract deployment)
+    const isContractCreation = tx.to === null || tx.to === undefined;
+    if (isContractCreation) {
+      const calldataLengthInBytes = calldata.length / 2;
+      const words = Math.ceil(calldataLengthInBytes / 32);
+      standardIntrinsicGas += constants.TX_CREATE_EXTRA + constants.INITCODE_WORD_COST * words;
+    }
+
+    // EIP-7702: Add authorization list cost for type 4 transactions
+    const authorizationList = tx.authorizationList;
+    if (tx.type === 4 && authorizationList && Array.isArray(authorizationList)) {
+      standardIntrinsicGas += constants.PER_EMPTY_ACCOUNT_COST * authorizationList.length;
+    }
+
+    // EIP-2930: Add access list cost
+    const accessList = tx.accessList || [];
+    standardIntrinsicGas +=
+      constants.ACCESS_LIST_ADDRESS_COST * accessList.length +
+      constants.ACCESS_LIST_STORAGE_KEY_COST * accessList.flatMap(({ storageKeys }) => storageKeys).length;
+
+    // EIP-7623: Floor price for calldata-heavy transactions
+    const floorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokensInCalldata;
+
+    // Return the maximum of standard intrinsic gas and floor price
+    return Math.max(standardIntrinsicGas, floorPrice);
   }
 
   /**
@@ -289,6 +356,23 @@ export class Precheck {
     const callDataSizeLimit = constants.CALL_DATA_SIZE_LIMIT;
     if (totalCallDataSizeInBytes > callDataSizeLimit) {
       throw predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(totalCallDataSizeInBytes, callDataSizeLimit);
+    }
+  }
+
+  /**
+   * Validates that the initcode size does not exceed the EIP-3860 limit for contract creation transactions.
+   * Only applies when `tx.to` is null (i.e. the transaction is a contract deployment).
+   * The data field of a contract creation transaction IS the initcode.
+   *
+   * @param tx - The transaction to validate.
+   * @throws {JsonRpcError} If the initcode size exceeds the EIP-3860 limit of 49152 bytes.
+   * @see https://eips.ethereum.org/EIPS/eip-3860
+   */
+  initcodeSize(tx: Transaction): void {
+    if (tx.to !== null) return;
+    const initcodeSizeInBytes = tx.data.replace('0x', '').length / 2;
+    if (initcodeSizeInBytes > constants.MAX_INITCODE_SIZE) {
+      throw predefined.INITCODE_SIZE_LIMIT_EXCEEDED(initcodeSizeInBytes, constants.MAX_INITCODE_SIZE);
     }
   }
 

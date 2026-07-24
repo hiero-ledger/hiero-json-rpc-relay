@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import type { Transaction } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { numberTo0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
+// Other imports
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
+import Constants from '../../../src/relay/lib/constants';
+// Errors and constants from local resources
+import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
+import { Precheck } from '../../../src/relay/lib/precheck';
+import { RequestDetails } from '../../../src/relay/lib/types';
+import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import type MirrorClient from '../clients/mirrorClient';
 import type RelayClient from '../clients/relayClient';
@@ -42,6 +50,669 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   this.beforeAll(async () => {
     accounts.push(...(await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 5, initialBalance)));
     global.accounts.push(...accounts);
+  });
+
+  describe('Prechecks', function () {
+    describe('transactionSize', function () {
+      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          to: accounts[0].address,
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        expect(signedTx.length).to.be.lt(Constants.SEND_RAW_TRANSACTION_SIZE_LIMIT);
+
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+        expect(info.result).to.equal('SUCCESS');
+      });
+
+      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          to: accounts[0].address,
+          data: '0x' + '00'.repeat(Constants.SEND_RAW_TRANSACTION_SIZE_LIMIT + 1024), // exceeds the limit by 1KB
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const totalRawTransactionSizeInBytes = signedTx.replace('0x', '').length / 2;
+        const error = predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(
+          totalRawTransactionSizeInBytes,
+          Constants.SEND_RAW_TRANSACTION_SIZE_LIMIT,
+        );
+
+        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+      });
+    });
+
+    describe('accessList', function () {
+      const ACCESS_LIST_TEST_ADDRESS_1 = '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69';
+      const ACCESS_LIST_TEST_ADDRESS_2 = '0xc37f417fA09933335240FCA72DD257BFBdE9C275';
+
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and tx type = 0', async () => {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 0,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [],
+            },
+          ],
+          to: accounts[0].address,
+        };
+        await expect(accounts[1].wallet.signTransaction(transaction).then(relay.sendRawTransaction)).to.eventually.be
+          .rejected;
+      });
+
+      [
+        {
+          label: 'non-empty access list with 1 element',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with 1 element and one storage key',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with 1 element and multiple storage keys',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`, `${prepend0x('00'.repeat(31))}02`],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and multiple storage keys',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [`${prepend0x('00'.repeat(31))}01`, `${prepend0x('00'.repeat(31))}02`],
+            },
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_2,
+              storageKeys: [`${prepend0x('00'.repeat(31))}03`, `${prepend0x('00'.repeat(31))}04`],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and no storage keys',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [],
+            },
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_2,
+              storageKeys: [],
+            },
+          ],
+        },
+        {
+          label: 'non-empty access list with multiple addresses and single storage key',
+          accessList: [
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_1,
+              storageKeys: [`${prepend0x('00'.repeat(31))}03`],
+            },
+            {
+              address: ACCESS_LIST_TEST_ADDRESS_2,
+              storageKeys: [],
+            },
+          ],
+        },
+      ].forEach(({ label, accessList }) => {
+        it(`should succeed when calling "eth_sendRawTransaction" with ${label} and tx type != 0`, async () => {
+          const gasPrice = await relay.gasPrice();
+          const transaction = {
+            type: 2,
+            chainId: Number(CHAIN_ID),
+            nonce: await relay.getAccountNonce(accounts[1].address),
+            maxPriorityFeePerGas: gasPrice,
+            maxFeePerGas: gasPrice,
+            gasLimit: defaultGasLimit,
+            accessList,
+            to: accounts[0].address,
+          };
+
+          const signedTx = await accounts[1].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.exist;
+
+          // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
+          const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
+          expect(tx).to.have.property('accessList').that.is.an('array');
+          expect(tx.accessList).to.not.be.empty;
+
+          // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
+          const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
+          expect(block).to.have.property('transactions').that.is.an('array');
+          const transactionInBlock = block.transactions.find(({ hash }) => hash === transactionHash);
+          expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
+          expect(transactionInBlock.accessList).to.not.be.empty;
+          expect(transactionInBlock.accessList).to.deep.equal(tx.accessList);
+        });
+      });
+
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async () => {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          to: accounts[0].address,
+        } as unknown as Transaction;
+        transaction.gasLimit = Precheck.transactionIntrinsicGasCost(transaction);
+        transaction.accessList = [
+          {
+            address: accounts[0].address,
+            storageKeys: [],
+          },
+        ];
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
+        const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
+        expect(tx).to.have.property('accessList').that.is.an('array');
+        expect(tx.accessList).to.not.be.empty;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
+        const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
+        expect(block).to.have.property('transactions').that.is.an('array');
+        const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
+        expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
+        expect(transactionInBlock.accessList).to.not.be.empty;
+      });
+
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          to: accounts[0].address,
+        } as unknown as Transaction;
+        transaction.gasLimit = Precheck.transactionIntrinsicGasCost(transaction);
+        transaction.accessList = [
+          {
+            address: accounts[0].address,
+            storageKeys: [],
+          },
+        ];
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
+      });
+
+      it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [],
+          to: accounts[0].address,
+        };
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+      });
+    });
+
+    describe('callDataSize', function () {
+      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          to: accounts[0].address,
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        expect(signedTx.length).to.be.lt(Constants.CALL_DATA_SIZE_LIMIT);
+
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+        expect(info.result).to.equal('SUCCESS');
+      });
+
+      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          to: accounts[0].address,
+          data: '0x' + '00'.repeat(Constants.CALL_DATA_SIZE_LIMIT + 1024), // exceeds the limit by 1KB
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const totalRawTransactionSizeInBytes = transaction.data.replace('0x', '').length / 2;
+        const error = predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(
+          totalRawTransactionSizeInBytes,
+          Constants.CALL_DATA_SIZE_LIMIT,
+        );
+
+        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+      });
+    });
+  });
+
+  describe('Jumbo Transaction', function () {
+    it('@release @xts should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
+      const isJumboTransaction = ConfigService.get('JUMBO_TX_ENABLED');
+      // skip this test if JUMBO_TX_ENABLED is false
+      if (!isJumboTransaction) {
+        this.skip();
+      }
+
+      const gasPrice = await relay.gasPrice();
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(accounts[1].address),
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        data: '0x' + '00'.repeat(6144), // = 6kb just barely above the HFS threshold to trigger the jumbo transaction flow
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+      expect(info).to.exist;
+    });
+  });
+
+  describe('Read-Only mode', function () {
+    it('should fail to execute "eth_sendRawTransaction" in Read-Only mode', async function () {
+      const readOnly = ConfigService.get('READ_ONLY');
+      ConfigServiceTestHelper.dynamicOverride('READ_ONLY', true);
+
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: 1234,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        data: '0x00',
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const error = predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+
+      ConfigServiceTestHelper.dynamicOverride('READ_ONLY', readOnly);
+    });
+  });
+
+  describe('Paymaster', function () {
+    const zeroGasPrice = '0x0';
+    const GAS_PRICE_REF = '0x123456';
+    const MAX_ALLOWANCE = 100;
+
+    let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+    before(() => {
+      paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
+      paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
+      maxGasAllowanceHbarBefore = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
+    });
+
+    after(() => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', paymasterEnabledBefore);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', paymasterWhitelistBefore);
+      ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', maxGasAllowanceHbarBefore);
+      Utils.reloadPaymasterConfigs();
+    });
+
+    const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
+      ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
+      Utils.reloadPaymasterConfigs();
+    };
+
+    const createAndSignTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(senderAccount.address),
+        maxPriorityFeePerGas: zeroGasPrice,
+        maxFeePerGas: zeroGasPrice,
+        gasLimit: defaultGasLimit,
+        to: recipientAddress, // If undefined, creates a contract deployment transaction
+        data: recipientAddress ? undefined : '0x' + '00'.repeat(6144),
+      };
+
+      return senderAccount.wallet.signTransaction(transaction);
+    };
+
+    const verifySuccessfulTransaction = async (txHash: string, signerAddress: string, initialBalance: bigint) => {
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`);
+      expect(info).to.exist;
+      expect(info.result).to.equal('SUCCESS');
+
+      const finalBalance = await relay.getBalance(signerAddress, 'latest');
+      expect(initialBalance).to.be.equal(finalBalance);
+    };
+
+    it('should process zero-fee contract deployment transactions when Paymaster is enabled globally', async function () {
+      // configure paymaster for all addresses
+      configurePaymaster(true, ['*'], MAX_ALLOWANCE);
+
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx = await createAndSignTransaction(accounts[2]);
+      const txHash = await relay.sendRawTransaction(signedTx);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should process zero-fee transactions to existing accounts when Paymaster is enabled globally', async function () {
+      configurePaymaster(true, ['*'], MAX_ALLOWANCE);
+
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should process zero-fee transactions when target address is specifically whitelisted', async function () {
+      // Configure paymaster for specific address
+      configurePaymaster(true, [accounts[0].address], MAX_ALLOWANCE);
+
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should reject zero-fee transactions when Paymaster is disabled', async function () {
+      configurePaymaster(false, ['*'], MAX_ALLOWANCE);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const error = predefined.GAS_PRICE_TOO_LOW(zeroGasPrice, GAS_PRICE_REF);
+
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+    });
+
+    it('should reject zero-fee transactions when whitelist is empty despite Paymaster being enabled', async function () {
+      configurePaymaster(true, [], MAX_ALLOWANCE);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const error = predefined.GAS_PRICE_TOO_LOW(zeroGasPrice, GAS_PRICE_REF);
+
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+    });
+
+    it('should return INSUFFICIENT_TX_FEE when Paymaster is enabled but has zero allowance', async function () {
+      // set allowance to zero
+      configurePaymaster(true, ['*'], 0);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`);
+      expect(info).to.exist;
+      expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
+    });
+  });
+
+  describe('Multiple paymasters', function () {
+    let newPaymasters = [];
+
+    const createAndSignTransaction = async (senderAccount: AliasAccount, to: string, gasPrice: string = '0x0') => {
+      return senderAccount.wallet.signTransaction({
+        to,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(senderAccount.address),
+        gasLimit: 30_000,
+        value: ONE_TINYBAR,
+      });
+    };
+
+    let paymasterAccounts, paymasterAccountsWhitelists;
+    before(async () => {
+      newPaymasters = await Utils.createMultipleAliasAccounts(mirrorNode, accounts[4], 2, '1500000000');
+      await new Promise((r) => setTimeout(r, 2500));
+
+      paymasterAccounts = ConfigService.get('PAYMASTER_ACCOUNTS');
+      paymasterAccountsWhitelists = ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS');
+    });
+
+    after(() => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', paymasterAccounts);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', paymasterAccountsWhitelists);
+      Utils.reloadPaymasterConfigs();
+    });
+
+    const configurePaymaster = (paymasterAccounts: any, paymasterAccountsWhitelists: any) => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', paymasterAccounts);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', paymasterAccountsWhitelists);
+      Utils.reloadPaymasterConfigs();
+    };
+
+    it('should cover the tx fees if PAYMASTER_ACCOUNTS and PAYMASTER_ACCOUNTS_WHITELISTS are set', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [[newPaymasters[0].accountId.toString(), [accounts[2].address.toLowerCase()]]],
+      );
+
+      const senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const paymasterBalanceBefore = await relay.getBalance(newPaymasters[0].address, 'latest');
+
+      const signedTx = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+      const senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      const paymasterBalanceAfter = await relay.getBalance(newPaymasters[0].address, 'latest');
+
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+      expect(paymasterBalanceBefore).to.be.greaterThan(paymasterBalanceAfter);
+    });
+
+    it('should cover tx fees only if they are whitelisted by paymasters', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+          [
+            newPaymasters[1].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[1].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [
+          [newPaymasters[0].accountId.toString(), [accounts[1].address.toLowerCase()]],
+          [newPaymasters[1].accountId.toString(), [accounts[2].address.toLowerCase()]],
+        ],
+      );
+      let senderBalanceBefore, receiverBalanceBefore, senderBalanceAfter, receiverBalanceAfter;
+
+      const paymaster0BalanceStart = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceStart = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must be covered by paymaster[1]
+      senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx1 = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash1 = await relay.sendRawTransaction(signedTx1);
+      await relay.pollForValidTransactionReceipt(txHash1);
+      senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter1 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter1 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must be covered by paymaster[0]
+      senderBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const signedTx2 = await createAndSignTransaction(accounts[2], accounts[1].address);
+      const txHash2 = await relay.sendRawTransaction(signedTx2);
+      await relay.pollForValidTransactionReceipt(txHash2);
+      senderBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter2 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter2 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must not be covered by any paymaster
+      senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[0].address, 'latest');
+      const signedTx3 = await createAndSignTransaction(accounts[1], accounts[0].address, await relay.gasPrice());
+      const txHash3 = await relay.sendRawTransaction(signedTx3);
+      await relay.pollForValidTransactionReceipt(txHash3);
+      senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[0].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter3 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter3 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // first tx must be covered by paymaster[1]
+      expect(paymaster0BalanceStart).to.equal(paymaster0BalanceAfter1);
+      expect(paymaster1BalanceStart).to.be.greaterThan(paymaster1BalanceAfter1);
+
+      // second tx must be covered by paymaster[0]
+      expect(paymaster0BalanceAfter1).to.be.greaterThan(paymaster0BalanceAfter2);
+      expect(paymaster1BalanceAfter1).to.equal(paymaster1BalanceAfter2);
+
+      // third tx must not be covered by any paymaster
+      expect(paymaster0BalanceAfter3).to.equal(paymaster0BalanceAfter2);
+      expect(paymaster1BalanceAfter3).to.equal(paymaster1BalanceAfter2);
+    });
+
+    it('should apply only the last paymaster if there are repeated addresses', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+          [
+            newPaymasters[1].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[1].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            [accounts[1].address.toLowerCase(), accounts[2].address.toLowerCase()],
+          ],
+          [newPaymasters[1].accountId.toString(), [accounts[2].address.toLowerCase()]],
+        ],
+      );
+
+      const paymaster0BalanceBefore = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceBefore = await relay.getBalance(newPaymasters[1].address, 'latest');
+      const senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+      const senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      const paymaster0BalanceAfter = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+      expect(paymaster0BalanceBefore).to.equal(paymaster0BalanceAfter);
+      expect(paymaster1BalanceBefore).to.be.greaterThan(paymaster1BalanceAfter);
+    });
   });
 
   describe('@nonce-ordering Lock Service Tests', function () {
@@ -352,11 +1023,70 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   /**
+   * Skip until the Mirror Node supports authorization_list in /contracts/call simulations.
+   * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
+   */
+  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
+    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
+
+    it('eth_call with authorizationList simulates delegated code', async () => {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const result = await relay.call('eth_call', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+        'latest',
+      ]);
+
+      expect(result).to.be.a('string');
+      expect(result.startsWith('0x')).to.be.true;
+    });
+
+    it('eth_estimateGas with authorizationList returns a non-zero gas estimate', async () => {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const gas = await relay.call('eth_estimateGas', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+      ]);
+
+      expect(gas).to.be.a('string');
+      expect(gas.startsWith('0x')).to.be.true;
+      expect(BigInt(gas)).to.be.greaterThan(BigInt(0));
+    });
+  });
+
+  /**
+   * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
    * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
    * https://github.com/hiero-ledger/hiero-mirror-node/issues/12379.
    */
   describe.skip('EIP-7702 (authorizationList)', function () {
-    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
+    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167'; // Delegate the calls anywhere, HTS can do.
 
     it('should install delegation via type-4 tx and verify the created transaction has correct authorization list', async function () {
       const signer = accounts[1];
