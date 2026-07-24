@@ -16,7 +16,7 @@ import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
  *   - Both the HTTP and WebSocket servers must be running in-process
  *   - app.proxy = true must be set on both servers
  */
-describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function () {
+describe('@protocol-acceptance @protocol-acceptance-eth-plain @ratelimiter-redis Redis Rate Limiting', function () {
   this.timeout(30_000);
 
   // Methods with one dedicated method per test to prevent counter bleed

@@ -1,19 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
-import { MirrorNodeClient } from '../../../clients';
+import { type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { RequestDetails } from '../../../types';
-import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
-import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
+import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import type { RequestDetails } from '../../../types';
+import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
+import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICommonService } from '../ethCommonService/ICommonService';
-import { IAccountService } from './IAccountService';
+import { type ICommonService } from '../ethCommonService/ICommonService';
+import { type IAccountService } from './IAccountService';
+
+/**
+ * Result of resolving a block identifier for balance retrieval.
+ *
+ * Discriminated on `isLatest` so callers can route without having to re-inspect the
+ * resolved block tag:
+ *  - `isLatest: true`  → the request targets the chain tip; read the live balance (the caller
+ *    already has everything it needs, so no extra fields are carried).
+ *  - `isLatest: false` → the request targets a historical (archival) block; read the balance as of
+ *    that block. `latestBlock` carries the finality timestamp the historical calculation needs; the
+ *    block identifier itself is still the one the caller passed in, so it is not echoed back.
+ */
+type BalanceBlockResolution = { isLatest: true } | { isLatest: false; latestBlock: LatestBlockNumberTimestamp };
 
 export class AccountService implements IAccountService {
   /**
@@ -125,13 +139,57 @@ export class AccountService implements IAccountService {
   }
 
   /**
-   * @param blockNumberOrTagOrHash
-   * @param requestDetails
+   * Resolves whether a block identifier refers to the chain tip ("latest") or a historical
+   * (archival) block, returning a discriminated union so callers can route without re-parsing
+   * the block tag.
+   *
+   * The flow is:
+   *  1. Resolve the latest block (from cache or the mirror node).
+   *  2. Resolve the requested block identifier (hash or number) to a block number.
+   *  3. If that block is within `LATEST_BLOCK_TOLERANCE` of the latest block, treat it as the tip
+   *     and return `{ isLatest: true }`.
+   *  4. Otherwise return `{ isLatest: false }`, ensuring the latest block timestamp is populated for
+   *     the downstream historical balance calculation.
+   *
+   * @param blockNumberOrTagOrHash the block number or hash to resolve (never `latest`/`pending`;
+   *   callers must short-circuit those tags before calling this method)
+   * @param requestDetails the request details for logging and tracking
    */
-  public async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
-    let latestBlock: LatestBlockNumberTimestamp;
-    const latestBlockTolerance = 1;
-    let blockHashNumber, isHash;
+  public async extractBlockNumberAndTimestamp(
+    blockNumberOrTagOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<BalanceBlockResolution> {
+    let latestBlock = await this.getLatestBlockFromCacheOrMirror(requestDetails);
+
+    const isHash = blockNumberOrTagOrHash.length > 32;
+    const requestedBlockNumber = isHash
+      ? Number((await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails)).number)
+      : Number(blockNumberOrTagOrHash);
+
+    const blockDiff = Number(latestBlock.blockNumber) - requestedBlockNumber;
+    if (blockDiff <= constants.LATEST_BLOCK_TOLERANCE) {
+      return { isLatest: true };
+    }
+
+    // The request targets an archival block. If the latest block came from cache it only carries the
+    // block number (timeStampTo === '0'); fetch the full block so the historical balance calculation
+    // has the finality timestamp. This should rarely happen.
+    if (latestBlock.timeStampTo === '0') {
+      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
+    }
+
+    return { isLatest: false, latestBlock };
+  }
+
+  /**
+   * Returns the latest block, preferring the cached block number when available. A cache hit yields
+   * only the block number (with `timeStampTo` set to '0' as a sentinel for "not yet fetched");
+   * callers that need the timestamp must fetch the full block separately.
+   *
+   * @param requestDetails the request details for logging and tracking
+   * @private
+   */
+  private async getLatestBlockFromCacheOrMirror(requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
     const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
 
@@ -139,30 +197,10 @@ export class AccountService implements IAccountService {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`returning cached value %s:%s`, cacheKey, JSON.stringify(blockNumberCached));
       }
-      latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
-    } else {
-      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
+      return { blockNumber: blockNumberCached, timeStampTo: '0' };
     }
 
-    if (blockNumberOrTagOrHash.length > 32) {
-      isHash = true;
-      blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
-    }
-
-    const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
-
-    const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
-    if (blockDiff <= latestBlockTolerance) {
-      blockNumberOrTagOrHash = constants.BLOCK_LATEST;
-    }
-
-    // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
-    // This should rarely happen.
-    if (blockNumberOrTagOrHash !== constants.BLOCK_LATEST && latestBlock.timeStampTo === '0') {
-      latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
-    }
-
-    return { latestBlock, blockNumberOrTagOrHash };
+    return this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
   }
 
   /**
@@ -171,14 +209,14 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails) {
+  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails): Promise<never[]> {
     let pagedTransactions = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
     const nextPageTimeMarker = nextPageParams.get('timestamp');
     // if nextPageTimeMarker is greater than the block.timestamp.to, then we need to paginate to get the transactions for the block.timestamp.to
     if (nextPageTimeMarker && nextPageTimeMarker?.split(':')[1] >= block.timestamp.to) {
-      pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails);
+      pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails, block.timestamp.to);
     }
     // if nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
 
@@ -191,7 +229,12 @@ export class AccountService implements IAccountService {
    * @param latestBlock
    * @param requestDetails
    */
-  async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+  async getBalanceAtBlockNumber(
+    account,
+    block,
+    latestBlock,
+    requestDetails,
+  ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
     let mirrorAccount;
@@ -210,7 +253,7 @@ export class AccountService implements IAccountService {
     // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
     else {
       let currentBalance = 0;
-      let balanceFromTxs = 0;
+      let balanceFromTxs: number;
       mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
         limit: ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
         transactions: true,
@@ -244,6 +287,30 @@ export class AccountService implements IAccountService {
   }
 
   /**
+   * Get transaction counts associated with an account.
+   *
+   * @param {string} address The account address
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  public async getTransactionCounts(address: string, requestDetails: RequestDetails): Promise<IPendingPoolStatusInfo> {
+    const [confirmedCount, pendingCount] = await Promise.all([
+      this.transactionPoolService.getConfirmedCount(address),
+      this.transactionPoolService.getPendingCount(address),
+    ]);
+    if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
+    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
+    const toResult = (confirmedCount: number): IPendingPoolStatusInfo => ({
+      pendingCount,
+      confirmedCount,
+      mirrorNodeArtifact: accountData,
+    });
+
+    if (!accountData) return toResult(0);
+    if (accountData.ethereum_nonce == null) return toResult(1);
+    return toResult(Number(accountData.ethereum_nonce));
+  }
+
+  /**
    * Gets the number of transactions that have been executed for the given address.
    * This goes to the consensus nodes to determine the ethereumNonce.
    *
@@ -263,16 +330,13 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (blockNumOrTag == constants.BLOCK_PENDING) {
-        return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
-      }
-      return mnNonce;
+      const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
+      return numberTo0x(blockNumOrTag === constants.BLOCK_PENDING ? confirmedCount + pendingCount : confirmedCount);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
-    } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {
+    } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {
       return await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-    } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
+    } else if (blockNumOrTag.length === constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
       return await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
     }
 
@@ -311,7 +375,7 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
+  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;
@@ -437,7 +501,7 @@ export class AccountService implements IAccountService {
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     }
 
-    return numberTo0x(transactionResult.nonce + 1); // nonce is 0 indexed
+    return numberTo0x((transactionResult.nonce ?? 0) + 1); // nonce is 0 indexed
   }
 
   /**

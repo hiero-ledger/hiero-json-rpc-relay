@@ -7,6 +7,10 @@ on:
     branches: [main, release/**]
     tags: [v*]
 
+permissions:
+  checks: write
+  contents: read
+
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -38,6 +42,18 @@ jobs:
           - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
           - { name: 'Sub Tinybar Monetary Precision', testfilter: 'sub_tinybar_monetary_precision' }
           - { name: 'Cache Service', testfilter: 'cache-service' }
+          - { name: 'Protocol Account Service', testfilter: 'protocol-account-service', test_ws_server: true }
+          - { name: 'Protocol Block Service', testfilter: 'protocol-block-service', test_ws_server: true }
+          - { name: 'Protocol Common Service', testfilter: 'protocol-common-service', test_ws_server: true }
+          - { name: 'Protocol Contract Service', testfilter: 'protocol-contract-service', test_ws_server: true }
+          - { name: 'Protocol Transaction Service', testfilter: 'protocol-transaction-service', test_ws_server: true }
+          - { name: 'Protocol Fee Service', testfilter: 'protocol-fee-service', test_ws_server: true }
+          - {
+              name: 'Protocol Eth Plain',
+              testfilter: 'protocol-eth-plain',
+              test_ws_server: true,
+              test_rate_limits: true,
+            }
           - { name: 'Server Config', testfilter: 'serverconfig' }
           - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
           - name: "Semantics and default OK response status"
@@ -59,7 +75,7 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -70,7 +86,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish Test Report
-        uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
+        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
         with:
           check_name: '' # Set to empty to disable check run
           json_thousands_separator: ','

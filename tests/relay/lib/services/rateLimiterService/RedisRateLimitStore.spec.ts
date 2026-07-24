@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Logger, pino } from 'pino';
+import { type Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { RedisRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../../src/relay/lib/types/rateLimiter';
-import { RequestDetails } from '../../../../../src/relay/lib/types/RequestDetails';
 
 describe('RedisRateLimitStore Test Suite', function () {
   this.timeout(10000);
@@ -21,7 +20,6 @@ describe('RedisRateLimitStore Test Suite', function () {
   const testDuration = 5000;
   const testKey = new RateLimitKey('127.0.0.1', 'eth_chainId');
   const testLimit = 5;
-  const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '127.0.0.1' });
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });

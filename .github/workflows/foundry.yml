@@ -5,6 +5,9 @@ on: workflow_dispatch
 env:
   FOUNDRY_PROFILE: ci
 
+permissions:
+  contents: read
+
 jobs:
   check:
     defaults:
@@ -17,7 +20,7 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -27,7 +30,7 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: step-security/foundry-toolchain@799252b03ddc2194cbaa4a948909d9ca752e7267 # v1.7.0
+        uses: step-security/foundry-toolchain@52c5ff6279374143a2a36c326a723f9bd3555836 # v1.7.1
         with:
           version: nightly
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance, AxiosResponse } from 'axios';
+import Axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import { expect } from 'chai';
-import { Server } from 'http';
+import { type Server } from 'http';
 import { pino } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
@@ -84,7 +84,7 @@ describe('Proxy Headers Integration Tests', function () {
     });
   }
 
-  function createRequestWithIP(id: string, ip: string) {
+  function createRequestWithIP(id: string) {
     return {
       id: id,
       jsonrpc: '2.0',
@@ -94,7 +94,7 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithForwardedIP(ip: string, id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ip), {
+    return testClient.post('/', createRequestWithIP(id), {
       headers: {
         'X-Forwarded-For': ip,
       },
@@ -102,11 +102,11 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithoutForwardedIP(id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ''));
+    return testClient.post('/', createRequestWithIP(id));
   }
 
   async function makeRequestWithForwardedHeader(forwardedValue: string, id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ''), {
+    return testClient.post('/', createRequestWithIP(id), {
       headers: {
         Forwarded: forwardedValue,
       },

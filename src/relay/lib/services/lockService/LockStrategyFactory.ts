@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type Logger } from 'pino';
+import { type Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 
-import { LockStrategy } from '../../types';
+import { type LockStrategy } from '../../types';
 import { LocalLockStrategy } from './LocalLockStrategy';
 import { LockMetricsService } from './LockMetricsService';
 import { RedisLockStrategy } from './RedisLockStrategy';

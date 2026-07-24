@@ -173,7 +173,85 @@ jobs:
       mirrorTag: ${{inputs.mirrorNodeTag}}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
+
+  protocol-account-service:
+    name: Protocol Account Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-account-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-block-service:
+    name: Protocol Block Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-block-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-common-service:
+    name: Protocol Common Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-common-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-contract-service:
+    name: Protocol Contract Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-contract-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-transaction-service:
+    name: Protocol Transaction Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-transaction-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-fee-service:
+    name: Protocol Fee Service
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-fee-service
+      test_ws_server: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  protocol-eth-plain:
+    name: Protocol Eth Plain
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: protocol-eth-plain
+      test_ws_server: true
+      test_rate_limits: true
+      networkTag: ${{inputs.networkNodeTag}}
+      mirrorTag: ${{inputs.mirrorNodeTag}}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   publish_results:
     name: Publish Results
     if: ${{ !cancelled() }}
@@ -192,11 +270,19 @@ jobs:
       - websocket-batch-2
       - websocket-batch-3
       - cacheservice
+      - server-config
+      - protocol-account-service
+      - protocol-block-service
+      - protocol-common-service
+      - protocol-contract-service
+      - protocol-transaction-service
+      - protocol-fee-service
+      - protocol-eth-plain
 
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -207,7 +293,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish Test Report
-        uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
+        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
         with:
           # check_name: Acceptance Tests
           check_name: '' # Set to empty to disable check run

@@ -5,7 +5,7 @@ import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { JsonRpcError, predefined } from '../../../src/relay';
+import { type JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';
@@ -384,7 +384,7 @@ export default class Assertions {
     }
   };
 
-  static expectRevert = async (promise, _code) => {
+  static expectRevert = async (promise) => {
     try {
       const tx = await promise;
       const receipt = await tx.wait();
@@ -461,7 +461,7 @@ export default class Assertions {
     // Validate excluded values are encoded
     expect(excludedValues.every(hasValidHash));
     if (result.calls) {
-      result.calls.forEach((_call) => {
+      result.calls.forEach(() => {
         expect(nestedExcludedValues.every(hasValidHash));
       });
     }

@@ -23,7 +23,7 @@ jobs:
       contents: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -53,17 +53,17 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "v0.72.0"
+            --release-tag: "v0.73.0"
             --node-aliases: "node1"
           setup:
-            --release-tag: "v0.72.0"
+            --release-tag: "v0.73.0"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "v0.151.0"
+            --mirror-node-version: "v0.159.0"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -79,7 +79,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
+          npx @hashgraph/solo@0.82.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \
@@ -101,7 +101,7 @@ jobs:
 
       - name: Dump relay logs
         if: ${{ always() && !cancelled() }}
-        uses: step-security/gh-docker-logs@2ffe2e0e1da43c5db68902dd900c47cdba10bfe6 # v2.2.6
+        uses: step-security/gh-docker-logs@561ab0d8664f002c3eb106f4cce2799cdc4510d7 # v2.2.7
         with:
           dest: './logs'
 
@@ -117,7 +117,7 @@ jobs:
           path: ./logs.tgz
 
       - name: Publish Reports
-        uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386 # v6.4.0
+        uses: mikepenz/action-junit-report@3a81627bfac62268172037048872e8ebd4207e6d # v6.4.1
         if: ${{ always() && !cancelled() }}
         with:
           check_name: Dapp Test Report

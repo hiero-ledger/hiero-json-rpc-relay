@@ -1,4 +1,5 @@
 {{- if .Values.autoscaling.enabled }}
+{{- $rps := .Values.autoscaling.loadBalancerRPS | default dict -}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -10,19 +11,41 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "json-rpc-relay-ws.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  minReplicas: {{ .Values.autoscaling.minReplicas | default .Values.replicaCount }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
     {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
     {{- end }}
     {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
-        targetAverageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if $rps.enabled }}
+    - type: External
+      external:
+        metric:
+          name: {{ $rps.metricName | required "autoscaling.loadBalancerRPS.metricName is required when loadBalancerRPS is enabled" }}
+          {{- with $rps.metricSelector }}
+          selector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+          {{- end }}
+        target:
+          type: Value
+          # totalRPS * targetUtilizationPercentage / 100
+          value: {{ div (mul (int $rps.totalRPS) (int $rps.targetUtilizationPercentage)) 100 | quote }}
+    {{- end }}
+    {{- with .Values.autoscaling.extraMetrics }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
 {{- end }}

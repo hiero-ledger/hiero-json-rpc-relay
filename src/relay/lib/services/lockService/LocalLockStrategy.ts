@@ -3,11 +3,11 @@
 import { Mutex } from 'async-mutex';
 import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../config-service/services';
-import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types/lock';
-import { LockMetricsService } from './LockMetricsService';
+import { type LockAcquisitionResult, type LockStrategy, type LockStrategyLabel } from '../../types/lock';
+import { type LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
 /**
@@ -97,7 +97,9 @@ export class LocalLockStrategy implements LockStrategy {
 
       // Start a 30-second timer to auto-release if lock not manually released
       state.lockTimeoutId = setTimeout(() => {
-        this.forceReleaseExpiredLock(address, sessionKey, acquiredAt);
+        this.forceReleaseExpiredLock(address, sessionKey, acquiredAt).catch((err) =>
+          this.logger.error(err, 'Failed to force release expired lock for address %s', address),
+        );
       }, ConfigService.get('LOCK_MAX_HOLD_MS'));
 
       // Record successful acquisition

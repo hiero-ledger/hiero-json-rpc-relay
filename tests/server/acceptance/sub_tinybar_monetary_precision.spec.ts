@@ -20,10 +20,10 @@ import { ethers } from 'ethers';
 import { ConfigService } from '../../../src/config-service/services';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
 import { withOverriddenEnvsInMochaTest } from '../../relay/helpers';
-import RelayClient from '../clients/relayClient';
+import type RelayClient from '../clients/relayClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 /** 1 tinybar expressed in weibars (mirror `hbar=false` / EVM native unit scale). */
 const ONE_TINYBAR_WEI = BigInt(constants.TINYBAR_TO_WEIBAR_COEF);

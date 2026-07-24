@@ -2,17 +2,17 @@
 
 import parse from 'co-body';
 import Koa from 'koa';
-import { Logger } from 'pino';
-import { Histogram, Registry } from 'prom-client';
+import { type Logger } from 'pino';
+import { Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
-import { JsonRpcError, predefined, Relay } from '../../relay';
+import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '../../relay/lib/services';
-import { MethodRateLimitConfiguration, RateLimitStore } from '../../relay/lib/types';
+import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
-import { IJsonRpcRequest } from './lib/IJsonRpcRequest';
+import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from './lib/RpcResponse';
 import {
@@ -27,6 +27,7 @@ const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
 const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
+const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
@@ -80,7 +81,7 @@ export default class KoaJsonRpc {
       let body: unknown | unknown[];
       try {
         body = await parse.json(ctx, { limit: this.limit });
-      } catch (err) {
+      } catch {
         ctx.body = jsonRespError(null, spec.ParseError, requestId);
         ctx.status = 400;
         return;
@@ -164,6 +165,11 @@ export default class KoaJsonRpc {
   }
 
   async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
+    const subdomain = request.method.split('_')[0] ?? null;
+    if (!RPC_HTTP_API.has(subdomain)) {
+      return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestId);
+    }
+
     try {
       const requestDetails = new RequestDetails({ requestId, ipAddress });
       // check rate limit for method and ip

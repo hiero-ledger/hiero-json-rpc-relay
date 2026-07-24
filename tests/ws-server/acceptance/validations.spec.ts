@@ -2,7 +2,7 @@
 
 // external resources
 import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
+import { ethers, type WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
 
 import { predefined } from '../../../src/relay';
@@ -112,6 +112,44 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
       expect(response.error).to.exist;
       expect(response.error.message).to.contain(expectedResult.message);
       expect(response.error.code).to.eq(expectedResult.code);
+    });
+  });
+
+  describe('WebSocket payload size limit', () => {
+    WsTestHelper.withOverriddenEnvsInMochaTest({ WS_INPUT_SIZE_LIMIT: 1 }, () => {
+      it('Should close connection with code 1009 when message exceeds payload limit', async () => {
+        const webSocket = new WebSocket(WsTestConstant.WS_RELAY_URL);
+        const oversizedPayload = JSON.stringify(WsTestHelper.prepareJsonRpcObject('eth_blockNumber', [])).padEnd(
+          2 * 1024 * 1024,
+          'x',
+        );
+
+        let closeCode: number | undefined;
+
+        webSocket.on('open', () => {
+          webSocket.send(oversizedPayload);
+        });
+
+        webSocket.on('close', (code) => {
+          closeCode = code;
+        });
+
+        await new Promise((resolve) => {
+          const timeout = setTimeout(resolve, 1000);
+          webSocket.on('close', () => {
+            clearTimeout(timeout);
+            resolve(undefined);
+          });
+        });
+
+        expect(closeCode).to.eq(1009);
+      });
+
+      it('Should process normal messages within payload limit', async () => {
+        const response = await WsTestHelper.sendRequestToStandardWebSocket('eth_blockNumber', []);
+        expect(response).to.exist;
+        expect(response.result).to.exist;
+      });
     });
   });
 });

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { LRUCache } from 'lru-cache';
-import { Logger } from 'pino';
-import { Gauge, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import { Utils } from '../../../utils';
@@ -134,6 +134,7 @@ export class LocalLRUCache implements ICacheClient {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
+    // keep the check against undefined as value can be false, 0, ""
     if (value !== undefined) {
       if (this.logger.isLevelEnabled('trace')) {
         const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');

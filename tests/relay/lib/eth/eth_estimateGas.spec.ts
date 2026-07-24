@@ -6,7 +6,7 @@ import { AbiCoder, keccak256, type Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
-import { Eth, JsonRpcError } from '../../../../src/relay';
+import { type Eth, JsonRpcError } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
@@ -18,8 +18,8 @@ import {
   LockService,
   TransactionPoolService,
 } from '../../../../src/relay/lib/services';
-import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
 import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
+import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,

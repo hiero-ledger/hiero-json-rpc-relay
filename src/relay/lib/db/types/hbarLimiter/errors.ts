@@ -22,7 +22,7 @@ export class EvmAddressHbarSpendingPlanNotFoundError extends Error {
 }
 
 export class IPAddressHbarSpendingPlanNotFoundError extends Error {
-  constructor(ipAddress: string) {
+  constructor(_ipAddress: string) {
     super(`IPAddressHbarSpendingPlan not found`);
     this.name = 'IPAddressHbarSpendingPlanNotFoundError';
   }

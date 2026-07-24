@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ContractId } from '@hiero-ledger/sdk';
 import Axios from 'axios';
-import chai, { expect } from 'chai';
+import { expect, use } from 'chai';
 import chaiExclude from 'chai-exclude';
-import { BaseContract, ethers } from 'ethers';
+import { type BaseContract, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -16,12 +15,9 @@ import { TracerType } from '../../../src/relay/lib/constants';
 import { TYPES } from '../../../src/relay/lib/validators';
 import RelayAssertions from '../../relay/assertions';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
-import { GAS_LIMIT } from '../../relay/lib/eth/eth-config';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
-import basicContractJson from '../contracts/Basic.json';
-import callerContractJson from '../contracts/Caller.json';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import DeployerContractJson from '../contracts/Deployer.json';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
@@ -31,12 +27,11 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions, { requestIdRegex } from '../helpers/assertions';
 import RelayCall from '../helpers/constants';
 import Helper from '../helpers/constants';
-import Address from '../helpers/constants';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
-chai.use(chaiExclude);
+use(chaiExclude);
 
 describe('@api-batch-3 RPC Server Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
@@ -49,44 +44,22 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     mirrorNode,
     relay,
   }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient } = global;
-  let mirrorPrimaryAccount: ethers.Wallet;
-  let mirrorSecondaryAccount: ethers.Wallet;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
 
   let reverterContract: ethers.Contract;
   let reverterEvmAddress: string;
-  let requestId: string;
-  const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
-  const BASIC_CONTRACT_PING_RESULT = '0x0000000000000000000000000000000000000000000000000000000000000001';
-  const RESULT_TRUE = '0x0000000000000000000000000000000000000000000000000000000000000001';
-  const PURE_METHOD_CALL_DATA = '0xb2e0100c';
-  const VIEW_METHOD_CALL_DATA = '0x90e9b875';
   const PAYABLE_METHOD_CALL_DATA = '0xd0efd7ef';
-  const PURE_METHOD_ERROR_DATA =
-    '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010526576657274526561736f6e5075726500000000000000000000000000000000';
-  const VIEW_METHOD_ERROR_DATA =
-    '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010526576657274526561736f6e5669657700000000000000000000000000000000';
   const PAYABLE_METHOD_ERROR_DATA =
     '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013526576657274526561736f6e50617961626c6500000000000000000000000000';
-  const PURE_METHOD_ERROR_MESSAGE = 'RevertReasonPure';
-  const VIEW_METHOD_ERROR_MESSAGE = 'RevertReasonView';
-  const errorMessagePrefixedStr =
-    'Expected 0x prefixed string representing the hash (32 bytes) in object, 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"';
+  const RESULT_TRUE = '0x0000000000000000000000000000000000000000000000000000000000000001';
   const TOPICS = [
     '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
     '0x0000000000000000000000000000000000000000000000000000000000000000',
     '0x000000000000000000000000000000000000000000000000000000000000042d',
   ];
-  const ONE_THOUSAND_TINYBARS = Utils.add0xPrefix(Utils.toHex(Constants.TINYBAR_TO_WEIBAR_COEF * 1000));
-
-  beforeEach(async () => {
-    requestId = Utils.generateRequestId();
-  });
-
   before(async () => {
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
 
     const initialBalance = '10000000000';
@@ -723,36 +696,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
   });
 
   describe('Contract call reverts', async () => {
-    it('Returns revert message for pure methods', async () => {
-      const callData = {
-        from: accounts[0].address,
-        to: reverterEvmAddress,
-        gas: numberTo0x(30000),
-        data: PURE_METHOD_CALL_DATA,
-      };
-
-      await relay.callFailing(
-        RelayCall.ETH_ENDPOINTS.ETH_CALL,
-        [callData, 'latest'],
-        predefined.CONTRACT_REVERT(PURE_METHOD_ERROR_MESSAGE, PURE_METHOD_ERROR_DATA),
-      );
-    });
-
-    it('Returns revert message for view methods', async () => {
-      const callData = {
-        from: accounts[0].address,
-        to: reverterEvmAddress,
-        gas: numberTo0x(30000),
-        data: VIEW_METHOD_CALL_DATA,
-      };
-
-      await relay.callFailing(
-        RelayCall.ETH_ENDPOINTS.ETH_CALL,
-        [callData, 'latest'],
-        predefined.CONTRACT_REVERT(VIEW_METHOD_ERROR_MESSAGE, VIEW_METHOD_ERROR_DATA),
-      );
-    });
-
     it('Returns revert reason in receipt for payable methods', async () => {
       const transaction = {
         value: ONE_TINYBAR,
@@ -772,57 +715,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       const receipt = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
       expect(receipt?.revertReason).to.exist;
       expect(receipt.revertReason).to.eq(PAYABLE_METHOD_ERROR_DATA);
-    });
-
-    describe('eth_call for reverted pure contract calls', async function () {
-      beforeEach(async () => {
-        requestId = Utils.generateRequestId();
-      });
-
-      const pureMethodsData = [
-        {
-          data: '0x2dac842f',
-          method: 'revertWithNothingPure',
-          message: '',
-          errorData: '0x',
-        },
-        {
-          data: '0x8b153371',
-          method: 'revertWithStringPure',
-          message: 'Some revert message',
-          errorData:
-            '0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013536f6d6520726576657274206d65737361676500000000000000000000000000',
-        },
-        {
-          data: '0x35314694',
-          method: 'revertWithCustomErrorPure',
-          message: '',
-          errorData: '0x0bd3d39c',
-        },
-        {
-          data: '0x83889056',
-          method: 'revertWithPanicPure',
-          message: '',
-          errorData: '0x4e487b710000000000000000000000000000000000000000000000000000000000000012',
-        },
-      ];
-
-      for (const element of pureMethodsData) {
-        it(`Pure method ${element.method} returns tx receipt`, async function () {
-          const callData = {
-            from: accounts[0].address,
-            to: reverterEvmAddress,
-            gas: numberTo0x(30000),
-            data: element.data,
-          };
-
-          await relay.callFailing(
-            RelayCall.ETH_ENDPOINTS.ETH_CALL,
-            [callData, 'latest'],
-            predefined.CONTRACT_REVERT(element.message, element.errorData),
-          );
-        });
-      }
     });
   });
 
@@ -846,7 +738,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
       tokenAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId!.toString());
 
-      // Deploy a contract implementing HederaTokenService
       const HederaTokenServiceImplFactory = new ethers.ContractFactory(
         HederaTokenServiceImplJson.abi,
         HederaTokenServiceImplJson.bytecode,
@@ -865,269 +756,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
       const res = await Utils.ethCallWRetries(relay, callData, 'latest');
       expect(res).to.eq(RESULT_TRUE);
-    });
-  });
-
-  describe('eth_getTransactionByHash', async function () {
-    let defaultTransactionFields: any;
-    let deployerContract: ethers.Contract;
-    let deployerContractAddress: string;
-
-    before(async () => {
-      const defaultGasPrice = await relay.gasPrice();
-      defaultTransactionFields = {
-        to: null,
-        from: accounts[0].address,
-        gasPrice: defaultGasPrice,
-        chainId: Number(CHAIN_ID),
-        gasLimit: GAS_LIMIT,
-        type: 2,
-        maxFeePerGas: defaultGasPrice,
-        maxPriorityFeePerGas: defaultGasPrice,
-      };
-
-      deployerContract = await Utils.deployContract(
-        DeployerContractJson.abi,
-        DeployerContractJson.bytecode,
-        accounts[0].wallet,
-      );
-      deployerContractAddress = deployerContract.target.toLowerCase() as string;
-    });
-
-    it('should return to = null for contract deployment tx', async () => {
-      const { hash } = deployerContract.deploymentTransaction();
-
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash]);
-      expect(res.to).to.be.null;
-    });
-
-    it('should return to = target contract for a transaction that executes CREATE', async () => {
-      const transactionHash = await relay.sendRawTransaction(
-        await accounts[0].wallet.signTransaction({
-          ...defaultTransactionFields,
-          to: deployerContractAddress,
-          nonce: await relay.getAccountNonce(accounts[0].address),
-          data: '0x6e6662b9', // deployViaCreate() selector
-        }),
-      );
-      await relay.pollForValidTransactionReceipt(transactionHash);
-
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
-      expect(res.to).to.equal(deployerContractAddress);
-    });
-
-    it('should return to = target contract for a transaction that executes CREATE2', async () => {
-      const transactionHash = await relay.sendRawTransaction(
-        await accounts[0].wallet.signTransaction({
-          ...defaultTransactionFields,
-          to: deployerContractAddress,
-          nonce: await relay.getAccountNonce(accounts[0].address),
-          data: '0xdbb6f04a', // deployViaCreate2()
-        }),
-      );
-      await relay.pollForValidTransactionReceipt(transactionHash);
-
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
-      expect(res.to).to.equal(deployerContractAddress);
-    });
-  });
-
-  describe('eth_getTransactionCount', async function () {
-    let deployerContract: ethers.Contract;
-    let deployerContractTx: ethers.TransactionReceipt;
-    let deployerContractAddress: string;
-    let contractId: ContractId;
-    let primaryAccountNonce: number | null;
-    let secondaryAccountNonce: number | null;
-
-    const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
-    const defaultGasLimit = numberTo0x(3_000_000);
-    const defaultTransaction = {
-      value: ONE_TINYBAR,
-      chainId: Number(CHAIN_ID),
-      maxPriorityFeePerGas: defaultGasPrice,
-      maxFeePerGas: defaultGasPrice,
-      gasLimit: defaultGasLimit,
-      type: 2,
-    };
-
-    before(async () => {
-      deployerContract = await Utils.deployContract(
-        DeployerContractJson.abi,
-        DeployerContractJson.bytecode,
-        accounts[0].wallet,
-      );
-      deployerContractAddress = deployerContract.target as string;
-
-      const deployerContractTxHash = deployerContract.deploymentTransaction()?.hash;
-      expect(deployerContractTxHash).to.not.be.null;
-
-      deployerContractTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
-        deployerContractTxHash,
-      ]);
-
-      // get contract details
-      const mirrorContract = await mirrorNode.get(`/contracts/${deployerContractAddress}`);
-      contractId = ContractId.fromString(mirrorContract.contract_id);
-
-      primaryAccountNonce = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        accounts[0].address,
-        'latest',
-      ]);
-      secondaryAccountNonce = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        accounts[1].address,
-        'latest',
-      ]);
-    });
-
-    it('@release should execute "eth_getTransactionCount" primary', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        mirrorPrimaryAccount.address,
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal(primaryAccountNonce);
-    });
-
-    it('should execute "eth_getTransactionCount" secondary', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        mirrorSecondaryAccount.address,
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal(secondaryAccountNonce);
-    });
-
-    it('@release should execute "eth_getTransactionCount" historic', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        deployerContractAddress,
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal('0x2');
-    });
-
-    it('@release should execute "eth_getTransactionCount" contract latest', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        deployerContractAddress,
-        Constants.BLOCK_LATEST,
-      ]);
-      expect(res).to.be.equal('0x2');
-    });
-
-    it('@release should execute "eth_getTransactionCount" with block hash', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        deployerContractAddress,
-        deployerContractTx.blockHash.slice(0, 66),
-      ]);
-      expect(res).to.be.equal('0x2');
-    });
-
-    it('@release should execute "eth_getTransactionCount" for account with id converted to evm_address', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        mirrorPrimaryAccount.address,
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal(primaryAccountNonce);
-    });
-
-    it('@release should execute "eth_getTransactionCount" contract with id converted to evm_address historic', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        Utils.idToEvmAddress(contractId.toString()),
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal('0x2');
-    });
-
-    it('@release should execute "eth_getTransactionCount" contract with id converted to evm_address latest', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        Utils.idToEvmAddress(contractId.toString()),
-        Constants.BLOCK_LATEST,
-      ]);
-      expect(res).to.be.equal('0x2');
-    });
-
-    it('should execute "eth_getTransactionCount" for non-existing address', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        Address.NON_EXISTING_ADDRESS,
-        deployerContractTx.blockNumber,
-      ]);
-      expect(res).to.be.equal('0x0');
-    });
-
-    it('should execute "eth_getTransactionCount" from hollow account', async function () {
-      const hollowAccount = ethers.Wallet.createRandom();
-      const resBeforeCreation = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        hollowAccount.address,
-        'latest',
-      ]);
-      expect(resBeforeCreation).to.be.equal('0x0');
-
-      const gasPrice = await relay.gasPrice();
-      const signedTxHollowAccountCreation = await accounts[1].wallet.signTransaction({
-        ...defaultTransaction,
-        value: '10000000000000000000', // 10 HBARs
-        to: hollowAccount.address,
-        nonce: await relay.getAccountNonce(accounts[1].address),
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-      });
-      const txHashHAC = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_SEND_RAW_TRANSACTION, [
-        signedTxHollowAccountCreation,
-      ]);
-      await mirrorNode.get(`/contracts/results/${txHashHAC}`);
-
-      const signTxFromHollowAccount = await hollowAccount.signTransaction({
-        ...defaultTransaction,
-        to: deployerContractAddress,
-        nonce: await relay.getAccountNonce(hollowAccount.address),
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-      });
-      const txHashHA = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_SEND_RAW_TRANSACTION, [signTxFromHollowAccount]);
-      await mirrorNode.get(`/contracts/results/${txHashHA}`);
-
-      const resAfterCreation = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        hollowAccount.address,
-        'latest',
-      ]);
-      expect(resAfterCreation).to.be.equal('0x1');
-    });
-
-    it('should execute "eth_getTransactionCount" for account with non-zero nonce', async function () {
-      const account = await Utils.createAliasAccount(mirrorNode, accounts[0]);
-
-      const gasPrice = await relay.gasPrice();
-      const transaction = {
-        ...defaultTransaction,
-        to: deployerContractAddress,
-        nonce: await relay.getAccountNonce(account.address),
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-      };
-
-      const signedTx = await account.wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx);
-      // Since the transactionId is not available in this context
-      // Wait for the transaction to be processed and imported in the mirror node with axios-retry
-      await mirrorNode.get(`/contracts/results/${transactionHash}`);
-
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [account.address, 'latest']);
-      expect(res).to.be.equal('0x1');
-    });
-
-    it('nonce for contract correctly increments', async function () {
-      const nonceBefore = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        deployerContract.target,
-        'latest',
-      ]);
-      expect(nonceBefore).to.be.equal('0x2');
-
-      const newContractReceipt = await deployerContract.deployViaCreate();
-      await newContractReceipt.wait();
-
-      const nonceAfter = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT, [
-        deployerContract.target,
-        'latest',
-      ]);
-      expect(nonceAfter).to.be.equal('0x3');
     });
   });
 
@@ -2236,42 +1864,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
   });
 
-  describe('Shard Blob Transactions', async function () {
-    let defaultLondonTransactionData, defaultGasPrice, defaultGasLimit;
-    const defaultBlobVersionedHashes = ['0x6265617665726275696c642e6f7267476265617665726275696c642e6f726747'];
-
-    before(() => {
-      defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
-      defaultGasLimit = numberTo0x(3_000_000);
-
-      defaultLondonTransactionData = {
-        value: ONE_TINYBAR,
-        chainId: Number(CHAIN_ID),
-        maxPriorityFeePerGas: defaultGasPrice,
-        maxFeePerGas: defaultGasPrice,
-        gasLimit: defaultGasLimit,
-      };
-    });
-
-    it('Type 3 transactions are not supported for eth_sendRawTransaction', async () => {
-      const transaction = {
-        ...defaultLondonTransactionData,
-        type: 3,
-        maxFeePerBlobGas: defaultGasPrice,
-        blobVersionedHashes: defaultBlobVersionedHashes,
-      };
-
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      await Assertions.assertPredefinedRpcError(
-        predefined.UNSUPPORTED_TRANSACTION_TYPE_3,
-        relay.sendRawTransaction,
-        false,
-        relay,
-        [signedTx, requestId],
-      );
-    });
-  });
-
   describe('Validate length of the rpc parameters array', async function () {
     const testClient = Axios.create({
       baseURL: 'http://localhost:' + ConfigService.get('E2E_SERVER_PORT'),
@@ -2352,5 +1944,22 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     for (const [method, params] of Object.entries(TEST_SUITES)) {
       generateTest(method, params);
     }
+  });
+
+  it('should return balance for eth_getBalance called with a block number within the last 15 minutes', async function () {
+    const blocksRes = await mirrorNode.get('/blocks?limit=1&order=desc');
+    const latestBlock = blocksRes.blocks[0];
+
+    // 5 blocks back: blockDiff=5 > latestBlockTolerance(1), so delta path is taken.
+    // At ~2s/block this is ~10s old, well within the 900s BALANCES_UPDATE_INTERVAL.
+    const targetBlockNumber = latestBlock.number - 5;
+
+    const balance = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, [
+      accounts[0].address,
+      numberTo0x(targetBlockNumber),
+    ]);
+
+    expect(balance).to.not.be.null;
+    expect(balance).to.match(/^0x[0-9a-f]+$/i);
   });
 });

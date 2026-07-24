@@ -71,6 +71,29 @@ describe('ConfigService tests', async function () {
     });
   });
 
+  [
+    { envValue: '0', label: '0' },
+    { envValue: '-2', label: 'less than -1' },
+  ].forEach(({ envValue, label }) => {
+    it(`should prevent the Relay from starting when \`WS_INPUT_SIZE_LIMIT\` is ${label}`, () => {
+      const envBefore = process.env;
+      process.env = { ...process.env, WS_INPUT_SIZE_LIMIT: envValue };
+
+      try {
+        // @ts-expect-error: The operand of a 'delete' operator must be optional
+        delete ConfigService.instance;
+
+        expect(() => ConfigService.get('WS_INPUT_SIZE_LIMIT')).to.throw(
+          'WS_INPUT_SIZE_LIMIT must be -1 or a positive number.',
+        );
+      } finally {
+        // @ts-expect-error: The operand of a 'delete' operator must be optional
+        delete ConfigService.instance;
+        process.env = envBefore;
+      }
+    });
+  });
+
   it('should be able to get existing env var', async () => {
     const res = ConfigService.get('CHAIN_ID');
     expect(res).to.equal('0x12a');

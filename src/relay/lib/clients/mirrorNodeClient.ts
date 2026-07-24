@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+// Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
+import '../bigNumberConfig';
+
+import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
-import { Logger } from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Counter, Histogram, type Registry } from 'prom-client';
 import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
@@ -17,23 +20,29 @@ import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
-  IAccountRequestParams,
-  IContractCallRequest,
-  IContractCallResponse,
-  IContractLogsResultsParams,
-  IContractResultsParams,
-  ILimitOrderParams,
-  IMirrorNodeTransactionRecord,
-  ITimestamp,
-  ITransactionRecordMetric,
-  MirrorNodeContractLog,
+  type IAccountRequestParams,
+  type IContractCallRequest,
+  type IContractCallResponse,
+  type IContractLogsResultsParams,
+  type IContractResultsParams,
+  type ILimitOrderParams,
+  type IMirrorNodeTransactionRecord,
+  type ITimestamp,
+  type ITransactionRecordMetric,
+  type MirrorNodeContractLog,
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
+import type {
+  ContractAction,
+  MirrorNodeBlock,
+  MirrorNodeContractResult,
+  MirrorNodeContractResultDetails,
+  MirrorNodeContractResultsPage,
+} from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
-import { IOpcodesResponse } from './models/IOpcodesResponse';
+import type { IOpcodesResponse } from './models/IOpcodesResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
 export class MirrorNodeClient {
@@ -158,7 +167,7 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: ICacheClient;
 
-  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
+  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
@@ -244,10 +253,9 @@ export class MirrorNodeClient {
 
     // Set the Is-Modularized header for Mirror Node requests only if the routing preference is explicitly configured.
     // This controls traffic flow between traditional and modularized Mirror Node services.
-    if (ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES') != undefined) {
-      axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = ConfigService.get(
-        'USE_MIRROR_NODE_MODULARIZED_SERVICES',
-      )!.toString();
+    const modularizedServices = ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES');
+    if (modularizedServices != null) {
+      axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = modularizedServices.toString();
     }
 
     //@ts-ignore
@@ -281,18 +289,18 @@ export class MirrorNodeClient {
       web3Url = restUrl;
     }
 
-    if (restClient !== undefined) {
+    if (restClient) {
       this.restUrl = '';
       this.web3Url = '';
 
       this.restClient = restClient;
-      this.web3Client = web3Client ? web3Client : restClient;
+      this.web3Client = web3Client ?? restClient;
     } else {
       this.restUrl = this.buildUrl(restUrl);
       this.web3Url = this.buildUrl(web3Url);
 
-      this.restClient = restClient ? restClient : this.createAxiosClient(this.restUrl);
-      this.web3Client = web3Client ? web3Client : this.createAxiosClient(this.web3Url);
+      this.restClient = restClient ?? this.createAxiosClient(this.restUrl);
+      this.web3Client = web3Client ?? this.createAxiosClient(this.web3Url);
     }
 
     this.logger = logger;
@@ -329,7 +337,7 @@ export class MirrorNodeClient {
 
     // set  up eth call  accepted error codes.
     const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
-    if (parsedAcceptedError.length != 0) {
+    if (parsedAcceptedError.length !== 0) {
       MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.set(
         MirrorNodeClient.CONTRACT_CALL_ENDPOINT,
         parsedAcceptedError,
@@ -394,7 +402,7 @@ export class MirrorNodeClient {
 
       let response: AxiosResponse<T, any>;
       if (method === MirrorNodeClient.HTTP_GET) {
-        if (pathLabel == MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
+        if (pathLabel === MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
@@ -404,7 +412,7 @@ export class MirrorNodeClient {
           // JSONBigInt reads the string representation from the received JSON
           // and converts large numbers into BigNumber objects to maintain accuracy.
           axiosRequestConfig['transformResponse'] = [
-            (data) => {
+            (data): any => {
               // if the data is not valid, just return it to stick to the current behaviour
               if (data) {
                 try {
@@ -564,15 +572,15 @@ export class MirrorNodeClient {
     throw mirrorError;
   }
 
-  async getPaginatedResults(
+  async getPaginatedResults<T = any>(
     url: string,
     pathLabel: string,
     resultProperty: string,
     requestDetails: RequestDetails,
-    results = [],
+    results: T[] = [],
     page = 1,
     pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
-  ) {
+  ): Promise<T[]> {
     const result = await this.get(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
@@ -648,7 +656,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     queryParamObject: IAccountRequestParams & ILimitOrderParams = { transactions: false },
     retries?: number,
-  ) {
+  ): Promise<any> {
     const queryParamsFiltered = Object.fromEntries(
       Object.entries(queryParamObject).filter(([key, value]) => {
         if (key === MirrorNodeClient.ACCOUNT_TRANSACTIONS_PROPERTY && value) return false;
@@ -669,7 +677,7 @@ export class MirrorNodeClient {
     timestampTo: string,
     requestDetails: RequestDetails,
     numberOfTransactions: number = 1,
-  ) {
+  ): Promise<any> {
     return this.getAccount(idOrAliasOrEvmAddress, requestDetails, {
       transactiontype: MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE,
       timestamp: `lte:${timestampTo}`,
@@ -679,16 +687,32 @@ export class MirrorNodeClient {
   }
 
   /**
-   * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant `MIRROR_NODE_LIMIT_PARAM`.
+   * Fetches all account transactions newer than `lowerBoundTimestamp` by paginating
+   * the Mirror Node accounts endpoint. Used to reconstruct historical balances for
+   * blocks within the last ~15 minutes, where the `/balances` snapshot is not yet
+   * available.
+   *
+   * @param url - The Mirror Node `links.next` URL from the preceding account response,
+   *   used to extract the account ID and the upper-bound (`lte:`) timestamp cursor.
+   * @param requestDetails - Request metadata for logging and tracing.
+   * @param lowerBoundTimestamp - Hedera consensus timestamp (e.g. `"1779454079.000000000"`)
+   *   added as `timestamp=gte:` to bound pagination; typically `block.timestamp.to`.
    */
-  public async getAccountPaginated(url: string, requestDetails: RequestDetails) {
+  public async getAccountPaginated(
+    url: string,
+    requestDetails: RequestDetails,
+    lowerBoundTimestamp: string,
+  ): Promise<any> {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
     this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
+    // scopes pagination to the lowerBoundTimestamp,
+    // preventing from walking the full account history up to MIRROR_NODE_ACCOUNT_TXS_PG_MAX pages.
+    this.setQueryParam(queryParamObject, 'timestamp', `gte:${lowerBoundTimestamp}`);
+
     const queryParams = this.getQueryParams(queryParamObject);
 
     return this.getPaginatedResults(
@@ -729,7 +753,7 @@ export class MirrorNodeClient {
     timestampFrom: string,
     timestampTo: string,
     requestDetails: RequestDetails,
-  ) {
+  ): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'account.id', accountId);
     this.setQueryParam(queryParamObject, 'timestamp', `gte:${timestampFrom}`);
@@ -744,7 +768,11 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getBalanceAtTimestamp(accountId: string, requestDetails: RequestDetails, timestamp?: string) {
+  public async getBalanceAtTimestamp(
+    accountId: string,
+    requestDetails: RequestDetails,
+    timestamp?: string,
+  ): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'account.id', accountId);
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
@@ -781,7 +809,7 @@ export class MirrorNodeClient {
     blockNumber?: number | string[],
     timestamp?: string,
     limitOrderParams?: ILimitOrderParams,
-  ) {
+  ): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'block.number', blockNumber);
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
@@ -794,12 +822,62 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Retrieves every block in the inclusive numeric range `[fromBlock, toBlock]` as a flat list
+   * ordered from oldest to newest, following the Mirror Node `links.next` cursor so the full
+   * range is returned regardless of the server's per-page limit.
+   *
+   * Traversal is capped at `FEE_HISTORY_BLOCK_PAGINATION_MAX` pages to bound the number of
+   * upstream requests a single range can generate, limiting the relay's exposure to
+   * resource exhaustion from an excessively wide range.
+   *
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @param fromBlock - Inclusive lower bound block number (oldest).
+   * @param toBlock - Inclusive upper bound block number (newest).
+   * @returns Blocks in ascending order by block number.
+   */
+  public async getBlocksByRange(
+    requestDetails: RequestDetails,
+    fromBlock: number,
+    toBlock: number,
+  ): Promise<MirrorNodeBlock[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'block.number', [`gte:${fromBlock}`, `lte:${toBlock}`]);
+    this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
+    this.setQueryParam(queryParamObject, 'order', MirrorNodeClient.ORDER.ASC);
+    const queryParams = this.getQueryParams(queryParamObject);
+
+    const blocks: MirrorNodeBlock[] = await this.getPaginatedResults(
+      `${MirrorNodeClient.GET_BLOCKS_ENDPOINT}${queryParams}`,
+      MirrorNodeClient.GET_BLOCKS_ENDPOINT,
+      'blocks',
+      requestDetails,
+      [],
+      1,
+      ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX'),
+    );
+
+    // Populate the per-block cache so subsequent getBlock(number) calls from any service
+    // resolve from cache rather than issuing a new upstream request.
+    await Promise.all(
+      blocks.map((block) =>
+        this.cacheService.set(
+          `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
+          block,
+          MirrorNodeClient.GET_BLOCK_ENDPOINT,
+        ),
+      ),
+    );
+
+    return blocks;
+  }
+
   public async getContract(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
     retries?: number,
     timestamp?: string,
-  ) {
+  ): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     const queryParams = this.getQueryParams(queryParamObject);
@@ -821,9 +899,13 @@ export class MirrorNodeClient {
     return await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
   }
 
-  public async isValidContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async isValidContract(
+    contractIdOrAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+  ): Promise<any> {
     const cachedResponse: any = await this.getIsValidContractCache(contractIdOrAddress);
-    if (cachedResponse != undefined) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -840,10 +922,14 @@ export class MirrorNodeClient {
     return valid;
   }
 
-  public async getContractId(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async getContractId(
+    contractIdOrAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+  ): Promise<any> {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
-    if (cachedResponse != undefined) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -863,7 +949,10 @@ export class MirrorNodeClient {
     return null;
   }
 
-  public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails) {
+  public async getContractResult(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 
@@ -879,10 +968,10 @@ export class MirrorNodeClient {
     );
 
     if (
-      response != undefined &&
-      response.transaction_index != undefined &&
-      response.block_number != undefined &&
-      response.block_hash != constants.EMPTY_HEX &&
+      response != null &&
+      response.transaction_index != null &&
+      response.block_number != null &&
+      response.block_hash !== constants.EMPTY_HEX &&
       response.result === 'SUCCESS'
     ) {
       await this.cacheService.set(
@@ -914,7 +1003,7 @@ export class MirrorNodeClient {
    * @param args - The arguments to be passed to the specified method for fetching contract results.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry(methodName: string, args: any[]): Promise<any> {
+  public async getContractResultWithRetry<T = any>(methodName: string, args: any[]): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -933,7 +1022,7 @@ export class MirrorNodeClient {
             contractObject &&
             (contractObject.transaction_index == null ||
               contractObject.block_number == null ||
-              contractObject.block_hash == constants.EMPTY_HEX)
+              contractObject.block_hash === constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {
@@ -973,12 +1062,12 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ) {
+  ): Promise<MirrorNodeContractResult[]> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
     const queryParams = this.getQueryParams(queryParamObject);
-    return this.getPaginatedResults(
+    return this.getPaginatedResults<MirrorNodeContractResult>(
       MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
       MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
       'results',
@@ -989,8 +1078,38 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getContractResultsDetails(contractId: string, timestamp: string, requestDetails: RequestDetails) {
-    return this.get(
+  /**
+   * Returns the single most-recent contract result within a block's timestamp range
+   * using a direct non-paginated GET.
+   *
+   * @param block - The block whose timestamp bounds define the query range.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns The latest contract result, or null when the block contains no contract results.
+   */
+  public async getLatestContractResultForBlock(
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResult | null> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', [`gte:${block.timestamp.from}`, `lte:${block.timestamp.to}`]);
+    this.setQueryParam(queryParamObject, 'limit', 1);
+    this.setQueryParam(queryParamObject, 'order', MirrorNodeClient.ORDER.DESC);
+    const queryParams = this.getQueryParams(queryParamObject);
+
+    const response = await this.get<{ results: MirrorNodeContractResult[] }>(
+      MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
+      MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
+      requestDetails,
+    );
+    return response?.results?.[0] ?? null;
+  }
+
+  public async getContractResultsDetails(
+    contractId: string,
+    timestamp: string,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResultDetails | null> {
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(this.getContractResultsDetailsByContractIdAndTimestamp(contractId, timestamp)),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT,
       requestDetails,
@@ -1027,7 +1146,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractResultsParams?: IContractResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ) {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
@@ -1045,9 +1164,9 @@ export class MirrorNodeClient {
     contractIdOrAddress: string,
     timestamp: string,
     requestDetails: RequestDetails,
-  ) {
+  ): Promise<MirrorNodeContractResultDetails | null> {
     const apiPath = MirrorNodeClient.getContractResultsByAddressAndTimestampPath(contractIdOrAddress, timestamp);
-    return this.get(
+    return this.get<MirrorNodeContractResultDetails | null>(
       MirrorNodeClient.withHbarDisabled(apiPath),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT,
       requestDetails,
@@ -1057,7 +1176,7 @@ export class MirrorNodeClient {
   private prepareLogsParams(
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ) {
+  ): string {
     const queryParamObject = {};
     if (contractLogsResultsParams) {
       this.setQueryParam(queryParamObject, 'transaction.hash', contractLogsResultsParams['transaction.hash']);
@@ -1292,10 +1411,10 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getEarliestBlock(requestDetails: RequestDetails) {
+  public async getEarliestBlock(requestDetails: RequestDetails): Promise<any> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.earliest`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCKS_ENDPOINT);
-    if (cachedResponse != undefined) {
+    if (cachedResponse) {
       return cachedResponse;
     }
 
@@ -1319,7 +1438,7 @@ export class MirrorNodeClient {
     return null;
   }
 
-  public async getLatestBlock(requestDetails: RequestDetails) {
+  public async getLatestBlock(requestDetails: RequestDetails): Promise<any> {
     return this.getBlocks(
       requestDetails,
       undefined,
@@ -1332,7 +1451,7 @@ export class MirrorNodeClient {
     return { limit: limit, order: order };
   }
 
-  public async getNetworkExchangeRate(requestDetails: RequestDetails, timestamp?: string) {
+  public async getNetworkExchangeRate(requestDetails: RequestDetails, timestamp?: string): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     const queryParams = this.getQueryParams(queryParamObject);
@@ -1343,7 +1462,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getNetworkFees(requestDetails: RequestDetails, timestamp?: string, order?: string) {
+  public async getNetworkFees(requestDetails: RequestDetails, timestamp?: string, order?: string): Promise<any> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     this.setQueryParam(queryParamObject, 'order', order);
@@ -1355,42 +1474,42 @@ export class MirrorNodeClient {
     );
   }
 
-  private static getContractResultsByAddressPath(address: string) {
+  private static getContractResultsByAddressPath(address: string): string {
     return MirrorNodeClient.GET_CONTRACT_RESULTS_BY_ADDRESS_ENDPOINT.replace(
       MirrorNodeClient.ADDRESS_PLACEHOLDER,
       address,
     );
   }
 
-  private static getContractResultsByAddressAndTimestampPath(address: string, timestamp: string) {
+  private static getContractResultsByAddressAndTimestampPath(address: string, timestamp: string): string {
     return MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT.replace(
       MirrorNodeClient.ADDRESS_PLACEHOLDER,
       address,
     ).replace(MirrorNodeClient.TIMESTAMP_PLACEHOLDER, timestamp);
   }
 
-  public getContractResultsDetailsByContractIdAndTimestamp(contractId: string, timestamp: string) {
+  public getContractResultsDetailsByContractIdAndTimestamp(contractId: string, timestamp: string): string {
     return MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT.replace(
       MirrorNodeClient.CONTRACT_ID_PLACEHOLDER,
       contractId,
     ).replace(MirrorNodeClient.TIMESTAMP_PLACEHOLDER, timestamp);
   }
 
-  private getContractResultsActionsByTransactionIdPath(transactionIdOrHash: string) {
+  private getContractResultsActionsByTransactionIdPath(transactionIdOrHash: string): string {
     return MirrorNodeClient.GET_CONTRACTS_RESULTS_ACTIONS.replace(
       MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
       transactionIdOrHash,
     );
   }
 
-  private getContractResultsOpcodesByTransactionIdPath(transactionIdOrHash: string) {
+  private getContractResultsOpcodesByTransactionIdPath(transactionIdOrHash: string): string {
     return MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES.replace(
       MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
       transactionIdOrHash,
     );
   }
 
-  public async getTokenById(tokenId: string, requestDetails: RequestDetails, retries?: number) {
+  public async getTokenById(tokenId: string, requestDetails: RequestDetails, retries?: number): Promise<any> {
     return this.get(
       `${MirrorNodeClient.GET_TOKENS_ENDPOINT}/${tokenId}`,
       MirrorNodeClient.GET_TOKENS_ENDPOINT,
@@ -1413,7 +1532,7 @@ export class MirrorNodeClient {
     blockEndTimestamp: string | undefined,
     limit: number,
     requestDetails: RequestDetails,
-  ) {
+  ): Promise<MirrorNodeContractResultsPage | null> {
     // retrieve the timestamp of the contract
     const contractResultsParams: IContractResultsParams = blockEndTimestamp
       ? { timestamp: `lte:${blockEndTimestamp}` }
@@ -1422,7 +1541,7 @@ export class MirrorNodeClient {
     return this.getContractResultsByAddress(address, requestDetails, contractResultsParams, limitOrderParams);
   }
 
-  public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string) {
+  public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string): Promise<any> {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
       ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
@@ -1450,7 +1569,7 @@ export class MirrorNodeClient {
     slot: string,
     requestDetails: RequestDetails,
     blockEndTimestamp?: string,
-  ) {
+  ): Promise<any> {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
       ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
@@ -1488,7 +1607,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getTransactionById(transactionId: string, requestDetails: RequestDetails, nonce?: number) {
+  public async getTransactionById(transactionId: string, requestDetails: RequestDetails, nonce?: number): Promise<any> {
     const formattedId = formatTransactionId(transactionId);
     if (formattedId == null) {
       return formattedId;
@@ -1537,16 +1656,21 @@ export class MirrorNodeClient {
     }
   }
 
-  getQueryParams(params: object) {
+  getQueryParams(params: object): string {
     let paramString = '';
     for (const [key, value] of Object.entries(params)) {
-      const additionalString = Array.isArray(value) ? value.map((v) => `${key}=${v}`).join('&') : `${key}=${value}`;
+      let additionalString: string;
+      if (Array.isArray(value)) {
+        additionalString = value.map((v) => `${key}=${v}`).join('&');
+      } else {
+        additionalString = `${key}=${value}`;
+      }
       paramString += paramString === '' ? `?${additionalString}` : `&${additionalString}`;
     }
     return paramString;
   }
 
-  setContractResultsParams(queryParamObject, contractResultsParams?: IContractResultsParams) {
+  setContractResultsParams(queryParamObject, contractResultsParams?: IContractResultsParams): void {
     if (contractResultsParams) {
       this.setQueryParam(queryParamObject, 'block.hash', contractResultsParams.blockHash);
       this.setQueryParam(queryParamObject, 'block.number', contractResultsParams.blockNumber);
@@ -1557,7 +1681,7 @@ export class MirrorNodeClient {
     }
   }
 
-  setLimitOrderParams(queryParamObject, limitOrderParams?: ILimitOrderParams) {
+  setLimitOrderParams(queryParamObject, limitOrderParams?: ILimitOrderParams): void {
     if (limitOrderParams) {
       this.setQueryParam(queryParamObject, 'limit', limitOrderParams.limit);
       this.setQueryParam(queryParamObject, 'order', limitOrderParams.order);
@@ -1567,8 +1691,8 @@ export class MirrorNodeClient {
     }
   }
 
-  setQueryParam(queryParamObject, key, value) {
-    if (key && value != undefined && value !== '') {
+  setQueryParam(queryParamObject, key, value): void {
+    if (key && value != null && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
       }
@@ -1770,7 +1894,7 @@ export class MirrorNodeClient {
       sliceResults.push([]); // Pre-allocate slot for ordered results
 
       // Start fetch request for the particular slice
-      const activeRequest = (async () => {
+      const activeRequest = (async (): Promise<void> => {
         const data = await this.fetchLogSliceWithRetry(
           apiEndpoint,
           pathLabel,
@@ -1785,7 +1909,7 @@ export class MirrorNodeClient {
 
       // Add the activeRequest to the pool and set up self-cleanup
       activeRequestsPool.add(activeRequest);
-      activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
+      void activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
 
       // Throttle: pause iteration when concurrency limit is reached
       // Resume and add new requests to the pool when any active request completes
@@ -1881,7 +2005,7 @@ export class MirrorNodeClient {
     searchableTypes: any[] = [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
     retries?: number,
     timestamp?: string,
-  ) {
+  ): Promise<{ type: string; entity: any } | null> {
     const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}${
       timestamp ? `_${timestamp}` : ''
     }`;
@@ -1901,7 +2025,7 @@ export class MirrorNodeClient {
       }
     }
 
-    const buildPromise = (fn) =>
+    const buildPromise = (fn): Promise<unknown> =>
       new Promise((resolve, reject) =>
         fn.then((values) => {
           if (values == null) reject();
@@ -1937,7 +2061,7 @@ export class MirrorNodeClient {
           : Promise.reject(),
       ];
 
-      const toEntityId = (address: string) => {
+      const toEntityId = (address: string): string => {
         address = address.slice(2);
         const shardNum = address.slice(0, 8);
         const realmNum = address.slice(8, 24);
@@ -1970,7 +2094,7 @@ export class MirrorNodeClient {
       // the index is needed afterward for detecting the resolved promise type (contract, account, token, or schedule)
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
-    } catch (e) {
+    } catch {
       return null;
     }
 
@@ -2008,17 +2132,17 @@ export class MirrorNodeClient {
   }
 
   // exposing mirror node instance for tests
-  public getMirrorNodeRestInstance() {
+  public getMirrorNodeRestInstance(): AxiosInstance {
     return this.restClient;
   }
 
-  public getMirrorNodeWeb3Instance() {
+  public getMirrorNodeWeb3Instance(): AxiosInstance {
     return this.web3Client;
   }
-  public getMirrorNodeRequestRetryCount() {
+  public getMirrorNodeRequestRetryCount(): number {
     return this.MIRROR_NODE_REQUEST_RETRY_COUNT;
   }
-  public getMirrorNodeRetryDelay() {
+  public getMirrorNodeRetryDelay(): number {
     return this.MIRROR_NODE_RETRY_DELAY;
   }
 
@@ -2027,7 +2151,7 @@ export class MirrorNodeClient {
    * enough time for the expected data to be propagated to the Mirror node.
    * It provides a way to have an extended retry logic only in specific places
    */
-  public async repeatedRequest(methodName: string, args: any[], repeatCount: number) {
+  public async repeatedRequest(methodName: string, args: any[], repeatCount: number): Promise<any> {
     let result;
     for (let i = 0; i < repeatCount; i++) {
       try {

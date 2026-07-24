@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
-import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
+import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
-import { EthImpl } from '../../../../src/relay/lib/eth';
-import { CommonService } from '../../../../src/relay/lib/services';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
-import { ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
-import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1, mockWorkersPool } from '../../helpers';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type CommonService } from '../../../../src/relay/lib/services';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import { type ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
 import {
+  contractHash3,
+  defaultContractResults,
+  defaultContractResultsOnlyHash2,
+  defaultLogs1,
+  mockWorkersPool,
+} from '../../helpers';
+import {
+  ACCOUNT_ADDRESS_1,
   BLOCK_HASH,
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
@@ -32,7 +39,6 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let extractBlockNumberOrTagStub: sinon.SinonStub;
 
 const DEFAULTS: Record<string, any> = {
   [CONTRACT_RESULTS_WITH_FILTER_URL_2]: defaultContractResults,
@@ -70,9 +76,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    extractBlockNumberOrTagStub = sinon
-      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
-      .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.reset();
@@ -80,7 +83,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   this.afterEach(() => {
     getSdkClientStub.restore();
-    extractBlockNumberOrTagStub.restore();
     restMock.resetHandlers();
   });
 
@@ -338,6 +340,66 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts.length).to.equal(1);
       expect(receipts[0].from).to.equal('0xresolvedFromAddress');
       expect(receipts[0].to).to.equal(resolvedToAddress);
+
+      resolveEvmAddressStub.restore();
+    });
+  });
+
+  describe('Address deduplication', () => {
+    const duplicateFrom = results[0].from;
+    const uniqueFrom = ACCOUNT_ADDRESS_1;
+    const sharedTo = results[0].to;
+    const uniqueTo = results[1].to;
+
+    const threeTransactionResults = {
+      results: [
+        { ...results[0], from: duplicateFrom, to: sharedTo },
+        { ...results[1], from: duplicateFrom, to: uniqueTo },
+        { ...results[1], from: uniqueFrom, to: sharedTo, hash: contractHash3, transaction_index: 3 },
+      ],
+      links: { next: null },
+    };
+
+    beforeEach(() => {
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: threeTransactionResults,
+      });
+    });
+
+    it('should call resolveEvmAddress once per unique address when transactions share addresses', async function () {
+      const resolveEvmAddressStub = sinon
+        .stub(commonService, 'resolveEvmAddress')
+        .callsFake((address) => Promise.resolve(address));
+
+      await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      // 2 unique from + 2 unique to = 4 calls, not 6 (3 from + 3 to without deduplication)
+      expect(resolveEvmAddressStub.callCount).to.equal(4);
+
+      // from addresses resolved with TYPE_ACCOUNT filter (EOAs only), each unique address called once
+      expect(resolveEvmAddressStub.withArgs(duplicateFrom, sinon.match.any, ['ACCOUNT']).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(uniqueFrom, sinon.match.any, ['ACCOUNT']).callCount).to.equal(1);
+
+      // to addresses resolved without type filter, each unique address called once
+      expect(resolveEvmAddressStub.withArgs(sharedTo, sinon.match.any).callCount).to.equal(1);
+      expect(resolveEvmAddressStub.withArgs(uniqueTo, sinon.match.any).callCount).to.equal(1);
+
+      resolveEvmAddressStub.restore();
+    });
+
+    it('should map each resolved address to the correct receipt and null out to for contract creation txs', async function () {
+      const resolveEvmAddressStub = sinon
+        .stub(commonService, 'resolveEvmAddress')
+        .callsFake((address) => Promise.resolve(`${address}-resolved`));
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts![0].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts![0].to).to.equal(null); // result[0] is a contract creation transaction, so `to` should be null
+      expect(receipts![1].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts![1].to).to.equal(`${uniqueTo}-resolved`);
+      expect(receipts![2].from).to.equal(`${uniqueFrom}-resolved`);
+      expect(receipts![2].to).to.equal(`${sharedTo}-resolved`);
 
       resolveEvmAddressStub.restore();
     });

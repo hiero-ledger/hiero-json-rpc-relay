@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigKey } from './globalConfig';
+import { type ConfigKey } from './globalConfig';
 
 export class LoggerService {
   /**
@@ -18,6 +18,7 @@ export class LoggerService {
     ['GH_ACCESS_TOKEN', true],
     ['MIRROR_NODE_AUTH_HEADER', true],
     ['MIRROR_NODE_URL_HEADER_X_API_KEY', true],
+    ['REDIS_URL', true],
 
     // Fields where only certain positions in arrays are sensitive
     ['PAYMASTER_ACCOUNTS', [2]],

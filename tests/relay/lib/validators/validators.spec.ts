@@ -828,6 +828,31 @@ describe('Validator', async () => {
     ],
   });
 
+  describe('tracerConfigWrapper accepts unknown top-level params', async () => {
+    const validation = { 0: { type: 'tracerConfigWrapper', required: true } };
+
+    it('does not throw when Geth-style top-level timeout is provided with tracer', async () => {
+      expect(() =>
+        validateParams([{ tracer: Constants.TracerType.CallTracer, timeout: '5s' }], validation),
+      ).to.not.throw();
+    });
+
+    it('does not throw when timeout is provided alongside tracerConfig', async () => {
+      expect(() =>
+        validateParams(
+          [{ tracer: Constants.TracerType.CallTracer, tracerConfig: { onlyTopCall: true }, timeout: '5s' }],
+          validation,
+        ),
+      ).to.not.throw();
+    });
+
+    it('does not throw for other unknown top-level params (reexec, disableReturnData)', async () => {
+      expect(() =>
+        validateParams([{ tracer: Constants.TracerType.CallTracer, reexec: 128, disableReturnData: true }], validation),
+      ).to.not.throw();
+    });
+  });
+
   describe('Other error cases', async () => {
     it('throws an error if validation type is wrong', async () => {
       const validation = { 0: { type: 'wrongType' } };
@@ -1132,7 +1157,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1146,7 +1171,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: [],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1160,7 +1185,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: undefined,
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1173,7 +1198,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1186,7 +1211,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: ['0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816', '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816'],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1204,7 +1229,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1263,4 +1288,44 @@ describe('Validator', async () => {
       });
     });
   }
+
+  describe('validates blockParams type correctly', async () => {
+    const validation = { 0: { type: 'blockParams' } };
+
+    it('throws an error for an invalid block tag', async () => {
+      expect(() => validateParams(['newest'], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, 'newest'),
+      );
+    });
+
+    it('throws an error for a non-hex block number', async () => {
+      expect(() => validateParams(['123'], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, '123'),
+      );
+    });
+
+    it('throws an error for a hex string that is neither a valid block number nor a 32-byte hash', async () => {
+      const notHashNotNumber = '0x' + 'a'.repeat(63);
+      expect(() => validateParams([notHashNotNumber], validation)).to.throw(
+        expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, notHashNotNumber),
+      );
+    });
+
+    it('does not throw for valid block tags', async () => {
+      for (const tag of ['latest', 'earliest', 'pending', 'finalized', 'safe']) {
+        const result = validateParams([tag], validation);
+        expect(result).to.eq(undefined);
+      }
+    });
+
+    it('does not throw for a valid hex block number', async () => {
+      const result = validateParams(['0x1'], validation);
+      expect(result).to.eq(undefined);
+    });
+
+    it('does not throw for a valid 32-byte block hash string', async () => {
+      const result = validateParams(['0x' + 'a'.repeat(64)], validation);
+      expect(result).to.eq(undefined);
+    });
+  });
 });

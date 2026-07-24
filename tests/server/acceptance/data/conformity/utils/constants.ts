@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '../../../../../../src/config-service/services';
-import { TransactionResponse } from './interfaces';
+import { type TransactionResponse } from './interfaces';
 
 export const RELAY_URL = 'http://127.0.0.1:7546';
 export const WS_RELAY_URL = 'ws://127.0.0.1:8546';

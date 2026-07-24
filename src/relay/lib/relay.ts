@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AccountId } from '@hiero-ledger/sdk';
-import { Logger } from 'pino';
-import { Gauge, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type AccountId } from '@hiero-ledger/sdk';
+import { type Logger } from 'pino';
+import { Gauge, type Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../config-service/services';
-import { Admin, Eth, Net, TxPool, Web3 } from '../index';
+import type { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -31,12 +31,12 @@ import { registerRpcMethods } from './services/registryService/rpcMethodRegistry
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
 import { TxPoolImpl } from './txpool';
 import {
-  IEthExecutionEventPayload,
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
+  type IEthExecutionEventPayload,
+  type IExecuteQueryEventPayload,
+  type IExecuteTransactionEventPayload,
   RequestDetails,
-  RpcMethodRegistry,
-  RpcNamespaceRegistry,
+  type RpcMethodRegistry,
+  type RpcNamespaceRegistry,
 } from './types';
 import { Web3Impl } from './web3';
 
@@ -203,7 +203,7 @@ export class Relay {
       help: 'Relay operator balance gauge',
       labelNames: ['mode', 'type', 'accountId'],
       registers: [register],
-      async collect() {
+      async collect(): Promise<void> {
         // Invoked when the registry collects its metrics' values.
         // Allows for updated account balance tracking
         try {
@@ -261,7 +261,7 @@ export class Relay {
   /**
    * Initializes required clients and services
    */
-  async initializeRelay() {
+  async initializeRelay(): Promise<void> {
     // 1. Connect to Redis first
     await this.connectRedisClient();
 
@@ -273,7 +273,7 @@ export class Relay {
     await this.waitForMirrorNode();
 
     this.logger.warn(
-      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.151.0. ' +
+      'This relay version sends hbar=false in mirror node requests, which requires mirror node >= v0.154.0. ' +
         'If you encounter HTTP 400 errors from the mirror node, please verify your mirror node version is compatible.',
     );
 
@@ -375,11 +375,11 @@ export class Relay {
     });
 
     hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      this.metricService.captureTransactionMetrics(args).then();
+      void this.metricService.captureTransactionMetrics(args);
     });
 
     hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      this.metricService.addExpenseAndCaptureMetrics(args);
+      void this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
     this.txpoolImpl = new TxPoolImpl(transactionPoolService);
@@ -409,7 +409,7 @@ export class Relay {
     this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
 
     // Populate pre-configured spending plans asynchronously
-    this.populatePreconfiguredSpendingPlans().then();
+    void this.populatePreconfiguredSpendingPlans();
 
     // Create RPC method registry
     const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
@@ -425,7 +425,7 @@ export class Relay {
     this.logger.info('Relay running with chainId=%s', chainId);
   }
 
-  private async connectRedisClient() {
+  private async connectRedisClient(): Promise<void> {
     if (RedisClientManager.isRedisEnabled()) {
       this.redisClient = await RedisClientManager.getClient(this.logger);
     } else {
@@ -484,13 +484,43 @@ export class Relay {
     }
   }
 
-  private async ensureOperatorHasBalance() {
+  private async ensureOperatorHasBalance(): Promise<void> {
     const operator = this.operatorAccountId!.toString();
-    const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
-    if (balance === BigInt(0)) {
-      throw new Error(`Operator account '${operator}' has no balance`);
-    } else {
-      this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
+    const operatorBalanceErrorMsg = `Operator account '${operator}' has no balance`;
+    const maxAttempts = ConfigService.get('OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS') || 1;
+    const delayMs = ConfigService.get('OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS');
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
+        if (balance === BigInt(0)) {
+          throw new Error(operatorBalanceErrorMsg);
+        }
+
+        this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
+        this.logger.info('Operator balance obtained (startup check passed on attempt %d/%d)', attempt, maxAttempts);
+        return;
+      } catch (error: unknown) {
+        const isLastAttempt = attempt >= maxAttempts;
+        const retryable = error instanceof Error && error.message === operatorBalanceErrorMsg;
+
+        if (!retryable || isLastAttempt) {
+          this.logger.error(
+            { err: error },
+            'Can not obtain operator balance after %d attempt(s). Aborting startup.',
+            attempt,
+          );
+          throw error;
+        }
+
+        this.logger.warn(
+          'Can not obtain operator balance on startup attempt %d/%d. Retrying in %dms...',
+          attempt,
+          maxAttempts,
+          delayMs,
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
 

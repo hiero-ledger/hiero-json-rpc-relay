@@ -4,12 +4,12 @@ import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { prepend0x } from '../formatters';
-import { MirrorNodeClient } from './clients';
+import { type MirrorNodeClient } from './clients';
 import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
-import { CommonService, TransactionPoolService } from './services';
-import { RequestDetails } from './types';
-import { IAccountBalance } from './types/mirrorNode';
+import { CommonService, type TransactionPoolService } from './services';
+import { type RequestDetails } from './types';
+import { type IAccountBalance } from './types/mirrorNode';
 import { validateAuthorizationList } from './validators/authorizationList';
 
 /**
@@ -67,7 +67,7 @@ export class Precheck {
    * @param parsedTx - The parsed transaction.
    * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  validateBasicPropertiesStateless(parsedTx: Transaction) {
+  validateBasicPropertiesStateless(parsedTx: Transaction): void {
     this.callDataSize(parsedTx);
     this.initcodeSize(parsedTx);
     this.transactionSize(parsedTx);
@@ -80,18 +80,10 @@ export class Precheck {
   }
 
   /**
-   * Performs additional, stateful validation checks (required for example
-   * before sending a transaction that was retrieved from the transaction pool).
-   *
-   * This method MUST only be used for transactions that have already
-   * passed {@link validateBasicPropertiesStateless}.
-   *
-   * @param parsedTx - Parsed Ethereum transaction from the tx pool.
-   * @param networkGasPriceInWeiBars - Current network gas price in weiBars
-   * @param requestDetails - Request metadata used for logging and tracking.
-   * @throws If the transaction does not meet send-time requirements.
+   * Network-state stateful prechecks: gas price, access list, receiver.
+   * Runs inside Lock 2 (execution), after pool save and before CN submission.
    */
-  async validateAccountAndNetworkStateful(
+  async validateReceiverAndGasStateful(
     parsedTx: Transaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
@@ -129,6 +121,7 @@ export class Precheck {
    * @param accountNonce - The nonce of the account.
    */
   nonce(tx: Transaction, accountNonce: number | undefined): void {
+    // eslint-disable-next-line eqeqeq
     if (accountNonce == undefined) {
       throw predefined.RESOURCE_NOT_FOUND(`Account nonce unavailable for address: ${tx.from}.`);
     }
@@ -215,6 +208,7 @@ export class Precheck {
    * @param accountBalance - The account balance information.
    */
   balance(tx: Transaction, accountBalance: IAccountBalance | undefined): void {
+    // eslint-disable-next-line eqeqeq
     if (accountBalance?.balance == undefined) {
       throw predefined.RESOURCE_NOT_FOUND(`Account balance unavailable for address: ${tx.from}.`);
     }
@@ -397,7 +391,7 @@ export class Precheck {
    * @param tx The transaction object to validate.
    * @throws {Error} Throws a predefined error if the transaction type is unsupported.
    */
-  transactionType(tx: Transaction) {
+  transactionType(tx: Transaction): void {
     // Blob transactions are not supported as per HIP 866
     if (tx.type === 3) {
       throw predefined.UNSUPPORTED_TRANSACTION_TYPE_3;
@@ -409,7 +403,7 @@ export class Precheck {
    * @param tx - The transaction.
    * @param requestDetails - The request details for logging and tracking.
    */
-  async receiverAccount(tx: Transaction, requestDetails: RequestDetails) {
+  async receiverAccount(tx: Transaction, requestDetails: RequestDetails): Promise<void> {
     if (tx.to) {
       const verifyAccount = await this.mirrorNodeClient.getAccount(tx.to, requestDetails);
 

@@ -12,7 +12,7 @@ import IERC20Json from '../../server/contracts/openzeppelin/IERC20.json';
 import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import Constants from '../../server/helpers/constants';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import type { AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
@@ -230,6 +230,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
+              // eslint-disable-next-line eqeqeq
               if (subscriptionId == '') {
                 subscriptionId = parsed.result;
               } else {
@@ -774,6 +775,29 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       await wsHtsProvider.websocket.close();
     });
 
+    // Synthetic HTS log events are delivered asynchronously over the subscription and can arrive out of
+    // order, alongside unrelated logs (e.g. a token-mint Transfer from the zero address). Poll until the
+    // specific expected event lands and return it, rather than relying on an exact count/position.
+    const waitForHtsEvent = async (name: string, args: any[], timeoutMs = 20000) => {
+      const findEvent = () =>
+        htsEventsReceived.find((event) => {
+          try {
+            const decoded = htsToken.interface.parseLog({ topics: event.topics, data: event.data });
+            return !!decoded && decoded.name === name && args.every((arg, i) => decoded.args[i] === arg);
+          } catch {
+            return false;
+          }
+        });
+
+      const startTime = Date.now();
+      let found = findEvent();
+      while (!found && Date.now() - startTime < timeoutMs) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        found = findEvent();
+      }
+      return found;
+    };
+
     it('@release captures transfer events', async function () {
       const balanceBefore = await htsToken.balanceOf(htsAccounts[1].wallet.address);
       expect(balanceBefore.toString()).to.eq('0', 'verify initial balance');
@@ -781,50 +805,47 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       const tx = await htsToken.transfer(htsAccounts[1].wallet.address, 1, Constants.GAS.LIMIT_1_000_000);
       await tx.wait();
 
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-
-      const balanceAfter = await htsToken.balanceOf(htsAccounts[1].wallet.address);
-      expect(balanceAfter.toString()).to.eq('1', 'token is successfully transferred');
-
-      expect(htsEventsReceived.length).to.eq(2, '2 logs are captured');
-      Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
+      const transferEvent = await waitForHtsEvent('Transfer', [
         htsAccounts[0].wallet.address,
         htsAccounts[1].wallet.address,
         BigInt(1),
       ]);
+
+      const balanceAfter = await htsToken.balanceOf(htsAccounts[1].wallet.address);
+      expect(balanceAfter.toString()).to.eq('1');
+
+      expect(transferEvent).to.exist;
     });
 
     it('@release captures approve and transferFrom events', async function () {
       const tx = await htsToken.approve(htsAccounts[1].wallet.address, 1, Constants.GAS.LIMIT_1_000_000);
       await tx.wait();
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const allowance = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
-      expect(allowance.toString()).to.eq('1', 'token is successfully approved');
-
-      const tx2 = await htsToken
-        .connect(htsAccounts[1].wallet)
-        .transferFrom(htsAccounts[0].wallet.address, htsAccounts[2].wallet.address, 1, Constants.GAS.LIMIT_1_000_000);
-      await tx2.wait();
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const allowanceAfter = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
-      expect(allowanceAfter.toString()).to.eq('0', 'token is successfully transferred');
-
-      expect(htsEventsReceived.length).to.eq(3, 'logs are captured');
-
-      Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
+      const approvalEvent = await waitForHtsEvent('Approval', [
         htsAccounts[0].wallet.address,
         htsAccounts[1].wallet.address,
         BigInt(1),
       ]);
 
-      Assertions.expectLogArgs(htsEventsReceived[1], htsToken, [
+      const allowance = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
+      expect(allowance.toString()).to.eq('1');
+
+      const tx2 = await htsToken
+        .connect(htsAccounts[1].wallet)
+        .transferFrom(htsAccounts[0].wallet.address, htsAccounts[2].wallet.address, 1, Constants.GAS.LIMIT_1_000_000);
+      await tx2.wait();
+
+      const transferEvent = await waitForHtsEvent('Transfer', [
         htsAccounts[0].wallet.address,
         htsAccounts[2].wallet.address,
         BigInt(1),
       ]);
+
+      const allowanceAfter = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
+      expect(allowanceAfter.toString()).to.eq('0');
+
+      expect(approvalEvent).to.exist;
+      expect(transferEvent).to.exist;
     });
   });
 
@@ -981,8 +1002,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
 
             await wsProvider.send('eth_unsubscribe', [subId]);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e: any) {
+          } catch {
             errorsHandled++;
           }
         }

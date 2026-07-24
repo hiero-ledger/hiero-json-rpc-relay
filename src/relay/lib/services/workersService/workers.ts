@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RequestDetails } from '../../types';
+import { type RequestDetails } from '../../types';
 import { getBalance } from '../ethService/accountService/accountWorker';
 import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';
+import { getWorkerContext, type IWorkerContext } from './workerContext';
 
 interface GetBlockTask {
   type: 'getBlock';
@@ -51,19 +52,26 @@ export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | Get
  * thread when {@link WORKERS_POOL_ENABLED} is `false` (local execution mode).
  *
  * @param task - Discriminated-union descriptor for the task to execute.
+ * @param ctx - The shared worker context providing the clients and services
  * @returns A promise that resolves to the handler's result.
  * @throws {Error} If `task.type` does not match any known task variant.
  */
-export default async function handleTask(task: WorkerTask): Promise<any> {
+export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext): Promise<any> {
+  // On a worker thread Piscina invokes this with no ctx; fall back to the shared per-thread cached context.
+  if (!ctx) {
+    ctx = getWorkerContext();
+  }
+
   switch (task.type) {
     case 'getBlock':
-      return await getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
+      return await getBlock(ctx, task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
     case 'getBlockReceipts':
-      return await getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+      return await getBlockReceipts(ctx, task.blockHashOrBlockNumber, task.requestDetails);
     case 'getRawReceipts':
-      return await getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+      return await getRawReceipts(ctx, task.blockHashOrBlockNumber, task.requestDetails);
     case 'getLogs':
       return await getLogs(
+        ctx,
         task.blockHash,
         task.fromBlock,
         task.toBlock,
@@ -72,7 +80,7 @@ export default async function handleTask(task: WorkerTask): Promise<any> {
         task.requestDetails,
       );
     case 'getBalance':
-      return await getBalance(task.account, task.blockNumberOrTagOrHash, task.requestDetails);
+      return await getBalance(ctx, task.account, task.blockNumberOrTagOrHash, task.requestDetails);
 
     default:
       throw new Error(`Unknown task type: ${(task as any).type}`);
