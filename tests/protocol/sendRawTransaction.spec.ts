@@ -1118,7 +1118,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         });
 
         describe('accessList', function () {
-          it('should fail when calling "eth_sendRawTransaction" with non-empty access list', async function () {
+          it('should succeed when calling "eth_sendRawTransaction" with non-empty access list', async function () {
             const gasPrice = await relay.gasPrice();
             const transaction = {
               type: 2,
@@ -1137,8 +1137,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             };
 
             const signedTx = await accounts[1].wallet.signTransaction(transaction);
-            const response = await client.callRaw(METHOD_NAME, [signedTx]);
-            expect(response.error).to.exist;
+            const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
+            await relay.pollForValidTransactionReceipt(transactionHash);
+
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+            expect(info).to.exist;
           });
 
           it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
