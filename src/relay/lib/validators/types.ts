@@ -100,7 +100,13 @@ export const TYPES = {
     test: (param: any): boolean => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
         if (!validateSchema(OBJECTS_VALIDATIONS.transaction, param)) return false;
-        validateAuthorizationList(Number(param.type), param.authorizationList);
+        // Apply the EIP-7702 business rules only when the caller sets an explicit transaction type.
+        // A Transaction Object (e.g. eth_call/eth_estimateGas params) often omits `type`; its
+        // authorizationList is still structurally validated by the schema above, and the type is
+        // resolved downstream, so the type-vs-list consistency check must not fire here.
+        if (param.type != null) {
+          validateAuthorizationList(Number(param.type), param.authorizationList);
+        }
         return true;
       }
 

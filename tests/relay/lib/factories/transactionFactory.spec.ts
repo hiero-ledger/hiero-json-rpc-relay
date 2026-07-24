@@ -8,8 +8,6 @@ import {
   createTransactionFromContractResult,
   TransactionFactory,
 } from '../../../../src/relay/lib/factories/transactionFactory';
-import { type AuthorizationListEntry, type Log, type Transaction } from '../../../../src/relay/lib/model';
-import { type MirrorNodeContractResult } from '../../../../src/relay/lib/types/mirrorNode';
 import type {
   AccessListEntry,
   AuthorizationListEntry,
@@ -17,6 +15,7 @@ import type {
   Transaction,
   Transaction1559,
 } from '../../../../src/relay/lib/model';
+import { type MirrorNodeContractResult } from '../../../../src/relay/lib/types/mirrorNode';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -128,8 +127,8 @@ describe('TransactionFactory', () => {
 
     const expectTxFromLog = (tx: Transaction, inputLog: Log, expectedChainId: string) => {
       expect(tx).to.exist;
-      expect(tx.type).to.equal(constants.ZERO_HEX);
-      expect(tx).to.not.have.property('accessList');
+      expect(tx.type).to.equal(constants.TWO_HEX);
+      expect(tx).to.have.property('accessList').that.deep.eq([]);
 
       expect(tx.blockHash).to.equal(inputLog.blockHash);
       expect(tx.blockNumber).to.equal(inputLog.blockNumber);
