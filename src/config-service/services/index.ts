@@ -80,6 +80,8 @@ export class ConfigService {
       for (const name in this.envs) {
         logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
       }
+
+      this.warnDisabledMnPrechecks();
     }
 
     this.validateReadOnlyMode();
@@ -90,6 +92,13 @@ export class ConfigService {
     // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
     if (this.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE') === 0) {
       throw new Error('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE cannot be zero.');
+    }
+
+    // note: temporary bandage solution
+    // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
+    const wsInputSizeLimit = this.get('WS_INPUT_SIZE_LIMIT');
+    if (wsInputSizeLimit === 0 || wsInputSizeLimit < -1) {
+      throw new Error('WS_INPUT_SIZE_LIMIT must be -1 or a positive number.');
     }
   }
 
@@ -143,7 +152,45 @@ export class ConfigService {
     return maskedEnvs;
   }
 
-  private validateReadOnlyMode() {
+  /**
+   * Emits a detailed startup warning when `DISABLE_MN_PRECHECKS_ON_TX_SENDING` is enabled.
+   *
+   * This is not a generic "the variable is set" notice — the masked env dump already prints
+   * that. The point here is to spell out the behavioural trade-off so an operator who flipped
+   * the flag understands exactly what protection they gave up and which features stop
+   * reflecting in-flight transactions as a result.
+   */
+  private warnDisabledMnPrechecks(): void {
+    if (!this.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')) {
+      return;
+    }
+
+    logger.warn(
+      'DISABLE_MN_PRECHECKS_ON_TX_SENDING is enabled. eth_sendRawTransaction will skip the ' +
+        'ingress-admission phase entirely and submit signed transactions straight to the consensus node. ' +
+        'Local validation reduces to the Mirror Node-free stateless prechecks only (RLP, chain id, ' +
+        'signature, tx type/size, gas limit, call-data size, value, access-list rejection). ' +
+        'Direct effects on eth_sendRawTransaction:\n' +
+        '  - account existence, balance and receiver_sig_required are no longer verified locally — ' +
+        'underfunded transactions and transactions to receivers that require a signature reach the ' +
+        'consensus node and come back as a generic TRANSACTION_REJECTED instead of a descriptive JSON-RPC error;\n' +
+        '  - the network gas-price anchor is not fetched — the signed transaction gas price is used ' +
+        'directly as the Hedera maxTransactionFee basis, so underpriced transactions are no longer ' +
+        'rejected locally;\n' +
+        '  - the post-rejection Mirror Node nonce lookup is skipped, so WRONG_NONCE errors come back ' +
+        'as a generic TRANSACTION_REJECTED instead of NONCE_TOO_LOW / NONCE_TOO_HIGH.\n' +
+        'Side effects on other features (the transaction pool is bypassed even when ENABLE_TX_POOL=true):\n' +
+        '  - txpool_content, txpool_content_from, txpool_status and txpool_inspect always return empty / zero, ' +
+        'regardless of TXPOOL_API_ENABLED;\n' +
+        '  - eth_getTransactionCount with the "pending" block tag returns the confirmed Mirror Node nonce only ' +
+        '(it no longer reflects in-flight transactions and behaves the same as "latest").\n' +
+        'Unaffected: per-sender FIFO ordering is still enforced by the execution lock, so ENABLE_NONCE_ORDERING ' +
+        'continues to work; the consensus node remains the authoritative nonce checker; and the HBAR limiter ' +
+        'still reconciles actual fees post-execution. Only keep this flag enabled if these trade-offs are acceptable.',
+    );
+  }
+
+  private validateReadOnlyMode(): void {
     const vars = ['OPERATOR_ID_MAIN', 'OPERATOR_KEY_MAIN'] as const;
     if (this.get('READ_ONLY')) {
       logger.info('Relay is in READ_ONLY mode. It will not send transactions.');
@@ -163,7 +210,7 @@ export class ConfigService {
     }
   }
 
-  private validatePaymasterAccounts() {
+  private validatePaymasterAccounts(): void {
     const paymasterAccounts = this.get('PAYMASTER_ACCOUNTS');
     if (!paymasterAccounts.length) {
       return;
@@ -212,9 +259,9 @@ export class ConfigService {
 
   private get<K extends ConfigKey>(name: K): GetTypeOfConfigKey<K> {
     const configEntry = GlobalConfig.ENTRIES[name];
-    let value = this.envs[name] == undefined ? configEntry?.defaultValue : this.envs[name];
+    let value = this.envs[name] ?? configEntry?.defaultValue;
 
-    if (value == undefined && configEntry?.required) {
+    if (value == null && configEntry?.required) {
       throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
     }
 

@@ -4,17 +4,20 @@ import { Hbar, HbarUnit } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
-import { Logger } from 'pino';
-import Piscina from 'piscina';
-import proxyquire from 'proxyquire';
+import { type Logger } from 'pino';
+import type Piscina from 'piscina';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../src/config-service/services';
-import { ConfigKey } from '../../src/config-service/services/globalConfig';
+import { type ConfigKey } from '../../src/config-service/services/globalConfig';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
+import { type ICacheClient } from '../../src/relay/lib/clients/cache/ICacheClient';
+import { type MirrorNodeClient } from '../../src/relay/lib/clients/mirrorNodeClient';
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import constants from '../../src/relay/lib/constants';
-import type { WorkerTask } from '../../src/relay/lib/services/workersService/workers';
+import { type CommonService } from '../../src/relay/lib/services/ethService/ethCommonService/CommonService';
+import { createWorkerContext } from '../../src/relay/lib/services/workersService/workerContext';
+import handleTask, { type WorkerTask } from '../../src/relay/lib/services/workersService/workers';
 import { WorkersPool } from '../../src/relay/lib/services/workersService/WorkersPool';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { RedisInMemoryServer } from './redisInMemoryServer';
@@ -552,6 +555,10 @@ export const defaultContractResults = {
     next: null,
   },
 };
+
+export const DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS = numberTo0x(
+  BigInt(defaultContractResults.results[0].gas_price),
+);
 
 export const defaultContractResultsOnlyHash2 = {
   results: [
@@ -1129,33 +1136,19 @@ export const verifyResult = async <T>(
   }
 };
 
-export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheService) => {
-  const deps = {
-    '../../../clients/mirrorNodeClient': {
-      MirrorNodeClient: class {
-        constructor() {
-          return mirrorNodeInstance;
-        }
-      },
-    },
-    '../ethCommonService/CommonService': {
-      CommonService: class {
-        constructor() {
-          return commonService;
-        }
-      },
-    },
-  };
-  const blockWorker = proxyquire('../../src/relay/lib/services/ethService/blockService/blockWorker', deps);
-  const commonWorker = proxyquire('../../src/relay/lib/services/ethService/ethCommonService/commonWorker', deps);
-  const accountWorker = proxyquire('../../src/relay/lib/services/ethService/accountService/accountWorker', deps);
+export const mockWorkersPool = async (
+  mirrorNodeInstance: MirrorNodeClient,
+  commonService: CommonService,
+  cacheService: ICacheClient,
+) => {
+  const ctx = createWorkerContext(mirrorNodeInstance, cacheService, commonService);
 
   if (!WorkersPool['_innerRun']) WorkersPool['_innerRun'] = WorkersPool['run'];
   WorkersPool['run'] = ConfigService.get('WORKERS_POOL_ENABLED')
     ? WorkersPool['_innerRun']
     : async (options: WorkerTask) => {
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
-        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance, cacheService);
+        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance);
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
         return result;
       };
@@ -1169,34 +1162,9 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
       // instances (JsonRpcError, MirrorNodeClientError) from the main-thread module graph,
       // guaranteeing instanceof checks downstream remain correct.
       try {
-        switch (task.type) {
-          case 'getBlock':
-            return await blockWorker.getBlock(
-              task.blockHashOrNumber,
-              task.showDetails,
-              task.requestDetails,
-              task.chain,
-            );
-          case 'getBlockReceipts':
-            return await blockWorker.getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
-          case 'getRawReceipts':
-            return await blockWorker.getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
-          case 'getLogs':
-            return await commonWorker.getLogs(
-              task.blockHash,
-              task.fromBlock,
-              task.toBlock,
-              task.address,
-              task.topics,
-              task.requestDetails,
-            );
-          case 'getBalance':
-            return await accountWorker.getBalance(task.account, task.blockNumberOrTagOrHash, task.requestDetails);
-          default:
-            throw new Error(`Unsupported task type ${task.type}`);
-        }
+        return await handleTask(task, ctx);
       } catch (e) {
-        throw new Error(JSON.stringify(e));
+        throw new Error(JSON.stringify(e), { cause: e });
       }
     },
   } as Piscina<any, any>;

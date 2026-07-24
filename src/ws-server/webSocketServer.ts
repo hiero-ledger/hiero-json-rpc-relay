@@ -5,8 +5,8 @@ import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import Koa from 'koa';
 import websockify from 'koa-websocket';
 import pino from 'pino';
-import { Counter, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { Counter, type Registry } from 'prom-client';
+import type { RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
@@ -17,7 +17,7 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '../relay/lib/services';
 import { RequestDetails } from '../relay/lib/types';
 import KoaJsonRpc from '../server/koaJsonRpc';
-import { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
+import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '../server/koaJsonRpc/lib/RpcResponse';
 import { applyProxyMiddleware } from '../server/utils/proxyUtils';
@@ -61,7 +61,7 @@ export async function initializeWsServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
   redisClient?: RedisClientType,
-) {
+): Promise<{ app: any; httpApp: any }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger, register));
   if (!redisClient && !sharedRelay) {
@@ -98,7 +98,17 @@ export async function initializeWsServer(
 
   const pingInterval = ConfigService.get('WS_PING_INTERVAL');
 
-  const app = websockify(new Koa());
+  const inputSizeLimitMb = ConfigService.get('WS_INPUT_SIZE_LIMIT');
+
+  // `ws` currently treats non-positive maxPayload values as unlimited.
+  // The configuration sentinel of -1 is normalized to 0 so the runtime
+  // value explicitly means "no limit" instead of relying on a negative byte count.
+  const maxPayloadBytes = inputSizeLimitMb === -1 ? 0 : inputSizeLimitMb * 1024 * 1024;
+  logger.info(
+    `Configured WebSocket maxPayload: ${inputSizeLimitMb === -1 ? 'unlimited' : `${maxPayloadBytes} bytes (${inputSizeLimitMb} MB)`}`,
+  );
+
+  const app = websockify(new Koa(), { maxPayload: maxPayloadBytes });
 
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);
@@ -106,7 +116,7 @@ export async function initializeWsServer(
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
-    next();
+    void next();
   });
 
   app.ws.use(async (ctx: Koa.Context) => {
@@ -151,7 +161,7 @@ export async function initializeWsServer(
         connectionId: ctx.websocket.id,
       });
 
-      context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+      await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
         // Increment the total messages counter for each message received
         wsMetricRegistry.getCounter('totalMessageCounter').inc();
 

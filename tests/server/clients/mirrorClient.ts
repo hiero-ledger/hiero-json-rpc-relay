@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { AxiosInstance } from 'axios';
+import Axios, { type AxiosInstance } from 'axios';
 import axiosRetry from 'axios-retry';
 
 export default class MirrorClient {

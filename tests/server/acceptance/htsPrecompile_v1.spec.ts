@@ -4,15 +4,15 @@
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import BaseHTSJson from '../contracts/contracts_v1/BaseHTS.json';
 // Constants from local resources
 import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 // Local resources
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function () {
   this.timeout(240 * 1000); // 240 seconds

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
+import { type IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
 
 export class HbarSpendingRecord implements IHbarSpendingRecord {
   amount: number;

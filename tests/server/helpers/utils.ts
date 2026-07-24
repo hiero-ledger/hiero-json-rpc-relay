@@ -4,20 +4,20 @@ import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import http from 'http';
-import { Context } from 'mocha';
-import { GCProfiler, setFlagsFromString, writeHeapSnapshot } from 'v8';
+import { type Context } from 'mocha';
+import { type GCProfiler, setFlagsFromString, writeHeapSnapshot } from 'v8';
 import { runInNewContext } from 'vm';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { numberTo0x } from '../../../src/relay/formatters';
-import { CommonService, PaymasterAccount } from '../../../src/relay/lib/services';
+import { CommonService, type PaymasterAccount } from '../../../src/relay/lib/services';
 import { GitHubClient } from '../clients/githubClient';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
 import RelayCall from '../helpers/constants';
-import { AliasAccount } from '../types/AliasAccount';
-import { HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
+import { type AliasAccount } from '../types/AliasAccount';
+import { type HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
 import Assertions from './assertions';
 
 export class Utils {

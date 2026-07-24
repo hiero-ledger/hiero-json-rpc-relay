@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import { numberTo0x } from '../../../../formatters';
-import { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { type ICacheClient } from '../../../clients/cache/ICacheClient';
+import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { Block } from '../../../model';
-import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { IBlockService, ICommonService } from '../../index';
+import { type Block } from '../../../model';
+import { type ITransactionReceipt, type MirrorNodeBlock, type RequestDetails } from '../../../types';
+import { type IBlockService, type ICommonService } from '../../index';
 import { WorkersPool } from '../../workersService/WorkersPool';
 
 export class BlockService implements IBlockService {
@@ -172,42 +172,42 @@ export class BlockService implements IBlockService {
   /**
    * Always returns null. There are no uncles in Hedera.
    *
-   * @param blockHash - The block hash
-   * @param index - The uncle index
+   * @param _blockHash - The block hash
+   * @param _index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
+  getUncleByBlockHashAndIndex(_blockHash: string, _index: string): null {
     return null;
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
    *
-   * @param blockNumOrTag - The block number or tag
-   * @param index - The uncle index
+   * @param _blockNumOrTag - The block number or tag
+   * @param _index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
+  getUncleByBlockNumberAndIndex(_blockNumOrTag: string, _index: string): null {
     return null;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
    *
-   * @param blockHash - The block hash
+   * @param _blockHash - The block hash
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  getUncleCountByBlockHash(blockHash: string): string {
+  getUncleCountByBlockHash(_blockHash: string): string {
     return constants.ZERO_HEX;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
    *
-   * @param blockNumOrTag - The block number or tag
+   * @param _blockNumOrTag - The block number or tag
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  getUncleCountByBlockNumber(blockNumOrTag: string): string {
+  getUncleCountByBlockNumber(_blockNumOrTag: string): string {
     return constants.ZERO_HEX;
   }
 

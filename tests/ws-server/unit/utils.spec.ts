@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
-import { Counter, Histogram } from 'prom-client';
+import { type Counter, type Histogram } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';

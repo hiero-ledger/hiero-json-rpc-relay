@@ -20,10 +20,11 @@ import {
   Transaction2930,
   Transaction7702,
 } from '../model';
+import { type MirrorNodeContractResult } from '../types/mirrorNode';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number, fields: any): Transaction | null {
+  public static createTransactionByType(type: number | null, fields: any): Transaction | null {
     switch (type) {
       case 0:
         return new Transaction(fields); // eip 155 fields
@@ -60,8 +61,8 @@ export class TransactionFactory {
    * @param log The log entry containing transaction data
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log): Transaction | null {
-    return TransactionFactory.createTransactionByType(0, {
+  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
+    return TransactionFactory.createTransactionByType(type, {
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
       chainId: chainId,
@@ -77,7 +78,7 @@ export class TransactionFactory {
       s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: constants.ZERO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      type: numberTo0x(type),
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
@@ -104,13 +105,14 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
         .filter((item) => item !== null && typeof item === 'object')
         .map((item) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { chain_id, ...rest } = item; // chain_id omitted from rest
+          const { chain_id, ...rest } = item; // snake_case chain_id omitted from rest passthrough
           return {
             ...rest, // additional properties remain allowed for authorization list items
-            chainId: formatAuthorizationChainId(item.chain_id),
-            nonce: !item.nonce ? constants.ZERO_HEX : numberTo0x(item.nonce),
+            // Mirror node may send either camelCase (`chainId`) or snake_case (`chain_id`).
+            chainId: formatAuthorizationQuantity(item.chainId ?? item.chain_id),
+            nonce: formatAuthorizationQuantity(item.nonce),
             address: formatAddress(item.address),
-            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
+            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(String(item.yParity)).substring(0, 4),
             r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
             s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
           };
@@ -160,15 +162,17 @@ const formatAddress = (address: unknown): string => {
 const formatGasFee = (gasFee: any): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
 
-/** EIP-7702 tuple chain id: MN may send "0x" for “unset”; JSON-RPC uint must be at least "0x0". */
-const formatAuthorizationChainId = (raw: unknown): string => {
-  if (raw == null || raw === '') {
+/**
+ * Normalizes an EIP-7702 authorization tuple quantity (chainId/nonce) to a 0x-prefixed hex string.
+ * Accepts a number, a bigint, a plain-hex string, or an already-0x-prefixed string. Falsy values
+ * (0, '', null, undefined) and the MN "unset" sentinel "0x" collapse to "0x0", since a JSON-RPC
+ * uint must be at least "0x0".
+ */
+const formatAuthorizationQuantity = (raw: unknown): string => {
+  if (!raw) {
     return constants.ZERO_HEX;
   }
-  const s = typeof raw === 'string' ? raw : String(raw);
-  if (s === constants.EMPTY_HEX) {
-    return constants.ZERO_HEX;
-  }
+  const s = typeof raw === 'string' ? raw : (raw as number | bigint).toString(16);
   const with0x = prepend0x(s);
   return with0x === constants.EMPTY_HEX ? constants.ZERO_HEX : with0x;
 };
@@ -178,7 +182,7 @@ const formatAuthorizationChainId = (raw: unknown): string => {
  * @param cr The contract result object from the mirror node
  * @returns {Transaction | null} A Transaction object or null if creation fails
  */
-export const createTransactionFromContractResult = (cr: any): Transaction | null => {
+export const createTransactionFromContractResult = (cr: MirrorNodeContractResult | null): Transaction | null => {
   if (cr === null) {
     return null;
   }

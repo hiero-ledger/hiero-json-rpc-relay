@@ -7,11 +7,11 @@ import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import MirrorClient from '../../server/clients/mirrorClient';
-import RelayClient from '../../server/clients/relayClient';
+import type MirrorClient from '../../server/clients/mirrorClient';
+import type RelayClient from '../../server/clients/relayClient';
 import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import { Utils } from '../../server/helpers/utils';
-import { AliasAccount } from '../../server/types/AliasAccount';
+import { type AliasAccount } from '../../server/types/AliasAccount';
 import { WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
@@ -82,17 +82,15 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
 
-  let mirrorNodeServer, rpcServer, wsServer;
+  let mirrorNodeServer, rpcServer;
 
   let wsProvider;
 
   before(async () => {
     // @ts-ignore
-    const { socketServer, mirrorNode, relay }: { socketServer: any; mirrorNode: MirrorClient; relay: RelayClient } =
-      global;
+    const { mirrorNode, relay }: { socketServer: any; mirrorNode: MirrorClient; relay: RelayClient } = global;
     mirrorNodeServer = mirrorNode;
     rpcServer = relay;
-    wsServer = socketServer;
 
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar

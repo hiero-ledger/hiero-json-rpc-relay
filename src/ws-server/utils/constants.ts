@@ -64,4 +64,6 @@ export const WS_CONSTANTS = {
     ETH_UNSUBSCRIBE: 'eth_unsubscribe',
     ETH_SUBSCRIBE: 'eth_subscribe',
   },
+  // Caps concurrent Mirror Node lookups per batch when validating a multi-address eth_subscribe logs filter.
+  SUBSCRIBE_LOGS_ADDRESS_BATCH_SIZE: 25,
 };

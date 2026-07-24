@@ -117,7 +117,10 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   tracerConfigWrapper: {
     name: 'TracerConfigWrapper',
     failOnEmpty: true,
-    failOnUnexpectedParams: true,
+    // Accept unknown top-level params (e.g. Geth-standard `timeout`, `reexec`, `disableReturnData`)
+    // for compatibility with Blockscout, Remix, and other clients. Unknown values are ignored —
+    // debug.ts filters top-level config to a known allowlist before forwarding to the tracer.
+    failOnUnexpectedParams: false,
     properties: {
       tracer: {
         type: 'tracerType',
@@ -268,7 +271,7 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   },
 };
 
-export function validateSchema(schema: IObjectSchema, object: any) {
+export function validateSchema(schema: IObjectSchema, object: any): boolean {
   const expectedParams = Object.keys(schema.properties);
   const actualParams = Object.keys(object);
   if (schema.failOnUnexpectedParams) {

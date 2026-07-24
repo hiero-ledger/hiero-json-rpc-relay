@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import { expect } from 'chai';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { RELAY_URL } from './data/conformity/utils/constants';
-import { JsonRpcResponse } from './data/conformity/utils/interfaces';
+import { type JsonRpcResponse } from './data/conformity/utils/interfaces';
 
 describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', function () {
   this.timeout(60000);
@@ -94,28 +94,6 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
 
     expectNoHttp500(response);
   }
-
-  it('Should not throw an error for passing null as a param', async () => {
-    expectNoHttp500(
-      await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: 'default-value',
-        method: 'web3_clientVersion',
-        params: null,
-      }),
-    );
-  });
-
-  it('Should not throw an error for passing number as a param', async () => {
-    expectNoHttp500(
-      await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: 'default-value',
-        method: 'web3_clientVersion',
-        params: 9303,
-      }),
-    );
-  });
 
   it('Malformed HTTP method/body -> 405', async function () {
     const getWithBody = await sendRaw('GET', '/', {

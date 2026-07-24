@@ -9,9 +9,9 @@ import {
   Client,
   ContractCreateFlow,
   ContractExecuteTransaction,
-  ContractFunctionParameters,
+  type ContractFunctionParameters,
   ContractId,
-  CustomFee,
+  type CustomFee,
   CustomFixedFee,
   CustomFractionalFee,
   CustomRoyaltyFee,
@@ -19,28 +19,28 @@ import {
   FileContentsQuery,
   FileUpdateTransaction,
   Hbar,
-  Key,
+  type Key,
   KeyList,
   PrivateKey,
-  Query,
+  type Query,
   TokenAssociateTransaction,
   TokenCreateTransaction,
   TokenGrantKycTransaction,
-  TokenId,
+  type TokenId,
   TokenMintTransaction,
   TokenSupplyType,
   TokenType,
-  Transaction,
+  type Transaction,
   TransactionId,
-  TransactionResponse,
+  type TransactionResponse,
   TransferTransaction,
 } from '@hiero-ledger/sdk';
-import { ethers, JsonRpcProvider } from 'ethers';
-import Long from 'long';
+import { ethers, type JsonRpcProvider } from 'ethers';
+import type Long from 'long';
 
 import { Utils as relayUtils } from '../../../src/relay/utils';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 const supportedEnvs = ['previewnet', 'testnet', 'mainnet'];
 
@@ -356,7 +356,7 @@ export default class ServicesClient {
     try {
       const network = JSON.parse(this.network);
       return Client.forNetwork(network);
-    } catch (e) {
+    } catch {
       // network config is a string and not a valid JSON
       return Client.forName(this.network);
     }

@@ -180,5 +180,84 @@ describe('validations unit test', async function () {
         requestDetails,
       );
     });
+
+    // Builds `count` distinct, schema-valid (0x + 40 hex) addresses.
+    const buildAddresses = (count: number): string[] =>
+      Array.from({ length: count }, (_, i) => `0x${(i + 1).toString(16).padStart(40, '0')}`);
+
+    it('should reject an oversized address array before any Mirror Node lookup fires', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(true);
+
+      await expect(
+        validateSubscribeEthLogsParams({ address: buildAddresses(5) }, stubMirrorNodeClient, requestDetails),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
+
+      expect(stubMirrorNodeClient.resolveEntityType.called).to.be.false;
+    });
+
+    it('should deduplicate repeated addresses so upstream lookups are not multiplied', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(true);
+
+      await validateSubscribeEthLogsParams(
+        { address: [contractAddress1, contractAddress1, contractAddress1] },
+        stubMirrorNodeClient,
+        requestDetails,
+      );
+
+      expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(1);
+    });
+
+    it('should validate a single-address subscription with exactly one upstream lookup', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(true);
+
+      await validateSubscribeEthLogsParams({ address: contractAddress1 }, stubMirrorNodeClient, requestDetails);
+
+      expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(1);
+    });
+
+    WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_ENABLED: true }, () => {
+      it('should allow a within-limit address array when multiple addresses are enabled', async function () {
+        stubMirrorNodeClient.resolveEntityType.returns(true);
+
+        await validateSubscribeEthLogsParams(
+          { address: [contractAddress1, contractAddress2] },
+          stubMirrorNodeClient,
+          requestDetails,
+        );
+
+        expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(2);
+      });
+
+      WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_LIMIT: 60 }, () => {
+        it('should validate every address when the array spans multiple lookup batches', async function () {
+          stubMirrorNodeClient.resolveEntityType.returns(true);
+
+          // 30 addresses exceeds SUBSCRIBE_LOGS_ADDRESS_BATCH_SIZE (25), forcing more than one batch.
+          await validateSubscribeEthLogsParams({ address: buildAddresses(30) }, stubMirrorNodeClient, requestDetails);
+
+          expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(30);
+        });
+      });
+
+      WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_LIMIT: 3 }, () => {
+        it('should validate an address array exactly at WS_MULTIPLE_ADDRESSES_LIMIT', async function () {
+          stubMirrorNodeClient.resolveEntityType.returns(true);
+
+          await validateSubscribeEthLogsParams({ address: buildAddresses(3) }, stubMirrorNodeClient, requestDetails);
+
+          expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(3);
+        });
+
+        it('should reject an array exceeding WS_MULTIPLE_ADDRESSES_LIMIT before any Mirror Node lookup fires', async function () {
+          stubMirrorNodeClient.resolveEntityType.returns(true);
+
+          await expect(
+            validateSubscribeEthLogsParams({ address: buildAddresses(4) }, stubMirrorNodeClient, requestDetails),
+          ).to.be.eventually.rejected.and.have.property('code', -32602);
+
+          expect(stubMirrorNodeClient.resolveEntityType.called).to.be.false;
+        });
+      });
+    });
   });
 });

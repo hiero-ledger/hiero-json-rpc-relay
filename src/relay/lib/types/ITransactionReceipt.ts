@@ -5,7 +5,7 @@ import type { Log } from '../model';
 export interface ITransactionReceipt {
   blockHash: string;
   blockNumber: string;
-  contractAddress: string;
+  contractAddress: string | null;
   cumulativeGasUsed: string;
   effectiveGasPrice: string;
   from: string;

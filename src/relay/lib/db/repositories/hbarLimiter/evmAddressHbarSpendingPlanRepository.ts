@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { EvmAddressHbarSpendingPlan } from '../../entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
-import { IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';
+import { type IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';
 
 export class EvmAddressHbarSpendingPlanRepository {
   public static readonly collectionKey = 'evmAddressHbarSpendingPlan';

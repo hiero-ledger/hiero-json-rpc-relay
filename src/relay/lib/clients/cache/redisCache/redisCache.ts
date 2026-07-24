@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import { RedisClientType } from 'redis';
+import type { Logger } from 'pino';
+import type { RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { Utils } from '../../../../utils';

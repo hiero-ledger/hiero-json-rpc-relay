@@ -2,7 +2,8 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon, { createSandbox } from 'sinon';
+import type sinon from 'sinon';
+import { createSandbox } from 'sinon';
 
 import { predefined } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';

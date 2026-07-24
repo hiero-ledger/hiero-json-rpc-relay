@@ -11,7 +11,7 @@ import { numberTo0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import { Relay } from '../../../src/relay/lib/relay';
 import { TransactionPoolService } from '../../../src/relay/lib/services';
-import { TxPoolImpl, TxPoolTransaction } from '../../../src/relay/lib/txpool';
+import { TxPoolImpl, type TxPoolTransaction } from '../../../src/relay/lib/txpool';
 
 const logger = pino({ level: 'silent' });
 

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import sinon from 'sinon';
 
-import { Eth, predefined } from '../../../../src/relay';
+import { type Eth, predefined } from '../../../../src/relay';
 import { trimPrecedingZeros } from '../../../../src/relay/formatters';
-import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
+import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
-import { CommonService } from '../../../../src/relay/lib/services';
-import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import { type CommonService } from '../../../../src/relay/lib/services';
+import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import {
   defaultDetailedContractResults,

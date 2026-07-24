@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Logger, pino } from 'pino';
+import { type Logger, pino } from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { LruRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/LruRateLimitStore';
 import { IPRateLimiterService } from '../../../../../src/relay/lib/services/rateLimiterService/rateLimiterService';
 import { RedisRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';
-import { RateLimitKey, RateLimitStore } from '../../../../../src/relay/lib/types/rateLimiter';
-import { RequestDetails } from '../../../../../src/relay/lib/types/RequestDetails';
+import { RateLimitKey, type RateLimitStore } from '../../../../../src/relay/lib/types/rateLimiter';
+import { type RequestDetails } from '../../../../../src/relay/lib/types/RequestDetails';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('IPRateLimiterService Test Suite', function () {

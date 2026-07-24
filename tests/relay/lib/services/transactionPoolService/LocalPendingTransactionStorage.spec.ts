@@ -10,9 +10,6 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
   const testAddress1 = '0x742d35cc6db9027d0e0ba7d3c9e5a96f';
   const testAddress2 = '0x742d35cc6db9027d0e0ba7d3c9e5a96e';
-  const testTxHash1 = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-  const testTxHash2 = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
-  const testTxHash3 = '0x9999999999999999999999999999999999999999999999999999999999999999';
   const testRlp1 = '0xf86c018502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
   const testRlp2 = '0xf86c028502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
   const testRlp3 = '0xf86c038502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
@@ -41,7 +38,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should return correct count for address with pending transactions', async () => {
       // Add a transaction first
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -49,8 +46,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should return correct count after multiple transactions added', async () => {
       // Add multiple transactions
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(2);
@@ -58,9 +55,9 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should return different counts for different addresses', async () => {
       // Add transactions to different addresses
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
-      await storage.addToList(testAddress2, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
 
       const count1 = await storage.getList(testAddress1);
       const count2 = await storage.getList(testAddress2);
@@ -72,7 +69,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
   describe('addToList', () => {
     it('should successfully add transaction and return new count', async () => {
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       const count = await storage.getList(testAddress1);
 
       expect(count).to.equal(1);
@@ -80,12 +77,12 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should successfully add multiple transactions in sequence', async () => {
       // Add first transaction
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       const count1 = await storage.getList(testAddress1);
       expect(count1).to.equal(1);
 
       // Add second transaction
-      await storage.addToList(testAddress1, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(2);
@@ -93,8 +90,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should handle adding transactions to multiple addresses', async () => {
       // Add to first address
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
 
       const count1 = await storage.getList(testAddress1);
       const count2 = await storage.getList(testAddress2);
@@ -105,17 +102,17 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should handle adding same transaction to same address idempotently', async () => {
       // Add transaction first time
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       // Try to add same transaction again
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
     });
 
     it('should initialize new address with empty set', async () => {
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       const count = await storage.getList(testAddress1);
 
       expect(count).to.equal(1);
@@ -125,7 +122,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
   describe('removeFromList', () => {
     it('should successfully remove existing transaction', async () => {
       // Add transaction first
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       // Remove it
       await storage.removeFromList(testAddress1, testRlp1);
 
@@ -147,9 +144,9 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should remove specific transaction from multiple transactions', async () => {
       // Add multiple transactions
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
-      await storage.addToList(testAddress1, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp3, 0);
 
       // Remove middle transaction
       await storage.removeFromList(testAddress1, testRlp2);
@@ -160,7 +157,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should clean up empty address entries to prevent memory leaks', async () => {
       // Add and then remove all transactions
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       await storage.removeFromList(testAddress1, testRlp1);
 
       // The address should be cleaned up internally
@@ -170,7 +167,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should remove transaction data when removing from list', async () => {
       // Add transaction
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       // Verify transaction data exists
       // We can't directly test private properties, but we can test the behavior
@@ -185,8 +182,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should handle removing from multiple addresses independently', async () => {
       // Add transactions to both addresses
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
 
       // Remove from first address only
       await storage.removeFromList(testAddress1, testRlp1);
@@ -197,12 +194,55 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
   });
 
+  describe('getConfirmedCount should return correct value for address', () => {
+    [
+      {
+        title: 'should return null with no operations',
+        run: async () => {},
+        address: testAddress1,
+        expectedValue: null,
+      },
+      {
+        title: 'should still return null after addToList attempts to seed baseline',
+        run: async () => {
+          await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 5);
+        },
+        address: testAddress1,
+        expectedValue: 5,
+      },
+      {
+        title: 'should return value after removeFromList operations',
+        run: async () => {
+          await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+          await storage.removeFromList(testAddress1, testRlp1);
+        },
+        address: testAddress1,
+        expectedValue: 3,
+      },
+      {
+        title: 'should return incremented value after removeFromListAndIncrementConfirmedCount operations',
+        run: async () => {
+          await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+          await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1);
+        },
+        address: testAddress1,
+        expectedValue: 4,
+      },
+    ].forEach(({ title, run, address, expectedValue }) => {
+      it(title, async () => {
+        await run();
+        const count = await storage.getConfirmedCount(address);
+        expect(count).to.equal(expectedValue);
+      });
+    });
+  });
+
   describe('removeAll', () => {
     it('should remove all transactions from all addresses', async () => {
       // Add transactions to multiple addresses
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
-      await storage.addToList(testAddress2, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
 
       // Remove all
       await storage.removeAll();
@@ -225,8 +265,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should clear both pending transactions and transaction data', async () => {
       // Add some data
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
 
       // Clear all
       await storage.removeAll();
@@ -241,10 +281,10 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should allow adding transactions after removeAll', async () => {
       // Add, remove all, then add again
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       await storage.removeAll();
 
-      await storage.addToList(testAddress1, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -258,13 +298,13 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       expect(count).to.equal(0);
 
       // Add first transaction
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
 
       // Add second transaction
-      await storage.addToList(testAddress1, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
 
       count = await storage.getList(testAddress1);
       expect(count).to.equal(2);
@@ -287,14 +327,14 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       const expectedCounts = [3, 1, 2];
 
       // Add different numbers of transactions to each address
-      await storage.addToList(addresses[0], testRlp1);
-      await storage.addToList(addresses[0], testRlp2);
-      await storage.addToList(addresses[0], testRlp3);
+      await storage.addToListAndSetConfirmedCount(addresses[0], testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addresses[0], testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(addresses[0], testRlp3, 0);
 
-      await storage.addToList(addresses[1], testRlp1);
+      await storage.addToListAndSetConfirmedCount(addresses[1], testRlp1, 0);
 
-      await storage.addToList(addresses[2], testRlp1);
-      await storage.addToList(addresses[2], testRlp2);
+      await storage.addToListAndSetConfirmedCount(addresses[2], testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addresses[2], testRlp2, 0);
 
       // Verify counts
       for (let i = 0; i < addresses.length; i++) {
@@ -308,15 +348,15 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should maintain data integrity during mixed operations', async () => {
       // Mix of add and remove operations
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
-      await storage.addToList(testAddress2, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
 
       // Remove from middle
       await storage.removeFromList(testAddress1, testRlp1);
 
       // Add more
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       // Verify final state
       const count1 = await storage.getList(testAddress1);
@@ -334,7 +374,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       // Add many transactions (using different RLP values by modifying nonce)
       for (let i = 0; i < largeCount; i++) {
         const rlp = `0xf86c${i.toString(16).padStart(2, '0')}8502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0`;
-        await storage.addToList(testAddress1, rlp);
+        await storage.addToListAndSetConfirmedCount(testAddress1, rlp, 0);
       }
 
       const count = await storage.getList(testAddress1);
@@ -344,7 +384,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
   describe('Payload retrieval', () => {
     it('should save and retrieve payload atomically', async () => {
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -358,7 +398,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should retrieve payloads for address', async () => {
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -369,7 +409,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should remove payload when removed from list', async () => {
-      await storage.addToList(testAddress1, testRlp1);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
 
       await storage.removeFromList(testAddress1, testRlp1);
 
@@ -384,9 +424,9 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should handle multiple transactions with payloads', async () => {
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
-      await storage.addToList(testAddress2, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
 
       const count1 = await storage.getList(testAddress1);
       const count2 = await storage.getList(testAddress2);
@@ -403,9 +443,9 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should retrieve payloads for specific address only', async () => {
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress1, testRlp2);
-      await storage.addToList(testAddress2, testRlp3);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
 
       const payloads = await storage.getTransactionPayloads(testAddress1);
       expect(payloads.size).to.equal(2);
@@ -421,8 +461,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should get all transaction payloads across addresses', async () => {
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
 
       const allPayloads = await storage.getAllTransactionPayloads();
       expect(allPayloads.size).to.equal(2);
@@ -431,8 +471,8 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
 
     it('should clear all payloads when removeAll is called', async () => {
-      await storage.addToList(testAddress1, testRlp1);
-      await storage.addToList(testAddress2, testRlp2);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
 
       await storage.removeAll();
 

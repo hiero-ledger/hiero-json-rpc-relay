@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
-import { createClient, RedisClientType } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 
 import { IPRateLimiterService } from '../../../src/relay/lib/services';
 import { RedisRateLimitStore } from '../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';
@@ -69,7 +69,7 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
   describe('Shared WebSocket Rate Limiting Between Services', function () {
     it('should share rate limit counters between two WebSocket service instances', async function () {
-      let rateLimited = false;
+      let rateLimited: boolean;
 
       // Make exactly LIMIT requests through wsServiceA to hit the limit
       for (let i = 0; i < LIMIT; i++) {
@@ -149,7 +149,7 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
   describe('WebSocket Batch Request Shared Rate Limiting', function () {
     it('should share rate limit counters for batch requests between WebSocket services', async function () {
-      let rateLimited = false;
+      let rateLimited: boolean;
 
       // Make exactly LIMIT batch requests through wsServiceA to hit the limit
       for (let i = 0; i < LIMIT; i++) {

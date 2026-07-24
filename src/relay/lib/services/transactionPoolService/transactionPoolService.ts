@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from 'ethers/transaction';
-import { Logger } from 'pino';
-import { Counter, Gauge, Registry } from 'prom-client';
+import { type Transaction } from 'ethers/transaction';
+import { type Logger } from 'pino';
+import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
 import {
-  PendingTransactionStorage,
-  TransactionPoolService as ITransactionPoolService,
+  type PendingTransactionStorage,
+  type TransactionPoolService as ITransactionPoolService,
 } from '../../types/transactionPool';
 import { RedisPendingTransactionStorage } from './RedisPendingTransactionStorage';
 
@@ -90,7 +90,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       name: 'rpc_relay_txpool_pending_count',
       help: 'Current total pending transactions across all addresses.',
       registers: [register],
-      collect: async () => {
+      collect: async (): Promise<void> => {
         const count = (await this.getAllTransactions()).size;
         this.pendingCountGauge.set(count);
       },
@@ -114,7 +114,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       name: 'rpc_relay_txpool_active_addresses',
       help: 'All current unique addresses having transactions in the pending pool',
       registers: [register],
-      collect: async () => {
+      collect: async (): Promise<void> => {
         const count = await this.getUniqueAddressesCount();
         this.activeAddressesGauge.set(count);
       },
@@ -126,9 +126,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address that submits the transaction.
    * @param tx - The transaction object to be stored.
+   * @param confirmedCount - Number of confirmed transactions count received from the mirror node.
    * @returns A promise that resolves once the transaction is stored.
    */
-  async saveTransaction(address: string, tx: Transaction): Promise<void> {
+  async saveTransaction(address: string, tx: Transaction, confirmedCount: number): Promise<void> {
     if (!TransactionPoolService.isEnabled()) {
       return;
     }
@@ -137,7 +138,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const rlpHex = tx.serialized;
 
     try {
-      await this.storage.addToList(addressLowerCased, rlpHex);
+      await this.storage.addToListAndSetConfirmedCount(addressLowerCased, rlpHex, confirmedCount);
       this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {
@@ -156,9 +157,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address of the transaction sender.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param status - The status of the transaction.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  async removeTransaction(address: string, rlpHex: string): Promise<void> {
+  async removeTransaction(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void> {
     if (!TransactionPoolService.isEnabled()) {
       return;
     }
@@ -166,7 +168,11 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
 
     try {
-      await this.storage.removeFromList(addressLowerCased, rlpHex);
+      if (status === 'confirmed') {
+        await this.storage.removeFromListAndIncrementConfirmedCount(addressLowerCased, rlpHex);
+      } else {
+        await this.storage.removeFromList(addressLowerCased, rlpHex);
+      }
       this.pendingCountGauge.dec();
       this.operationsCounter.labels('remove').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
@@ -267,5 +273,21 @@ export class TransactionPoolService implements ITransactionPoolService {
       this.storageErrorsCounter.labels('get', this.storageType).inc();
       throw error;
     }
+  }
+
+  /**
+   * Returns the cached sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
+   *
+   * @param address - The sender's EVM address.
+   */
+  async getConfirmedCount(address: string): Promise<number | null> {
+    if (!ConfigService.get('ENABLE_NONCE_ORDERING')) return null;
+    return await this.storage.getConfirmedCount(address.toLowerCase());
   }
 }

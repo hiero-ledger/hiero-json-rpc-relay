@@ -2,20 +2,19 @@
 
 // External resources
 import { expect } from 'chai';
-import { solidity } from 'ethereum-waffle';
 import { ethers } from 'ethers';
 
 import relayConstants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
 // Constants from local resources
 import Constants from '../../server/helpers/constants';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import ERC20MockJson from '../contracts/ERC20Mock.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 // Local resources
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 const extractRevertReason = (errorReason: string) => {
   const pattern = /(?<=reverted: ).*/;
@@ -32,7 +31,6 @@ describe('@erc20 Acceptance Tests', async function () {
   const accounts: AliasAccount[] = [];
   let initialHolder;
   let anotherAccount;
-  let recipient;
 
   const contracts: [any] = [];
 
@@ -51,7 +49,6 @@ describe('@erc20 Acceptance Tests', async function () {
     accounts[2] = await servicesNode.createAliasAccount(30, relay.provider);
 
     initialHolder = accounts[0].address;
-    recipient = accounts[1].address;
     anotherAccount = accounts[2].address;
 
     // allow mirror node a 5 full record stream write windows (5 sec) and a buffer to persist setup details
@@ -190,12 +187,12 @@ describe('@erc20 Acceptance Tests', async function () {
               });
 
               describe('when the spender has enough allowance', function () {
-                let tx, receipt;
+                let tx;
                 before(async function () {
                   tx = await contract
                     .connect(tokenOwnerWallet)
                     .approve(spender, initialSupply, await Utils.gasOptions());
-                  receipt = await tx.wait();
+                  await tx.wait();
                   // 5 seconds sleep to propagate the changes to mirror node
                   await new Promise((r) => setTimeout(r, 5000));
                 });
@@ -224,7 +221,7 @@ describe('@erc20 Acceptance Tests', async function () {
                     tx = await contract
                       .connect(spenderWallet)
                       .transferFrom(tokenOwner, to, initialSupply, await Utils.gasOptions());
-                    const receipt = await tx.wait();
+                    await tx.wait();
                     // 5 seconds sleep to propagate the changes to mirror node
                     await new Promise((r) => setTimeout(r, 5000));
                     const ownerBalance = await contract.balanceOf(tokenOwner);

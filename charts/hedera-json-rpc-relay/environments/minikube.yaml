@@ -8,8 +8,6 @@ config:
   LOG_LEVEL: ""
   local:
     HEDERA_NETWORK: {"127.0.01:50211":"0.0.3"}
-  OPERATOR_ID_MAIN: ""
-  OPERATOR_KEY_MAIN: ""
 
 rolling_restart:
   enabled: true

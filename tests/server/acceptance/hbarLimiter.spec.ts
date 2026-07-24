@@ -6,9 +6,9 @@ import { BaseContract, ethers } from 'ethers';
 import findConfig from 'find-config';
 import fs from 'fs';
 import { resolve } from 'path';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
@@ -18,16 +18,20 @@ import { HbarSpendingPlanConfigService } from '../../../src/relay/lib/config/hba
 import { EvmAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { IDetailedHbarSpendingPlan } from '../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
+import { type IDetailedHbarSpendingPlan } from '../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../src/relay/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
-import { ITransfer } from '../../../src/relay/lib/types';
-import { SpendingPlanConfig } from '../../../src/relay/lib/types/spendingPlanConfig';
-import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe } from '../../relay/helpers';
-import MetricsClient from '../clients/metricsClient';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
+import { type ITransfer } from '../../../src/relay/lib/types';
+import { type SpendingPlanConfig } from '../../../src/relay/lib/types/spendingPlanConfig';
+import {
+  estimateFileTransactionsFee,
+  overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
+} from '../../relay/helpers';
+import type MetricsClient from '../clients/metricsClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import largeContractJson from '../contracts/hbarLimiterContracts/largeSizeContract.json';
 import mediumSizeContract from '../contracts/hbarLimiterContracts/mediumSizeContract.json';
@@ -37,7 +41,7 @@ import Assertions from '../helpers/assertions';
 import testConstants from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 
@@ -113,6 +117,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     hbarSpendingPlan: IDetailedHbarSpendingPlan,
     deploymentCounts: number,
     expectedTxCost: number,
+    // HBAR expenses are captured asynchronously after a transaction executes, so a multi-account/
+    // multi-file scenario may need longer than the default before the spending plan reflects the full
+    // amount. Callers asserting an exact amountSpent should pass a larger timeout.
+    timeoutMs: number = 6000,
   ) => {
     let amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
     let isTimeOut = false;
@@ -127,7 +135,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       await Utils.wait(3000);
       amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
 
-      if (Date.now() - startTime > 6000) {
+      if (Date.now() - startTime > timeoutMs) {
         logger.warn(
           `Timed out while polling for proper amount spent by the spending plan: deploymentCounts=${deploymentCounts}, expectedTxCost=${expectedTxCost}, amountSpent=${amountSpent}, properAmountSpent=${
             deploymentCounts * expectedTxCost
@@ -161,9 +169,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const transactionReecordCostTolerance = ConfigService.get('TEST_TRANSACTION_RECORD_COST_TOLERANCE');
 
     const verifyRemainingLimit = (expectedCost: number, remainingHbarsBefore: number, remainingHbarsAfter: number) => {
-      const delta = transactionReecordCostTolerance * expectedCost;
+      const tolerance = ConfigService.get('TEST_TRANSACTION_RECORD_COST_TOLERANCE');
+      const delta = tolerance * expectedCost;
       if (global.logger.isLevelEnabled('debug')) {
-        global.logger.debug(`Tolerance: ${transactionReecordCostTolerance}`);
+        global.logger.debug(`Tolerance: ${tolerance}`);
         global.logger.debug(`Expected cost: ${expectedCost} ±${delta}`);
         global.logger.debug(`Actual cost: ${remainingHbarsBefore - remainingHbarsAfter}`);
         global.logger.debug(`Actual delta: ${(remainingHbarsBefore - remainingHbarsAfter) / (expectedCost * 100)}`);
@@ -335,18 +344,19 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
           verifyRemainingLimit(expectedTxCost, initialRemainingHbars, updatedRemainingHbars);
         });
 
-        it('should deploy a large contract and decrease remaining HBAR in limiter when transaction data is large', async function () {
-          overrideEnvsInMochaDescribe({ TEST_TRANSACTION_RECORD_COST_TOLERANCE: 0.25 });
-          const initialRemainingHbars = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
-          expect(initialRemainingHbars).to.be.gt(0);
+        withOverriddenEnvsInMochaTest({ TEST_TRANSACTION_RECORD_COST_TOLERANCE: 0.25 }, () => {
+          it('should deploy a large contract and decrease remaining HBAR in limiter when transaction data is large', async () => {
+            const initialRemainingHbars = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
+            expect(initialRemainingHbars).to.be.gt(0);
 
-          const contract = await deployContract(largeContractJson, accounts[0].wallet);
-          await contract.waitForDeployment();
+            const contract = await deployContract(largeContractJson, accounts[0].wallet);
+            await contract.waitForDeployment();
 
-          const expectedTxCost = await getExpectedCostOfLastLargeTx(contract.deploymentTransaction()!.data);
-          const updatedRemainingHbars = await pollForProperRemainingHbar(initialRemainingHbars, expectedTxCost);
+            const expectedTxCost = await getExpectedCostOfLastLargeTx(contract.deploymentTransaction()!.data);
+            const updatedRemainingHbars = await pollForProperRemainingHbar(initialRemainingHbars, expectedTxCost);
 
-          verifyRemainingLimit(expectedTxCost, initialRemainingHbars, updatedRemainingHbars);
+            verifyRemainingLimit(expectedTxCost, initialRemainingHbars, updatedRemainingHbars);
+          });
         });
 
         it('should be able to deploy a contract without creating file', async function () {
@@ -639,6 +649,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 hbarSpendingPlan,
                 aliasAccounts.length,
                 expectedTxCost,
+                // 30000,
               );
               expect(amountSpent).to.be.approximately(
                 aliasAccounts.length * expectedTxCost,
@@ -858,7 +869,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             while (totalHbarSpent + estimatedTxFee < totalHbarBudget) {
               for (const accountAlias of allAccountAliases) {
-                let deploymentCounts = 0;
+                let deploymentCounts: number;
                 const maxSpendingLimit = HbarLimitService.TIER_LIMITS[accountAlias.hbarSpendingPlan.subscriptionTier]
                   .toTinybars()
                   .toNumber();
@@ -910,7 +921,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         // This should set the remaining HBAR limit to zero
         const remainingHbarsBefore = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
         expect(remainingHbarsBefore).to.eq(0);
-        let deploymentCounts = 0;
+        let deploymentCounts: number;
 
         const operatorBalanceBefore = (await mirrorNode.get(`/accounts/${operatorAccount}`)).balance.balance;
 

@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Koa from 'koa';
-import { Logger } from 'pino';
+import type Koa from 'koa';
+import { type Logger } from 'pino';
 
-import { JsonRpcError, predefined, Relay } from '../../relay';
-import { MirrorNodeClient } from '../../relay/lib/clients';
-import { RequestDetails } from '../../relay/lib/types';
-import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
+import { ConfigService } from '../../config-service/services';
+import { JsonRpcError, predefined, type Relay } from '../../relay';
+import { type MirrorNodeClient } from '../../relay/lib/clients';
+import { type RequestDetails } from '../../relay/lib/types';
+import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../../server/koaJsonRpc/lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { SubscriptionService } from '../service/subscriptionService';
+import type ConnectionLimiter from '../metrics/connectionLimiter';
+import type WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from '../utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './subscribeController';
@@ -29,6 +30,8 @@ export type ISharedParams = {
   requestDetails: RequestDetails;
   subscriptionService: SubscriptionService;
 };
+
+const RPC_WS_API = new Set(ConfigService.get('RPC_WS_API'));
 
 /**
  * Handles sending requests to a Relay by calling a specified method with given parameters.
@@ -108,9 +111,14 @@ export const getRequestResult = async (
     return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
   }
 
+  const subdomain = method.split('_')[0] ?? null;
+
+  if (!RPC_WS_API.has(subdomain)) {
+    return jsonRespError(request.id || null, spec.SubdomainDisabled(request.method), requestDetails.requestId);
+  }
+
   // verify supported method
   if (!verifySupportedMethod(relay, request.method)) {
-    logger.warn(`Method not supported: ${request.method}`);
     return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 

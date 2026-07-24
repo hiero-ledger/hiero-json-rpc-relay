@@ -5,11 +5,12 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { numberTo0x } from '../../src/relay/formatters';
+import { CommonService } from '../../src/relay/lib/services';
+import type MirrorClient from '../server/clients/mirrorClient';
+import type RelayClient from '../server/clients/relayClient';
+import type ServicesClient from '../server/clients/servicesClient';
 import relayConstants from '../../src/relay/lib/constants';
 import { CommonService } from '../../src/relay/lib/services';
-import MirrorClient from '../server/clients/mirrorClient';
-import RelayClient from '../server/clients/relayClient';
-import ServicesClient from '../server/clients/servicesClient';
 import basicContractJson from '../server/contracts/Basic.json';
 import TokenCreateJson from '../server/contracts/TokenCreateContract.json';
 import Address from '../server/helpers/constants';
@@ -17,7 +18,7 @@ import Helper from '../server/helpers/constants';
 import RelayCalls from '../server/helpers/constants';
 import constants from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
-import { AliasAccount } from '../server/types/AliasAccount';
+import { type AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
 describe('@release @protocol-acceptance @protocol-acceptance-contract-service eth_getCode', async function () {

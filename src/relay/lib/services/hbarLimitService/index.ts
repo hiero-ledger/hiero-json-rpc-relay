@@ -2,19 +2,19 @@
 
 import { zeroAddress } from '@ethereumjs/util';
 import { AccountId, Hbar } from '@hiero-ledger/sdk';
-import { Logger } from 'pino';
-import { Counter, Gauge, Registry } from 'prom-client';
+import type { Logger } from 'pino';
+import { Counter, Gauge, type Registry } from 'prom-client';
 
 import { prepend0x } from '../../../formatters';
 import { Utils } from '../../../utils';
 import constants from '../../constants';
-import { EvmAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
-import { HbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/hbarSpendingPlanRepository';
-import { IPAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { IDetailedHbarSpendingPlan } from '../../db/types/hbarLimiter/hbarSpendingPlan';
+import { type EvmAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
+import { type HbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/hbarSpendingPlanRepository';
+import { type IPAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { type IDetailedHbarSpendingPlan } from '../../db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../db/types/hbarLimiter/subscriptionTier';
-import { RequestDetails } from '../../types';
-import { IHbarLimitService } from './IHbarLimitService';
+import { type RequestDetails } from '../../types';
+import { type IHbarLimitService } from './IHbarLimitService';
 
 export class HbarLimitService implements IHbarLimitService {
   static readonly TIER_LIMITS: Record<SubscriptionTier, Hbar> = {
@@ -266,7 +266,7 @@ export class HbarLimitService implements IHbarLimitService {
     const operatorPlan = await this.getOperatorSpendingPlan(requestDetails);
     await this.hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, cost, this.limitDuration);
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier).then();
+    void this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier);
 
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
@@ -300,7 +300,7 @@ export class HbarLimitService implements IHbarLimitService {
     await this.hbarSpendingPlanRepository.addToAmountSpent(spendingPlan.id, cost, this.limitDuration);
 
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier).then();
+    void this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier);
 
     this.logger.info(
       `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
@@ -433,7 +433,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (evmAddress) {
       try {
         return await this.getSpendingPlanByEvmAddress(evmAddress);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
         }
@@ -443,7 +443,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (ipAddress) {
       try {
         return await this.getSpendingPlanByIPAddress(requestDetails);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(` Spending plan not found for IP address.`);
         }

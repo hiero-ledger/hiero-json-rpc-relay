@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import Koa from 'koa';
-import { Counter } from 'prom-client';
+import type Koa from 'koa';
+import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
-import { IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
 import { handleEthUnsubscribe } from '../../../../src/ws-server/controllers/unsubscribeController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';

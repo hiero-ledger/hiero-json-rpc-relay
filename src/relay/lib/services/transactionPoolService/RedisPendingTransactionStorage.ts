@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../../config-service/services';
-import { PendingTransactionStorage } from '../../types/transactionPool';
+import { type PendingTransactionStorage } from '../../types/transactionPool';
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
   /**
@@ -26,9 +26,22 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly globalPendingTxsKey = `${this.keyPrefix}global`;
 
   /**
-   * The time-to-live (TTL) for the pending transaction storage in seconds.
+   * Key for storing cached count of confirmed transactions.
    */
-  private readonly storageTtl: number;
+  private readonly confirmedTxCountKey = `${this.keyPrefix}confirmed`;
+
+  /**
+   * Reference TTL baseline in seconds, derived from sdk request timeout.
+   * This value is not written as a key TTL by itself; it serves as a base to
+   * compute other expirations in this storage (e.g., confirmedCountTtl).
+   */
+  private readonly referenceStorageTtl: number;
+
+  /**
+   * Extra TTL in seconds added per currently pending transaction for an address
+   * when computing that address' pending-set expiration.
+   */
+  private readonly extraPerPendingStorageTtl: number;
 
   /**
    * Creates a new Redis-backed pending transaction storage.
@@ -36,35 +49,45 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param redisClient - A connected {@link RedisClientType} instance.
    */
   constructor(private readonly redisClient: RedisClientType) {
-    this.storageTtl = ConfigService.get('PENDING_TRANSACTION_STORAGE_TTL');
+    this.referenceStorageTtl = Math.ceil(ConfigService.get('SDK_REQUEST_TIMEOUT') / 1000); // ms to s conversion
+    this.extraPerPendingStorageTtl = ConfigService.get('EXTRA_PER_PENDING_TRANSACTION_STORAGE_TTL');
   }
 
   /**
    * Resolves the Redis key for a given address.
    *
-   * @param addr - Account address whose pending list key should be derived.
+   * @param address - Account address whose pending list key should be derived.
+   * @param prefix - Optional prefix to prepend to the key (default: `this.keyPrefix`).
    * @returns The Redis key (e.g., `txpool:pending:<address>`).
    */
-  private keyFor(address: string): string {
-    return `${this.keyPrefix}${address}`;
+  private keyFor(address: string, prefix = this.keyPrefix): string {
+    return `${prefix}${address}`;
   }
 
   /**
    * Adds a pending transaction for the given address.
    * Atomically indexes the transaction (per-address + global) using MULTI/EXEC.
+   * It also stores the confirmed count for the address.
    *
    * @param address - Account address whose pending list will be appended to.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param confirmedCount - The number of confirmed transactions for this address.
    */
-  async addToList(address: string, rlpHex: string): Promise<void> {
+  async addToListAndSetConfirmedCount(address: string, rlpHex: string, confirmedCount: number): Promise<void> {
     const addressKey = this.keyFor(address);
+    const confirmedCountKey = this.keyFor(address, this.confirmedTxCountKey);
+    const storageTtl = await this.getPendingTxTtl(address);
 
     await this.redisClient
       .multi()
       .sAdd(addressKey, rlpHex)
-      .expire(addressKey, this.storageTtl)
+      .expire(addressKey, storageTtl)
       .sAdd(this.globalPendingTxsKey, rlpHex)
-      .expire(this.globalPendingTxsKey, this.storageTtl)
+      .expire(this.globalPendingTxsKey, storageTtl)
+
+      .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
+      .expire(confirmedCountKey, this.confirmedCountTtl) // but always refresh ttl
+
       .exec();
   }
 
@@ -76,7 +99,31 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeFromList(address: string, rlpHex: string): Promise<void> {
     const key = this.keyFor(address);
+
     await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex).exec();
+  }
+
+  /**
+   * Removes a transaction from the pending list of the given address.
+   * If the transaction is confirmed, it should increase the confirmed count by 1.
+   *
+   * @param address - Account address whose pending list should be modified.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
+   */
+  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
+    const confirmedKey = this.keyFor(address, this.confirmedTxCountKey);
+
+    // MULTI will still execute even if the pending tx set already expired.
+    // This is expected behavior.
+    //
+    // If the tx is no longer in the pending pool, SREM becomes a no-op.
+    // We still attempt to increment the confirmed count if that key exists.
+    const multi = this.redisClient.multi().sRem(this.keyFor(address), rlpHex).sRem(this.globalPendingTxsKey, rlpHex);
+
+    // If the key is missing it means that confirmed count expired way too early, we shouldn't set it then
+    const confirmedCountExists = await this.redisClient.exists(confirmedKey);
+    if (confirmedCountExists) multi.incr(confirmedKey).expire(confirmedKey, this.confirmedCountTtl);
+    await multi.exec();
   }
 
   /**
@@ -132,5 +179,44 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     const addressKey = this.keyFor(address);
     const members = await this.redisClient.sMembers(addressKey);
     return new Set(members);
+  }
+
+  /**
+   * Returns the cached sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
+   *
+   * @param address - The sender's EVM address.
+   */
+  async getConfirmedCount(address: string): Promise<number | null> {
+    const result = await this.redisClient.get(this.keyFor(address, this.confirmedTxCountKey));
+    return result != null ? Number(result) : null;
+  }
+
+  /**
+   * TTL for the cached confirmed-transaction count per address, in seconds.
+   * Set to 2x the referenceStorageTtl so it outlives the baseline request
+   * window and tolerates delays.
+   */
+  get confirmedCountTtl(): number {
+    return 2 * this.referenceStorageTtl;
+  }
+
+  /**
+   * Computes the TTL (in seconds) to apply to a sender's pending-transaction set.
+   * The +1 accounts for the transaction being added now to ensure a minimum bump.
+   * Scales with the number of pending transactions to reduce premature expiration
+   * under bursty submission patterns - with the nonce ordering mechanism enabled
+   * transactions will be submitted one by one.
+   *
+   * @param address - The account address whose pending list size is used for scaling.
+   */
+  async getPendingTxTtl(address: string): Promise<number> {
+    const pendingCount = await this.getList(address);
+    return this.confirmedCountTtl + (1 + pendingCount) * this.extraPerPendingStorageTtl;
   }
 }

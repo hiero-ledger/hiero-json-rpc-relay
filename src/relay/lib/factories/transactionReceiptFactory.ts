@@ -6,9 +6,13 @@ import { bytesToInt, concatBytes, hexToBytes, intToBytes } from '@ethereumjs/uti
 import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, toHexString } from '../../formatters';
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
-import { Log } from '../model';
-import { ITransactionReceipt } from '../types';
-import { IReceiptRlpInput } from '../types/IReceiptRlpInput';
+import { type Log } from '../model';
+import {
+  type ITransactionReceipt,
+  type MirrorNodeContractResultBase,
+  type MirrorNodeContractResultReceipt,
+} from '../types';
+import { type IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs
@@ -25,7 +29,7 @@ interface IRegularTransactionReceiptParams {
   effectiveGas: string;
   from: string;
   logs: Log[];
-  receiptResponse: any;
+  receiptResponse: MirrorNodeContractResultReceipt;
   to: string | null;
   cumulativeGasUsed: number;
 }
@@ -106,7 +110,7 @@ class TransactionReceiptFactory {
     // Create the receipt object
     const receipt: ITransactionReceipt = {
       blockHash: toHash32(receiptResponse.block_hash),
-      blockNumber: numberTo0x(receiptResponse.block_number),
+      blockNumber: nanOrNumberTo0x(receiptResponse.block_number),
       from: from,
       to: to,
       cumulativeGasUsed: cumulativeGasUsed ? numberTo0x(cumulativeGasUsed) : constants.ZERO_HEX,
@@ -115,7 +119,7 @@ class TransactionReceiptFactory {
       logs: logs,
       logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
       transactionHash: toHash32(receiptResponse.hash),
-      transactionIndex: numberTo0x(receiptResponse.transaction_index),
+      transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
       effectiveGasPrice: effectiveGas,
       root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
       status: receiptResponse.status,
@@ -136,9 +140,9 @@ class TransactionReceiptFactory {
    * Helper method to determine if a receipt response includes a contract address
    *
    * @param receiptResponse Mirror node contract result response
-   * @returns {string} Contract address or null
+   * @returns {string | null} Contract address or null
    */
-  private static getContractAddressFromReceipt(receiptResponse: any): string {
+  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
@@ -166,34 +170,34 @@ class TransactionReceiptFactory {
    * @returns Hex string (0x-prefixed) of the encoded receipt, suitable for receipts root hashing.
    */
   public static encodeReceiptToHex(receipt: IReceiptRlpInput): string {
-    const txType = receipt.type !== null ? bytesToInt(hexToBytes(receipt.type)) : 0;
+    const txType = receipt.type !== null ? bytesToInt(hexToBytes(receipt.type as `0x${string}`)) : 0;
 
     // First field: receipt root or status (post-Byzantium)
     let receiptRootOrStatus: Uint8Array;
     if (receipt.root && receipt.root.length > 2) {
-      receiptRootOrStatus = hexToBytes(receipt.root);
-    } else if (receipt.status && bytesToInt(hexToBytes(receipt.status)) === 0) {
+      receiptRootOrStatus = hexToBytes(receipt.root as `0x${string}`);
+    } else if (receipt.status && bytesToInt(hexToBytes(receipt.status as `0x${string}`)) === 0) {
       receiptRootOrStatus = new Uint8Array(0);
     } else {
-      receiptRootOrStatus = hexToBytes(constants.ONE_HEX);
+      receiptRootOrStatus = hexToBytes(constants.ONE_HEX as `0x${string}`);
     }
 
     const cumulativeGasUsed = receipt.cumulativeGasUsed;
     const cumulativeGasUsedBytes =
       BigInt(cumulativeGasUsed) === BigInt(0)
         ? new Uint8Array(0)
-        : hexToBytes(prepend0x(BigInt(cumulativeGasUsed).toString(16))); // canonical RLP encoding (no leading zeros)
+        : hexToBytes(prepend0x(BigInt(cumulativeGasUsed).toString(16)) as `0x${string}`); // canonical RLP encoding (no leading zeros)
 
     const receiptLogsParam = receipt.logs.map((log) => [
-      hexToBytes(log.address),
-      log.topics.map((t) => hexToBytes(t)),
-      hexToBytes(log.data),
+      hexToBytes(log.address as `0x${string}`),
+      log.topics.map((t) => hexToBytes(t as `0x${string}`)),
+      hexToBytes(log.data as `0x${string}`),
     ]);
 
     const encodedList = RLP.encode([
       receiptRootOrStatus,
       cumulativeGasUsedBytes,
-      hexToBytes(receipt.logsBloom),
+      hexToBytes(receipt.logsBloom as `0x${string}`),
       receiptLogsParam,
     ]);
 

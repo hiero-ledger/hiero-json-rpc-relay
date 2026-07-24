@@ -15,6 +15,11 @@ import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../h
 chai.use(chaiAsPromised);
 
 describe('Relay', () => {
+  overrideEnvsInMochaDescribe({
+    OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS: 1,
+    OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS: 1,
+  });
+
   const logger = pino({ level: 'silent' });
   const register = new Registry();
   let relay: Relay;
@@ -138,6 +143,59 @@ describe('Relay', () => {
       afterEach(() => {
         getAccountPageLimitStub.restore();
       });
+
+      withOverriddenEnvsInMochaTest(
+        {
+          OPERATOR_BALANCE_STARTUP_MAX_ATTEMPTS: 3,
+          OPERATOR_BALANCE_STARTUP_RETRY_DELAY_MS: 1,
+        },
+        () => {
+          it('should be able to get operator balance on first attempt', async function () {
+            getAccountPageLimitStub.resolves({
+              account: operatorId,
+              balance: { balance: 930300564400 },
+              transactions: [],
+              links: {},
+            });
+            await expect(relay.initializeRelay()).to.not.be.rejected;
+            expect(getAccountPageLimitStub.callCount).to.equal(1);
+          });
+
+          it('should be able to get operator balance on third attempt', async function () {
+            getAccountPageLimitStub.onCall(0).resolves({
+              account: operatorId,
+              balance: { balance: 0 },
+              transactions: [],
+              links: {},
+            });
+            getAccountPageLimitStub.onCall(1).resolves({
+              account: operatorId,
+              balance: { balance: 0 },
+              transactions: [],
+              links: {},
+            });
+            getAccountPageLimitStub.onCall(2).resolves({
+              account: operatorId,
+              balance: { balance: 930300564400 },
+              transactions: [],
+              links: {},
+            });
+            await expect(relay.initializeRelay()).to.not.be.rejected;
+            expect(getAccountPageLimitStub.callCount).to.equal(3);
+          });
+
+          it('should throw an error if the balance can not be obtained after the last attempt', async function () {
+            getAccountPageLimitStub.resolves({
+              account: operatorId,
+              balance: { balance: 0 },
+              transactions: [],
+              links: {},
+            });
+
+            await expect(relay.initializeRelay()).to.be.rejectedWith(`Operator account '${operatorId}' has no balance`);
+          });
+        },
+      );
 
       it('should not throw when operator has balance', async function () {
         getAccountPageLimitStub.resolves({

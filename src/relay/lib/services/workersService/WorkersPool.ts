@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Piscina from 'piscina';
-import { Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
 import { ConfigService } from '../../../../config-service/services';
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
-import { ICacheClient } from '../../clients/cache/ICacheClient';
+import { type ICacheClient } from '../../clients/cache/ICacheClient';
 import { RegistryFactory } from '../../factories/registryFactory';
+import { getWorkerContext, type IWorkerContext } from './workerContext';
 import type { WorkerTask } from './workers';
 import { unwrapError } from './WorkersErrorUtils';
 
@@ -73,7 +74,7 @@ export class WorkersPool {
    *
    * Populated on the first invocation of {@link run} to avoid repeating the dynamic import on every call.
    */
-  private static handleTaskFn: ((task: WorkerTask) => Promise<any>) | null = null;
+  private static handleTaskFn: ((task: WorkerTask, ctx: IWorkerContext) => Promise<any>) | null = null;
 
   /**
    * Updates a metric either by delegating the update to a worker thread
@@ -223,15 +224,11 @@ export class WorkersPool {
    * When the pool is enabled, the task is dispatched to a Piscina worker thread.
    *
    * When the pool is disabled, the task is executed locally on the main thread and entirely
-   * bypasses the worker pool. In this mode `mirrorNodeClient` and `cacheService` are not
-   * forwarded to the task handler — the worker modules maintain their own module-level
-   * instances initialised on first use.
+   * bypasses the worker pool.
    *
    * @param options - The task descriptor forwarded to the worker handler.
    * @param mirrorNodeClient - Mirror node client instance used to forward inter-thread metrics.
-   *   Unused when {@link WORKERS_POOL_ENABLED} is `false`.
    * @param cacheService - Cache service instance used to forward inter-thread metrics.
-   *   Unused when {@link WORKERS_POOL_ENABLED} is `false`.
    * @returns A promise that resolves to the task handler's return value.
    * @throws The original error from the task handler; reconstructed from its serialized form
    *   in worker mode, or native in local mode.
@@ -239,12 +236,12 @@ export class WorkersPool {
   static async run(options: WorkerTask, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
     if (!ConfigService.get('WORKERS_POOL_ENABLED')) {
       if (!this.handleTaskFn) {
-        // Dynamic import to defer loading worker modules and their dependencies until actually needed,
-        // ensuring any module-level instances are created once and reused across all local task executions.
+        // Dynamic import to defer loading worker modules and their dependencies until actually needed.
         const mod = await import('./workers');
         this.handleTaskFn = mod.default;
       }
-      return this.handleTaskFn(options);
+      // Reuse the shared per-thread cached context, built from the relay's client/cache on first use.
+      return this.handleTaskFn(options, getWorkerContext(mirrorNodeClient, cacheService));
     }
 
     this.mirrorNodeClient = mirrorNodeClient;

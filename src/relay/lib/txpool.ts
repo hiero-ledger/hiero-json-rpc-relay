@@ -4,10 +4,10 @@ import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { numberTo0x } from '../formatters';
-import { predefined, TxPool } from '../index';
+import { predefined, type TxPool } from '../index';
 import constants from './constants';
 import { rpcMethod } from './decorators';
-import { TransactionPoolService } from './services';
+import { type TransactionPoolService } from './services';
 import { rpcParamValidationRules } from './validators';
 
 export interface TxPoolTransaction {

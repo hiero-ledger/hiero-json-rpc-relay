@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 import pino from 'pino';
-import { Gauge } from 'prom-client';
+import { type Gauge } from 'prom-client';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 

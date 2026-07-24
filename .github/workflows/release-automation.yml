@@ -22,13 +22,13 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
       - name: Parse Version
         id: version_parser
-        uses: step-security/semver-utils@4ae9c1fd6d1c5f8f152fe7e2efe8069a952c2ace # v4.3.2
+        uses: step-security/semver-utils@5bb182a08240146b23b61cc002cb74004377da4b # v5.0.0
         with:
           lenient: false
           version: ${{ github.event.inputs.version }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Import GPG Key
         id: gpg_importer
-        uses: step-security/ghaction-import-gpg@69c854a83c7f79463f8bdf46772ab09826c560cd # v6.3.1
+        uses: step-security/ghaction-import-gpg@c0b4a334b9b72bfaaebec86ef022a78a5b17f828 # v7.0.0
         with:
           git_commit_gpgsign: true
           git_committer_email: ${{ vars.GIT_USER_EMAIL }}
@@ -102,7 +102,7 @@ jobs:
       - name: Close the Milestone
         if: ${{ steps.version_parser.outputs.prerelease == '' }}
         id: milestone
-        uses: step-security/close-milestone@b097272a7aaa0f5c40dc6bc671d45d35c5e85b51 # v2.2.1
+        uses: step-security/close-milestone@d6e3b63e31f1f869bd3d0403f8cdc1a68f59ab4a # v2.2.2
         with:
           milestone_name: ${{ steps.version_parser.outputs.release }}
         env:
@@ -110,7 +110,7 @@ jobs:
 
       - name: Create Release Notes
         if: ${{ steps.milestone.outputs.milestone_id != '' }}
-        uses: step-security/release-notes-generator-action@9ba7c2e148ee2dc82b10ac7b772eae7438426586 # v3.2.3
+        uses: step-security/release-notes-generator-action@7df92b9170c5723a5fcb119dbc4cf891d2bac1fe # v3.2.4
         env:
           FILENAME: ${{ env.RELEASE_NOTES_FILENAME }}
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
@@ -127,7 +127,7 @@ jobs:
           tagging_message: ${{ env.RELEASE_TAG }}
 
       - name: Create Github Release
-        uses: step-security/release-action@03a57407052f15d1537fd5469a6fbbc536aba326 # v1.20.0
+        uses: step-security/release-action@a0d8e0f90f554c15366ca2c9046bf4090d24adbe # v1.21.0
         with:
           bodyFile: ${{ env.RELEASE_NOTES_FILENAME }}.md
           commit: ${{ env.RELEASE_BRANCH }}
@@ -150,7 +150,7 @@ jobs:
       MILE_STONE: ${{ needs.branch_bump_tag.outputs.milestone }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -163,7 +163,7 @@ jobs:
 
       - name: Import GPG Key
         id: gpg_importer
-        uses: step-security/ghaction-import-gpg@69c854a83c7f79463f8bdf46772ab09826c560cd # v6.3.1
+        uses: step-security/ghaction-import-gpg@c0b4a334b9b72bfaaebec86ef022a78a5b17f828 # v7.0.0
         with:
           git_commit_gpgsign: true
           git_tag_gpgsign: true

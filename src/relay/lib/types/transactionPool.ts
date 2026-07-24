@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from 'ethers/transaction';
+import type { Transaction } from 'ethers/transaction';
+
+import type { IAccountInfo } from './mirrorNode';
 
 /**
  * Service responsible for managing pending transactions in the pool and coordinating with consensus results.
@@ -11,18 +13,20 @@ export interface TransactionPoolService {
    *
    * @param address - The account address that submits the transaction.
    * @param tx - The transaction object to be stored.
+   * @param confirmedCount - Number of confirmed transactions count received from the mirror node.
    * @returns A promise that resolves once the transaction is stored.
    */
-  saveTransaction(address: string, tx: Transaction): Promise<void>;
+  saveTransaction(address: string, tx: Transaction, confirmedCount: number): Promise<void>;
 
   /**
    * Removes a transaction from the transaction pool for the given address.
    *
    * @param address - The account address that submitted the transaction.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param status - Status of the transaction
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  removeTransaction(address: string, rlpHex: string): Promise<void>;
+  removeTransaction(address: string, rlpHex: string, status?: 'rejected' | 'confirmed'): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.
@@ -48,10 +52,17 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to a Set of RLP hex strings.
    */
   getAllTransactions(): Promise<Set<string>>;
+
+  /**
+   * Returns the cached value holding the sender's initial nonce baseline
+   * obtained from the mirror node for the first transaction in a burst, or null if absent.
+   * Note: this value is a baseline and is not updated as subsequent transactions are processed.
+   */
+  getConfirmedCount(address: string): Promise<number | null>;
 }
 
 /**
- * Storage layer for managing pending transactions metadata.
+ * Storage layer for managing pending transaction's metadata.
  */
 export interface PendingTransactionStorage {
   /**
@@ -73,10 +84,14 @@ export interface PendingTransactionStorage {
    * Adds a pending transaction for the given address.
    * Implementations must atomically index the transaction (per-address + global) and persist its payload.
    *
+   * Additionally, stores the information what was the initial number of confirmed transactions for the address
+   * when creating this local pending pool.
+   *
    * @param addr - The account address.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @param confirmedCount - The confirmed transaction count for the address.
    */
-  addToList(addr: string, rlpHex: string): Promise<void>;
+  addToListAndSetConfirmedCount(addr: string, rlpHex: string, confirmedCount: number): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.
@@ -85,6 +100,15 @@ export interface PendingTransactionStorage {
    * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
   removeFromList(address: string, rlpHex: string): Promise<void>;
+
+  /**
+   * Removes a transaction from the pending list of the given address.
+   * If the transaction is confirmed, it should increase the confirmed count by 1.
+   *
+   * @param address - The account address whose transaction should be removed.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
+   */
+  removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes all pending transactions across all addresses.
@@ -107,4 +131,39 @@ export interface PendingTransactionStorage {
    * @returns Set of transaction RLP hex strings for the address.
    */
   getTransactionPayloads(address: string): Promise<Set<string>>;
+
+  /**
+   * Returns the cached sender's initial nonce baseline
+   * as returned by the mirror node for the first transaction in a burst; returns null if absent
+   * or if no cache service is configured.
+   *
+   * Notes:
+   * - This cache does NOT track the evolving expected nonce; it only stores the initial baseline.
+   * - Callers should derive subsequent expected nonces relative to this value.
+   *
+   * @param address - The sender's EVM address.
+   */
+  getConfirmedCount(address: string): Promise<number | null>;
+}
+
+/**
+ * Interface used to hold the current stats of pending pool.
+ */
+export interface IPendingPoolStatusInfo {
+  /*
+   * Current number of transactions in the pool.
+   */
+  pendingCount: number;
+
+  /**
+   * Number of other transactions that have been confirmed.
+   * Its value can be derived from the cache or fetched directly from the mirror node.
+   */
+  confirmedCount: number;
+
+  /**
+   * Can be used to preserve the response from MirroNode in case it was used to build this object.
+   * If whole structures was derived from the cache, it can be null.
+   */
+  mirrorNodeArtifact: IAccountInfo | null;
 }

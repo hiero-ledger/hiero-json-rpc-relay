@@ -38,7 +38,7 @@ export class ValidationService {
             }
           } catch (e) {
             if (e instanceof SyntaxError) {
-              throw new Error(`Configuration error: ${entryName} must be a valid JSON string.`);
+              throw new Error(`Configuration error: ${entryName} must be a valid JSON string.`, { cause: e });
             }
             throw e;
           }

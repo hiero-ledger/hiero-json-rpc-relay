@@ -10,11 +10,11 @@ import { DebugImpl } from '../../../src/relay/lib/debug';
 import { Constants, TYPES } from '../../../src/relay/lib/validators';
 import serverTestConstants from '../helpers/constants';
 const { ERROR_CODE } = serverTestConstants;
-import Axios, { AxiosInstance } from 'axios';
+import Axios, { type AxiosInstance } from 'axios';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { Server } from 'http';
-import Koa from 'koa';
+import { type Server } from 'http';
+import type Koa from 'koa';
 import sinon from 'sinon';
 import { GCProfiler } from 'v8';
 

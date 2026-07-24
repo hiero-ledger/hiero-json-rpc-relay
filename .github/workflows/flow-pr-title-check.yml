@@ -44,11 +44,11 @@ jobs:
       statuses: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
       - name: Check PR Title
-        uses: step-security/conventional-pr-title-action@bb2263ec311ca158e9ffa6bd9b997fb425402034 # v3.2.6
+        uses: step-security/conventional-pr-title-action@b54c0688e6fd1d221f8a936e05fdd82f500640d6 # v3.2.7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

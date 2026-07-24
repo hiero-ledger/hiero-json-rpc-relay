@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { HeapSpaceStatistics, HeapStatistics } from 'v8';
+import { type HeapSpaceStatistics, type HeapStatistics } from 'v8';
 
 export type HeapDifferenceStatistics = Array<{
   gcType: string;

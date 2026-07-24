@@ -6,7 +6,7 @@ import { expect } from 'chai';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { BlockFactory } from '../../../../src/relay/lib/factories/blockFactory';
-import { Block, Transaction } from '../../../../src/relay/lib/model';
+import { type Block, type Transaction } from '../../../../src/relay/lib/model';
 
 const blockInfo = {
   timestamp: '0x698afa66',

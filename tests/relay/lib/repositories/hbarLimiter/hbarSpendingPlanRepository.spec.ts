@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { type RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import type { ICacheClient } from '../../../../../src/relay/lib/clients/cache/ICacheClient';
@@ -14,8 +14,8 @@ import {
   HbarSpendingPlanNotActiveError,
   HbarSpendingPlanNotFoundError,
 } from '../../../../../src/relay/lib/db/types/hbarLimiter/errors';
-import { IDetailedHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
-import { IHbarSpendingRecord } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingRecord';
+import { type IDetailedHbarSpendingPlan } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
+import { type IHbarSpendingRecord } from '../../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingRecord';
 import { SubscriptionTier } from '../../../../../src/relay/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';

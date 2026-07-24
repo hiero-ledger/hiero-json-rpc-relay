@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { Logger } from 'pino';
+import { type Logger } from 'pino';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../../src/relay/formatters';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
 import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
-import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
+import { type IFeeHistory, type MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('FeeService', function () {
@@ -29,9 +29,16 @@ describe('FeeService', function () {
     };
   }
 
-  describe('feeHistory (happy path)', function () {
+  describe('feeHistory (batched block fetch)', function () {
+    const head = 100;
+    const gasPrice = 77;
+
     let feeService: FeeService;
-    let mirrorStub: { getBlock: sinon.SinonStub };
+    let mirrorStub: {
+      getBlocksByRange: sinon.SinonStub;
+      getBlock: sinon.SinonStub;
+      getLatestContractResultForBlock: sinon.SinonStub;
+    };
     let commonStub: {
       translateBlockTag: sinon.SinonStub;
       getGasPriceInWeibars: sinon.SinonStub;
@@ -39,38 +46,160 @@ describe('FeeService', function () {
 
     withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
       beforeEach(function () {
-        mirrorStub = { getBlock: sinon.stub() };
+        mirrorStub = {
+          getBlocksByRange: sinon.stub(),
+          getBlock: sinon.stub(),
+          getLatestContractResultForBlock: sinon.stub().resolves(null),
+        };
         commonStub = {
           translateBlockTag: sinon.stub(),
-          getGasPriceInWeibars: sinon.stub(),
+          getGasPriceInWeibars: sinon.stub().resolves(gasPrice),
         };
 
         const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
         feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
 
-        const head = 100;
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
-
-        const block = minimalMirrorBlock(head, 1_000_000, '0.0.0');
-        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
-        commonStub.getGasPriceInWeibars.withArgs(requestDetails, `lte:${block.timestamp.to}`).resolves(77);
       });
 
       afterEach(function () {
         sinon.restore();
       });
 
-      it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async function () {
+      it('fetches the whole range with a single getBlocksByRange call and never calls getBlock when newest is latest', async function () {
+        mirrorStub.getBlocksByRange
+          .withArgs(requestDetails, head, head)
+          .resolves([minimalMirrorBlock(head, 1_000_000, '0.0.0')]);
+
         const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
 
         expect(result).to.not.have.property('code');
         const feeHistory = result as IFeeHistory;
         const expectedLimit = blockGasLimit.obtainBlockGasLimit('0.0.0');
-        expect(feeHistory.oldestBlock).to.equal(numberTo0x(100));
+        expect(feeHistory.oldestBlock).to.equal(numberTo0x(head));
         expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
-        expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(77), numberTo0x(77)]);
-        expect(mirrorStub.getBlock.callCount).to.equal(1);
-        expect(mirrorStub.getBlock.firstCall.args).to.deep.equal([100, requestDetails]);
+        expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(gasPrice), numberTo0x(gasPrice)]);
+        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, head, head)).to.be.true;
+        expect(mirrorStub.getBlock.called).to.be.false;
+      });
+
+      it('batches multiple blocks including the next-fee block when newest < latest', async function () {
+        const blockCount = 3;
+        const newest = 99;
+        const oldest = newest - blockCount + 1; // 97
+        commonStub.translateBlockTag.withArgs(numberTo0x(newest), requestDetails).resolves(newest);
+
+        // range extends one past newest to include the next-fee block in the same batch
+        const rangeBlocks = [oldest, oldest + 1, newest, head].map((n) => minimalMirrorBlock(n, 1_000_000, '0.0.0'));
+        mirrorStub.getBlocksByRange.withArgs(requestDetails, oldest, newest + 1).resolves(rangeBlocks);
+
+        const result = await feeService.feeHistory(blockCount, numberTo0x(newest), null, requestDetails);
+
+        const feeHistory = result as IFeeHistory;
+        expect(feeHistory.oldestBlock).to.equal(numberTo0x(oldest));
+        expect(feeHistory.gasUsedRatio).to.have.lengthOf(blockCount);
+        expect(feeHistory.baseFeePerGas).to.have.lengthOf(blockCount + 1);
+        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, oldest, newest + 1)).to.be.true;
+        expect(mirrorStub.getBlock.called).to.be.false;
+      });
+
+      it('returns zero fee and zero gasUsedRatio for a block missing from the batch response', async function () {
+        const blockCount = 2;
+        const newest = head;
+        const oldest = newest - blockCount + 1; // 99
+        // range response omits the oldest block, so only the newest is indexed
+        mirrorStub.getBlocksByRange
+          .withArgs(requestDetails, oldest, newest)
+          .resolves([minimalMirrorBlock(newest, 1_000_000, '0.0.0')]);
+        // the omitted block is resolved on demand and reported missing by the mirror node
+        mirrorStub.getBlock.withArgs(oldest, requestDetails).resolves(undefined);
+
+        const result = await feeService.feeHistory(blockCount, 'latest', null, requestDetails);
+
+        const feeHistory = result as IFeeHistory;
+        expect(feeHistory.baseFeePerGas?.[0]).to.equal(constants.ZERO_HEX);
+        expect(feeHistory.gasUsedRatio?.[0]).to.equal(0);
+      });
+
+      it('falls back to per-block getBlock when the batch range fetch fails', async function () {
+        mirrorStub.getBlocksByRange.rejects(new Error('mirror unavailable'));
+        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(minimalMirrorBlock(head, 1_000_000, '0.0.0'));
+
+        const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
+
+        const feeHistory = result as IFeeHistory;
+        const expectedLimit = blockGasLimit.obtainBlockGasLimit('0.0.0');
+        expect(feeHistory.oldestBlock).to.equal(numberTo0x(head));
+        expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
+        expect(mirrorStub.getBlock.calledWith(head, requestDetails)).to.be.true;
+      });
+    });
+  });
+
+  describe('getFeeHistoryDataFromBlock — gas price source', function () {
+    let feeService: FeeService;
+    let mirrorStub: {
+      getBlock: sinon.SinonStub;
+      getLatestContractResultForBlock: sinon.SinonStub;
+    };
+    let commonStub: { getGasPriceInWeibars: sinon.SinonStub };
+
+    withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
+      beforeEach(function () {
+        mirrorStub = {
+          getBlock: sinon.stub(),
+          getLatestContractResultForBlock: sinon.stub(),
+        };
+        commonStub = { getGasPriceInWeibars: sinon.stub().resolves(77) };
+        const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
+        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+      });
+
+      afterEach(function () {
+        sinon.restore();
+      });
+
+      it('uses the latest transaction gas_price in weibars when the block has a contract result', async function () {
+        const block = minimalMirrorBlock(1, 1_000_000, '0.0.0');
+        mirrorStub.getBlock.resolves(block);
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: '0x72' }); // 114 weibars
+
+        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(1, requestDetails, block);
+
+        expect(fee).to.equal(numberTo0x(114));
+        expect(commonStub.getGasPriceInWeibars.called).to.be.false;
+      });
+
+      it('falls back to fee schedule when the block has no contract results (empty block)', async function () {
+        const block = minimalMirrorBlock(2, 0, '0.0.0');
+        mirrorStub.getBlock.resolves(block);
+        mirrorStub.getLatestContractResultForBlock.resolves(null);
+
+        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(2, requestDetails, block);
+
+        expect(fee).to.equal(numberTo0x(77));
+        expect(commonStub.getGasPriceInWeibars.calledOnce).to.be.true;
+      });
+
+      it('falls back to fee schedule when the latest contract result has null gas_price', async function () {
+        const block = minimalMirrorBlock(3, 500_000, '0.0.0');
+        mirrorStub.getBlock.resolves(block);
+        mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: null });
+
+        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(3, requestDetails, block);
+
+        expect(fee).to.equal(numberTo0x(77));
+        expect(commonStub.getGasPriceInWeibars.calledOnce).to.be.true;
+      });
+
+      it('returns zero fee when getLatestContractResultForBlock throws', async function () {
+        const block = minimalMirrorBlock(4, 1_000_000, '0.0.0');
+        mirrorStub.getBlock.resolves(block);
+        mirrorStub.getLatestContractResultForBlock.rejects(new Error('mirror error'));
+
+        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(4, requestDetails, block);
+
+        expect(fee).to.equal(constants.ZERO_HEX);
       });
     });
   });

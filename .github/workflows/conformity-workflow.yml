@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -66,7 +66,7 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -97,17 +97,17 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
             --node-aliases: "node1"
           setup:
-            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --release-tag: "${{ inputs.networkTag || 'v0.75.1' }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.159.0' }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -123,7 +123,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.82.0' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \

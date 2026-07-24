@@ -12,12 +12,12 @@ import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { numberTo0x, prepend0x, strip0x, toHexString } from '../../../src/relay/formatters';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
-import { ITransactionReceipt } from '../../../src/relay/lib/types';
+import { type ITransactionReceipt } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
-import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
+import type MirrorClient from '../clients/mirrorClient';
+import type RelayClient from '../clients/relayClient';
+import type ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import deployerContractJson from '../contracts/Deployer.json';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
@@ -28,7 +28,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import RelayCall from '../helpers/constants';
 import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
+import { type AliasAccount } from '../types/AliasAccount';
 
 chai.use(chaiExclude);
 

@@ -6,8 +6,8 @@ import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { Counter, Histogram, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { Counter, Histogram, type Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
@@ -59,7 +59,11 @@ export const logger = mainLogger.child({ name: 'rpc-server' });
  */
 export const register = RegistryFactory.getInstance(true);
 
-export async function initializeServer(sharedRelay?: Relay, sharedRegister?: Registry, redisClient?: RedisClientType) {
+export async function initializeServer(
+  sharedRelay?: Relay,
+  sharedRegister?: Registry,
+  redisClient?: RedisClientType,
+): Promise<{ app: any; relay: Relay }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger.child({ name: 'relay' }), register));
   if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {

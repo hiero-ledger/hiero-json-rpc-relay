@@ -3,7 +3,7 @@
 import { Octokit } from '@octokit/core';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { GitHubContext } from '../types/GitHubContext';
+import { type GitHubContext } from '../types/GitHubContext';
 
 /**
  * Client for interacting with GitHub, providing methods to perform operations such as adding comments to pull requests.

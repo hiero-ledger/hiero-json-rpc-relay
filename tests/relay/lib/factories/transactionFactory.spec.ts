@@ -15,6 +15,7 @@ import type {
   Transaction,
   Transaction1559,
 } from '../../../../src/relay/lib/model';
+import { type MirrorNodeContractResult } from '../../../../src/relay/lib/types/mirrorNode';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -126,8 +127,8 @@ describe('TransactionFactory', () => {
 
     const expectTxFromLog = (tx: Transaction, inputLog: Log, expectedChainId: string) => {
       expect(tx).to.exist;
-      expect(tx.type).to.equal(constants.ZERO_HEX);
-      expect(tx).to.not.have.property('accessList');
+      expect(tx.type).to.equal(constants.TWO_HEX);
+      expect(tx).to.have.property('accessList').that.deep.eq([]);
 
       expect(tx.blockHash).to.equal(inputLog.blockHash);
       expect(tx.blockNumber).to.equal(inputLog.blockNumber);
@@ -143,8 +144,8 @@ describe('TransactionFactory', () => {
       expect(tx.gasPrice).to.equal(constants.INVALID_EVM_INSTRUCTION);
       expect(tx.input).to.equal(constants.ZERO_HEX_8_BYTE);
 
-      expect(tx).to.not.have.property('maxPriorityFeePerGas');
-      expect(tx).to.not.have.property('maxFeePerGas');
+      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxFeePerGas').that.equals(constants.ZERO_HEX);
       expect(tx.nonce).to.equal(numberTo0x(0));
 
       expect(tx.r).to.equal(constants.EMPTY_HEX);
@@ -257,7 +258,7 @@ describe('TransactionFactory', () => {
       type: 2,
       v: 1,
       nonce: 2,
-    };
+    } as MirrorNodeContractResult;
 
     const contractResultZeroPrefixedSignatureS = {
       ...contractResult,
@@ -295,7 +296,6 @@ describe('TransactionFactory', () => {
         s: null,
         transaction_index: null,
         v: null,
-        value: null,
       });
       expectFormattedResult(formattedResult, {
         blockNumber: null,
@@ -321,7 +321,11 @@ describe('TransactionFactory', () => {
     });
 
     it('Should return null when contract result type is undefined', async function () {
-      const formattedResult = createTransactionFromContractResult({ ...contractResult, type: undefined });
+      // mirror node always sets a numeric `type`; this deliberately invalid input verifies the defensive null return
+      const formattedResult = createTransactionFromContractResult({
+        ...contractResult,
+        type: undefined,
+      } as unknown as MirrorNodeContractResult);
       expect(formattedResult).to.be.null;
     });
   });
@@ -510,7 +514,7 @@ describe('TransactionFactory', () => {
         v: 1,
         authorization_list: input,
         nonce: 2,
-      })!['authorizationList'];
+      } as MirrorNodeContractResult)!['authorizationList'];
 
     it('filters out null items and non-object items', () => {
       const input = [null, undefined, 123, 'abc', true, () => ({}), { chain_id: '1' }, { nonce: 2 }];
@@ -525,7 +529,7 @@ describe('TransactionFactory', () => {
     it('items with missing/falsy fields fall back to zero constants', () => {
       const input = [
         {
-          chain_id: '',
+          chainId: '',
           nonce: 0,
           address: null,
           yParity: undefined,
@@ -544,11 +548,11 @@ describe('TransactionFactory', () => {
       expect(out.s).to.equal(constants.ZERO_HEX);
     });
 
-    it('normalizes non-0x-prefixed values (chainId/yParity) using prepend0x and truncates yParity to 4 chars', () => {
+    it('normalizes non-0x-prefixed values (chainId/nonce/yParity) using prepend0x and truncates yParity to 4 chars', () => {
       const input = [
         {
-          chain_id: '1',
-          nonce: 100,
+          chainId: '1',
+          nonce: 'a',
           yParity: '01',
           address: 'abcd',
           r: '0x1',
@@ -559,15 +563,15 @@ describe('TransactionFactory', () => {
       const [out] = formatAuthorizationList(input);
 
       expect(out.chainId).to.equal('0x1');
-      expect(out.nonce).to.equal('0x64');
+      expect(out.nonce).to.equal('0xa');
       expect(out.yParity).to.equal('0x01');
     });
 
     it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
       const input = [
-        { address: '0x1234', chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' },
-        { address: '1234', chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' },
-        { address: `0x${'a'.repeat(60)}`, chain_id: '1', nonce: 1, yParity: '1', r: '0x1', s: '0x1' }, // 60 hex chars
+        { address: '0x1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
+        { address: '1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
+        { address: `0x${'a'.repeat(60)}`, chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' }, // 60 hex chars
       ];
 
       const out = formatAuthorizationList(input);
@@ -583,8 +587,8 @@ describe('TransactionFactory', () => {
 
       const input = [
         {
-          chain_id: '1',
-          nonce: 1,
+          chainId: '1',
+          nonce: '1',
           address: '0x1',
           yParity: '1',
           r: oversizedR,
@@ -599,8 +603,8 @@ describe('TransactionFactory', () => {
 
     it('preserves extra properties on items', () => {
       const item: any = {
-        chain_id: '1',
-        nonce: 2,
+        chainId: '1',
+        nonce: '2',
         address: '0x1234',
         yParity: '1',
         r: '0x' + '00'.repeat(32),
