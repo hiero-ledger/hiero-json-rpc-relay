@@ -1518,7 +1518,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number) {
+  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number): Promise<any> {
     return this.get(
       `${MirrorNodeClient.GET_SCHEDULES_ENDPOINT}/${scheduleId}`,
       MirrorNodeClient.GET_SCHEDULES_ENDPOINT,

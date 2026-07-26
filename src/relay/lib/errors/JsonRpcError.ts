@@ -282,7 +282,7 @@ export const predefined = {
       code: -32201,
       message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
     }),
-  INITCODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+  INITCODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number): JsonRpcError =>
     new JsonRpcError({
       code: -32201,
       message: `Oversized data: initcode size ${actualSize}, initcode size limit ${expectedSize}`,

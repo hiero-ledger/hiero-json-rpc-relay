@@ -174,11 +174,11 @@ export const TYPES = {
     error: 'Expected StateOverride object (currently accepting any object structure)',
   },
   yParityHex: {
-    test: (param: string) => /^0x([0-9a-fA-F]?){1,2}$/.test(param),
+    test: (param: string): boolean => /^0x([0-9a-fA-F]?){1,2}$/.test(param),
     error: 'Expected 0x-prefixed yParity value (0 for even, 1 for odd)',
   },
   authorizationListEntry: {
-    test: (param: any) => {
+    test: (param: any): boolean => {
       if (param && typeof param === 'object') {
         return validateSchema(OBJECTS_VALIDATIONS.authorizationListEntry, param);
       }

@@ -5,12 +5,11 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { numberTo0x } from '../../src/relay/formatters';
+import relayConstants from '../../src/relay/lib/constants';
 import { CommonService } from '../../src/relay/lib/services';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import type ServicesClient from '../server/clients/servicesClient';
-import relayConstants from '../../src/relay/lib/constants';
-import { CommonService } from '../../src/relay/lib/services';
 import basicContractJson from '../server/contracts/Basic.json';
 import TokenCreateJson from '../server/contracts/TokenCreateContract.json';
 import Address from '../server/helpers/constants';

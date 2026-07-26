@@ -11,7 +11,7 @@ import {
   TransactionId,
   TransactionResponse,
 } from '@hiero-ledger/sdk';
-import MockAdapter from 'axios-mock-adapter';
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';

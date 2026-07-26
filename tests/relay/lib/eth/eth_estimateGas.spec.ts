@@ -3,7 +3,7 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256, type Transaction } from 'ethers';
-import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
+import { createStubInstance, type SinonStub, type SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { type Eth, JsonRpcError } from '../../../../src/relay';
@@ -18,8 +18,8 @@ import {
   LockService,
   TransactionPoolService,
 } from '../../../../src/relay/lib/services';
-import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
+import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
