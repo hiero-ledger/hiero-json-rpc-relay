@@ -582,6 +582,10 @@ error's `data` carries the `txHash`, failure `detail`, and `hederaStatus`:
 }
 ```
 
+### Client Decoding
+
+For clients to read the `-32003` and its `data`, run the relay with `ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE=200`. At the default `400`, ethers surfaces an opaque transport error instead of the decoded code/data (viem and web3.js decode it either way).
+
 ### Inspecting Traces via Admin Method
 
 `admin_getTransactionTraceByHash(hash)` returns the raw record by keccak256 hash (requires
