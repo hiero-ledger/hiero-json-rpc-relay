@@ -1165,6 +1165,41 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           });
         });
 
+        describe('authorizationList', function () {
+          it('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+            const gasPrice = await relay.gasPrice();
+            const signer = accounts[2];
+            const currentNonce = await relay.getAccountNonce(signer.address);
+
+            const authorizationList = [
+              await signer.wallet.authorize({
+                address: parentContractAddress,
+                nonce: currentNonce + 1,
+              }),
+            ];
+
+            const transaction = {
+              type: 4,
+              chainId: Number(CHAIN_ID),
+              nonce: currentNonce,
+              maxPriorityFeePerGas: gasPrice,
+              maxFeePerGas: gasPrice,
+              gasLimit: defaultGasLimit,
+              to: accounts[0].address,
+              value: ONE_TINYBAR,
+              authorizationList,
+            };
+
+            const signedTx = await signer.wallet.signTransaction(transaction);
+            const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
+            await relay.pollForValidTransactionReceipt(transactionHash);
+
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+            expect(info).to.have.property('type');
+            expect(info.type).to.be.equal(4);
+          });
+        });
+
         describe('callDataSize', function () {
           it('@release should execute "eth_sendRawTransaction" with regular transaction size within the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
             const gasPrice = await relay.gasPrice();
