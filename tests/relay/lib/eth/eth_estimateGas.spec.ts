@@ -16,6 +16,7 @@ import {
   LocalPendingTransactionStorage,
   LockService,
   TransactionPoolService,
+  TransactionTracingService,
 } from '../../../../src/relay/lib/services';
 import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
 import { mockData, overrideEnvsInMochaDescribe } from '../../helpers';
@@ -94,6 +95,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       transactionPoolService,
       lockService,
       registry,
+      new TransactionTracingService(logger),
     );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
