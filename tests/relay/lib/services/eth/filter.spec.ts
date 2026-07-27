@@ -270,7 +270,10 @@ describe('Filter API Test Suite', async function () {
     });
 
     withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 2 }, () => {
-      it('rejects creating a filter whose address count exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+      const addressB = '0x0000000000000000000000000000000000000b0b';
+      const addressC = '0x0000000000000000000000000000000000000c0c';
+
+      it('rejects creating a filter whose distinct address count exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
         await RelayAssertions.assertRejection(
           predefined.INVALID_PARAMETER('address', 'A maximum of 2 addresses are allowed'),
           filterService.newFilter,
@@ -280,18 +283,34 @@ describe('Filter API Test Suite', async function () {
             {
               fromBlock: numberHex,
               toBlock: 'latest',
-              address: [defaultEvmAddress, defaultEvmAddress, defaultEvmAddress],
+              address: [defaultEvmAddress, addressB, addressC],
             },
             requestDetails,
           ],
         );
       });
 
-      it('allows creating a filter whose address count is at the cap', async function () {
+      it('allows creating a filter whose distinct address count is at the cap', async function () {
         expect(
           RelayAssertions.validateUint(
             await filterService.newFilter(
-              { fromBlock: numberHex, toBlock: 'latest', address: [defaultEvmAddress, defaultEvmAddress] },
+              { fromBlock: numberHex, toBlock: 'latest', address: [defaultEvmAddress, addressB] },
+              requestDetails,
+            ),
+          ),
+        ).to.eq(true);
+      });
+
+      it('counts distinct addresses, so duplicates that dedupe under the cap are accepted', async function () {
+        // 3 raw addresses but only 1 distinct — within the cap of 2.
+        expect(
+          RelayAssertions.validateUint(
+            await filterService.newFilter(
+              {
+                fromBlock: numberHex,
+                toBlock: 'latest',
+                address: [defaultEvmAddress, defaultEvmAddress, defaultEvmAddress],
+              },
               requestDetails,
             ),
           ),

@@ -5,6 +5,7 @@ import { JsonRpcError, predefined } from '../../relay';
 import { type MirrorNodeClient } from '../../relay/lib/clients';
 import constants from '../../relay/lib/constants';
 import { type RequestDetails } from '../../relay/lib/types';
+import { dedupeAddresses } from '../../relay/lib/utils/addressLimit';
 import { validateEthSubscribeLogsParamObject } from '../../relay/lib/validators';
 import { WS_CONSTANTS } from './constants';
 import { getMultipleAddressesEnabled } from './utils';
@@ -62,8 +63,8 @@ export const validateSubscribeEthLogsParams = async (
   // validate address or addresses are an existing smart contract
   if (filters.address) {
     if (Array.isArray(filters.address)) {
-      // Dedupe so a repeated address does not multiply upstream lookups.
-      const uniqueAddresses = [...new Set(filters.address)];
+      // Dedupe case-insensitively so a repeated address does not multiply upstream lookups.
+      const uniqueAddresses = dedupeAddresses(filters.address);
 
       // Enforce the count bound before any Mirror Node lookup, otherwise a large address array fans out
       // into one lookup per address before being rejected. Disabled => one address; enabled => capped by

@@ -249,6 +249,14 @@ describe('CommonService', () => {
         expect(workerRun.calledOnce).to.equal(true);
       });
 
+      it('counts distinct addresses against the cap, so duplicates that dedupe within it are accepted', async () => {
+        const workerRun = sinon.stub(WorkersPool, 'run').resolves([]);
+
+        // 4 raw addresses but only 2 distinct (case-insensitive) — within the cap of 2.
+        await commonService.getLogs(null, '0x0', 'latest', ['0xa', '0xA', '0xb', '0xB'], null, requestDetails);
+        expect(workerRun.calledOnce).to.equal(true);
+      });
+
       it('re-checks at the worker entry, before touching the common service', async () => {
         // Defense-in-depth: the worker is a second entry point, so the guard must fire before any commonService call.
         const validateBlockRange = sinon.stub();
@@ -263,6 +271,23 @@ describe('CommonService', () => {
           true,
           'block-range validation must not run once the cap is exceeded',
         );
+      });
+    });
+
+    describe('getLogsByAddress deduplication', () => {
+      it('fetches the Mirror Node once per distinct address and does not duplicate logs', async () => {
+        const log = { address: '0xa', timestamp: '1' };
+        const fetch = sinon
+          .stub(commonService['mirrorNodeClient'], 'getContractResultsLogsByAddress')
+          .resolves([log] as any);
+
+        const logs = await commonService.getLogsByAddress(['0xa', '0xA', '0xb'], {}, requestDetails);
+
+        // 3 addresses supplied, but only 2 distinct → 2 Mirror Node lookups, 2 logs (no duplicate for 0xa/0xA).
+        expect(fetch.callCount).to.equal(2);
+        expect(fetch.getCall(0).args[0]).to.equal('0xa');
+        expect(fetch.getCall(1).args[0]).to.equal('0xb');
+        expect(logs).to.have.length(2);
       });
     });
   });

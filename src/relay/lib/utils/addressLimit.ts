@@ -4,17 +4,47 @@ import { ConfigService } from '../../../config-service/services';
 import { predefined } from '../errors/JsonRpcError';
 
 /**
+ * Returns the distinct addresses from a log-filter `address` value, deduped case-insensitively (preserving
+ * first-seen casing/order). Non-string entries and null/undefined are dropped.
+ *
+ * @param address - The `address` filter value: a single address, an array of addresses, or null/undefined.
+ * @returns The distinct caller-supplied addresses.
+ */
+export function dedupeAddresses(address: unknown): string[] {
+  if (address === null || address === undefined) {
+    return [];
+  }
+
+  const list = Array.isArray(address) ? address : [address];
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const entry of list) {
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    const trimmed = entry.trim();
+    if (trimmed === '') {
+      continue;
+    }
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    unique.push(trimmed);
+  }
+
+  return unique;
+}
+
+/**
  * Counts the caller-supplied addresses in a log-filter `address` field (single = 1, array = length, absent = 0).
  *
  * @param address - The `address` filter value: a single address, an array of addresses, or null/undefined.
- * @returns The number of caller-supplied addresses.
+ * @returns The number of distinct caller-supplied addresses.
  */
 export function countAddresses(address: unknown): number {
-  if (address === null || address === undefined) {
-    return 0;
-  }
-
-  return Array.isArray(address) ? address.length : 1;
+  return dedupeAddresses(address).length;
 }
 
 /**

@@ -21,7 +21,7 @@ import {
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
-import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
+import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -457,7 +457,9 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<MirrorNodeContractLog[]> {
-    const addresses = Array.isArray(address) ? address : [address];
+    // Dedupe case-insensitively so a repeated address is fetched from the Mirror Node once, and so identical
+    // logs are not returned twice in the flattened response.
+    const addresses = dedupeAddresses(address);
     const logPromises = addresses.map((addr) =>
       this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params),
     );
