@@ -60,6 +60,8 @@ export interface Net {
 
 export interface Admin {
   config(): any;
+
+  getTransactionTraceByHash(hash: string): Promise<any>;
 }
 
 export interface TxPool {
