@@ -212,7 +212,11 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       nextBaseFeePerGas = (
-        await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails, blocksByNumber.get(newestBlockNumber + 1))
+        await this.getFeeHistoryDataFromBlock(
+          newestBlockNumber + 1,
+          requestDetails,
+          blocksByNumber.get(newestBlockNumber + 1),
+        )
       ).fee;
     }
 
@@ -248,11 +252,7 @@ export class FeeService implements IFeeService {
     requestDetails: RequestDetails,
   ): Promise<Map<number, MirrorNodeBlock>> {
     try {
-      const blocks = await this.mirrorNodeClient.getBlocksByRange(
-        requestDetails,
-        oldestBlockNumber,
-        newestBlockNumber,
-      );
+      const blocks = await this.mirrorNodeClient.getBlocksByRange(requestDetails, oldestBlockNumber, newestBlockNumber);
       return new Map(blocks.map((block) => [block.number, block] as [number, MirrorNodeBlock]));
     } catch (error) {
       this.logger.warn(
@@ -266,9 +266,13 @@ export class FeeService implements IFeeService {
   }
 
   /**
-   * Resolves the base fee per gas and the gas-used ratio for a single block. Unavailable block
-   * data or gas price information degrade to zero values, ensuring one unresolved block does not
-   * fail the surrounding fee history response.
+   * Resolves the base fee per gas and the gas-used ratio for a single block. The fee is taken
+   * from the latest transaction's gas_price within the block, which the mirror node already
+   * returns in weibars.
+   * Falls back to the fee-schedule rate at the block's closing timestamp when the block is empty
+   * or the latest result has no valid gas_price. Unavailable block data or fee retrieval errors
+   * degrade to zero values, ensuring one unresolved block does not fail the surrounding fee
+   * history response.
    *
    * @param blockNumber - Block whose fee data is requested.
    * @param requestDetails - Request metadata used for logging and tracing.
@@ -303,8 +307,14 @@ export class FeeService implements IFeeService {
     const gasUsedRatio = this.getGasUsedRatioForBlock(block);
 
     try {
-      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
-      return { fee: numberTo0x(fee), gasUsedRatio };
+      const latestResult = await this.mirrorNodeClient.getLatestContractResultForBlock(block, requestDetails);
+      const gasPriceWeibars = latestResult?.gas_price ? parseInt(latestResult.gas_price, 16) : null;
+
+      const fee = gasPriceWeibars
+        ? numberTo0x(gasPriceWeibars)
+        : numberTo0x(await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`));
+
+      return { fee, gasUsedRatio };
     } catch (error) {
       this.logger.warn(error, `Fee history cannot retrieve fee. Returning zero fee for block %s`, blockNumber);
       return { fee: constants.ZERO_HEX, gasUsedRatio };

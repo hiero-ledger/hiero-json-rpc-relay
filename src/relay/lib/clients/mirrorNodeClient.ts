@@ -1076,6 +1076,32 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Returns the single most-recent contract result within a block's timestamp range
+   * using a direct non-paginated GET.
+   *
+   * @param block - The block whose timestamp bounds define the query range.
+   * @param requestDetails - Request metadata for logging/tracing.
+   * @returns The latest contract result, or null when the block contains no contract results.
+   */
+  public async getLatestContractResultForBlock(
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<MirrorNodeContractResult | null> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', [`gte:${block.timestamp.from}`, `lte:${block.timestamp.to}`]);
+    this.setQueryParam(queryParamObject, 'limit', 1);
+    this.setQueryParam(queryParamObject, 'order', MirrorNodeClient.ORDER.DESC);
+    const queryParams = this.getQueryParams(queryParamObject);
+
+    const response = await this.get<{ results: MirrorNodeContractResult[] }>(
+      MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
+      MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
+      requestDetails,
+    );
+    return response?.results?.[0] ?? null;
+  }
+
   public async getContractResultsDetails(
     contractId: string,
     timestamp: string,

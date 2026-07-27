@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../../../config-service/services';
 import { RedisCacheError } from '../../../errors/RedisCacheError';
 import { RedisCache } from './redisCache';
 
@@ -12,6 +13,15 @@ import { RedisCache } from './redisCache';
  * Thanks to that our application will be able to continue functioning even with Redis being down...
  */
 export class SafeRedisCache extends RedisCache {
+  /** Timestamp (ms) of the last emitted Redis-error log line. */
+  private lastErrorLogTimestamp = 0;
+
+  /** Message of the last emitted Redis-error log line, used to detect a new/changed error. */
+  private lastErrorMessage = '';
+
+  /** Number of Redis errors suppressed since the last emitted log line. */
+  private suppressedErrorCount = 0;
+
   /**
    * Alias for the `get` method.
    *
@@ -151,9 +161,36 @@ export class SafeRedisCache extends RedisCache {
     try {
       return await fn();
     } catch (error) {
-      const redisError = new RedisCacheError(error);
-      this.logger.error(redisError, 'Error occurred while getting the cache from Redis.');
+      this.logRedisError(new RedisCacheError(error));
       return fallback;
+    }
+  }
+
+  /**
+   * Logs a Redis error, throttled to avoid flooding the logs during an outage.
+   *
+   * A new or changed error message is logged immediately; identical repeats within the
+   * configured `REDIS_ERROR_LOG_INTERVAL_MS` window are counted silently and the
+   * suppressed total is reported on the next emitted line.
+   *
+   * @param redisError - The sanitized Redis error to log.
+   */
+  private logRedisError(redisError: RedisCacheError): void {
+    const intervalMs = ConfigService.get('REDIS_ERROR_LOG_INTERVAL_MS');
+    const now = Date.now();
+    const isNewError = redisError.message !== this.lastErrorMessage;
+    const windowElapsed = now - this.lastErrorLogTimestamp >= intervalMs;
+
+    if (isNewError || windowElapsed) {
+      const suppressed = this.suppressedErrorCount;
+      this.suppressedErrorCount = 0;
+      this.lastErrorLogTimestamp = now;
+      this.lastErrorMessage = redisError.message;
+
+      const suffix = suppressed > 0 ? ` (${suppressed} similar error(s) suppressed in the last ${intervalMs}ms)` : '';
+      this.logger.error(redisError, `Error occurred while getting the cache from Redis.${suffix}`);
+    } else {
+      this.suppressedErrorCount++;
     }
   }
 }

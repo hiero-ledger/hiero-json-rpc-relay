@@ -309,6 +309,18 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
         expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
       });
 
+      it('should execute "eth_call" with correct block hash string', async () => {
+        const callData = {
+          from: accounts[0].address,
+          to: basicContractAddress,
+          data: BASIC_CONTRACT_PING_CALL_DATA,
+        };
+
+        const truncatedHash = deploymentBlockHash.slice(0, 66);
+        const res = await client.call(METHOD_NAME, [callData, truncatedHash]);
+        expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+      });
+
       it('should execute "eth_call" with correct block number object', async () => {
         const callData = {
           from: accounts[0].address,
