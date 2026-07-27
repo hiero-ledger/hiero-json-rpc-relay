@@ -17,6 +17,7 @@
 5. [Transaction Status Tracing](#4-transaction-status-tracing)
     - [Enabling Tracing](#enabling-tracing)
     - [Receipt Fallback](#receipt-fallback)
+    - [Client Decoding](#client-decoding)
     - [Inspecting Traces via Admin Method](#inspecting-traces-via-admin-method)
 
 ## Overview
