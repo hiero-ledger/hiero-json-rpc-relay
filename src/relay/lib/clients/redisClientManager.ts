@@ -4,7 +4,7 @@ import { type Logger } from 'pino';
 import { createClient, type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../../config-service/services';
-import { RedisCacheError } from '../errors/RedisCacheError';
+import { redactUrlCredentials, RedisCacheError } from '../errors/RedisCacheError';
 
 export class RedisClientManager {
   private static client: RedisClientType;
@@ -44,7 +44,7 @@ export class RedisClientManager {
       });
 
       this.client.on('ready', () => {
-        logger.info(`Redis client connected to ${url}`);
+        logger.info(`Redis client connected to ${redactUrlCredentials(url)}`);
       });
 
       this.client.on('end', () => {
@@ -56,7 +56,7 @@ export class RedisClientManager {
         if (redisError.isSocketClosed()) {
           logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
         } else {
-          logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
+          logger.error(`Error occurred with Redis Connection: ${redisError.message}`);
         }
       });
 

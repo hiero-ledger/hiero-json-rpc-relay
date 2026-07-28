@@ -83,8 +83,8 @@ export class RedisLockStrategy implements LockStrategy {
         const now = process.hrtime.bigint();
         if (Number(now - lastMembershipCheckAt) / 1e6 >= this.membershipCheckIntervalMs) {
           lastMembershipCheckAt = now;
-          const position = await this.redisClient.lPos(queueKey, sessionKey);
-          if (position === null) {
+          const queue = await this.redisClient.lRange(queueKey, 0, -1);
+          if (!queue.includes(sessionKey)) {
             await this.redisClient.lPush(queueKey, sessionKey);
             this.lockMetricsService.recordQueueRejoin(this.type);
             this.logger.debug('Session not in queue; rejoined: address=%s, sessionKey=%s', address, sessionKey);

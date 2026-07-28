@@ -5,6 +5,9 @@ on: workflow_dispatch
 env:
   FOUNDRY_PROFILE: ci
 
+permissions:
+  contents: read
+
 jobs:
   check:
     defaults:

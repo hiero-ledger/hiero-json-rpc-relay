@@ -245,6 +245,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 10,
   },
+  FEE_HISTORY_BLOCK_PAGINATION_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 20,
+  },
   FILE_APPEND_CHUNK_SIZE: {
     type: 'number',
     required: false,
@@ -626,6 +631,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
+  REDIS_ERROR_LOG_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
   REDIS_URL: {
     type: 'string',
     required: false,
@@ -850,6 +860,11 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
+  },
+  WS_MULTIPLE_ADDRESSES_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
   },
   WS_NEW_HEADS_ENABLED: {
     type: 'boolean',

@@ -1289,15 +1289,16 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             await ethImpl.sendRawTransaction(signed, requestDetails);
 
             // submitEthereumTransaction(buffer, callerName, requestDetails, originalCaller,
-            //                           networkGasPriceInWeiBars, exchangeRateInCents)
+            //                           networkGasPriceInWeiBars, getExchangeRateInCents)
             const call = sdkClientStub.submitEthereumTransaction.getCall(0);
             // The user signed with `transaction.gasPrice` ('0xad78ebc5ac620000') — the relay
             // must use exactly that as the basis for the Hedera max-fee cap (after the
             // GAS_PRICE_PERCENTAGE_BUFFER, which is 0 by default in tests).
             const expectedWeibars = Utils.addPercentageBufferToGasPrice(Number(BigInt(transaction.gasPrice)));
             expect(call.args[4]).to.equal(expectedWeibars);
-            // 0 is the "no Mirror Node reading available" sentinel.
-            expect(call.args[5]).to.equal(0);
+            // args[5] is now a lazy getter; when DISABLE_MN_PRECHECKS is true it resolves to 0 (sentinel).
+            expect(typeof call.args[5]).to.equal('function');
+            expect(await call.args[5]()).to.equal(0);
           });
 
           it('should return a generic TRANSACTION_REJECTED on WRONG_NONCE without polling Mirror Node', async function () {

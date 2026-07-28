@@ -17,6 +17,7 @@ import {
   type IAccountInfo,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
+  type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
@@ -518,10 +519,10 @@ export class CommonService implements ICommonService {
   }
 
   public async resolveEvmAddress(
-    address: string,
+    address: string | null,
     requestDetails: RequestDetails,
     searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
+  ): Promise<string | null> {
     if (!address) return address;
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
@@ -626,10 +627,6 @@ export class CommonService implements ICommonService {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
 
-  public isBlockHash = (blockHash: string): boolean => {
-    return new RegExp(constants.BLOCK_HASH_REGEX + '{64}$').test(blockHash);
-  };
-
   /**
    * Tries to get the account with the given address from the cache,
    * if not found, it fetches it from the mirror node.
@@ -656,7 +653,7 @@ export class CommonService implements ICommonService {
    * @param {any} receiptResponse - The receipt response object.
    * @returns {string} The contract address.
    */
-  public getContractAddressFromReceipt(receiptResponse: any): string {
+  public getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );

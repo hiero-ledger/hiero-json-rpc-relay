@@ -17,8 +17,8 @@ spec:
           restartPolicy: Never
           containers:
             - name: kubectl
-              image: bitnami/kubectl
-              command: 
+              image: bitnami/kubectl@sha256:558420daf32bbc382e3e9af4537f4073085b336ddd47399a3b70e70087115978
+              command:
                 - bash
                 - -c
                 - >-
@@ -50,7 +50,7 @@ spec:
               env:
                 - name: BASE_URL
                   value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
-              command: 
+              command:
                 - /bin/sh
                 - -c
                 - |
@@ -58,6 +58,6 @@ spec:
                   npm install -g @hoppscotch/cli@{{ .Values.cronjob.cliVersion }} && \
                   wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && \
                   wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && \
-                  hopp test -e hopp-env.json hoppscotch.json                     
+                  hopp test -e hopp-env.json hoppscotch.json
 {{- end }}
             

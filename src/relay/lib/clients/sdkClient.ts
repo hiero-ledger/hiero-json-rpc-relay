@@ -188,7 +188,7 @@ export class SDKClient {
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @param {string} originalCallerAddress - The address of the original caller making the request.
    * @param {number} networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
-   * @param {number} currentNetworkExchangeRateInCents - The exchange rate in cents of the current network.
+   * @param {() => Promise<number>} getExchangeRateInCents - Lazy getter for the current network exchange rate in cents; only invoked on the HFS path (when JUMBO_TX_ENABLED is false and call data exceeds the chunk size).
    * @returns {Promise<{ txResponse: TransactionResponse; fileId: FileId | null }>}
    * @throws {SDKClientError} Throws an error if no file ID is created or if the preemptive fee check fails.
    */
@@ -198,7 +198,7 @@ export class SDKClient {
     requestDetails: RequestDetails,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
-    currentNetworkExchangeRateInCents: number,
+    getExchangeRateInCents: () => Promise<number>,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -211,6 +211,8 @@ export class SDKClient {
       ethereumTransaction.setEthereumData(ethereumTransactionData.toBytes());
     } else {
       // if JUMBO_TX_ENABLED is false and callData's size is greater than `fileAppendChunkSize` => employ HFS to create new file to carry the rest of the contents of callData
+      // Fetch the exchange rate lazily — only here, so JUMBO_TX_ENABLED=true never pays the cost.
+      const currentNetworkExchangeRateInCents = await getExchangeRateInCents();
       fileId = await this.createFile(
         ethereumTransactionData.callData,
         requestDetails,

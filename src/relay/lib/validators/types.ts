@@ -54,7 +54,8 @@ export const TYPES = {
       }
       return (
         (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param) && Number.MAX_SAFE_INTEGER >= Number(param)) ||
-        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param)
+        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param) ||
+        new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param)
       );
     },
     error: Constants.BLOCK_PARAMS_ERROR,
