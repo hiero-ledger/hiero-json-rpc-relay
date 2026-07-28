@@ -85,17 +85,17 @@ jobs:
 
       - name: Start the solo node
         working-directory: .
+        env:
+          MIRROR_NODE_PORT: 5551
+          GRPC_LOCAL_PORT: 50211
         run: |
           npx @hashgraph/solo@0.82.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
+            --external-address 0.0.0.0 \
             --dev \
             --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
-
-      - name: Forward solo ports
-        working-directory: .
-        run: .github/scripts/forward-ports.sh
 
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
