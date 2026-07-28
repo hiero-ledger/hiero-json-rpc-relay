@@ -200,11 +200,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
         expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
       });
 
-      /**
-       * Skipped until the Mirror Node supports authorization_list in /contracts/call simulations.
-       * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
-       */
-      it.skip('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async () => {
+      it('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async () => {
         const signer = accounts[0];
         const currentNonce = await relay.getAccountNonce(signer.address);
 

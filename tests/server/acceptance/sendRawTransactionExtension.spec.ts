@@ -988,11 +988,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
   });
 
-  /**
-   * Skip until the Mirror Node supports authorization_list in /contracts/call simulations.
-   * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
-   */
-  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
+  describe('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
 
     it('eth_call with authorizationList simulates delegated code', async () => {
@@ -1046,12 +1042,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
   });
 
-  /**
-   * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
-   * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
-   * https://github.com/hiero-ledger/hiero-mirror-node/issues/12379.
-   */
-  describe.skip('EIP-7702 (authorizationList)', function () {
+  describe('EIP-7702 (authorizationList)', function () {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167'; // Delegate the calls anywhere, HTS can do.
 
     it('should install delegation via type-4 tx and verify the created transaction has correct authorization list', async function () {
