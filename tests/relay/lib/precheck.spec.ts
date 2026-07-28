@@ -1052,6 +1052,49 @@ describe('Precheck', async function () {
       expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
       expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
     });
+
+    describe('type 4 (EIP-7702) feature flag', async function () {
+      const authEntry = {
+        chainId: defaultChainId,
+        address: contractAddress1,
+        nonce: 0,
+        signature: {
+          r: '0x' + 'aa'.repeat(32),
+          s: '0x' + 'bb'.repeat(32),
+          yParity: 0,
+        },
+      };
+      const type4Tx = {
+        type: 4,
+        chainId: defaultChainId,
+        to: contractAddress1,
+        maxFeePerGas: defaultGasPrice,
+        maxPriorityFeePerGas: '0x0',
+        gasLimit: defaultGasLimit,
+        value: '0x0',
+        authorizationList: [authEntry],
+      };
+
+      it('should reject type 4 transactions when TX_TYPE_4_ENABLED is false (default)', async () => {
+        const signed = await signTransaction(type4Tx);
+        let error;
+        try {
+          precheck.transactionType(ethers.Transaction.from(signed));
+        } catch (e) {
+          error = e;
+        }
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
+        expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
+      });
+
+      withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+        it('should accept type 4 transactions when TX_TYPE_4_ENABLED is true', async () => {
+          const signed = await signTransaction(type4Tx);
+          expect(() => precheck.transactionType(ethers.Transaction.from(signed))).to.not.throw();
+        });
+      });
+    });
   });
 
   describe('receiverAccount', async function () {
@@ -1204,9 +1247,13 @@ describe('Precheck', async function () {
       }
     });
 
-    it('should reject the overflow transaction via validateBasicPropertiesStateless', () => {
-      const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
-      expect(() => precheck.validateBasicPropertiesStateless(tx)).to.throw('exceeds uint64 maximum');
+    // TX_TYPE_4_ENABLED must be on so the tx reaches authorizationList validation; otherwise
+    // transactionType() rejects it earlier with UNSUPPORTED_TRANSACTION_TYPE_4 (covered above).
+    withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+      it('should reject the overflow transaction via validateBasicPropertiesStateless', () => {
+        const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
+        expect(() => precheck.validateBasicPropertiesStateless(tx)).to.throw('exceeds uint64 maximum');
+      });
     });
   });
 });

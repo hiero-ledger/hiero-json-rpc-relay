@@ -439,6 +439,39 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         type: 2,
       };
 
+      withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+        it('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+          const signer = accounts[2];
+          const currentNonce = await relay.getAccountNonce(signer.address);
+
+          const authorizationList = [
+            await signer.wallet.authorize({
+              address: parentContractAddress,
+              nonce: currentNonce + 1,
+            }),
+          ];
+
+          const transaction = {
+            type: 4,
+            chainId: Number(CHAIN_ID),
+            nonce: currentNonce,
+            maxPriorityFeePerGas: defaultGasPrice,
+            maxFeePerGas: defaultGasPrice,
+            gasLimit: defaultGasLimit,
+            to: accounts[0].address,
+            value: ONE_TINYBAR,
+            authorizationList,
+          };
+
+          const signedTx = await signer.wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.have.property('type');
+          expect(info.type).to.be.equal(4);
+        });
+      });
+
       describe('Transaction Pool feature', async () => {
         overrideEnvsInMochaDescribe({ USE_ASYNC_TX_PROCESSING: true });
         describe('ENABLE_TX_POOL = true', async () => {
