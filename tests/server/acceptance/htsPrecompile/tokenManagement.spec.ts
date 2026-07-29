@@ -48,7 +48,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   this.beforeAll(async () => {
     requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '5000000000'; //50 Hbar
+    const initialAmount: string = '10000000000'; //100 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);

@@ -39,7 +39,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '5000000000'; //50 Hbar
+    const initialAmount: string = '10000000000'; //100 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
