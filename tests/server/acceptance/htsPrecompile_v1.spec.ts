@@ -27,6 +27,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   const TX_SUCCESS_CODE = BigInt(22);
 
   const accounts: AliasAccount[] = [];
+  let txSigner: AliasAccount;
   let BaseHTSContractAddress;
   let HTSTokenContractAddress;
   let NftHTSTokenContractAddress;
@@ -41,6 +42,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     const initialAmount: string = '5000000000'; //50 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
+    txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     const BaseHTSContract = await Utils.deployContract(BaseHTSJson.abi, BaseHTSJson.bytecode, contractDeployer.wallet);
     BaseHTSContractAddress = BaseHTSContract.target;
     const contractMirror = await mirrorNode.get(`/contracts/${BaseHTSContractAddress}`);
@@ -52,15 +54,15 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     // allow mirror node a 2 full record stream write windows (2 sec) and a buffer to persist setup details
     await new Promise((r) => setTimeout(r, 5000));
 
-    baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, accounts[0].wallet);
+    baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
 
     baseHTSContractOwner = baseHTSContract;
-    baseHTSContractReceiverWalletFirst = baseHTSContract.connect(accounts[1].wallet);
-    baseHTSContractReceiverWalletSecond = baseHTSContract.connect(accounts[2].wallet);
+    baseHTSContractReceiverWalletFirst = baseHTSContract;
+    baseHTSContractReceiverWalletSecond = baseHTSContract;
   });
 
   async function createHTSToken() {
-    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, accounts[0].wallet);
+    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 1_000_000,
@@ -73,7 +75,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   }
 
   async function createNftHTSToken() {
-    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, accounts[0].wallet);
+    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 1_000_000,
@@ -86,7 +88,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   }
 
   async function createHTSTokenWithCustomFees() {
-    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, accounts[0].wallet);
+    const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
       HTSTokenContractAddress,
@@ -174,7 +176,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   it('should create and associate to a fungible token with custom fees', async function () {
     HTSTokenWithCustomFeesContractAddress = await createHTSTokenWithCustomFees();
 
-    const baseHTSContractOwner = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, accounts[0].wallet);
+    const baseHTSContractOwner = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const txCO = await baseHTSContractOwner.associateTokenPublic(
       BaseHTSContractAddress,
       HTSTokenWithCustomFeesContractAddress,
@@ -188,7 +190,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     const baseHTSContractReceiverWalletFirst = new ethers.Contract(
       BaseHTSContractAddress,
       BaseHTSJson.abi,
-      accounts[1].wallet,
+      txSigner.wallet,
     );
     const txRWF = await baseHTSContractReceiverWalletFirst.associateTokenPublic(
       accounts[1].wallet.address,
@@ -203,7 +205,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     const baseHTSContractReceiverWalletSecond = new ethers.Contract(
       BaseHTSContractAddress,
       BaseHTSJson.abi,
-      accounts[2].wallet,
+      txSigner.wallet,
     );
     const txRWS = await baseHTSContractReceiverWalletSecond.associateTokenPublic(
       accounts[2].wallet.address,
