@@ -83,17 +83,17 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.2' }}"
+            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.3' }}"
             --node-aliases: "node1"
           setup:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.2' }}"
+            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.3' }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.159.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.160.0-rc1' }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
