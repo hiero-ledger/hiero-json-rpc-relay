@@ -440,7 +440,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       };
 
       withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
-        it('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+        // type 4 are not supported in CN 0.77
+        it.skip('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
           const signer = accounts[2];
           const currentNonce = await relay.getAccountNonce(signer.address);
 
