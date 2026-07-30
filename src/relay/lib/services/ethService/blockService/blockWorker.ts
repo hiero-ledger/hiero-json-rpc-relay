@@ -365,6 +365,50 @@ async function prepareTransactionArray(
     .filter((tx) => tx !== null);
 }
 
+/**
+ * Computes the block gas price (the baseFeePerGas equivalent for Hedera blocks)
+ * as the gas-used-weighted average of each transaction's gas_price. Contract
+ * results are fetched from the mirror node with `hbar=false`, so gas_price is
+ * already in weibars. Falls back to the fee-schedule rate (also in weibars)
+ * at the block's closing timestamp when no transaction has valid gas data
+ * (empty block or all-null gas_price).
+ *
+ * @param ctx - The shared worker context providing the clients and services.
+ * @param contractResults - Contract results for the block (may be null or empty).
+ * @param blockTimestampTo - Closing consensus timestamp of the block (used for the fallback fee-schedule lookup).
+ * @param requestDetails - Request metadata for logging and tracing.
+ */
+export async function computeBlockGasPrice(
+  ctx: IWorkerContext,
+  contractResults: MirrorNodeContractResult[] | null,
+  blockTimestampTo: string,
+  requestDetails: RequestDetails,
+): Promise<string> {
+  const { commonService } = ctx;
+  const validResults = (contractResults ?? []).filter((cr) => {
+    if (cr.gas_price === null) return false;
+    const priceWeibars = parseInt(cr.gas_price, 16);
+    return priceWeibars > 0 && (cr.gas_used ?? 0) > 0;
+  });
+
+  if (validResults.length === 0) {
+    return numberTo0x(await commonService.getGasPriceInWeibars(requestDetails, `lte:${blockTimestampTo}`));
+  }
+
+  let weightedSum = BigInt(0);
+  let totalGasUsed = BigInt(0);
+  for (const cr of validResults) {
+    const priceWeibars = BigInt(prepend0x(cr.gas_price!));
+    const gasUsed = BigInt(cr.gas_used!);
+    weightedSum += priceWeibars * gasUsed;
+    totalGasUsed += gasUsed;
+  }
+
+  // Gas-used-weighted average, rounded to the nearest weibar (exact .5 ties round up).
+  const weightedAvgWeibars = (BigInt(2) * weightedSum + totalGasUsed) / (BigInt(2) * totalGasUsed);
+  return numberTo0x(weightedAvgWeibars);
+}
+
 export async function getBlock(
   ctx: IWorkerContext,
   blockHashOrNumber: string,
@@ -425,7 +469,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await commonService.gasPrice(requestDetails);
+    const gasPrice = await computeBlockGasPrice(ctx, contractResults, blockResponse.timestamp.to, requestDetails);
 
     // Log the error here rather than inside BlockFactory to preserve its static-only design.
     // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,

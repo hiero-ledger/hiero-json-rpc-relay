@@ -11,6 +11,7 @@ import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   blockLogsBloom,
+  DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
   defaultContractResults,
   defaultDetailedContractResults,
   mockWorkersPool,
@@ -18,6 +19,7 @@ import {
 } from '../../helpers';
 import {
   ACCOUNT_WITHOUT_TRANSACTIONS,
+  BASE_FEE_PER_GAS_DEFAULT,
   BLOCK_HASH,
   BLOCK_HASH_PREV_TRIMMED,
   BLOCK_HASH_TRIMMED,
@@ -101,6 +103,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       timestamp: BLOCK_TIMESTAMP_HEX,
       transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
       receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+      baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
     });
   });
 
@@ -122,6 +125,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       timestamp: BLOCK_TIMESTAMP_HEX,
       parentHash: BLOCK_HASH_PREV_TRIMMED,
       gasUsed: TOTAL_GAS_USED,
+      baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
     });
   });
 
@@ -146,6 +150,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       timestamp: BLOCK_TIMESTAMP_HEX,
       transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
       receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+      baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
     });
 
     expect(result?.logsBloom).equal(blockLogsBloom);
@@ -167,6 +172,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       timestamp: BLOCK_TIMESTAMP_HEX,
       transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
       receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+      baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
     });
   });
 
@@ -182,6 +188,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       if (result) {
         expect(result.hash).equal(BLOCK_HASH_TRIMMED);
         expect(result.number).equal(BLOCK_NUMBER_HEX);
+        expect(result.baseFeePerGas).equal(DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS);
         RelayAssertions.verifyBlockConstants(result);
       }
     }
@@ -204,6 +211,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         parentHash: BLOCK_HASH_PREV_TRIMMED,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       },
       true,
     );
@@ -237,6 +245,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         parentHash: BLOCK_HASH_PREV_TRIMMED,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       },
       true,
     );
@@ -260,6 +269,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       },
       true,
     );
@@ -272,6 +282,9 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       gas_used: 400000,
     };
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(randomBlock));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${randomBlock.timestamp.to}`)
+      .reply(200, JSON.stringify(modifiedNetworkFees));
     restMock
       .onGet(
         `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc&hbar=false`,
@@ -291,6 +304,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       parentHash: BLOCK_HASH_PREV_TRIMMED,
       timestamp: BLOCK_TIMESTAMP_HEX,
       transactions: [],
+      baseFeePerGas: BASE_FEE_PER_GAS_DEFAULT,
     });
   });
 
@@ -394,6 +408,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
           timestamp: BLOCK_TIMESTAMP_HEX,
           transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2], // should not include the transaction with wrong nonce
           receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+          baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
         },
         showDetails,
       );

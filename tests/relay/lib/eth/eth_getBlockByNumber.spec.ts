@@ -19,12 +19,14 @@ import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   blockLogsBloom,
+  DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
   defaultContractResults,
   defaultDetailedContractResults,
   mockWorkersPool,
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
+  BASE_FEE_PER_GAS_HEX,
   BLOCK_HASH,
   BLOCK_HASH_PREV_TRIMMED,
   BLOCK_HASH_TRIMMED,
@@ -206,6 +208,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       });
     });
 
@@ -225,6 +228,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         timestamp: BLOCK_TIMESTAMP_HEX,
         parentHash: BLOCK_HASH_PREV_TRIMMED,
         gasUsed: TOTAL_GAS_USED,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       });
     });
 
@@ -248,6 +252,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       });
 
       expect(result?.logsBloom).equal(blockLogsBloom);
@@ -273,6 +278,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         // verify aggregated info
         veriftAggregatedInfo(result);
         expect(result.gasUsed).equal(TOTAL_GAS_USED);
+        expect(result.baseFeePerGas).equal(DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS);
         verifyTransactions(result.transactions as Array<Transaction>);
 
         // verify expected constants
@@ -294,6 +300,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
         receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       });
     });
 
@@ -318,6 +325,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         parentHash: BLOCK_HASH_PREV_TRIMMED,
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       });
     });
 
@@ -333,6 +341,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         parentHash: BLOCK_HASH_PREV_TRIMMED,
         timestamp: BLOCK_TIMESTAMP_HEX,
         transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
+        baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
       };
       RelayAssertions.assertBlock(result, toMatch);
     });
@@ -344,11 +353,15 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({ results: [] }));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify({ logs: [] }));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
     if (result) {
       // verify aggregated info
       veriftAggregatedInfo(result);
       expect(result.gasUsed).equal('0x0');
+      expect(result.baseFeePerGas).equal(BASE_FEE_PER_GAS_HEX);
       expect(result.transactions.length).equal(0);
       expect(result.transactionsRoot).equal(constants.DEFAULT_ROOT_HASH);
 
@@ -367,6 +380,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     if (result) {
       veriftAggregatedInfo(result);
       expect(result.gasUsed).equal(TOTAL_GAS_USED);
+      expect(result.baseFeePerGas).equal(DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS);
       verifyTransactions(result.transactions as Array<Transaction>);
 
       // verify expected constants
@@ -382,6 +396,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify(LATEST_BLOCK_RESPONSE));
     restMock.onGet(CONTRACT_QUERY).reply(200, JSON.stringify(CONTRACT_RESPONSE_MOCK));
     restMock.onGet(LOG_QUERY).reply(200, JSON.stringify(LOGS_RESPONSE_MOCK));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${BLOCK_WITH_SYN_TXN.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
 
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
@@ -407,6 +424,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       // verify aggregated info
       veriftAggregatedInfo(result);
       expect(result.gasUsed).equal(TOTAL_GAS_USED);
+      expect(result.baseFeePerGas).equal(DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS);
       verifyTransactions(result.transactions as Array<Transaction>);
 
       // verify expected constants
@@ -425,6 +443,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     if (result) {
       veriftAggregatedInfo(result);
       expect(result.gasUsed).equal(numberTo0x(GAS_USED_1));
+      expect(result.baseFeePerGas).equal(DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS);
       expect(result.transactions.length).equal(1);
 
       // verify expected constants
@@ -441,7 +460,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   describe('eth_getBlockByNumber with tag', async function () {
-    const TOTAL_GET_CALLS_EXECUTED = 4;
+    const TOTAL_GET_CALLS_EXECUTED = 3;
     function confirmResult(result: Block | null) {
       expect(result).to.exist;
       expect(result).to.not.be.null;
@@ -472,7 +491,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -507,7 +525,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -522,7 +539,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -601,6 +617,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
             timestamp: BLOCK_TIMESTAMP_HEX,
             transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2, HASH_1, HASH_2],
             receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+            baseFeePerGas: DEFAULT_CONTRACT_RESULTS_BASE_FEE_PER_GAS,
           },
           showDetails,
         );
