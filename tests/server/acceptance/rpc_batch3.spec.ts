@@ -467,7 +467,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           expect(resultDebug.calls).to.have.lengthOf(1);
         });
 
-        it('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall false', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('should not be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall false', async function () {
           const transaction = {
             ...transactionTypeLegacy,
             nonce: await relay.getAccountNonce(accounts[0].address),
@@ -576,7 +577,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
-        it('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall true', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall true', async function () {
           const transaction = {
             ...transactionTypeLegacy,
             nonce: await relay.getAccountNonce(accounts[0].address),
@@ -695,7 +697,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           );
         });
 
-        it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall false', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall false', async function () {
           const transaction = {
             ...transactionType2930,
             nonce: await relay.getAccountNonce(accounts[2].address),
@@ -806,7 +809,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
-        it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall true', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall true', async function () {
           const transaction = {
             ...transactionType2930,
             nonce: await relay.getAccountNonce(accounts[0].address),
@@ -922,7 +926,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           );
         });
 
-        it('@release should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall false', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('@release should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall false', async function () {
           const transaction = {
             ...transactionType2,
             nonce: await relay.getAccountNonce(accounts[2].address),
@@ -1031,7 +1036,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
-        it('should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall true', async function () {
+        // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
+        it.skip('should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall true', async function () {
           const transaction = {
             ...transactionType2,
             nonce: await relay.getAccountNonce(accounts[0].address),
