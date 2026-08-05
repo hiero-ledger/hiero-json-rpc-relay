@@ -3,6 +3,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
+import type { ConfigKey, ConfigProperty } from '../../../../src/config-service/services/globalConfig';
 import { GlobalConfig } from '../../../../src/config-service/services/globalConfig';
 import { ValidationService } from '../../../../src/config-service/services/validationService';
 import { overrideEnvsInMochaDescribe } from '../../../relay/helpers';
@@ -191,6 +192,110 @@ describe('ValidationService tests', async function () {
       expect(castedEnvs['BATCH_REQUESTS_DISALLOWED_METHODS']).to.deep.equal(
         GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.defaultValue,
       );
+    });
+  });
+
+  describe('validate', () => {
+    const attached: ConfigKey[] = [];
+
+    const setValidation = (name: ConfigKey, fn: NonNullable<ConfigProperty['validation']>): void => {
+      GlobalConfig.ENTRIES[name].validation = fn;
+      attached.push(name);
+    };
+
+    // rules are attached to the shared GlobalConfig singleton, so always detach them - otherwise a
+    // failed assertion leaks a rule into every later test, including other spec files
+    afterEach(() => {
+      for (const name of attached) {
+        delete GlobalConfig.ENTRIES[name].validation;
+      }
+      attached.length = 0;
+    });
+
+    it('should not throw when no entry declares a validation', async () => {
+      expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.not.throw();
+    });
+
+    it('should accept the value when the rule returns true', async () => {
+      setValidation('CACHE_MAX', (value: number) => value > 0);
+
+      expect(() => ValidationService.validate({ CACHE_MAX: 1000 })).to.not.throw();
+    });
+
+    it('should throw the rule message when the rule returns a string', async () => {
+      setValidation('CACHE_MAX', () => 'CACHE_MAX must be greater than zero');
+
+      expect(() => ValidationService.validate({ CACHE_MAX: 0 })).to.throw(
+        'Configuration error: CACHE_MAX must be greater than zero',
+      );
+    });
+
+    it('should throw a generic message when the rule returns false', async () => {
+      setValidation('CACHE_MAX', () => false);
+
+      expect(() => ValidationService.validate({ CACHE_MAX: 0 })).to.throw(
+        'Configuration error: CACHE_MAX failed validation.',
+      );
+    });
+
+    it('should pass the casted value to the rule rather than the raw string', async () => {
+      let received: unknown;
+      setValidation('CACHE_MAX', (value: number) => {
+        received = value;
+        return true;
+      });
+
+      ValidationService.validate(ValidationService.typeCasting({ CACHE_MAX: '250' }));
+
+      expect(received).to.equal(250);
+    });
+
+    it('should skip entries that resolved to no value', async () => {
+      // GH_ACCESS_TOKEN is optional with no default, so it is absent from the casted envs
+      setValidation('GH_ACCESS_TOKEN', () => 'this rule must never run');
+
+      expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.not.throw();
+    });
+
+    it('should validate the default value when the env var is absent', async () => {
+      setValidation('CACHE_MAX', (value: number) => value !== 1000 || 'the default was validated');
+
+      expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.throw(
+        'Configuration error: the default was validated',
+      );
+    });
+
+    it('should expose every casted entry so a rule can constrain against another entry', async () => {
+      setValidation(
+        'WORKERS_POOL_MIN_THREADS',
+        (value: number, envs) => value <= envs.WORKERS_POOL_MAX_THREADS || 'min threads must not exceed max threads',
+      );
+
+      expect(() => ValidationService.validate({ WORKERS_POOL_MIN_THREADS: 10, WORKERS_POOL_MAX_THREADS: 4 })).to.throw(
+        'Configuration error: min threads must not exceed max threads',
+      );
+
+      // the accepting case is what catches a misspelled key inside the rule: with a typo the
+      // comparison runs against undefined and this valid pair would be rejected as well
+      expect(() =>
+        ValidationService.validate({ WORKERS_POOL_MIN_THREADS: 2, WORKERS_POOL_MAX_THREADS: 4 }),
+      ).to.not.throw();
+    });
+
+    it('should fail fast without evaluating later rules', async () => {
+      // GlobalConfig.ENTRIES is iterated in declaration order, where CACHE_MAX precedes
+      // WS_SUBSCRIPTION_LIMIT, so the first rule below is reached first
+      let laterRuleRan = false;
+      setValidation('CACHE_MAX', () => 'the first rejection');
+      setValidation('WS_SUBSCRIPTION_LIMIT', () => {
+        laterRuleRan = true;
+        return true;
+      });
+
+      expect(() => ValidationService.validate({ CACHE_MAX: 0, WS_SUBSCRIPTION_LIMIT: 10 })).to.throw(
+        'Configuration error: the first rejection',
+      );
+      expect(laterRuleRan).to.be.false;
     });
   });
 });

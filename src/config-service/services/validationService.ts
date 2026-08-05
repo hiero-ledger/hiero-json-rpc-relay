@@ -89,4 +89,31 @@ export class ValidationService {
 
     return typeCastedEnvs;
   }
+
+  /**
+   * Apply every entry's optional `validation` rule from GlobalConfig.ENTRIES.
+   *
+   * Runs on already-casted values, so a rule for a 'number' entry receives a number. Entries that
+   * resolved to no value at all are skipped because there is nothing to constrain. Fails on the first
+   * rejection rather than collecting all of them, matching the fail-fast behaviour of `startUp`.
+   *
+   * @param castedEnvs - environment variables already cast to their declared types
+   * @throws Error on the first entry whose rule rejects its value
+   */
+  static validate(castedEnvs: NodeJS.Dict<any>): void {
+    Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
+      const value = castedEnvs[entryName];
+
+      if (entryInfo.validation == null || value == null) {
+        return;
+      }
+
+      const result = entryInfo.validation(value, castedEnvs);
+
+      if (result !== true) {
+        const reason = typeof result === 'string' && result.length > 0 ? result : `${entryName} failed validation.`;
+        throw new Error(`Configuration error: ${reason}`);
+      }
+    });
+  }
 }

@@ -88,6 +88,9 @@ export class ConfigService {
 
     this.validatePaymasterAccounts();
 
+    // apply the per-entry validation rules declared in GlobalConfig.ENTRIES
+    ValidationService.validate(this.envs);
+
     // note: temporary bandage solution
     // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
     if (this.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE') === 0) {
