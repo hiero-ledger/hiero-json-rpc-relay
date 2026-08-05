@@ -4,44 +4,48 @@ import { GlobalConfig } from './globalConfig';
 
 export class ValidationService {
   /**
-   * Validate mandatory fields on start-up
+   * Validate mandatory fields on start-up, and the declared type of every entry the operator
+   * actually set a value for.
    * @param envs
    */
   static startUp(envs: NodeJS.Dict<string>): void {
-    // validate mandatory fields and their types
     Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
-      if (entryInfo.required) {
-        if (!Object.prototype.hasOwnProperty.call(envs, entryName)) {
-          throw new Error(`Configuration error: ${entryName} is a mandatory configuration for relay operation.`);
-        }
+      if (entryInfo.required && !Object.prototype.hasOwnProperty.call(envs, entryName)) {
+        throw new Error(`Configuration error: ${entryName} is a mandatory configuration for relay operation.`);
+      }
 
-        if (entryInfo.type === 'number' && isNaN(Number(envs[entryName]))) {
-          throw new Error(`Configuration error: ${entryName} must be a valid number.`);
-        }
+      const rawValue = envs[entryName];
 
-        if ((entryInfo.type === 'strArray' || entryInfo.type === 'numArray') && envs[entryName]) {
-          try {
-            const parsed = JSON.parse(envs[entryName] as string);
+      if (rawValue == null || rawValue === '') {
+        return;
+      }
 
-            if (!Array.isArray(parsed)) {
-              throw new Error(`Configuration error: ${entryName} must be a valid JSON array.`);
-            }
+      if (entryInfo.type === 'number' && isNaN(Number(rawValue))) {
+        throw new Error(`Configuration error: ${entryName} must be a valid number.`);
+      }
 
-            const isCorrectType =
-              entryInfo.type === 'numArray'
-                ? parsed.every((item) => typeof item === 'number')
-                : parsed.every((item) => typeof item === 'string');
+      if (entryInfo.type === 'strArray' || entryInfo.type === 'numArray') {
+        try {
+          const parsed = JSON.parse(rawValue);
 
-            if (!isCorrectType) {
-              const expectedType = entryInfo.type === 'numArray' ? 'numbers' : 'strings';
-              throw new Error(`Configuration error: ${entryName} must contain only ${expectedType}.`);
-            }
-          } catch (e) {
-            if (e instanceof SyntaxError) {
-              throw new Error(`Configuration error: ${entryName} must be a valid JSON string.`, { cause: e });
-            }
-            throw e;
+          if (!Array.isArray(parsed)) {
+            throw new Error(`Configuration error: ${entryName} must be a valid JSON array.`);
           }
+
+          const isCorrectType =
+            entryInfo.type === 'numArray'
+              ? parsed.every((item) => typeof item === 'number')
+              : parsed.every((item) => typeof item === 'string');
+
+          if (!isCorrectType) {
+            const expectedType = entryInfo.type === 'numArray' ? 'numbers' : 'strings';
+            throw new Error(`Configuration error: ${entryName} must contain only ${expectedType}.`);
+          }
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error(`Configuration error: ${entryName} must be a valid JSON string.`, { cause: e });
+          }
+          throw e;
         }
       }
     });

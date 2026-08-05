@@ -29,30 +29,35 @@ describe('ValidationService tests', async function () {
       );
     });
 
-    it('should fail fast if mandatory env is invalid number format', async () => {
-      GlobalConfig.ENTRIES.SERVER_PORT.required = true;
+    it('should fail fast if a numeric env has an invalid number format', async () => {
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
           SERVER_PORT: 'lorem_ipsum',
         }),
-      ).to.throw('SERVER_PORT must be a valid number.');
-      GlobalConfig.ENTRIES.SERVER_PORT.required = false;
+      ).to.throw('Configuration error: SERVER_PORT must be a valid number.');
+    });
+
+    it('should not reject a numeric env that was left empty', async () => {
+      // `typeCasting` falls back to the declared default, so there is nothing to type-check
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          SERVER_PORT: '',
+        }),
+      ).to.not.throw();
     });
 
     it('should validate string array type', async () => {
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
           BATCH_REQUESTS_DISALLOWED_METHODS: 'not-an-array',
         }),
       ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON string.');
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
     });
 
     it('should validate number array type', async () => {
-      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
@@ -62,36 +67,30 @@ describe('ValidationService tests', async function () {
     });
 
     it('should correctly detect if a string is valid JSON but not a valid JSON array', async () => {
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
           BATCH_REQUESTS_DISALLOWED_METHODS: '{"foo": "bar"}',
         }),
       ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON array.');
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
     });
 
     it('should validate string array content', async () => {
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
           BATCH_REQUESTS_DISALLOWED_METHODS: '["test", 123]',
         }),
       ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must contain only strings.');
-      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
     });
 
     it('should validate number array content', async () => {
-      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
           HAPI_CLIENT_ERROR_RESET: '["method1", 456]',
         }),
       ).to.throw('Configuration error: HAPI_CLIENT_ERROR_RESET must contain only numbers.');
-      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = false;
     });
   });
 
