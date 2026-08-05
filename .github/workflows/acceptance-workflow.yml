@@ -133,7 +133,7 @@ jobs:
           MIRROR_NODE_PORT: 5551
           GRPC_LOCAL_PORT: 50211
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.82.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.82.1' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --external-address 0.0.0.0 \
             --dev \
