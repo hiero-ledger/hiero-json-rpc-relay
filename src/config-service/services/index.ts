@@ -90,19 +90,6 @@ export class ConfigService {
 
     // apply the per-entry validation rules declared in GlobalConfig.ENTRIES
     ValidationService.validate(this.envs);
-
-    // note: temporary bandage solution
-    // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
-    if (this.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE') === 0) {
-      throw new Error('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE cannot be zero.');
-    }
-
-    // note: temporary bandage solution
-    // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
-    const wsInputSizeLimit = this.get('WS_INPUT_SIZE_LIMIT');
-    if (wsInputSizeLimit === 0 || wsInputSizeLimit < -1) {
-      throw new Error('WS_INPUT_SIZE_LIMIT must be -1 or a positive number.');
-    }
   }
 
   /**

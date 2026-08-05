@@ -374,6 +374,7 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 1,
+    validation: (value: number) => value === -1 || value > 0 || 'WS_INPUT_SIZE_LIMIT must be -1 or a positive number.',
   },
   JUMBO_TX_ENABLED: {
     type: 'boolean',
@@ -549,6 +550,8 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 100,
+    validation: (value: number) =>
+      value >= 1 || 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE must be 1 or greater.',
   },
   MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: {
     type: 'number',

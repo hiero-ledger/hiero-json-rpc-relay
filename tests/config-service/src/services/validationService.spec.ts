@@ -298,4 +298,45 @@ describe('ValidationService tests', async function () {
       expect(laterRuleRan).to.be.false;
     });
   });
+
+  describe('rules declared in GlobalConfig', () => {
+    const CASES: ReadonlyArray<{ key: ConfigKey; accept: readonly number[]; reject: readonly number[] }> = [
+      {
+        key: 'WS_INPUT_SIZE_LIMIT',
+        accept: [-1, 1, 5, 1024],
+        reject: [0, -2, -0.5, NaN],
+      },
+      {
+        key: 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE',
+        accept: [1, 100, 5000],
+        reject: [0, -5, NaN],
+      },
+    ];
+
+    CASES.forEach(({ key, accept, reject }) => {
+      it(`should accept and reject the documented values for ${key}`, async () => {
+        accept.forEach((value) =>
+          expect(
+            () => ValidationService.validate({ [key]: value }),
+            `${key}=${value} should be accepted`,
+          ).to.not.throw(),
+        );
+
+        reject.forEach((value) =>
+          expect(() => ValidationService.validate({ [key]: value }), `${key}=${value} should be rejected`).to.throw(
+            `Configuration error: ${key}`,
+          ),
+        );
+      });
+    });
+
+    it('should cover every entry that declares a validation', async () => {
+      const covered = new Set<string>(CASES.map(({ key }) => key));
+      const uncovered = (Object.keys(GlobalConfig.ENTRIES) as ConfigKey[]).filter(
+        (key) => GlobalConfig.ENTRIES[key].validation != null && !covered.has(key),
+      );
+
+      expect(uncovered, 'entries declaring a validation with no row in CASES').to.deep.equal([]);
+    });
+  });
 });
