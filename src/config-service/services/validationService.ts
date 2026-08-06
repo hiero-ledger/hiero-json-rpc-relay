@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { GlobalConfig } from './globalConfig';
+import { type ConfigProperty, GlobalConfig } from './globalConfig';
 
 export class ValidationService {
   /**
@@ -102,10 +102,12 @@ export class ValidationService {
    * rejection rather than collecting all of them, matching the fail-fast behaviour of `startUp`.
    *
    * @param castedEnvs - environment variables already cast to their declared types
+   * @param entries - entry metadata to read rules from; defaults to the full GlobalConfig set and is
+   *                  overridable so callers can supply their own without mutating the shared one
    * @throws Error on the first entry whose rule rejects its value
    */
-  static validate(castedEnvs: NodeJS.Dict<any>): void {
-    Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
+  static validate(castedEnvs: NodeJS.Dict<any>, entries: Record<string, ConfigProperty> = GlobalConfig.ENTRIES): void {
+    Object.entries(entries).forEach(([entryName, entryInfo]) => {
       const value = castedEnvs[entryName];
 
       if (entryInfo.validation == null || value == null) {

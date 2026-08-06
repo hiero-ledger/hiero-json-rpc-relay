@@ -194,112 +194,106 @@ describe('ValidationService tests', async function () {
     });
   });
 
-  describe('validate', () => {
-    const attached: ConfigKey[] = [];
-
-    const setValidation = (name: ConfigKey, fn: NonNullable<ConfigProperty['validation']>): void => {
-      GlobalConfig.ENTRIES[name].validation = fn;
-      attached.push(name);
-    };
-
-    // rules are attached to the shared GlobalConfig singleton, so always detach them - otherwise a
-    // failed assertion leaks a rule into every later test, including other spec files
-    afterEach(() => {
-      for (const name of attached) {
-        delete GlobalConfig.ENTRIES[name].validation;
-      }
-      attached.length = 0;
+  describe('validate how rules are applied', () => {
+    // Each case passes its own entry metadata, so these never touch GlobalConfig and stay valid
+    // however the shipped rules change.
+    const entry = (validation: NonNullable<ConfigProperty['validation']>): ConfigProperty => ({
+      type: 'number',
+      required: false,
+      defaultValue: null,
+      validation,
     });
 
-    it('should not throw when no entry declares a validation', async () => {
+    it('should accept the defaults of every entry that declares a rule', async () => {
       expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.not.throw();
     });
 
     it('should accept the value when the rule returns true', async () => {
-      setValidation('CACHE_MAX', (value: number) => value > 0);
-
-      expect(() => ValidationService.validate({ CACHE_MAX: 1000 })).to.not.throw();
+      expect(() => ValidationService.validate({ A: 1000 }, { A: entry((value: number) => value > 0) })).to.not.throw();
     });
 
     it('should throw the rule message when the rule returns a string', async () => {
-      setValidation('CACHE_MAX', () => 'CACHE_MAX must be greater than zero');
-
-      expect(() => ValidationService.validate({ CACHE_MAX: 0 })).to.throw(
-        'Configuration error: CACHE_MAX must be greater than zero',
+      expect(() => ValidationService.validate({ A: 0 }, { A: entry(() => 'A must be greater than zero') })).to.throw(
+        'Configuration error: A must be greater than zero',
       );
     });
 
-    it('should throw a generic message when the rule returns false', async () => {
-      setValidation('CACHE_MAX', () => false);
-
-      expect(() => ValidationService.validate({ CACHE_MAX: 0 })).to.throw(
-        'Configuration error: CACHE_MAX failed validation.',
+    it('should throw a generic message naming the entry when the rule returns false', async () => {
+      expect(() => ValidationService.validate({ A: 0 }, { A: entry(() => false) })).to.throw(
+        'Configuration error: A failed validation.',
       );
     });
 
     it('should pass the casted value to the rule rather than the raw string', async () => {
       let received: unknown;
-      setValidation('CACHE_MAX', (value: number) => {
-        received = value;
-        return true;
-      });
+      const casted = ValidationService.typeCasting({ CACHE_MAX: '250' });
 
-      ValidationService.validate(ValidationService.typeCasting({ CACHE_MAX: '250' }));
+      ValidationService.validate(casted, {
+        CACHE_MAX: entry((value: number) => {
+          received = value;
+          return true;
+        }),
+      });
 
       expect(received).to.equal(250);
     });
 
     it('should skip entries that resolved to no value', async () => {
-      // GH_ACCESS_TOKEN is optional with no default, so it is absent from the casted envs
-      setValidation('GH_ACCESS_TOKEN', () => 'this rule must never run');
-
-      expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.not.throw();
+      expect(() => ValidationService.validate({}, { A: entry(() => 'this rule must never run') })).to.not.throw();
     });
 
     it('should validate the default value when the env var is absent', async () => {
-      setValidation('CACHE_MAX', (value: number) => value !== 1000 || 'the default was validated');
-
-      expect(() => ValidationService.validate(ValidationService.typeCasting({}))).to.throw(
-        'Configuration error: the default was validated',
-      );
+      // typeCasting fills CACHE_MAX in from its declared default of 1000, and the rule below rejects
+      // exactly that, so reaching the throw proves defaults are validated and not just skipped
+      expect(() =>
+        ValidationService.validate(ValidationService.typeCasting({}), {
+          CACHE_MAX: entry((value: number) => value !== 1000 || 'the default was validated'),
+        }),
+      ).to.throw('Configuration error: the default was validated');
     });
 
     it('should expose every casted entry so a rule can constrain against another entry', async () => {
-      setValidation(
-        'WORKERS_POOL_MIN_THREADS',
-        (value: number, envs) => value <= envs.WORKERS_POOL_MAX_THREADS || 'min threads must not exceed max threads',
-      );
+      const entries = {
+        MIN: entry((value: number, envs) => value <= envs.MAX || 'MIN must not exceed MAX'),
+      };
 
-      expect(() => ValidationService.validate({ WORKERS_POOL_MIN_THREADS: 10, WORKERS_POOL_MAX_THREADS: 4 })).to.throw(
-        'Configuration error: min threads must not exceed max threads',
+      expect(() => ValidationService.validate({ MIN: 10, MAX: 4 }, entries)).to.throw(
+        'Configuration error: MIN must not exceed MAX',
       );
 
       // the accepting case is what catches a misspelled key inside the rule: with a typo the
       // comparison runs against undefined and this valid pair would be rejected as well
-      expect(() =>
-        ValidationService.validate({ WORKERS_POOL_MIN_THREADS: 2, WORKERS_POOL_MAX_THREADS: 4 }),
-      ).to.not.throw();
+      expect(() => ValidationService.validate({ MIN: 2, MAX: 4 }, entries)).to.not.throw();
     });
 
     it('should fail fast without evaluating later rules', async () => {
-      // GlobalConfig.ENTRIES is iterated in declaration order, where CACHE_MAX precedes
-      // WS_SUBSCRIPTION_LIMIT, so the first rule below is reached first
       let laterRuleRan = false;
-      setValidation('CACHE_MAX', () => 'the first rejection');
-      setValidation('WS_SUBSCRIPTION_LIMIT', () => {
-        laterRuleRan = true;
-        return true;
-      });
+      const entries = {
+        FIRST: entry(() => 'the first rejection'),
+        SECOND: entry(() => {
+          laterRuleRan = true;
+          return true;
+        }),
+      };
 
-      expect(() => ValidationService.validate({ CACHE_MAX: 0, WS_SUBSCRIPTION_LIMIT: 10 })).to.throw(
+      expect(() => ValidationService.validate({ FIRST: 0, SECOND: 10 }, entries)).to.throw(
         'Configuration error: the first rejection',
       );
       expect(laterRuleRan).to.be.false;
     });
   });
 
-  describe('rules declared in GlobalConfig', () => {
-    const CASES: ReadonlyArray<{ key: ConfigKey; accept: readonly number[]; reject: readonly number[] }> = [
+  describe('validate rules declared in GlobalConfig', () => {
+    const CASES: ReadonlyArray<{
+      key: ConfigKey;
+      accept: readonly number[];
+      reject: readonly number[];
+    }> = [
+      {
+        key: 'INPUT_SIZE_LIMIT',
+        accept: [0.5, 1, 128],
+        reject: [0, -1, NaN],
+      },
       {
         key: 'WS_INPUT_SIZE_LIMIT',
         accept: [-1, 1, 5, 1024],
@@ -309,6 +303,11 @@ describe('ValidationService tests', async function () {
         key: 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE',
         accept: [1, 100, 5000],
         reject: [0, -5, NaN],
+      },
+      {
+        key: 'MIRROR_NODE_HTTP_MAX_SOCKETS',
+        accept: [1, 300],
+        reject: [0, -1, 1.5, NaN],
       },
     ];
 

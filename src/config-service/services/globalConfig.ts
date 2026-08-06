@@ -369,6 +369,7 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 1,
+    validation: (value: number) => value > 0 || 'INPUT_SIZE_LIMIT must be a positive number.',
   },
   WS_INPUT_SIZE_LIMIT: {
     type: 'number',
@@ -470,6 +471,8 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 300,
+    validation: (value: number) =>
+      (Number.isInteger(value) && value >= 1) || 'MIRROR_NODE_HTTP_MAX_SOCKETS must be an integer of 1 or greater.',
   },
   MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: {
     type: 'number',
