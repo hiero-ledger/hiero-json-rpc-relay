@@ -825,19 +825,23 @@ export class MirrorNodeClient {
    * ordered from oldest to newest, following the Mirror Node `links.next` cursor so the full
    * range is returned regardless of the server's per-page limit.
    *
-   * Traversal is capped at `FEE_HISTORY_BLOCK_PAGINATION_MAX` pages to bound the number of
-   * upstream requests a single range can generate, limiting the relay's exposure to
-   * resource exhaustion from an excessively wide range.
+   * Traversal is capped at `pageMax` pages to bound the number of upstream requests a single
+   * range can generate, limiting the relay's exposure to resource exhaustion from an excessively
+   * wide range. The cap is caller-supplied because how wide a range may legitimately get is a
+   * property of the calling method, not of this endpoint; exceeding it throws `PAGINATION_MAX`
+   * rather than returning a partial range.
    *
    * @param requestDetails - Request metadata used for logging and tracing.
    * @param fromBlock - Inclusive lower bound block number (oldest).
    * @param toBlock - Inclusive upper bound block number (newest).
+   * @param pageMax - Maximum number of pages to traverse before throwing `PAGINATION_MAX`.
    * @returns Blocks in ascending order by block number.
    */
   public async getBlocksByRange(
     requestDetails: RequestDetails,
     fromBlock: number,
     toBlock: number,
+    pageMax: number,
   ): Promise<MirrorNodeBlock[]> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'block.number', [`gte:${fromBlock}`, `lte:${toBlock}`]);
@@ -852,7 +856,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX'),
+      pageMax,
     );
 
     // Populate the per-block cache so subsequent getBlock(number) calls from any service
