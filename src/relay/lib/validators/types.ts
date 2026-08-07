@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import mainConstants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
   type ICallTracerConfig,
@@ -88,6 +89,15 @@ export const TYPES = {
   topicHash: {
     test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param) || param === null,
     error: Constants.TOPIC_HASH_ERROR,
+  },
+  rewardPercentiles: {
+    test: (param: any): boolean =>
+      Array.isArray(param) &&
+      param.length <= mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE &&
+      param.every(
+        (element) => typeof element === 'number' && Number.isFinite(element) && element >= 0 && element <= 100,
+      ),
+    error: Constants.REWARD_PERCENTILES_ERROR,
   },
   topics: {
     test: (param: string[] | string[][]): boolean => {
