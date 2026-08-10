@@ -1166,7 +1166,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         });
 
         describe('authorizationList', function () {
-          // type 4 are not supported in CN 0.77
+          // type 4 are not supported in CN 0.77 and MN 0.161.0
           it.skip('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
             const gasPrice = await relay.gasPrice();
             const signer = accounts[2];

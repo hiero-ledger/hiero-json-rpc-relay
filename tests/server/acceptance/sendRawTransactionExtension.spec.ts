@@ -991,7 +991,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
 
-    // authorization list is not supported in 0.160 MN
+    // type 4 are not supported in CN 0.77 and MN 0.161.0
     it.skip('eth_call with authorizationList simulates delegated code', async () => {
       const signer = accounts[1];
       const currentNonce = await relay.getAccountNonce(signer.address);
@@ -1017,7 +1017,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(result.startsWith('0x')).to.be.true;
     });
 
-    // authorization list is not supported in 0.160 MN
+    // type 4 are not supported in CN 0.77 and MN 0.161.0
     it.skip('eth_estimateGas with authorizationList returns a non-zero gas estimate', async () => {
       const signer = accounts[1];
       const currentNonce = await relay.getAccountNonce(signer.address);
@@ -1047,7 +1047,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('EIP-7702 (authorizationList)', function () {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167'; // Delegate the calls anywhere, HTS can do.
 
-    // type 4 are not supported in CN 0.77
+    // type 4 are not supported in CN 0.77 and MN 0.161.0
     it.skip('should install delegation via type-4 tx and verify the created transaction has correct authorization list', async function () {
       const signer = accounts[1];
       const gasPrice = await relay.gasPrice();

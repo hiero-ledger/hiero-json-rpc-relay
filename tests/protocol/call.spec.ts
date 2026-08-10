@@ -200,7 +200,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
         expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
       });
 
-      // authorization list is not supported in 0.160 MN
+      // type 4 are not supported in CN 0.77 and MN 0.161.0
       it.skip('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async () => {
         const signer = accounts[0];
         const currentNonce = await relay.getAccountNonce(signer.address);

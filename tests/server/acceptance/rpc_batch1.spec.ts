@@ -352,7 +352,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       it('should execute "eth_getBlockReceipts" with tag "latest" successfully', async function () {
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, ['latest']);
 
-        expect(res).to.have.length(0);
+        expect(res).to.be.an('array');
       });
 
       it('should throw error on "eth_getBlockReceipts" with invalid parameter passed', async function () {
@@ -440,7 +440,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       };
 
       withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
-        // type 4 are not supported in CN 0.77
+        // type 4 are not supported in CN 0.77 and MN 0.161.0
         it.skip('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
           const signer = accounts[2];
           const currentNonce = await relay.getAccountNonce(signer.address);

@@ -142,8 +142,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         expect(res).to.be.null;
       });
 
-      // 0.77 CN and 0.160 MN - blocked by: https://github.com/hiero-ledger/hiero-mirror-node/issues/14002
-      it.skip('@release getTransactionByHash should return null for to for reverted contract creation', async () => {
+      it('@release getTransactionByHash should return null for to for reverted contract creation', async () => {
         // the data below is actually disassembled opcodes
         // containing revert as well
         const dataToRevert = '0x600160015560006000fd';
