@@ -81,7 +81,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
         const invalidSize = 101;
         const expectedError = predefined.INVALID_PARAMETER(
           2,
-          `Reward percentiles size ${invalidSize} is greater than the maximum allowed size ${constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE}`,
+          `Expected an array of up to ${constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE} numbers, each between 0 and 100`,
         );
 
         const response = await client.callRaw(METHOD_NAME, [
