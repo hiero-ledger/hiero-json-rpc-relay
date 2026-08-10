@@ -234,9 +234,10 @@ describe('Precheck', async function () {
           };
           const signed = await signTransaction(tx);
           const parsedTx = ethers.Transaction.from(signed);
+          const maxTransactionGasLimit = ConfigService.get('MAX_TRANSACTION_GAS_LIMIT');
           const message =
-            gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD
-              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${constants.MAX_TRANSACTION_FEE_THRESHOLD}'`
+            gasLimit > maxTransactionGasLimit
+              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${maxTransactionGasLimit}'`
               : `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required `;
           try {
             await precheck.gasLimit(parsedTx);
@@ -276,6 +277,21 @@ describe('Precheck', async function () {
     testPassingGasLimitPrecheck(validGasLimits);
     testFailingGasLimitPrecheck(lowGasLimits, -32003);
     testFailingGasLimitPrecheck(highGasLimits, -32005);
+
+    withOverriddenEnvsInMochaTest({ MAX_TRANSACTION_GAS_LIMIT: 30_000_000 }, () => {
+      it('should pass for a gas limit that only a raised MAX_TRANSACTION_GAS_LIMIT allows', async function () {
+        const signed = await signTransaction({ ...defaultTx, gasLimit: 25_000_000 });
+        precheck.gasLimit(ethers.Transaction.from(signed));
+      });
+
+      it('should fail for a gas limit above the raised MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const signed = await signTransaction({ ...defaultTx, gasLimit: 35_000_000 });
+        expect(() => precheck.gasLimit(ethers.Transaction.from(signed)))
+          .to.throw(JsonRpcError)
+          .with.property('message')
+          .that.contains(`exceeds max gas per sec limit '30000000'`);
+      });
+    });
   });
 
   describe('gas price', async function () {
