@@ -617,6 +617,7 @@ describe('Precheck', async function () {
         expectedError();
       } catch (e: any) {
         expect(e).to.eql(predefined.NONCE_TOO_LOW(parsedTx.nonce, mirrorAccount.ethereum_nonce));
+        expect(e.code).to.eq(-32000);
       }
     });
 

@@ -221,5 +221,21 @@ describe('Errors', () => {
         });
       });
     });
+
+    it('every predefined error uses a negative code', () => {
+      const positiveCodeExceptions = ['CONTRACT_REVERT'];
+      const dummyArgs: unknown[] = ['1', 1, '1', 1];
+
+      const positiveCodes = Object.entries(predefined)
+        .filter(([name]) => !positiveCodeExceptions.includes(name))
+        .map(([name, entry]) => {
+          const error =
+            typeof entry === 'function' ? (entry as (...args: unknown[]) => JsonRpcError)(...dummyArgs) : entry;
+          return { name, code: error.code };
+        })
+        .filter(({ code }) => code >= 0);
+
+      expect(positiveCodes).to.deep.eq([], `these predefined errors must use negative JSON-RPC codes`);
+    });
   });
 });
