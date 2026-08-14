@@ -1,11 +1,11 @@
 {
   "name": "@hiero-ledger/hiero-json-rpc-relay",
-  "version": "0.78.1",
+  "version": "0.78.2-rc1",
   "bin": {
     "hiero-relay": "./bin/hiero-relay.js"
   },
   "redisMemoryServer": {
-    "version": "7.4.5"
+    "version": "0.78.2-rc1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
