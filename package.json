@@ -5,7 +5,7 @@
     "hiero-relay": "./bin/hiero-relay.js"
   },
   "redisMemoryServer": {
-    "version": "0.78.2-rc1"
+    "version": "7.4.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
