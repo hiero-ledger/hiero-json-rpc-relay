@@ -3299,21 +3299,40 @@ describe('RPC Server', function () {
 
       it('should execute with synthetic transactions in block', async () => {
         const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
-        const syntheticLog = {
+        const syntheticContractResult = {
           address: contractAddress1,
+          amount: null,
+          bloom: '0x',
+          call_result: '0x',
+          contract_id: '0.0.1033',
+          created_contract_ids: [],
+          error_message: null,
+          from: contractAddress2,
+          function_parameters: '0x',
+          gas_consumed: null,
+          gas_limit: 0,
+          gas_used: null,
+          timestamp: '1696438011.462526383',
+          to: contractAddress1,
+          hash: syntheticTxHash,
           block_hash:
             '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
           block_number: 1,
-          data: '0x0000000000000000000000000000000000000000000000000000000000000064',
-          index: 0,
-          timestamp: '1696438011.462526383',
-          topics: [
-            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
-            `0x000000000000000000000000${contractAddress2.slice(2)}`,
-            `0x000000000000000000000000${contractAddress1.slice(2)}`,
-          ],
-          transaction_hash: syntheticTxHash,
+          result: 'SUCCESS',
           transaction_index: 1,
+          status: '0x1',
+          failed_initcode: null,
+          access_list: null,
+          block_gas_used: 0,
+          chain_id: '0x12a',
+          gas_price: '0x56',
+          max_fee_per_gas: null,
+          max_priority_fee_per_gas: null,
+          r: null,
+          s: null,
+          type: 0,
+          v: null,
+          nonce: null,
         };
 
         const syntheticCallTracerResult = {
@@ -3327,11 +3346,7 @@ describe('RPC Server', function () {
           output: '0x',
         };
 
-        // Mock getContractResultWithRetry to return empty (no EVM transactions)
-        getContractResultWithRetry.resolves([]);
-
-        // Mock getContractResultsLogsWithRetry to return synthetic log
-        getContractResultsLogsWithRetry.resolves([syntheticLog]);
+        getContractResultWithRetry.resolves([syntheticContractResult]);
 
         // Mock callTracer to return result for synthetic hash
         callTracer.withArgs(syntheticTxHash, sinon.match.any, sinon.match.any).resolves(syntheticCallTracerResult);
