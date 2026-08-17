@@ -762,7 +762,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           nonce: await relay.getAccountNonce(accounts[2].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
-          gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+          gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
           data: '0x' + '00'.repeat(100),
         };
 
@@ -779,7 +779,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         const diffInTinybars = BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF);
         const diffInHbars = Number(diffInTinybars) / 100_000_000;
         const maxPossibleFeeInHbars =
-          (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000;
+          (gasPrice * ConfigService.get('MAX_TRANSACTION_GAS_LIMIT')) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000;
 
         expect(diffInHbars).to.be.greaterThan(0);
         expect(diffInHbars).to.be.lessThan(maxPossibleFeeInHbars);
@@ -816,7 +816,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             chainId: Number(CHAIN_ID),
             nonce: await relay.getAccountNonce(accounts[2].wallet.address),
             gasPrice: 0,
-            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
             data: '0x00',
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -840,7 +840,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             nonce: await relay.getAccountNonce(accounts[2].wallet.address),
             maxPriorityFeePerGas: 0,
             maxFeePerGas: 0,
-            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
             data: '0x00',
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -866,7 +866,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasPrice: await relay.gasPrice(),
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -881,7 +881,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasPrice: await relay.gasPrice(),
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -895,7 +895,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasLimit,
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -909,7 +909,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasLimit,
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
