@@ -41,7 +41,8 @@ export class AdminImpl implements Admin {
       const targetNetwork: string = Utils.getNetworkNameByChainId();
       const response: any = await axios.get('https://status.hedera.com/api/v2/summary.json');
       const networkInfo: any = response.data.components.filter(
-        (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
+        (it: { name: string }) =>
+          it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
       );
 
       const networkName: string = networkInfo[0].name;

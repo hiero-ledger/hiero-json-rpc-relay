@@ -2,6 +2,7 @@
 
 import { TracerType } from '../constants';
 import { predefined } from '../errors/JsonRpcError';
+import type { TYPES } from './types';
 import { validateObject } from './utils';
 
 export type IObjectSchema = {
@@ -15,7 +16,7 @@ export type IObjectSchema = {
 };
 
 type IObjectParamSchema = {
-  type: string;
+  type: keyof typeof TYPES;
   nullable: boolean;
   required?: boolean;
 };

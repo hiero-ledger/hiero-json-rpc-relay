@@ -16,7 +16,7 @@ export async function getLogs(
 ): Promise<Log[]> {
   const { commonService } = ctx;
   try {
-    const EMPTY_RESPONSE = [];
+    const EMPTY_RESPONSE: Log[] = [];
     const params: any = {};
     const sliceCountWrapper = { value: 1 };
 

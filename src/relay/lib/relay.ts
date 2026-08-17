@@ -412,7 +412,7 @@ export class Relay {
     void this.populatePreconfiguredSpendingPlans();
 
     // Create RPC method registry
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
+    const rpcNamespaceRegistry = (['eth', 'net', 'web3', 'debug', 'txpool'] as const).map((namespace) => ({
       namespace,
       serviceImpl: this[namespace](),
     }));

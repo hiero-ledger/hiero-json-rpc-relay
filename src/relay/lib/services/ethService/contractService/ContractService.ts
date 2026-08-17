@@ -410,12 +410,14 @@ export class ContractService implements IContractService {
     // is an object
     if (typeof blockParam === 'object') {
       // object has property blockNumber, example: { "blockNumber": "0x0" }
-      if (blockParam['blockNumber'] != null) {
-        return blockParam['blockNumber'];
+      const { blockNumber, blockHash } = blockParam as { blockNumber?: string; blockHash?: string };
+
+      if (blockNumber != null) {
+        return blockNumber;
       }
 
-      if (blockParam['blockHash'] != null) {
-        return blockParam['blockHash'];
+      if (blockHash != null) {
+        return blockHash;
       }
 
       // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam

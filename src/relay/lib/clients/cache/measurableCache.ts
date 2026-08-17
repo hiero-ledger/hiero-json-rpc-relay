@@ -27,7 +27,7 @@ export class MeasurableCache implements ICacheClient {
 
   private cacheType: string;
 
-  public static ADD_LABEL_TO_CACHE_METHODS_COUNTER = 'addLabelToCacheMethodsCounter';
+  public static readonly ADD_LABEL_TO_CACHE_METHODS_COUNTER = 'addLabelToCacheMethodsCounter';
 
   public constructor(decorated: ICacheClient, register: Registry, cacheType: string) {
     this.decoratedCacheClient = decorated;

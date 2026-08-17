@@ -476,7 +476,7 @@ export class DebugImpl implements Debug {
    */
   async formatActionsResult(result: any, requestDetails: RequestDetails): Promise<[] | any> {
     return await Promise.all(
-      result.map(async (action, index) => {
+      result.map(async (action: ContractAction, index: number) => {
         const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
           action.from,
           action.to,
@@ -872,10 +872,13 @@ export class DebugImpl implements Debug {
             ]);
 
             // Build storage map from state items
-            const storageMap = stateResponse.reduce((map, stateItem) => {
-              map[stateItem.slot] = stateItem.value;
-              return map;
-            }, {});
+            const storageMap = stateResponse.reduce(
+              (map: Record<string, string>, stateItem: { slot: string; value: string }) => {
+                map[stateItem.slot] = stateItem.value;
+                return map;
+              },
+              {},
+            );
 
             // Add contract data to result
             result[evmAddress] = {
