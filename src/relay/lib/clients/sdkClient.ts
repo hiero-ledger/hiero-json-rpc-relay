@@ -229,7 +229,7 @@ export class SDKClient {
 
     ethereumTransaction.setMaxTransactionFee(
       Hbar.fromTinybars(
-        Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * constants.MAX_TRANSACTION_FEE_THRESHOLD),
+        Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * ConfigService.get('MAX_TRANSACTION_GAS_LIMIT')),
       ),
     );
 
