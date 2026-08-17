@@ -8,7 +8,7 @@ export class MirrorNodeClientError extends Error {
   public detail?: string;
   private children: { message: string; detail?: string; data?: string }[];
 
-  static ErrorCodes: Record<string, number> = {
+  static ErrorCodes: Record<string, number | undefined> = {
     ECONNABORTED: 504,
     ECONNREFUSED: 567,
     NOT_SUPPORTED: 501,

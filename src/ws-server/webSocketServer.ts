@@ -287,7 +287,7 @@ export async function initializeWsServer(
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
 
-  httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
+  httpApp.use(async (ctx: Koa.ParameterizedContext, next: Koa.Next) => {
     // prometheus metrics exposure
     if (ctx.url === '/metrics') {
       ctx.status = 200;

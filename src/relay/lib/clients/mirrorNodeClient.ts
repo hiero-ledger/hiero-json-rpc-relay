@@ -2080,10 +2080,13 @@ export class MirrorNodeClient {
         type = constants.TYPE_TOKEN;
         break;
       }
+      default: {
+        throw new Error(`Unexpected resolved entity index: ${data.index}`);
+      }
     }
 
     const response = {
-      type: type!,
+      type,
       entity: data.value,
     };
     await this.cacheService.set(cachedLabel, response, callerName);
