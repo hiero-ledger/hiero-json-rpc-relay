@@ -87,6 +87,26 @@ describe('eth_sendRawTransaction transaction tracing', function () {
       expect((fallback!.data as any).provisional).to.be.true;
     });
 
+    it('traces a tx-pool persistence failure as rejected and surfaces INTERNAL_ERROR', async () => {
+      const { ethImpl, transactionTracingService } = generateEthTestEnv();
+      const transactionService = ethImpl['transactionService'] as any;
+      const { parsedTx } = await buildSignedTx();
+
+      sinon
+        .stub(transactionService.accountService, 'getTransactionCounts')
+        .resolves({ confirmedCount: 0, pendingCount: 0, mirrorNodeArtifact: undefined });
+      sinon.stub(transactionService.transactionPoolService, 'saveTransaction').rejects(new Error('pool write failed'));
+
+      await expect(transactionService.admitTransaction(parsedTx.from, parsedTx, requestDetails)).to.be.rejectedWith(
+        'Error invoking RPC: Failed to save transaction to pool: pool write failed',
+      );
+
+      const record = await transactionTracingService.getByHash(parsedTx.hash!);
+      expect(record).to.not.be.null;
+      expect(record!.status).to.equal('rejected');
+      expect(record!.error).to.contain('Failed to save transaction to pool: pool write failed');
+    });
+
     it('traces an SDK timeout as timedout', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
       const transactionService = ethImpl['transactionService'] as any;

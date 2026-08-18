@@ -10,7 +10,15 @@ import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
-import { BLOCK_HASH, BLOCK_NUMBER, DEFAULT_BLOCK, EMPTY_LOGS_RESPONSE, GAS_USED_1, GAS_USED_2 } from './eth-config';
+import {
+  BLOCK_HASH,
+  BLOCK_NUMBER,
+  DEFAULT_BLOCK,
+  DEFAULT_LOGS_3,
+  EMPTY_LOGS_RESPONSE,
+  GAS_USED_1,
+  GAS_USED_2,
+} from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
@@ -145,6 +153,27 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       .reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
     const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
     expect(receipt).to.be.null;
+  });
+
+  // Mirror Node has no contract result for the hash, but synthetic logs exist: a synthetic receipt is
+  // returned rather than falling through to the tracing fallback / null.
+  it('returns a synthetic receipt when no contract result exists but synthetic logs do', async function () {
+    const txHash = '0x0000000000000000000000000000000000000000000000000000000000000002';
+    restMock
+      .onGet(`contracts/results/${txHash}?hbar=false`)
+      .reply(404, JSON.stringify({ _status: { messages: [{ message: 'No correlating transaction' }] } }));
+    restMock
+      .onGet(`contracts/results/logs?transaction.hash=${txHash}&limit=100&order=asc`)
+      .reply(200, JSON.stringify({ logs: DEFAULT_LOGS_3 }));
+    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+
+    const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
+
+    expect(receipt).to.not.be.null;
+    expect(receipt.logs).to.be.an('array').with.lengthOf(DEFAULT_LOGS_3.length);
+    expect(receipt.transactionHash).to.equal(DEFAULT_LOGS_3[0].transaction_hash);
+    expect(receipt.effectiveGasPrice).to.equal('0xad78ebc5ac620000');
+    expect(receipt.status).to.equal(constants.ONE_HEX);
   });
 
   it('valid receipt on match', async function () {

@@ -52,8 +52,4 @@ export class LocalTransactionTracingStorage implements ITransactionTracingStorag
   async get(hash: string): Promise<TransactionTraceRecord | null> {
     return (await this.cache.get(this.hashKey(hash), this.get.name)) as TransactionTraceRecord | null;
   }
-
-  async delete(hash: string): Promise<void> {
-    await this.cache.delete(this.hashKey(hash), this.delete.name);
-  }
 }

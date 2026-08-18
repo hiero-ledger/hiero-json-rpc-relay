@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { JsonRpcError } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { TransactionTracingService, TransactionTracingStorageFactory } from '../../../../src/relay/lib/services';
+import { type ITransactionTracingStorage } from '../../../../src/relay/lib/types/transactionTracing';
 import { withOverriddenEnvsInMochaTest } from '../../helpers';
+
+chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
 
@@ -167,6 +171,60 @@ describe('TransactionTracingService', function () {
       it('returns null when no record exists', async () => {
         expect(await service.getReceiptFallbackError(OTHER_HASH)).to.be.null;
       });
+    });
+  });
+
+  describe('when the storage layer fails', function () {
+    const storageError = new Error('storage unavailable');
+
+    let errorLog: sinon.SinonSpy;
+    let storage: { set: sinon.SinonStub; get: sinon.SinonStub };
+    let service: TransactionTracingService;
+
+    beforeEach(() => {
+      const childLogger = pino({ level: 'silent' });
+      errorLog = sinon.spy(childLogger, 'error');
+      storage = { set: sinon.stub().resolves(), get: sinon.stub().resolves(null) };
+      service = new TransactionTracingService(
+        { child: () => childLogger } as unknown as pino.Logger,
+        storage as unknown as ITransactionTracingStorage,
+      );
+    });
+
+    afterEach(() => sinon.restore());
+
+    it('swallows and logs a write failure on every record path', async () => {
+      storage.set.rejects(storageError);
+
+      await expect(service.recordPending(HASH)).to.be.fulfilled;
+      await expect(service.recordSent(HASH, TX_ID)).to.be.fulfilled;
+      await expect(service.recordRejected(HASH, { error: 'boom' })).to.be.fulfilled;
+      await expect(service.recordTimedout(HASH, { error: 'slow' })).to.be.fulfilled;
+
+      expect(errorLog.callCount).to.equal(4);
+      expect(errorLog.alwaysCalledWith(storageError)).to.be.true;
+    });
+
+    it('swallows and logs a read failure on recordValidated', async () => {
+      storage.get.rejects(storageError);
+
+      await expect(service.recordValidated(HASH)).to.be.fulfilled;
+      expect(errorLog.calledOnceWith(storageError)).to.be.true;
+    });
+
+    it('swallows and logs a write failure on recordValidated', async () => {
+      storage.get.resolves({ status: 'sent', timestamp: 1, transactionId: TX_ID });
+      storage.set.rejects(storageError);
+
+      await expect(service.recordValidated(HASH)).to.be.fulfilled;
+      expect(errorLog.calledOnceWith(storageError)).to.be.true;
+    });
+
+    it('preserves the default null receipt when the fallback read fails', async () => {
+      storage.get.rejects(storageError);
+
+      expect(await service.getReceiptFallbackError(HASH)).to.be.null;
+      expect(errorLog.calledOnceWith(storageError)).to.be.true;
     });
   });
 });

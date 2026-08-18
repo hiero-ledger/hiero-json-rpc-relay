@@ -54,13 +54,6 @@ export interface ITransactionTracingStorage {
    * @returns The record, or null if none exists.
    */
   get(hash: string): Promise<TransactionTraceRecord | null>;
-
-  /**
-   * Removes the record for the given hash.
-   *
-   * @param hash - The transaction's keccak256 hash (lower-cased 0x-prefixed hex).
-   */
-  delete(hash: string): Promise<void>;
 }
 
 /**

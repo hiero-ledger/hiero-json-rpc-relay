@@ -61,13 +61,6 @@ describe('RedisTransactionTracingStorage Test Suite', function () {
     expect(result!.status).to.equal('validated');
   });
 
-  it('deletes a record', async () => {
-    await storage.set(HASH, { status: 'sent', timestamp: 1, transactionId: TX_ID });
-    await storage.delete(HASH);
-
-    expect(await storage.get(HASH)).to.be.null;
-  });
-
   it('applies a TTL (EXPIRE) to stored keys when TTL is finite', async () => {
     await storage.set(HASH, { status: 'pending', timestamp: 1 });
     const ttl = await redisClient.ttl('txstatustrace:hash:' + HASH);

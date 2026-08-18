@@ -44,8 +44,4 @@ export class RedisTransactionTracingStorage implements ITransactionTracingStorag
     const value = await this.redisClient.get(this.hashKey(hash));
     return value != null ? (JSON.parse(value) as TransactionTraceRecord) : null;
   }
-
-  async delete(hash: string): Promise<void> {
-    await this.redisClient.del(this.hashKey(hash));
-  }
 }
