@@ -219,7 +219,7 @@ export class Precheck {
    */
   gasLimit(tx: Transaction): void {
     const gasLimit = Number(tx.gasLimit);
-    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx.data);
+    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx);
     const maxTransactionGasLimit = ConfigService.get('MAX_TRANSACTION_GAS_LIMIT');
 
     if (gasLimit > maxTransactionGasLimit) {
