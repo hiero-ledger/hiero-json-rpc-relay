@@ -4,6 +4,7 @@
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
+import { prepend0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import EstimateGasContractJson from '../contracts/EstimateGasContract.json';
 import RelayCalls from '../helpers/constants';
@@ -266,5 +267,62 @@ describe('EstimateGasContract tests', function () {
     const tx1000 = await contract.nestedCalls.populateTransaction(1, 1000, contract.target);
     const estimateGasResponse1000 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [tx1000]);
     expect(estimateGasResponse500).to.equals(estimateGasResponse750).to.equal(estimateGasResponse1000);
+  });
+
+  describe('with typed-transaction access and authorization lists', function () {
+    [
+      {
+        accessListLabel: 'accessList',
+        accessList: [],
+      },
+      {
+        accessListLabel: 'non-empty accessList',
+        accessList: [
+          {
+            address: prepend0x('11'.repeat(20)),
+            storageKeys: [prepend0x('00'.repeat(32))],
+          },
+        ],
+      },
+    ].forEach(({ accessListLabel, accessList }) => {
+      it(`should execute "eth_estimateGas" with to, from, value, ${accessListLabel} and gas field`, async function () {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: signers[0].address,
+            to: contract.target,
+            value: '0x1',
+            gas: '0xd97010',
+            accessList,
+          },
+        ]);
+        expect(res).to.contain('0x');
+        expect(res).to.not.be.oneOf(['0x', '0x0']);
+      });
+    });
+
+    it('should execute "eth_estimateGas" with authorizationList for type 4 transaction', async function () {
+      const signer = signers[0];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: contract.target as string,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+        {
+          type: 4,
+          from: signer.address,
+          to: contract.target,
+          value: '0x1',
+          gas: '0xd97010',
+          authorizationList,
+        },
+      ]);
+      expect(res).to.contain('0x');
+      expect(res).to.not.be.oneOf(['0x', '0x0']);
+    });
   });
 });
