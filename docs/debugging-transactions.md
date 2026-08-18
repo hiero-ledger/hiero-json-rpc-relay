@@ -564,6 +564,9 @@ Opt-in and off by default:
 
 - `TX_STATUS_TRACING=true` — enable it.
 - `TX_STATUS_TRACING_TTL_MS` — record TTL in ms (default `900000` = 15 min; `0`/`-1` = eternal).
+- `TX_STATUS_TRACING_MAX_ENTRIES` — entry bound for the in-memory store (default `10000`). Local retention is
+  whichever binds first, this count or the TTL; raise it if submissions over one TTL window exceed the bound.
+  Redis-backed tracing is bounded by the TTL alone.
 
 Uses the in-memory LRU cache by default; set `REDIS_ENABLED=true` to keep the fallback correct across replicas.
 With the flag off nothing is stored and there is no hot-path change.

@@ -3,16 +3,15 @@
 import { type RedisClientType } from 'redis';
 
 import { type ITransactionTracingStorage, type TransactionTraceRecord } from '../../types/transactionTracing';
+import { TRACE_HASH_KEY_PREFIX } from './constants';
 
 /**
  * Redis-backed implementation of {@link ITransactionTracingStorage}.
  *
- * Records are stored as JSON under a dedicated `txstatustrace:hash:<hash>` key. TTL is applied via the
+ * Records are stored as JSON under the shared {@link TRACE_HASH_KEY_PREFIX} key namespace. TTL is applied via the
  * `SET ... EX` option (ms converted to seconds); a non-positive TTL persists the record indefinitely.
  */
 export class RedisTransactionTracingStorage implements ITransactionTracingStorage {
-  private readonly hashKeyPrefix = 'txstatustrace:hash:';
-
   /** TTL applied to keys, in seconds. `0` (or below) means no expiration. */
   private readonly ttlSeconds: number;
 
@@ -28,7 +27,7 @@ export class RedisTransactionTracingStorage implements ITransactionTracingStorag
   }
 
   private hashKey(hash: string): string {
-    return `${this.hashKeyPrefix}${hash}`;
+    return `${TRACE_HASH_KEY_PREFIX}${hash}`;
   }
 
   async set(hash: string, record: TransactionTraceRecord): Promise<void> {

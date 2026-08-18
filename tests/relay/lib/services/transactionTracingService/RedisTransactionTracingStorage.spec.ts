@@ -5,6 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
 import { createClient, type RedisClientType } from 'redis';
 
+import { TRACE_HASH_KEY_PREFIX } from '../../../../../src/relay/lib/services/transactionTracingService/constants';
 import { RedisTransactionTracingStorage } from '../../../../../src/relay/lib/services/transactionTracingService/RedisTransactionTracingStorage';
 import { type TransactionTraceRecord } from '../../../../../src/relay/lib/types/transactionTracing';
 import { useInMemoryRedisServer } from '../../../helpers';
@@ -63,14 +64,14 @@ describe('RedisTransactionTracingStorage Test Suite', function () {
 
   it('applies a TTL (EXPIRE) to stored keys when TTL is finite', async () => {
     await storage.set(HASH, { status: 'pending', timestamp: 1 });
-    const ttl = await redisClient.ttl('txstatustrace:hash:' + HASH);
+    const ttl = await redisClient.ttl(TRACE_HASH_KEY_PREFIX + HASH);
     expect(ttl).to.be.greaterThan(0);
   });
 
   it('persists indefinitely (no EXPIRE) when TTL is eternal (0)', async () => {
     const eternalStorage = new RedisTransactionTracingStorage(redisClient, 0);
     await eternalStorage.set(HASH, { status: 'pending', timestamp: 1 });
-    const ttl = await redisClient.ttl('txstatustrace:hash:' + HASH);
+    const ttl = await redisClient.ttl(TRACE_HASH_KEY_PREFIX + HASH);
     // redis returns -1 for a key with no associated expire
     expect(ttl).to.equal(-1);
   });

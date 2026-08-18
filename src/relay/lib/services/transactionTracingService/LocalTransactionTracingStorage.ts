@@ -3,8 +3,10 @@
 import { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 
+import { ConfigService } from '../../../../config-service/services';
 import { LocalLRUCache } from '../../clients/cache/localLRUCache';
 import { type ITransactionTracingStorage, type TransactionTraceRecord } from '../../types/transactionTracing';
+import { TRACE_HASH_KEY_PREFIX } from './constants';
 
 /**
  * Local in-memory implementation of {@link ITransactionTracingStorage}.
@@ -13,11 +15,11 @@ import { type ITransactionTracingStorage, type TransactionTraceRecord } from '..
  * {@link Registry} is used for the internal cache so its `rpc_relay_cache` gauge does not clash with
  * the shared relay cache's gauge on the main registry.
  *
- * Records are stored under a dedicated `hash:<hash>` key namespace.
+ * The entry bound comes from `TX_STATUS_TRACING_MAX_ENTRIES` rather than the shared `CACHE_MAX`.
+ *
+ * Records are stored under the shared {@link TRACE_HASH_KEY_PREFIX} key namespace.
  */
 export class LocalTransactionTracingStorage implements ITransactionTracingStorage {
-  private static readonly HASH_KEY_PREFIX = 'txtrace:hash:';
-
   private readonly cache: LocalLRUCache;
 
   /** Per-entry TTL in milliseconds (`0`/`-1` = eternal). */
@@ -29,7 +31,12 @@ export class LocalTransactionTracingStorage implements ITransactionTracingStorag
    */
   constructor(logger: Logger, ttlMs: number) {
     this.ttlMs = ttlMs;
-    this.cache = new LocalLRUCache(logger.child({ name: 'tx-tracing-cache' }), new Registry());
+    this.cache = new LocalLRUCache(
+      logger.child({ name: 'tx-tracing-cache' }),
+      new Registry(),
+      undefined,
+      ConfigService.get('TX_STATUS_TRACING_MAX_ENTRIES'),
+    );
   }
 
   /**
@@ -42,7 +49,7 @@ export class LocalTransactionTracingStorage implements ITransactionTracingStorag
   }
 
   private hashKey(hash: string): string {
-    return `${LocalTransactionTracingStorage.HASH_KEY_PREFIX}${hash}`;
+    return `${TRACE_HASH_KEY_PREFIX}${hash}`;
   }
 
   async set(hash: string, record: TransactionTraceRecord): Promise<void> {

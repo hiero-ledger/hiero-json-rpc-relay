@@ -781,6 +781,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  TX_STATUS_TRACING_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
   TX_STATUS_TRACING_TTL_MS: {
     type: 'number',
     required: false,
