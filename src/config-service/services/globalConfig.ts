@@ -238,6 +238,7 @@ const _CONFIG = {
       'INVALID_SOLIDITY_ADDRESS',
       'MAX_GAS_LIMIT_EXCEEDED',
       'INVALID_FILE_ID',
+      'INVALID_ETHEREUM_TRANSACTION',
     ],
   },
   FEE_HISTORY_MAX_RESULTS: {
@@ -776,6 +777,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: null,
+  },
+  TX_TYPE_4_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
   },
   TXPOOL_API_ENABLED: {
     type: 'boolean',
