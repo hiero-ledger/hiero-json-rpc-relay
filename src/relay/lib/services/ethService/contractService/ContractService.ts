@@ -465,16 +465,16 @@ export class ContractService implements IContractService {
       return null;
     }
 
-    // Gas limit for `eth_call` is 50_000_000, but the current Hedera network limit is 15_000_000
-    // With values over the gas limit, the call will fail with BUSY error so we cap it at 15_000_000
+    // Requests above the network's per-transaction gas limit fail with BUSY, so cap them instead.
+    const maxTransactionGasLimit = ConfigService.get('MAX_TRANSACTION_GAS_LIMIT');
     const gas = Number.parseInt(gasString);
-    if (gas > constants.MAX_GAS_PER_SEC) {
+    if (gas > maxTransactionGasLimit) {
       this.logger.trace(
         `eth_call gas amount (%s) exceeds network limit, capping gas to %s`,
         gas,
-        constants.MAX_GAS_PER_SEC,
+        maxTransactionGasLimit,
       );
-      return constants.MAX_GAS_PER_SEC;
+      return maxTransactionGasLimit;
     }
 
     return gas;

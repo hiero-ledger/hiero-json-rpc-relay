@@ -133,11 +133,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 10000,
   },
-  CONTRACT_CALL_GAS_LIMIT: {
-    type: 'number',
-    required: false,
-    defaultValue: 50_000_000,
-  },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     type: 'number',
     required: false,
@@ -406,7 +401,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
-  MAX_TRANSACTION_FEE_THRESHOLD: {
+  MAX_TRANSACTION_GAS_LIMIT: {
     type: 'number',
     required: false,
     defaultValue: 15_000_000,

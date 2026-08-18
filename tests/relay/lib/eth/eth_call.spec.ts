@@ -4,6 +4,7 @@ import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
+import { ConfigService } from '../../../../src/config-service/services';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
@@ -19,6 +20,7 @@ import {
   ethCallFailing,
   mockData,
   overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -275,7 +277,7 @@ describe('@ethCall Eth Call spec', async function () {
         gas: 25_000_000,
       };
       await mockContractCall(
-        { ...callData, gas: constants.MAX_GAS_PER_SEC, block: 'latest' },
+        { ...callData, gas: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'), block: 'latest' },
         false,
         200,
         {
@@ -285,6 +287,40 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const res = await contractService.call(callData, 'latest', requestDetails);
       expect(res).to.equal('0x00');
+    });
+
+    withOverriddenEnvsInMochaTest({ MAX_TRANSACTION_GAS_LIMIT: 20_000_000 }, () => {
+      it('eth_call caps gas to the configured MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const callData = {
+          ...defaultCallData,
+          gas: 25_000_000,
+        };
+        await mockContractCall(
+          { ...callData, gas: 20_000_000, block: 'latest' },
+          false,
+          200,
+          { result: '0x00' },
+          requestDetails,
+        );
+        const res = await contractService.call(callData, 'latest', requestDetails);
+        expect(res).to.equal('0x00');
+      });
+
+      it('eth_call does not cap gas below the configured MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const callData = {
+          ...defaultCallData,
+          gas: 18_000_000,
+        };
+        await mockContractCall(
+          { ...callData, gas: 18_000_000, block: 'latest' },
+          false,
+          200,
+          { result: '0x00' },
+          requestDetails,
+        );
+        const res = await contractService.call(callData, 'latest', requestDetails);
+        expect(res).to.equal('0x00');
+      });
     });
 
     it('eth_call with all fields and value', async function () {
