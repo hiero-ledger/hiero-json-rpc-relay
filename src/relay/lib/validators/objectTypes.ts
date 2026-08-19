@@ -230,9 +230,10 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   },
 };
 
-export function validateSchema(schema: IObjectSchema, object: any): boolean {
+export function validateSchema(schema: IObjectSchema, object: unknown): boolean {
+  const properties = object as Record<string, unknown>;
   const expectedParams = Object.keys(schema.properties);
-  const actualParams = Object.keys(object);
+  const actualParams = Object.keys(properties);
   if (schema.failOnUnexpectedParams) {
     const unknownParam = actualParams.find((param) => !expectedParams.includes(param));
     if (unknownParam) {
@@ -242,34 +243,35 @@ export function validateSchema(schema: IObjectSchema, object: any): boolean {
   if (schema.deleteUnknownProperties) {
     const unknownParams = actualParams.filter((param) => !expectedParams.includes(param));
     for (const param of unknownParams) {
-      delete object[param];
+      delete properties[param];
     }
   }
-  return validateObject(object, schema);
+  return validateObject(properties, schema);
 }
 
-export function validateEthSubscribeLogsParamObject(param: any): boolean {
+export function validateEthSubscribeLogsParamObject(param: unknown): boolean {
   const schema = OBJECTS_VALIDATIONS.ethSubscribeLogsParams;
   const valid = validateSchema(schema, param);
+  const { address } = param as { address?: unknown };
   // Check if the address is an array and has a length of 0
   // address and is not an empty array
-  if (valid && Array.isArray(param.address) && param.address.length === 0 && schema.properties.address.required) {
+  if (valid && Array.isArray(address) && address.length === 0 && schema.properties.address.required) {
     throw predefined.MISSING_REQUIRED_PARAMETER(`'address' for ${schema.name}`);
   }
 
   return valid;
 }
 
-export function validateTracerConfigWrapper(param: any): boolean {
+export function validateTracerConfigWrapper(param: unknown): boolean {
   const schema = OBJECTS_VALIDATIONS.tracerConfigWrapper;
   const valid = validateSchema(schema, param);
-  const { tracer, tracerConfig } = param;
+  const { tracer, tracerConfig } = param as { tracer?: unknown; tracerConfig?: Record<string, unknown> };
 
   const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
   const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
 
   // Check for opcodeLogger config properties at the top level
-  const topLevelKeys = Object.keys(param);
+  const topLevelKeys = Object.keys(param as object);
   const hasTopLevelOpcodeLoggerKeys = topLevelKeys.some((k) => opcodeLoggerKeys.includes(k));
 
   // Check for tracer config properties in nested tracerConfig

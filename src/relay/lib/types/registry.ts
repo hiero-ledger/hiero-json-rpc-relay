@@ -31,7 +31,7 @@ export type RpcNamespaceRegistry = {
  * - Methods with RequestDetails (which may not always be the last parameter)
  * - Methods with varying return types
  */
-export type OperationHandler = (...args: any[]) => any;
+export type OperationHandler = (...args: unknown[]) => unknown;
 
 /**
  * Type for the registry mapping of method names to their handler implementations

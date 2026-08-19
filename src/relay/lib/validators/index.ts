@@ -49,15 +49,15 @@ export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules
  * @returns Method decorator function
  */
 export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
-  return function (target: any, _context: ClassMethodDecoratorContext): any {
+  return function <T extends object>(target: T, _context: ClassMethodDecoratorContext): T {
     // Store validation rules directly on the function as a property
-    target[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+    (target as Record<string, unknown>)[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
     return target;
   };
 }
 
-export function validateParams(params: any[], indexes: { [index: number]: IParamValidation }): void {
+export function validateParams(params: unknown[], indexes: { [index: number]: IParamValidation }): void {
   if (params.length > Object.keys(indexes).length) {
     throw predefined.INVALID_PARAMETERS;
   }
@@ -70,7 +70,7 @@ export function validateParams(params: any[], indexes: { [index: number]: IParam
   }
 }
 
-function validateParam(index: number | string, param: any, validation: IParamValidation): void {
+function validateParam(index: number | string, param: unknown, validation: IParamValidation): void {
   const paramType = Array.isArray(validation.type)
     ? validation.type.map((type) => TYPES[type])
     : TYPES[validation.type];

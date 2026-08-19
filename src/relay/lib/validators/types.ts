@@ -14,39 +14,39 @@ import { validateArray } from './utils';
 
 export const TYPES = {
   address: {
-    test: (param): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param),
+    test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param as string),
     error: Constants.ADDRESS_ERROR,
   },
   addressFilter: {
-    test: (param: string | string[]): boolean => {
+    test: (param: unknown): boolean => {
       return Array.isArray(param)
         ? validateArray(param.flat(), 'address')
-        : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param);
+        : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param as string);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
   array: {
-    test: (param: any, innerType?: any): boolean => {
+    test: (param: unknown, innerType?: string): boolean => {
       return Array.isArray(param) ? validateArray(param, innerType) : false;
     },
     error: 'Expected Array',
   },
   blockHash: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param),
+    test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string),
     error: Constants.BLOCK_HASH_ERROR,
   },
   blockNumber: {
-    test: (param: string): boolean =>
-      (/^0[xX]([1-9A-Fa-f][0-9A-Fa-f]{0,13}|0)$/.test(param) && Number.MAX_SAFE_INTEGER >= Number(param)) ||
-      ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param),
+    test: (param: unknown): boolean =>
+      (/^0[xX]([1-9A-Fa-f][0-9A-Fa-f]{0,13}|0)$/.test(param as string) && Number.MAX_SAFE_INTEGER >= Number(param)) ||
+      ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param as string),
     error: Constants.BLOCK_NUMBER_ERROR,
   },
   boolean: {
-    test: (param: boolean): boolean => param === true || param === false,
+    test: (param: unknown): boolean => param === true || param === false,
     error: 'Expected boolean type',
   },
   blockParams: {
-    test: (param: any): boolean => {
+    test: (param: unknown): boolean => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
         if (Object.prototype.hasOwnProperty.call(param, 'blockHash')) {
           return validateSchema(OBJECTS_VALIDATIONS.blockHashObject, param);
@@ -54,17 +54,19 @@ export const TYPES = {
         return validateSchema(OBJECTS_VALIDATIONS.blockNumberObject, param);
       }
       return (
-        (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param) && Number.MAX_SAFE_INTEGER >= Number(param)) ||
-        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param) ||
-        new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param)
+        (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param as string) &&
+          Number.MAX_SAFE_INTEGER >= Number(param)) ||
+        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param as string) ||
+        new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string)
       );
     },
     error: Constants.BLOCK_PARAMS_ERROR,
   },
   filter: {
-    test: (param: any): boolean => {
+    test: (param: unknown): boolean => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        if (param.blockHash && (param.toBlock || param.fromBlock)) {
+        const filter = param as { blockHash?: unknown; toBlock?: unknown; fromBlock?: unknown };
+        if (filter.blockHash && (filter.toBlock || filter.fromBlock)) {
           throw predefined.INVALID_PARAMETER(0, "Can't use both blockHash and toBlock/fromBlock");
         }
         return validateSchema(OBJECTS_VALIDATIONS.filter, param);
@@ -75,23 +77,25 @@ export const TYPES = {
     error: `Expected FilterObject`,
   },
   hex: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param),
+    test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param as string),
     error: Constants.DEFAULT_HEX_ERROR,
   },
   hexEvenLength: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param) && !(param.length % 2),
+    test: (param: unknown): boolean =>
+      new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param as string) && !((param as string).length % 2),
     error: Constants.EVEN_HEX_ERROR,
   },
   hex64: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{1,64}$').test(param),
+    test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{1,64}$').test(param as string),
     error: Constants.HASH_ERROR,
   },
   topicHash: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param) || param === null,
+    test: (param: unknown): boolean =>
+      new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string) || param === null,
     error: Constants.TOPIC_HASH_ERROR,
   },
   rewardPercentiles: {
-    test: (param: any): boolean =>
+    test: (param: unknown): boolean =>
       Array.isArray(param) &&
       param.length <= mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE &&
       param.every(
@@ -100,13 +104,13 @@ export const TYPES = {
     error: Constants.REWARD_PERCENTILES_ERROR,
   },
   topics: {
-    test: (param: string[] | string[][]): boolean => {
+    test: (param: unknown): boolean => {
       return Array.isArray(param) ? validateArray(param.flat(), 'topicHash') : false;
     },
     error: `Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic`,
   },
   transaction: {
-    test: (param: any): boolean => {
+    test: (param: unknown): boolean => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
         return validateSchema(OBJECTS_VALIDATIONS.transaction, param);
       }
@@ -116,11 +120,11 @@ export const TYPES = {
     error: 'Expected TransactionObject',
   },
   transactionHash: {
-    test: (param: string): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param),
+    test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string),
     error: Constants.TRANSACTION_HASH_ERROR,
   },
   tracerType: {
-    test: (param: any): param is Constants.TracerType =>
+    test: (param: unknown): param is Constants.TracerType =>
       typeof param === 'string' &&
       Object.values(Constants.TracerType)
         .map((tracerType) => tracerType.toString())
@@ -128,7 +132,7 @@ export const TYPES = {
     error: 'Expected TracerType',
   },
   callTracerConfig: {
-    test: (param: any): param is ICallTracerConfig => {
+    test: (param: unknown): param is ICallTracerConfig => {
       if (param && typeof param === 'object') {
         return validateSchema(OBJECTS_VALIDATIONS.callTracerConfig, param);
       }
@@ -137,7 +141,7 @@ export const TYPES = {
     error: 'Expected CallTracerConfig',
   },
   opcodeLoggerConfig: {
-    test: (param: any): param is IOpcodeLoggerConfig => {
+    test: (param: unknown): param is IOpcodeLoggerConfig => {
       if (param && typeof param === 'object') {
         return validateSchema(OBJECTS_VALIDATIONS.opcodeLoggerConfig, param);
       }
@@ -146,7 +150,7 @@ export const TYPES = {
     error: 'Expected OpcodeLoggerConfig',
   },
   tracerConfig: {
-    test: (param: Record<string, any>): param is ITracerConfig => {
+    test: (param: unknown): param is ITracerConfig => {
       if (param && typeof param === 'object') {
         const isEmptyObject = Object.keys(param).length === 0;
         const isValidCallTracerConfig = TYPES.callTracerConfig.test(param);
@@ -158,7 +162,7 @@ export const TYPES = {
     error: 'Expected TracerConfig',
   },
   tracerConfigWrapper: {
-    test: (param: any): param is ITracerConfigWrapper => {
+    test: (param: unknown): param is ITracerConfigWrapper => {
       if (param && typeof param === 'object') {
         return validateTracerConfigWrapper(param);
       }
@@ -167,7 +171,7 @@ export const TYPES = {
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
   stateOverride: {
-    test: (param: any): boolean => {
+    test: (param: unknown): boolean => {
       // Must be an object if provided
       // TODO: This validation should be more detailed when state override is officially supported.
       return typeof param === 'object' && !Array.isArray(param);
@@ -176,7 +180,7 @@ export const TYPES = {
   },
 } satisfies {
   [paramTypeName: string]: {
-    test: (param: any) => boolean;
+    test: (param: unknown) => boolean;
     error: string;
   };
 };
