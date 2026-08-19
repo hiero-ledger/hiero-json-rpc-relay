@@ -453,7 +453,7 @@ export class MirrorNodeClient {
       // Calculate effective status code
       const effectiveStatusCode =
         error.response?.status ||
-        MirrorNodeClientError.ErrorCodes[error.code] ||
+        MirrorNodeClientError.ErrorCodes[error.code as keyof typeof MirrorNodeClientError.ErrorCodes] ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
@@ -646,7 +646,8 @@ export class MirrorNodeClient {
       // No HTTP response, meaning request never completed (ECONNREFUSED, ECONNABORTED, etc.).
       // Map the axios error code to an internal pseudo-code and always throw.
       const statusCode =
-        MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
+        MirrorNodeClientError.ErrorCodes[axiosError.code as keyof typeof MirrorNodeClientError.ErrorCodes] ??
+        MirrorNodeClient.unknownServerErrorHttpStatusCode;
       throw new MirrorNodeClientError(axiosError, statusCode);
     }
   }
