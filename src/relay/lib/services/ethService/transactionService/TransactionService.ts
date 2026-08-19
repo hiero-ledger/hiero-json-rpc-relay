@@ -419,11 +419,6 @@ export class TransactionService implements ITransactionService {
 
       // save transaction to pool
       await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
-
-      // Trace the pending state - only meaningful when the tx pool write actually happened.
-      if (ConfigService.get('ENABLE_TX_POOL')) {
-        await this.transactionTracingService.recordPending(parsedTx.hash!);
-      }
     } catch (error) {
       if (error instanceof JsonRpcError) throw error;
 
@@ -443,6 +438,14 @@ export class TransactionService implements ITransactionService {
         await this.lockService.releaseLock(ingressLockKey, ingressLockResult.sessionKey, ingressLockResult.acquiredAt);
       }
     }
+
+    // Trace the pending state - only meaningful when the tx pool write actually happened. Recorded here, not
+    // inside the try, so the write never holds Lock 1: `finally` has already released it, and reaching this
+    // point means saveTransaction succeeded because every failure path above throws.
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionTracingService.recordPending(parsedTx.hash!);
+    }
+
     return { balance: verifiedBalance };
   }
 
@@ -795,15 +798,16 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
-    // A clean submission (no error) means the CN accepted the transaction - trace the sent state,
-    // capturing the transaction id so the record is resolvable by id.
-    if (!error) {
-      await this.transactionTracingService.recordSent(parsedTx.hash!, submittedTransactionId || undefined);
-    }
-
     // Release Lock 2 once CN responds, regardless of outcome for other transactions can start being processed ASAP
     if (execLockResult) {
       await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
+    }
+
+    // A clean submission (no error) means the CN accepted the transaction - trace the sent state,
+    // capturing the transaction id so the record is resolvable by id. Recorded after the lock release so a
+    // tracing-store write never holds the per-sender lock.
+    if (!error) {
+      await this.transactionTracingService.recordSent(parsedTx.hash!, submittedTransactionId || undefined);
     }
 
     const { error: submissionError, shouldPollAndCleanup } = await this.handleSubmissionError(
@@ -1020,10 +1024,6 @@ export class TransactionService implements ITransactionService {
     // zombie cleanup: max attempts reached, remove anyway
     // we don't know if the transaction was actually executed or not...
     this.logger.error('Zombie cleanup: transaction %s not found in Mirror Node after %d attempts', txHash, maxAttempts);
-    // Outcome remains unknown after polling exhausted - trace as timedout (provisional).
-    await this.transactionTracingService.recordTimedout(txHash, {
-      error: `Transaction not reflected by the Mirror Node after ${maxAttempts} polling attempts.`,
-    });
     await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
   }
 }

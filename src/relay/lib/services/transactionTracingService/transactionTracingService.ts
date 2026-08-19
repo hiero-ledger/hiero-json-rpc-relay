@@ -3,15 +3,15 @@
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../config-service/services';
-import { JsonRpcError } from '../../errors/JsonRpcError';
+import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import {
   type ITransactionTracingService,
   type ITransactionTracingStorage,
   type TransactionTraceRecord,
 } from '../../types/transactionTracing';
 
-/** `-32003` / TRANSACTION_REJECTED, matching the code returned for consensus-time rejections. */
-const TRANSACTION_REJECTED_CODE = -32003;
+/** Sourced from {@link predefined.TRANSACTION_REJECTED} so the two cannot diverge. */
+const TRANSACTION_REJECTED_CODE = predefined.TRANSACTION_REJECTED('').code;
 
 /**
  * Facade coordinating the transaction tracing subsystem: records each submitted transaction's lifecycle,
@@ -139,11 +139,16 @@ export class TransactionTracingService implements ITransactionTracingService {
    * Returns the raw trace record for a hash, or null. Used by admin inspection.
    *
    * @param hash - The transaction's keccak256 hash.
-   * @returns The trace record, or null if none exists (or tracing is off).
+   * @returns The trace record, or null if none exists (tracing off, or the read failed).
    */
   async getByHash(hash: string): Promise<TransactionTraceRecord | null> {
     if (!this.storage) return null;
-    return this.storage.get(this.normalizeHash(hash));
+    try {
+      return await this.storage.get(this.normalizeHash(hash));
+    } catch (error) {
+      this.logger.error(error, 'Failed to read trace for transaction %s', hash);
+      return null;
+    }
   }
 
   /**
@@ -191,6 +196,7 @@ export class TransactionTracingService implements ITransactionTracingService {
         data: {
           txHash,
           detail: record.error ?? 'The transaction timed out during submission and may still reach consensus.',
+          hederaStatus: record.hederaStatus,
           provisional: true,
           transactionId: record.transactionId,
         },

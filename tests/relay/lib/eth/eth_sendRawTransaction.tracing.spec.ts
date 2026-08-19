@@ -87,6 +87,23 @@ describe('eth_sendRawTransaction transaction tracing', function () {
       expect((fallback!.data as any).provisional).to.be.true;
     });
 
+    it('traces the pending state on a successful admit', async () => {
+      const { ethImpl, transactionTracingService } = generateEthTestEnv();
+      const transactionService = ethImpl['transactionService'] as any;
+      const { parsedTx } = await buildSignedTx();
+
+      sinon
+        .stub(transactionService.accountService, 'getTransactionCounts')
+        .resolves({ confirmedCount: 0, pendingCount: 0, mirrorNodeArtifact: undefined });
+      sinon.stub(transactionService.transactionPoolService, 'saveTransaction').resolves();
+
+      await transactionService.admitTransaction(parsedTx.from, parsedTx, requestDetails);
+
+      const record = await transactionTracingService.getByHash(parsedTx.hash!);
+      expect(record).to.not.be.null;
+      expect(record!.status).to.equal('pending');
+    });
+
     it('traces a tx-pool persistence failure as rejected and surfaces INTERNAL_ERROR', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
       const transactionService = ethImpl['transactionService'] as any;

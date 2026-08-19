@@ -20,13 +20,6 @@ const HASH_UPPER = '0x' + 'A'.repeat(64);
 const OTHER_HASH = '0x' + 'b'.repeat(64);
 const TX_ID = '0.0.1234@1700000000.000000001';
 
-// Mirrors the relay wiring: build backing storage from config, then inject it into the service.
-const buildEnabledService = (): TransactionTracingService =>
-  new TransactionTracingService(
-    logger,
-    TransactionTracingStorageFactory.create(logger, ConfigService.get('TX_STATUS_TRACING_TTL_MS')),
-  );
-
 describe('TransactionTracingService', function () {
   describe('when TX_STATUS_TRACING is disabled', function () {
     let service: TransactionTracingService;
@@ -50,8 +43,12 @@ describe('TransactionTracingService', function () {
   withOverriddenEnvsInMochaTest({ TX_STATUS_TRACING: true }, function () {
     let service: TransactionTracingService;
 
+    // Mirrors the relay wiring: build backing storage from config, then inject it into the service.
     beforeEach(() => {
-      service = buildEnabledService();
+      service = new TransactionTracingService(
+        logger,
+        TransactionTracingStorageFactory.create(logger, ConfigService.get('TX_STATUS_TRACING_TTL_MS')),
+      );
     });
 
     it('records and retrieves the pending state by hash', async () => {
@@ -147,13 +144,22 @@ describe('TransactionTracingService', function () {
       });
 
       it('returns a provisional -32003 error for a timedout record', async () => {
-        await service.recordTimedout(HASH, { error: 'slow' });
+        // The SDK timeout / connection-dropped paths capture a hedera status; it must reach the receipt
+        // error rather than staying visible only through admin inspection.
+        await service.recordTimedout(HASH, {
+          error: 'timeout exceeded',
+          hederaStatus: 'TRANSACTION_EXPIRED',
+          transactionId: TX_ID,
+        });
 
         const error = await service.getReceiptFallbackError(HASH);
         expect(error).to.be.instanceOf(JsonRpcError);
         expect(error!.code).to.equal(-32003);
         const data = error!.data as any;
         expect(data.txHash).to.equal(HASH);
+        expect(data.detail).to.equal('timeout exceeded');
+        expect(data.hederaStatus).to.equal('TRANSACTION_EXPIRED');
+        expect(data.transactionId).to.equal(TX_ID);
         expect(data.provisional).to.be.true;
       });
 
@@ -209,6 +215,13 @@ describe('TransactionTracingService', function () {
       storage.get.rejects(storageError);
 
       await expect(service.recordValidated(HASH)).to.be.fulfilled;
+      expect(errorLog.calledOnceWith(storageError)).to.be.true;
+    });
+
+    it('returns null and logs when a getByHash read fails', async () => {
+      storage.get.rejects(storageError);
+
+      expect(await service.getByHash(HASH)).to.be.null;
       expect(errorLog.calledOnceWith(storageError)).to.be.true;
     });
 
