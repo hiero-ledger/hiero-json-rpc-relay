@@ -31,8 +31,8 @@ export class SafeRedisCache extends RedisCache {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.get(key, callingMethod);
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T> {
+    return this.get<T>(key, callingMethod);
   }
 
   /**
@@ -44,8 +44,8 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the method making the request (for logging).
    * @returns The cached value, or `null` if Redis fails or the value does not exist.
    */
-  async get(key: string, callingMethod: string): Promise<any> {
-    return await this.safeCall(() => super.get(key, callingMethod), null);
+  async get<T = unknown>(key: string, callingMethod: string): Promise<T> {
+    return await this.safeCall(() => super.get<T>(key, callingMethod), null as T);
   }
 
   /**
@@ -60,7 +60,7 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the calling method.
    * @param ttl - Optional TTL in milliseconds.
    */
-  async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+  async set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void> {
     await this.safeCall(() => super.set(key, value, callingMethod, ttl), undefined);
   }
 
@@ -103,8 +103,8 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the calling method.
    * @returns List of elements, or an empty array on failure.
    */
-  async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
-    return await this.safeCall(() => super.lRange(key, start, end, callingMethod), []);
+  async lRange<T = unknown>(key: string, start: number, end: number, callingMethod: string): Promise<T[]> {
+    return await this.safeCall(() => super.lRange<T>(key, start, end, callingMethod), []);
   }
 
   /**
@@ -118,7 +118,7 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the calling method.
    * @returns The new list length, or `0` if Redis fails.
    */
-  async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+  async rPush(key: string, value: unknown, callingMethod: string): Promise<number> {
     return await this.safeCall(() => super.rPush(key, value, callingMethod), 0);
   }
 

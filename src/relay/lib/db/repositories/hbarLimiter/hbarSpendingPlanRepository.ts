@@ -142,7 +142,7 @@ export class HbarSpendingPlanRepository {
 
     this.logger.debug(`Retrieving amountSpent for HbarSpendingPlan with ID %s...`, id);
     const key = this.getAmountSpentKey(id);
-    return this.cache.getAsync(key, 'getAmountSpent').then((amountSpent) => parseInt(amountSpent ?? '0'));
+    return this.cache.getAsync<string>(key, 'getAmountSpent').then((amountSpent) => parseInt(amountSpent ?? '0'));
   }
 
   /**

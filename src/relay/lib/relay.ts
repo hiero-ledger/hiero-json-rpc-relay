@@ -213,7 +213,10 @@ export class Relay {
             new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
           );
 
-          const accountBalance = account.balance?.balance;
+          const accountBalance = account!.balance?.balance as unknown as
+            | { toNumber?: () => number }
+            | number
+            | undefined;
 
           // Note: In some cases, the account balance returned from the Mirror Node is of type BigNumber.
           // However, the Prometheus client’s set() method only accepts standard JavaScript numbers.

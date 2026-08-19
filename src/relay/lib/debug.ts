@@ -682,10 +682,10 @@ export class DebugImpl implements Debug {
     if (!preFetchedTransactionsResponse && !preFetchedActionsResponse) {
       [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
-          transactionHash,
-          requestDetails,
-        ]),
+        this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult>(
+          this.mirrorNodeClient.getContractResult.name,
+          [transactionHash, requestDetails],
+        ),
       ]);
     }
 
@@ -783,7 +783,7 @@ export class DebugImpl implements Debug {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
-    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name);
+    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(cacheKey, this.prestateTracer.name);
     if (cachedResult) {
       return cachedResult;
     }
@@ -793,10 +793,10 @@ export class DebugImpl implements Debug {
     if (!preFetchedContractResult && !preFetchedActionsResponse) {
       [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
-          transactionHash,
-          requestDetails,
-        ]),
+        this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult>(
+          this.mirrorNodeClient.getContractResult.name,
+          [transactionHash, requestDetails],
+        ),
       ]);
     }
 
@@ -867,8 +867,8 @@ export class DebugImpl implements Debug {
 
             // Fetch balance and state concurrently
             const [balanceResponse, stateResponse] = await Promise.all([
-              this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
-              this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getBalanceAtTimestamp(contractId!, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getContractState(contractId!, requestDetails, accountEntity.timestamp),
             ]);
 
             // Build storage map from state items
@@ -879,15 +879,15 @@ export class DebugImpl implements Debug {
 
             // Add contract data to result
             result[evmAddress] = {
-              balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
-              nonce: entityObject.entity.nonce,
-              code: entityObject.entity.runtime_bytecode,
+              balance: numberTo0x(balanceResponse!.balances[0]?.balance ?? 0),
+              nonce: entityObject.entity.nonce!,
+              code: entityObject.entity.runtime_bytecode!,
               storage: storageMap,
             };
           } else if (entityObject.type === constants.TYPE_ACCOUNT) {
             result[evmAddress] = {
-              balance: numberTo0x(entityObject.entity.balance?.balance || '0'),
-              nonce: entityObject.entity.ethereum_nonce,
+              balance: numberTo0x(entityObject.entity.balance?.balance ?? 0),
+              nonce: entityObject.entity.ethereum_nonce!,
               code: '0x',
               storage: {},
             };

@@ -206,7 +206,7 @@ export class ContractService implements IContractService {
       ]);
       if (result) {
         const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
-        if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
+        if (!blockInfo || parseFloat(result.entity?.created_timestamp as string) > parseFloat(blockInfo.timestamp.to)) {
           return constants.EMPTY_HEX;
         }
         if (result.type === constants.TYPE_TOKEN) {
@@ -214,7 +214,7 @@ export class ContractService implements IContractService {
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
-            return result.entity.runtime_bytecode;
+            return result.entity.runtime_bytecode!;
           }
         }
       }

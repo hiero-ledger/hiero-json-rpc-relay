@@ -637,7 +637,7 @@ export class CommonService implements ICommonService {
    */
   public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
     const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
-    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS);
+    let account = await this.cacheService.getAsync<IAccountInfo | null>(key, constants.ETH_ESTIMATE_GAS);
     if (!account) {
       account = await this.mirrorNodeClient.getAccount(address, requestDetails);
       await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS);

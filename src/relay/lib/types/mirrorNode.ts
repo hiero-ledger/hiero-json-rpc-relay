@@ -14,10 +14,14 @@ export interface IAccountInfo {
    */
   alias: string;
   balance?: IAccountBalance;
+  created_timestamp?: string;
   deleted?: boolean;
   ethereum_nonce?: number;
   evm_address?: string;
   memo?: string;
+  receiver_sig_required?: boolean;
+  transactions?: IMirrorNodeTransactionRecord[];
+  links?: IMirrorNodeLinks;
 }
 
 export interface IAccountBalance {
@@ -137,6 +141,80 @@ export interface IMirrorNodeTransactionRecord {
 export interface ITimestamp {
   from: string;
   to: string;
+}
+
+export interface IExchangeRate {
+  cent_equivalent: number;
+  expiration_time: number;
+  hbar_equivalent: number;
+}
+
+export interface INetworkExchangeRate {
+  current_rate: IExchangeRate;
+  next_rate: IExchangeRate;
+  timestamp: string;
+}
+
+export interface INetworkFee {
+  gas: number;
+  transaction_type: string;
+}
+
+export interface INetworkFees {
+  fees: INetworkFee[];
+  timestamp: string;
+}
+
+export interface IMirrorNodeLinks {
+  next: string | null;
+}
+
+export interface MirrorNodeBlocksPage {
+  blocks: MirrorNodeBlock[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IAccountBalancesPage {
+  timestamp: string | null;
+  balances: { account: string; balance: number; tokens?: { token_id: string; balance: number }[] }[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface ITransactionsPage {
+  transactions: IMirrorNodeTransactionRecord[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IContractStateEntry {
+  address: string;
+  contract_id: string;
+  timestamp: string;
+  slot: string;
+  value: string;
+}
+
+export interface IContractStatePage {
+  state: IContractStateEntry[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IMirrorNodeContract {
+  contract_id: string;
+  evm_address: string;
+  created_timestamp?: string;
+  runtime_bytecode?: string;
+  bytecode?: string;
+  timestamp?: ITimestamp;
+  nonce?: number;
+}
+export interface IMirrorNodeEntity {
+  evm_address?: string;
+  contract_id?: string;
+  created_timestamp?: string;
+  runtime_bytecode?: string;
+  nonce?: number;
+  balance?: IAccountBalance;
+  ethereum_nonce?: number;
 }
 
 export interface LatestBlockNumberTimestamp {
