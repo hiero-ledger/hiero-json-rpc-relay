@@ -762,7 +762,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           nonce: await relay.getAccountNonce(accounts[2].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
-          gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+          gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
           data: '0x' + '00'.repeat(100),
         };
 
@@ -779,7 +779,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         const diffInTinybars = BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF);
         const diffInHbars = Number(diffInTinybars) / 100_000_000;
         const maxPossibleFeeInHbars =
-          (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000;
+          (gasPrice * ConfigService.get('MAX_TRANSACTION_GAS_LIMIT')) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000;
 
         expect(diffInHbars).to.be.greaterThan(0);
         expect(diffInHbars).to.be.lessThan(maxPossibleFeeInHbars);
@@ -816,7 +816,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             chainId: Number(CHAIN_ID),
             nonce: await relay.getAccountNonce(accounts[2].wallet.address),
             gasPrice: 0,
-            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
             data: '0x00',
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -840,7 +840,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             nonce: await relay.getAccountNonce(accounts[2].wallet.address),
             maxPriorityFeePerGas: 0,
             maxFeePerGas: 0,
-            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            gasLimit: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'),
             data: '0x00',
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -866,7 +866,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasPrice: await relay.gasPrice(),
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -881,7 +881,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasPrice: await relay.gasPrice(),
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -895,7 +895,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasLimit,
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -909,7 +909,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           gasLimit,
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
+        const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'));
 
         await expectRpcError(client, signedTx, error, false);
       });
@@ -1118,7 +1118,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         });
 
         describe('accessList', function () {
-          it('should fail when calling "eth_sendRawTransaction" with non-empty access list', async function () {
+          it('should succeed when calling "eth_sendRawTransaction" with non-empty access list', async function () {
             const gasPrice = await relay.gasPrice();
             const transaction = {
               type: 2,
@@ -1137,8 +1137,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             };
 
             const signedTx = await accounts[1].wallet.signTransaction(transaction);
-            const response = await client.callRaw(METHOD_NAME, [signedTx]);
-            expect(response.error).to.exist;
+            const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
+            await relay.pollForValidTransactionReceipt(transactionHash);
+
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+            expect(info).to.exist;
           });
 
           it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
@@ -1159,6 +1162,42 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
             const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
             expect(info).to.exist;
+          });
+        });
+
+        describe('authorizationList', function () {
+          // type 4 are not supported in CN 0.77 and MN 0.161.0
+          it.skip('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+            const gasPrice = await relay.gasPrice();
+            const signer = accounts[2];
+            const currentNonce = await relay.getAccountNonce(signer.address);
+
+            const authorizationList = [
+              await signer.wallet.authorize({
+                address: parentContractAddress,
+                nonce: currentNonce + 1,
+              }),
+            ];
+
+            const transaction = {
+              type: 4,
+              chainId: Number(CHAIN_ID),
+              nonce: currentNonce,
+              maxPriorityFeePerGas: gasPrice,
+              maxFeePerGas: gasPrice,
+              gasLimit: defaultGasLimit,
+              to: accounts[0].address,
+              value: ONE_TINYBAR,
+              authorizationList,
+            };
+
+            const signedTx = await signer.wallet.signTransaction(transaction);
+            const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
+            await relay.pollForValidTransactionReceipt(transactionHash);
+
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+            expect(info).to.have.property('type');
+            expect(info.type).to.be.equal(4);
           });
         });
 
