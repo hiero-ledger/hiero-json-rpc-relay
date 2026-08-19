@@ -51,6 +51,7 @@ export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
   private static readonly GET_TOKENS_ENDPOINT = 'tokens';
+  private static readonly GET_SCHEDULES_ENDPOINT = 'schedules';
   private static readonly ADDRESS_PLACEHOLDER = '{address}';
   private static readonly GET_BALANCE_ENDPOINT = 'balances';
   private static readonly TIMESTAMP_PLACEHOLDER = '{timestamp}';
@@ -96,6 +97,7 @@ export class MirrorNodeClient {
     [MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT, [404]],
     [MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TOKENS_ENDPOINT, [404]],
+    [MirrorNodeClient.GET_SCHEDULES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_CALL_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT, [404]],
@@ -1519,6 +1521,15 @@ export class MirrorNodeClient {
     );
   }
 
+  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number): Promise<any> {
+    return this.get(
+      `${MirrorNodeClient.GET_SCHEDULES_ENDPOINT}/${scheduleId}`,
+      MirrorNodeClient.GET_SCHEDULES_ENDPOINT,
+      requestDetails,
+      retries,
+    );
+  }
+
   public async getLatestContractResultsByAddress(
     address: string,
     blockEndTimestamp: string | undefined,
@@ -2006,7 +2017,15 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      return cachedResponse;
+      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
+      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
+      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
+      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
+      // safe to return.
+      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
+      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
+        return cachedResponse;
+      }
     }
 
     const buildPromise = (fn: Promise<unknown>): Promise<unknown> =>
@@ -2063,9 +2082,20 @@ export class MirrorNodeClient {
           : Promise.reject(),
       );
 
+      promises.push(
+        searchableTypes.includes(constants.TYPE_SCHEDULE)
+          ? buildPromise(
+              this.getScheduleById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
+                return null;
+              }),
+            )
+          : Promise.reject(),
+      );
+
       // maps the promises with indices of the promises array
       // because there is no such method as Promise.anyWithIndex in js
-      // the index is needed afterward for detecting the resolved promise type (contract, account, or token)
+      // the index is needed afterward for detecting the resolved promise type (contract, account, token, or schedule)
+      // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
     } catch {
       return null;
@@ -2090,7 +2120,16 @@ export class MirrorNodeClient {
       type,
       entity: data.value,
     };
-    await this.cacheService.set(cachedLabel, response, callerName);
+
+    // An account's EIP-7702 / HIP-1340 delegation designator (`delegation_address`) is mutable: an EOA can set,
+    // change, or clear its delegation at any time. Caching a latest-state ACCOUNT entity would therefore serve a
+    // stale `delegation_address` to `eth_getCode` and hide delegation changes until the TTL expires. Contracts,
+    // tokens, and schedules are immutable, and historical (timestamped) account lookups reflect fixed state, so
+    // those remain safe to cache.
+    if (type !== constants.TYPE_ACCOUNT || timestamp) {
+      await this.cacheService.set(cachedLabel, response, callerName);
+    }
+
     return response;
   }
 
