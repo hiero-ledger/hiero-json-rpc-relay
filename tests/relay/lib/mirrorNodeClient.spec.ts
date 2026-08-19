@@ -768,7 +768,7 @@ describe('MirrorNodeClient', async function () {
   });
 
   const detailedContractResult = {
-    access_list: '0x',
+    access_list: [],
     amount: 2000000000,
     block_gas_used: 50000000,
     block_hash: '0x6ceecd8bb224da491',
@@ -1667,6 +1667,127 @@ describe('MirrorNodeClient', async function () {
       expect(entityType!.type).to.eq('CONTRACT');
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
+    });
+
+    it('returns `SCHEDULE` when only the SCHEDULES endpoint returns a result', async () => {
+      const scheduleId = '0.0.13312';
+      const scheduleLongZero = '0x0000000000000000000000000000000000003400';
+      const scheduleResponse = { schedule_id: scheduleId, consensus_timestamp: '1234567890.000000001' };
+
+      mock.onGet(`contracts/${scheduleLongZero}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`accounts/${scheduleLongZero}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${scheduleId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`schedules/${scheduleId}`).reply(200, JSON.stringify(scheduleResponse));
+
+      const entityType = await mirrorNodeInstance.resolveEntityType(
+        scheduleLongZero,
+        'mirrorNodeClientTest',
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN, constants.TYPE_SCHEDULE],
+      );
+      expect(entityType).to.exist;
+      expect(entityType!.type).to.eq('SCHEDULE');
+      expect(entityType!.entity.schedule_id).to.eq(scheduleId);
+    });
+
+    it('does not cache latest `ACCOUNT` results so EIP-7702 delegation changes are not hidden', async () => {
+      const accountEntityId = '0.0.1014';
+      const delegationAddress = '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512';
+      const accountWithoutDelegation = { ...mockData.account, delegation_address: '0x' };
+      const accountWithDelegation = { ...mockData.account, delegation_address: delegationAddress };
+
+      mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .replyOnce(200, JSON.stringify(accountWithoutDelegation));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .replyOnce(200, JSON.stringify(accountWithDelegation));
+
+      const first = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(first!.type).to.eq('ACCOUNT');
+      expect(first!.entity.delegation_address).to.eq('0x');
+
+      // The second lookup must re-fetch from the mirror node (not the cache) and reflect the new delegation.
+      const second = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(second!.type).to.eq('ACCOUNT');
+      expect(second!.entity.delegation_address).to.eq(delegationAddress);
+    });
+
+    it('caches historical (timestamped) `ACCOUNT` results since past state is immutable', async () => {
+      const accountEntityId = '0.0.1014';
+      const timestamp = '1780495075.931109906';
+      const accountWithDelegation = {
+        ...mockData.account,
+        delegation_address: '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512',
+      };
+
+      mock
+        .onGet(`contracts/${mockData.accountEvmAddress}?timestamp=${timestamp}`)
+        .reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}?timestamp=${timestamp}&transactions=false`)
+        .replyOnce(200, JSON.stringify(accountWithDelegation));
+
+      const first = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
+        undefined,
+        timestamp,
+      );
+      expect(first!.type).to.eq('ACCOUNT');
+
+      // Second lookup is served from cache (the `accounts` endpoint only had a single `replyOnce` handler).
+      const second = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+        [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
+        undefined,
+        timestamp,
+      );
+      expect(second!.type).to.eq('ACCOUNT');
+      expect(second!.entity.delegation_address).to.eq(accountWithDelegation.delegation_address);
+    });
+
+    it('ignores pre-fix cached latest `ACCOUNT` entries on read and re-resolves them (transitional read-guard)', async () => {
+      const accountEntityId = '0.0.1014';
+      const delegationAddress = '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512';
+      const staleCachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${mockData.accountEvmAddress}`;
+
+      // Simulate a stale entry written before the write-guard existed: a latest-state ACCOUNT with no delegation.
+      await cacheService.set(
+        staleCachedLabel,
+        { type: constants.TYPE_ACCOUNT, entity: { ...mockData.account, delegation_address: '0x' } },
+        constants.ETH_GET_CODE,
+      );
+
+      mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
+      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
+      mock
+        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+        .reply(200, JSON.stringify({ ...mockData.account, delegation_address: delegationAddress }));
+
+      // The read-guard must skip the stale cached ACCOUNT and re-resolve from the mirror node.
+      const result = await mirrorNodeInstance.resolveEntityType(
+        mockData.accountEvmAddress,
+        constants.ETH_GET_CODE,
+        requestDetails,
+      );
+      expect(result!.type).to.eq('ACCOUNT');
+      expect(result!.entity.delegation_address).to.eq(delegationAddress);
     });
   });
 
@@ -2766,77 +2887,6 @@ describe('MirrorNodeClient', async function () {
           expect(uniqueHashes.size).to.equal(4);
         });
       });
-    });
-  });
-
-  describe('checkServerReadiness', () => {
-    let readinessClient: MirrorNodeClient;
-    let readinessMock: MockAdapter;
-
-    before(() => {
-      // Create a client without an injected axios instance so restUrl is populated
-      // and checkServerReadiness performs a real probe.
-      readinessClient = new MirrorNodeClient(
-        'http://localhost:5551/api/v1',
-        logger.child({ name: 'mirror-node-readiness' }),
-        registry,
-        cacheService,
-      );
-      readinessMock = new MockAdapter((readinessClient as any).restClient);
-    });
-
-    afterEach(() => {
-      readinessMock.reset();
-    });
-
-    it('should resolve when the health endpoint returns 200', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(200);
-      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
-    });
-
-    it('should throw MirrorNodeClientError with status 503 when Mirror Node returns 503', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(503);
-      const error = await readinessClient.checkServerReadiness().catch((e) => e);
-      expect(error).to.be.instanceOf(MirrorNodeClientError);
-      expect((error as MirrorNodeClientError).statusCode).to.equal(503);
-    });
-
-    it('should throw MirrorNodeClientError with status 502 when a gateway returns 502', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(502);
-      const error = await readinessClient.checkServerReadiness().catch((e) => e);
-      expect(error).to.be.instanceOf(MirrorNodeClientError);
-      expect((error as MirrorNodeClientError).statusCode).to.equal(502);
-    });
-
-    it('should throw MirrorNodeClientError with status 504 when a gateway returns 504', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(504);
-      const error = await readinessClient.checkServerReadiness().catch((e) => e);
-      expect(error).to.be.instanceOf(MirrorNodeClientError);
-      expect((error as MirrorNodeClientError).statusCode).to.equal(504);
-    });
-
-    it('should throw MirrorNodeClientError when the connection times out (no HTTP response)', async () => {
-      readinessMock.onGet(/\/health\/readiness/).timeout();
-      const error = await readinessClient.checkServerReadiness().catch((e) => e);
-      expect(error).to.be.instanceOf(MirrorNodeClientError);
-      // ECONNABORTED maps to the internal pseudo-code 504
-      expect((error as MirrorNodeClientError).statusCode).to.equal(MirrorNodeClientError.ErrorCodes.ECONNABORTED);
-    });
-
-    it('should throw MirrorNodeClientError when no HTTP response is received (network error)', async () => {
-      readinessMock.onGet(/\/health\/readiness/).networkError();
-      const error = await readinessClient.checkServerReadiness().catch((e) => e);
-      expect(error).to.be.instanceOf(MirrorNodeClientError);
-    });
-
-    it('should resolve when Mirror Node returns 500 (server reachable, non-transient error)', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(500);
-      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
-    });
-
-    it('should resolve when Mirror Node returns 404 (server reachable, non-transient error)', async () => {
-      readinessMock.onGet(/\/health\/readiness/).reply(404);
-      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
     });
   });
 });

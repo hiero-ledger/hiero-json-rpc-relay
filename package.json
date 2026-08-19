@@ -5,7 +5,7 @@
     "hiero-relay": "./bin/hiero-relay.js"
   },
   "redisMemoryServer": {
-    "version": "7.4.5"
+    "version": "7.2.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -120,7 +120,7 @@
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^10.1.2",
     "@ethersproject/keccak256": "^5.8.0",
-    "@hiero-ledger/sdk": "^2.84.0",
+    "@hiero-ledger/sdk": "^2.86.2",
     "@hoppscotch/cli": "0.31.3",
     "@koa/cors": "^5.0.0",
     "async-mutex": "^0.5.0",

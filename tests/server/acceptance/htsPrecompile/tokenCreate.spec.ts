@@ -45,6 +45,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   const TOKEN_DECIMALS = BigInt(8);
 
   const accounts: AliasAccount[] = [];
+  let txSigner: AliasAccount;
   let mainContractAddress: string;
   let HTSTokenContractAddress: string;
   let NftHTSTokenContractAddress: string;
@@ -61,9 +62,10 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   before(async () => {
     requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '5000000000'; //50 Hbar
+    const initialAmount: string = '10000000000'; //100 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
+    txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, contractDeployer.wallet);
     mainContractAddress = mainContract.target as string;
     const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`, requestId);
@@ -94,13 +96,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     NftHTSTokenContractAddress = await createNftHTSToken();
     HTSTokenWithCustomFeesContractAddress = await createHTSTokenWithCustomFees();
 
-    HTSTokenContract = new ethers.Contract(HTSTokenContractAddress, ERC20MockJson.abi, accounts[0].wallet);
-    NFTokenContract = new ethers.Contract(NftHTSTokenContractAddress, ERC721MockJson.abi, accounts[0].wallet);
-    mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+    HTSTokenContract = new ethers.Contract(HTSTokenContractAddress, ERC20MockJson.abi, txSigner.wallet);
+    NFTokenContract = new ethers.Contract(NftHTSTokenContractAddress, ERC721MockJson.abi, txSigner.wallet);
+    mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
 
     mainContractOwner = mainContract;
-    mainContractReceiverWalletFirst = mainContract.connect(accounts[1].wallet);
-    mainContractReceiverWalletSecond = mainContract.connect(accounts[2].wallet);
+    mainContractReceiverWalletFirst = mainContract;
+    mainContractReceiverWalletSecond = mainContract;
 
     // wait for mirror node to catch up before running tests
     await new Promise((r) => setTimeout(r, 5000));
@@ -111,7 +113,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   });
 
   async function createHTSToken() {
-    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
@@ -125,7 +127,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   }
 
   async function createNftHTSToken() {
-    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
@@ -139,7 +141,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   }
 
   async function createHTSTokenWithCustomFees() {
-    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+    const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
@@ -222,7 +224,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   });
 
   it('should associate to a token with custom fees', async function () {
-    const mainContractOwner = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+    const mainContractOwner = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const txCO = await mainContractOwner.associateTokenPublic(
       mainContractAddress,
       HTSTokenWithCustomFeesContractAddress,
@@ -236,7 +238,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     const mainContractReceiverWalletFirst = new ethers.Contract(
       mainContractAddress,
       TokenCreateJson.abi,
-      accounts[1].wallet,
+      txSigner.wallet,
     );
     const txRWF = await mainContractReceiverWalletFirst.associateTokenPublic(
       accounts[1].wallet.address,
@@ -251,7 +253,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     const mainContractReceiverWalletSecond = new ethers.Contract(
       mainContractAddress,
       TokenCreateJson.abi,
-      accounts[2].wallet,
+      txSigner.wallet,
     );
     const txRWS = await mainContractReceiverWalletSecond.associateTokenPublic(
       accounts[2].wallet.address,
@@ -297,7 +299,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const txBefore = await mainContract.allowancePublic(
         HTSTokenContractAddress,
         mainContractAddress,
-        accounts[2].wallet.address,
+        txSigner.wallet.address,
       );
       const beforeAmount = (await txBefore.wait()).logs.filter(
         (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
@@ -332,20 +334,21 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       }
 
       //Transfer some hbars to the contract address
-      await mainContract.cryptoTransferTokenPublic(
-        mainContract.target,
+      await mainContract.transferTokenPublic(
         HTSTokenContractAddress,
+        accounts[0].wallet.address,
+        mainContract.target,
         amount,
         Constants.GAS.LIMIT_1_000_000,
       );
       await new Promise((r) => setTimeout(r, 5000));
       expect(await HTSTokenContract.balanceOf(mainContract.target)).to.equal(amount);
-      expect(await HTSTokenContract.balanceOf(accounts[2].wallet.address)).to.be.equal(BigInt(0));
+      expect(await HTSTokenContract.balanceOf(txSigner.wallet.address)).to.be.equal(BigInt(0));
 
-      //Give approval for account[2] to use HTSTokens which are owned by mainContract
+      //Give approval for the eth signer to use HTSTokens which are owned by mainContract
       const approvalTx = await mainContract.approvePublic(
         HTSTokenContractAddress,
-        accounts[2].wallet.address,
+        txSigner.wallet.address,
         amount,
         Constants.GAS.LIMIT_1_000_000,
       );
@@ -358,7 +361,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const txAfter = await mainContract.allowancePublic(
         HTSTokenContractAddress,
         mainContractAddress,
-        accounts[2].wallet.address,
+        txSigner.wallet.address,
       );
       const afterAmount = (await txAfter.wait()).logs.filter(
         (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
@@ -366,8 +369,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       expect(beforeAmount).to.equal(BigInt(0));
       expect(afterAmount).to.equal(amount);
 
-      //transfer token which are owned by mainContract using signer account[2] with transferFrom to account[1]
-      await HTSTokenContract.connect(accounts[2].wallet).transferFrom(
+      //transfer token which are owned by mainContract using the eth signer with transferFrom to account[1]
+      await HTSTokenContract.connect(txSigner.wallet).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         amount,
@@ -522,21 +525,20 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       expect(await NFTokenContract.balanceOf(accounts[1].wallet.address)).to.equal(BigInt(0));
       expect(await NFTokenContract.balanceOf(accounts[2].wallet.address)).to.equal(BigInt(0));
 
-      //approval for accounts[2] to use this NFT
       await mainContract.approveNFTPublic(
         NftHTSTokenContractAddress,
-        accounts[2].address,
+        txSigner.address,
         NftSerialNumber,
         Constants.GAS.LIMIT_1_000_000,
       );
       await new Promise((r) => setTimeout(r, 5000));
       expect((await NFTokenContract.getApproved(NftSerialNumber)).toLowerCase()).to.be.oneOf([
-        accounts[2].wallet.address.toLowerCase(),
-        Utils.idToEvmAddress(accounts[2].accountId.toString()).toLowerCase(),
+        txSigner.wallet.address.toLowerCase(),
+        Utils.idToEvmAddress(txSigner.accountId.toString()).toLowerCase(),
       ]);
 
-      //transfer NFT to accounts[1] with accounts[2] as signer
-      await NFTokenContract.connect(accounts[2].wallet).transferFrom(
+      //transfer NFT to accounts[1] with the eth signer as signer
+      await NFTokenContract.connect(txSigner.wallet).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         NftSerialNumber,
@@ -686,10 +688,11 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const amount = BigInt(10);
       const balanceBefore = await HTSTokenContract.balanceOf(accounts[2].wallet.address);
       await mainContract
-        .connect(accounts[0].wallet)
-        .cryptoTransferTokenPublic(
-          accounts[2].wallet.address,
+        .connect(txSigner.wallet)
+        .transferTokenPublic(
           HTSTokenContractAddress,
+          accounts[0].wallet.address,
+          accounts[2].wallet.address,
           amount,
           Constants.GAS.LIMIT_1_000_000,
         );
@@ -716,7 +719,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
   describe('HTS Precompile Custom Fees Tests', async function () {
     it('should be able to get a custom token fees', async function () {
-      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
 
       const tx = await mainContract.getTokenCustomFeesPublic(HTSTokenWithCustomFeesContractAddress);
       const { fixedFees, fractionalFees } = (await tx.wait()).logs.filter(
