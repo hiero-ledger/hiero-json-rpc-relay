@@ -131,7 +131,7 @@ const weibarHexToTinyBarInt = (value: bigint | boolean | number | string): numbe
  * @param mapFn.value The function to map the values
  * @returns A new object with the mapped keys and values
  */
-const mapKeysAndValues = <OldK extends keyof any, NewK extends keyof any, OldV, NewV>(
+const mapKeysAndValues = <OldK extends PropertyKey, NewK extends PropertyKey, OldV, NewV>(
   target: Record<OldK, OldV>,
   mapFn: { key?: (key: OldK) => NewK; value?: (value: OldV) => NewV },
 ): Record<NewK, NewV> => {
