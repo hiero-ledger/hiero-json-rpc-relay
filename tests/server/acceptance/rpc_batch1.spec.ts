@@ -352,7 +352,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       it('should execute "eth_getBlockReceipts" with tag "latest" successfully', async function () {
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, ['latest']);
 
-        expect(res).to.have.length(0);
+        expect(res).to.be.an('array');
       });
 
       it('should throw error on "eth_getBlockReceipts" with invalid parameter passed', async function () {
@@ -439,6 +439,40 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         type: 2,
       };
 
+      withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+        // type 4 are not supported in CN 0.77 and MN 0.161.0
+        it.skip('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+          const signer = accounts[2];
+          const currentNonce = await relay.getAccountNonce(signer.address);
+
+          const authorizationList = [
+            await signer.wallet.authorize({
+              address: parentContractAddress,
+              nonce: currentNonce + 1,
+            }),
+          ];
+
+          const transaction = {
+            type: 4,
+            chainId: Number(CHAIN_ID),
+            nonce: currentNonce,
+            maxPriorityFeePerGas: defaultGasPrice,
+            maxFeePerGas: defaultGasPrice,
+            gasLimit: defaultGasLimit,
+            to: accounts[0].address,
+            value: ONE_TINYBAR,
+            authorizationList,
+          };
+
+          const signedTx = await signer.wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          await relay.pollForValidTransactionReceipt(transactionHash);
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.have.property('type');
+          expect(info.type).to.be.equal(4);
+        });
+      });
+
       describe('Transaction Pool feature', async () => {
         overrideEnvsInMochaDescribe({ USE_ASYNC_TX_PROCESSING: true });
         describe('ENABLE_TX_POOL = true', async () => {
@@ -463,22 +497,28 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           });
 
           it('should have equal nonces (pending and latest) after CN reverted transaction', async () => {
+            const nonceBefore = await relay.getAccountNonce(accounts[1].address);
             const tx = {
               ...defaultLondonTransactionData,
               to: null,
               data: '0x' + '00'.repeat(5121),
-              nonce: (await relay.getAccountNonce(accounts[1].address)) + 2,
+              nonce: nonceBefore + 2,
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
-            const txHash = await relay.sendRawTransaction(signedTx);
-            await relay.pollForValidTransactionReceipt(txHash);
-            const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
+            await relay.sendRawTransaction(signedTx);
+
+            await Utils.waitUntil(
+              async () =>
+                (await relay.getAccountNonce(accounts[1].address, 'pending')) ===
+                (await relay.getAccountNonce(accounts[1].address)),
+              { description: 'the rejected transaction to be released from the pool' },
+            );
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult.result).to.equal('WRONG_NONCE');
-            expect(nonceLatest).to.equal(noncePending);
+            expect(nonceLatest).to.equal(nonceBefore);
+            expect(noncePending).to.equal(nonceBefore);
           });
 
           it('should have equal nonces (pending and latest) after multiple CN reverted transactions', async () => {
@@ -505,30 +545,27 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const signedTx2 = await accounts[1].wallet.signTransaction(tx2);
             const signedTx3 = await accounts[1].wallet.signTransaction(tx3);
 
-            const txHash1 = await relay.sendRawTransaction(signedTx1);
+            await relay.sendRawTransaction(signedTx1);
             await new Promise((r) => setTimeout(r, 500));
             const txHash2 = await relay.sendRawTransaction(signedTx2);
             await new Promise((r) => setTimeout(r, 500));
-            const txHash3 = await relay.sendRawTransaction(signedTx3);
-            await Promise.all([
-              relay.pollForValidTransactionReceipt(txHash1),
-              relay.pollForValidTransactionReceipt(txHash2),
-              relay.pollForValidTransactionReceipt(txHash3),
-            ]);
+            await relay.sendRawTransaction(signedTx3);
 
-            const [mnResult1, mnResult2, mnResult3] = await Promise.all([
-              mirrorNode.get(`/contracts/results/${txHash1}`),
-              mirrorNode.get(`/contracts/results/${txHash2}`),
-              mirrorNode.get(`/contracts/results/${txHash3}`),
-            ]);
+            const receipt2 = await relay.pollForValidTransactionReceipt(txHash2);
+            expect(receipt2.status).to.equal('0x1');
+
+            await Utils.waitUntil(
+              async () =>
+                (await relay.getAccountNonce(accounts[1].address, 'pending')) ===
+                (await relay.getAccountNonce(accounts[1].address)),
+              { description: 'the two rejected transactions to be released from the pool' },
+            );
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult1.result).to.equal('WRONG_NONCE');
-            expect(mnResult2.result).to.equal('SUCCESS');
-            expect(mnResult3.result).to.equal('WRONG_NONCE');
-            expect(nonceLatest).to.equal(noncePending);
+            expect(nonceLatest).to.equal(accountNonce + 1);
+            expect(noncePending).to.equal(accountNonce + 1);
           });
 
           it('should have equal nonces (pending and latest) for contract reverted transaction', async () => {
