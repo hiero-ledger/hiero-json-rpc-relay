@@ -2111,6 +2111,10 @@ export class MirrorNodeClient {
         type = constants.TYPE_TOKEN;
         break;
       }
+      case 2: {
+        type = constants.TYPE_SCHEDULE;
+        break;
+      }
       default: {
         throw new Error(`Unexpected resolved entity index: ${data.index}`);
       }
