@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
+import { TokenId } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -35,6 +36,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   const TX_SUCCESS_CODE = BigInt(22);
 
   const accounts: AliasAccount[] = [];
+  let txSigner: AliasAccount;
   let mainContractAddress: string;
   let HTSTokenContractAddress: string;
   let NftHTSTokenContractAddress: string;
@@ -46,9 +48,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   this.beforeAll(async () => {
     requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '5000000000'; //50 Hbar
+    const initialAmount: string = '10000000000'; //100 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
+    txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     mainContract = await Utils.deployContract(
       TokenManagementJson.abi,
       TokenManagementJson.bytecode,
@@ -78,10 +81,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     HTSTokenContractAddress = await createHTSToken();
     NftHTSTokenContractAddress = await createNftHTSToken();
 
-    mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
+    mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
 
     mainContractOwner = mainContract;
-    mainContractReceiverWalletFirst = mainContract.connect(accounts[1].wallet) as ethers.Contract;
+    mainContractReceiverWalletFirst = mainContract;
 
     const tx1 = await mainContractOwner.associateTokenPublic(
       mainContractAddress,
@@ -129,7 +132,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   });
 
   async function createHTSToken() {
-    const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
+    const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 10000000,
@@ -142,7 +145,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   }
 
   async function createNftHTSToken() {
-    const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
+    const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 10000000,
@@ -161,7 +164,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       // Create token and nft contracts
       tokenAddress = await createHTSToken();
       nftAddress = await createNftHTSToken();
-      tokenContract = new ethers.Contract(tokenAddress, ERC20MockJson.abi, accounts[0].wallet);
+      tokenContract = new ethers.Contract(tokenAddress, ERC20MockJson.abi, txSigner.wallet);
 
       // Associate token and nft to accounts
       const tx1 = await mainContractOwner.associateTokenPublic(
@@ -225,15 +228,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeGrantKycNft).to.equal(TX_SUCCESS_CODE);
-      // Transfer initial token balance to receiver
       const amount = 5;
-      const tx = await mainContract.cryptoTransferTokenPublic(
-        accounts[1].wallet.address,
-        tokenAddress,
-        amount,
-        Constants.GAS.LIMIT_1_000_000,
-      );
-      await tx.wait();
+      await accounts[0].client.transferToken(TokenId.fromSolidityAddress(tokenAddress), accounts[1].accountId, amount);
+      await new Promise((r) => setTimeout(r, 3000));
     });
 
     it('should revert if attempting to wipe more tokens than the owned amount', async function () {
@@ -730,7 +727,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     });
 
     it('should be able to unpause non fungible token', async () => {
-      const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
+      const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
 
       const txTokenInfoBefore = await mainContract.getTokenInfoPublic(NftHTSTokenContractAddress);
       const { pauseStatus: pauseStatusBefore } = (await txTokenInfoBefore.wait()).logs.filter(

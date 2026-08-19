@@ -1,3 +1,4 @@
+const fs = require("fs");
 const replace = require("replace");
 const { execSync } = require("child_process");
 
@@ -27,16 +28,30 @@ checkVersion(newVersion);
 console.log(`Bumping version to: ${newVersion}`);
 console.log(`is Snapshot: ${isSnapshot}`);
 
-// bumping version using replace for 'packages/config-service/package.json', 'packages/relay/package.json', 'packages/server/package.json', 'docs/openrpc.json', 'packages/ws-server/package.json'
+// bump the top-level "version" of package.json only.
+// `replace` matches globally, so it would also rewrite nested config blocks that
+// carry their own unrelated "version" (e.g. "redisMemoryServer": { "version": "7.4.5" },
+// which pins the Redis binary that redis-memory-server downloads on postinstall).
+// Anchoring on the 2-space indentation of a top-level key, without the global flag,
+// restricts the replacement to the package's own version.
+const topLevelVersionRegex = /^ {2}"version": "\d+\.\d+\.\d+(-\w+)?"/m;
+const packageJsonPath = "package.json";
+const packageJson = fs.readFileSync(packageJsonPath, "utf8");
+
+if (!topLevelVersionRegex.test(packageJson)) {
+  console.log(`Could not find a top-level "version" field in ${packageJsonPath}`);
+  process.exit(1);
+}
+
+fs.writeFileSync(packageJsonPath, packageJson.replace(topLevelVersionRegex, `  "version": "${newVersion}"`));
+console.log(`${packageJsonPath}`);
+
 // looking for: "version": "0.20.0-SNAPSHOT", "version": "0.20.0-rc1", "version": "0.20.0"
 const packageRegex = '"version": "\\d+\\.\\d+\\.\\d+(-\\w+)?"';
 replace({
   regex: packageRegex,
   replacement: `"version": "${newVersion}"`,
-  paths: [
-    "package.json",
-    "docs/openrpc.json",
-  ],
+  paths: ["docs/openrpc.json"],
   recursive: false,
   silent: false,
 });
