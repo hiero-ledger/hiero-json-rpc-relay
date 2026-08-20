@@ -119,9 +119,7 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
       .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
       .callsFake(async (_method: string, params: any[]) =>
         String(params?.[0] ?? '').toLowerCase() === HASHES.validated
-          ? // A mined transaction's contract result carries its block linkage; without it the record reads as
-            // immature, i.e. rejected before execution, and resolves to a -32003 instead of a receipt.
-            ({
+          ? ({
               hash: HASHES.validated,
               block_hash: RECEIPT.blockHash,
               block_number: 17,

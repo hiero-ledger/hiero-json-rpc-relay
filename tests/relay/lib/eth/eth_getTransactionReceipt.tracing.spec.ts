@@ -126,7 +126,6 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
     });
 
     it('still surfaces a -32003 error for an immature (rejected) Mirror Node record', async function () {
-      // The record itself carries the outcome, so this path needs neither tracing nor a relay-side submission.
       const { ethImpl, restMock, cacheService } = generateEthTestEnv();
       await cacheService.clear();
       mockImmatureRecord(restMock, {
