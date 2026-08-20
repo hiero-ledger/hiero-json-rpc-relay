@@ -24,7 +24,7 @@ import { validateSubscribeEthLogsParams } from '../utils/validators';
 import { type ISharedParams } from './jsonRpcController';
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
- * @param {any} filters - The filters object specifying criteria for the subscription.
+ * @param {object} filters - The filters object specifying criteria for the subscription.
  * @param {Context} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to (e.g., "newHeads").
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
@@ -32,7 +32,7 @@ import { type ISharedParams } from './jsonRpcController';
  * @returns {SubscriptionId} Returns the subscription ID.
  */
 const subscribeToNewHeads = (
-  filters: any,
+  filters: object,
   ctx: Context,
   event: string,
   logger: Logger,
@@ -46,7 +46,7 @@ const subscribeToNewHeads = (
 /**
  * Handles the subscription request for newHeads events.
  * If newHeads subscription is enabled, subscribes to the event; otherwise, sends an unsupported method response.
- * @param {any} filters - The filters object specifying criteria for the subscription.
+ * @param {object} filters - The filters object specifying criteria for the subscription.
  * @param {any} request - The request object received from the client.
  * @param {any} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to (e.g., "newHeads").
@@ -56,7 +56,7 @@ const subscribeToNewHeads = (
  * @returns {SubscriptionResponse} Returns an object containing the response and subscription ID.
  */
 const handleEthSubscribeNewHeads = (
-  filters: any,
+  filters: object,
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
@@ -79,7 +79,7 @@ const handleEthSubscribeNewHeads = (
  * Handles the subscription request for logs events.
  * Validates the subscription parameters (including the multiple-address policy and per-filter
  * address limit) and subscribes to the event.
- * @param {any} filters - The filters object specifying criteria for the subscription.
+ * @param {object} filters - The filters object specifying criteria for the subscription.
  * @param {IJsonRpcRequest} request - The request object received from the client.
  * @param {Context} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to.
@@ -89,7 +89,7 @@ const handleEthSubscribeNewHeads = (
  * @returns {Promise<SubscriptionResponse>} Returns an object containing the response and subscription ID.
  */
 const handleEthSubscribeLogs = async (
-  filters: any,
+  filters: object,
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
@@ -131,8 +131,8 @@ export const handleEthSubscribe = async ({
   if (!areSubscriptionsEnabled()) {
     return sendSubscriptionsDisabledError(logger, requestDetails);
   }
-  const event = params[0];
-  const filters = params[1];
+  const event = params[0] as string;
+  const filters = params[1] as object;
   let response: IJsonRpcResponse;
 
   switch (event) {

@@ -9,7 +9,7 @@ import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService, type TransactionPoolService } from './services';
 import { type RequestDetails } from './types';
-import { type IAccountBalance } from './types/mirrorNode';
+import { type IAccountBalance, type IAccountInfo } from './types/mirrorNode';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -39,8 +39,8 @@ export class Precheck {
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
     try {
       return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
-    } catch (e: any) {
-      throw predefined.INVALID_ARGUMENTS(e.message.toString());
+    } catch (e) {
+      throw predefined.INVALID_ARGUMENTS((e as Error).message.toString());
     }
   }
 
@@ -94,7 +94,7 @@ export class Precheck {
    * @param tx - The transaction.
    * @param requestDetails - The request details for logging and tracking.
    */
-  async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<any> {
+  async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<IAccountInfo> {
     const accountInfo = await this.mirrorNodeClient.getAccount(tx.from!, requestDetails);
     if (accountInfo == null) {
       throw predefined.RESOURCE_NOT_FOUND(`address '${tx.from}'.`);

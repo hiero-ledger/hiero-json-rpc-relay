@@ -21,9 +21,12 @@ import {
 } from '../model';
 import { type MirrorNodeContractResult } from '../types/mirrorNode';
 
+// Every model takes the full Transaction shape; the type-specific extras are optional as only some types use them.
+type TransactionFields = Transaction & Partial<Transaction7702>;
+
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number | null, fields: any): Transaction | null {
+  public static createTransactionByType(type: number | null, fields: TransactionFields): Transaction | null {
     switch (type) {
       case 0:
         return new Transaction(fields); // eip 155 fields
@@ -96,14 +99,14 @@ export class TransactionFactory {
  *
  * Additional unknown properties on each authorization item are preserved.
  *
- * @param {any} authorizationList - The raw authorization list.
+ * @param {unknown} authorizationList - The raw authorization list.
  * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
  */
-const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry[] =>
+const formatAuthorizationList = (authorizationList: unknown): AuthorizationListEntry[] =>
   authorizationList && Array.isArray(authorizationList)
     ? authorizationList
-        .filter((item: any) => item !== null && typeof item === 'object')
-        .map((item: any) => ({
+        .filter((item) => item !== null && typeof item === 'object')
+        .map((item) => ({
           ...item, // additional properties remain allowed for authorization list items
           chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
           nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
@@ -119,10 +122,10 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
- * @param {any} gasFee - The raw gas price value (hex or number).
+ * @param {unknown} gasFee - The raw gas price value (hex or number).
  * @returns {string} The formatted gas fee as a 0x-prefixed hex string.
  */
-const formatGasFee = (gasFee: any): string =>
+const formatGasFee = (gasFee: unknown): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
 
 /**
@@ -164,5 +167,5 @@ export const createTransactionFromContractResult = (cr: MirrorNodeContractResult
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
-  });
+  } as TransactionFields);
 };

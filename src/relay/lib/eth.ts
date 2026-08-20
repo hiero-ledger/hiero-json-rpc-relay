@@ -989,7 +989,7 @@ export class EthImpl implements Eth {
     0: { type: 'transactionHash', required: true },
   })
   @cache()
-  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
+  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
     return await this.transactionService.getTransactionReceipt(hash, requestDetails);
   }
 

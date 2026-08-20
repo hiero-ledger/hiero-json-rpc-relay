@@ -8,10 +8,17 @@ import { Counter, Histogram, type Registry } from 'prom-client';
 import { ConfigService } from '../../config-service/services';
 import { generateRandomHex } from '../../relay/formatters';
 import { type Relay } from '../../relay/lib/relay';
+import type ConnectionLimiter from '../metrics/connectionLimiter';
 import { PollerService } from './pollerService';
 
+export type SubscriberConnection = {
+  id: string;
+  send: (data: string) => void;
+  limiter: ConnectionLimiter;
+};
+
 export interface Subscriber {
-  connection: any;
+  connection: SubscriberConnection;
   subscriptionId: string;
   endTimer: () => void;
 }
@@ -73,12 +80,12 @@ export class SubscriptionService {
 
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   public subscribe(connection, event: string, filters?: {}): string {
-    let tag: any = { event };
+    const tagObject: { event: string; filters?: typeof filters } = { event };
     if (filters && Object.keys(filters).length) {
-      tag.filters = filters;
+      tagObject.filters = filters;
     }
 
-    tag = JSON.stringify(tag);
+    const tag = JSON.stringify(tagObject);
 
     if (!this.subscriptions[tag]) {
       this.subscriptions[tag] = [];

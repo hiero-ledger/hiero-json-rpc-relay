@@ -61,7 +61,7 @@ export async function initializeWsServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
   redisClient?: RedisClientType,
-): Promise<{ app: any; httpApp: any }> {
+): Promise<{ app: Koa; httpApp: Koa }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger, register));
   if (!redisClient && !sharedRelay) {
@@ -218,7 +218,7 @@ export async function initializeWsServer(
           }
 
           // process requests
-          const requestPromises = request.map((item: any) => {
+          const requestPromises = request.map((item) => {
             if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
               return jsonRespError(
                 item.id,

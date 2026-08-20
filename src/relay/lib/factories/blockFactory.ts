@@ -20,7 +20,7 @@ import { type MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;
-  txArray: any[];
+  txArray: Transaction[] | string[];
   gasPrice: string;
   receiptsRoot: string;
 }

@@ -161,9 +161,9 @@ export class Relay {
    */
   public async executeRpcMethod(
     rpcMethodName: string,
-    rpcMethodParams: any,
+    rpcMethodParams: unknown[] | undefined,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
   }
 
@@ -226,7 +226,7 @@ export class Relay {
               : Number(accountBalance);
 
           this.labels({ accountId }).set(numericBalance);
-        } catch (e: any) {
+        } catch (e) {
           logger.error(e, `Error collecting operator balance. Skipping balance set`);
         }
       },

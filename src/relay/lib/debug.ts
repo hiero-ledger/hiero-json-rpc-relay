@@ -270,7 +270,7 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult> {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -288,13 +288,16 @@ export class DebugImpl implements Debug {
       const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage', 'fullStorage'];
       const filteredConfig = Object.keys(topLevelConfig)
         .filter((key) => validOpcodeLoggerKeys.includes(key))
-        .reduce((obj, key) => {
-          // Filter out non-standard parameters that shouldn't be passed to the actual tracer
-          if (key !== 'fullStorage') {
-            obj[key] = topLevelConfig[key];
-          }
-          return obj;
-        }, {} as any);
+        .reduce(
+          (obj, key) => {
+            // Filter out non-standard parameters that shouldn't be passed to the actual tracer
+            if (key !== 'fullStorage') {
+              obj[key] = topLevelConfig[key];
+            }
+            return obj;
+          },
+          {} as Record<string, unknown>,
+        );
 
       if (Object.keys(filteredConfig).length > 0) {
         tracerConfig = filteredConfig;
@@ -470,11 +473,11 @@ export class DebugImpl implements Debug {
    * Formats the result from the actions endpoint to the expected response
    *
    * @async
-   * @param {any} result - The response from the actions endpoint.
+   * @param {ContractAction[]} result - The response from the actions endpoint.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<[] | any>} The formatted actions response in an array.
+   * @returns {Promise<CallTracerResult[]>} The formatted actions response in an array.
    */
-  async formatActionsResult(result: any, requestDetails: RequestDetails): Promise<[] | any> {
+  async formatActionsResult(result: ContractAction[], requestDetails: RequestDetails): Promise<CallTracerResult[]> {
     return await Promise.all(
       result.map(async (action, index) => {
         const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
