@@ -118,7 +118,17 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
     sinon
       .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
       .callsFake(async (_method: string, params: any[]) =>
-        String(params?.[0] ?? '').toLowerCase() === HASHES.validated ? ({ hash: HASHES.validated } as any) : null,
+        String(params?.[0] ?? '').toLowerCase() === HASHES.validated
+          ? // A mined transaction's contract result carries its block linkage; without it the record reads as
+            // immature, i.e. rejected before execution, and resolves to a -32003 instead of a receipt.
+            ({
+              hash: HASHES.validated,
+              block_hash: RECEIPT.blockHash,
+              block_number: 17,
+              transaction_index: 0,
+              result: 'SUCCESS',
+            } as any)
+          : null,
       );
     sinon.stub(TransactionService.prototype as any, 'handleSyntheticTransactionReceipt').resolves(null);
     sinon.stub(TransactionService.prototype as any, 'handleRegularTransactionReceipt').resolves(RECEIPT);

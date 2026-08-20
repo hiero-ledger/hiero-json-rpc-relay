@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import type sinon from 'sinon';
 import { createSandbox } from 'sinon';
 
-import { predefined } from '../../../../src/relay';
+import { JsonRpcError } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
@@ -343,24 +343,73 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt.gasUsed).to.eq('0x0');
   });
 
-  it('should throw an error if transaction index is falsy', async function () {
-    // fake unique hash so request dont re-use the cached value but the mock defined
-    const uniqueTxHash = '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+  const immatureCases: { title: string; overrides: Record<string, unknown>; uniqueTxHash: string }[] = [
+    {
+      title: 'transaction index is falsy',
+      overrides: { transaction_index: undefined },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533',
+    },
+    {
+      title: 'block number is falsy',
+      overrides: { block_number: undefined },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640534',
+    },
+    {
+      title: 'block hash is an empty hex',
+      overrides: { block_hash: '0x' },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640535',
+    },
+  ];
 
-    // mirror node request mocks
+  immatureCases.forEach(({ title, overrides, uniqueTxHash }) => {
+    it(`should throw a -32003 rejection error if ${title}`, async function () {
+      // mirror node request mocks
+      restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+        200,
+        JSON.stringify({
+          ...defaultDetailedContractResultByHash,
+          ...overrides,
+          result: 'WRONG_NONCE',
+          error_message: null,
+        }),
+      );
+      restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
+        200,
+        JSON.stringify({
+          evm_address: contractEvmAddress,
+        }),
+      );
+      stubBlockAndFeesFunc(sandbox);
+
+      try {
+        await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
+        expect.fail('should have thrown an error');
+      } catch (error) {
+        expect(error).to.be.instanceOf(JsonRpcError);
+        const jsonRpcError = error as JsonRpcError;
+        expect(jsonRpcError.code).to.eq(-32003);
+        expect(jsonRpcError.message).to.eq('Transaction rejected: WRONG_NONCE');
+        const data = jsonRpcError.data as Record<string, unknown>;
+        expect(data.txHash).to.eq(uniqueTxHash);
+        expect(data.hederaStatus).to.eq('WRONG_NONCE');
+        expect(data.detail).to.eq(
+          'The transaction was rejected before execution and will never be included in a block.',
+        );
+      }
+    });
+  });
+
+  it('should carry the mirror node error_message as the rejection detail', async function () {
+    const uniqueTxHash = '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640536';
+
     restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
       200,
       JSON.stringify({
         ...defaultDetailedContractResultByHash,
-        ...{
-          transaction_index: undefined,
-        },
-      }),
-    );
-    restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
-      200,
-      JSON.stringify({
-        evm_address: contractEvmAddress,
+        block_number: undefined,
+        transaction_index: undefined,
+        result: 'INSUFFICIENT_PAYER_BALANCE',
+        error_message: 'payer cannot cover the fee',
       }),
     );
     stubBlockAndFeesFunc(sandbox);
@@ -369,8 +418,10 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
       expect.fail('should have thrown an error');
     } catch (error) {
-      expect(error).to.exist;
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: INSUFFICIENT_PAYER_BALANCE');
+      expect((jsonRpcError.data as Record<string, unknown>).detail).to.eq('payer cannot cover the fee');
     }
   });
 

@@ -9,7 +9,7 @@ import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { isImmatureContractRecord, type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
@@ -222,6 +222,7 @@ export class TransactionService implements ITransactionService {
       await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
         this.mirrorNodeClient.getContractResult.name,
         [hash, requestDetails],
+        { returnImmatureRecords: true },
       );
 
     if (contractResult === null || contractResult.hash === undefined) {
@@ -241,6 +242,14 @@ export class TransactionService implements ITransactionService {
       }
 
       return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
+    }
+
+    // A record still immature after the full polling window belongs to a transaction rejected before
+    // execution: it will never be part of a block. Filter it out rather than serve a transaction whose
+    // block fields can never be filled in - `eth_getTransactionReceipt` carries the rejection detail.
+    if (isImmatureContractRecord(contractResult)) {
+      this.logger.trace(`immature (rejected) contract result filtered out for %s`, hash);
+      return null;
     }
 
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
@@ -269,6 +278,7 @@ export class TransactionService implements ITransactionService {
       await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
         this.mirrorNodeClient.getContractResult.name,
         [hash, requestDetails],
+        { returnImmatureRecords: true },
       );
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
@@ -287,6 +297,13 @@ export class TransactionService implements ITransactionService {
 
       return null;
     } else {
+      // A record still immature after the full polling window belongs to a transaction rejected before
+      // execution: no block linkage will ever be filled in, so no receipt can be built. Surface the
+      // rejection with its details instead of a half-populated receipt.
+      if (isImmatureContractRecord(receiptResponse)) {
+        throw await this.buildRejectedRecordError(hash, receiptResponse);
+      }
+
       // Mirror Node reflected a receipt - upgrade any traced record to validated (admin-inspection only).
       // Fire-and-forget so receipt latency isn't coupled to the tracing store.
       void this.transactionTracingService.recordValidated(hash);
@@ -296,6 +313,31 @@ export class TransactionService implements ITransactionService {
 
       return receipt;
     }
+  }
+
+  /**
+   * Builds the `-32003` error for a transaction the Mirror Node reflects as a permanently immature record,
+   * i.e. one rejected before execution. The Mirror Node record is authoritative for the Hedera status
+   * (`result`) and failure detail (`error_message`); a traced record, when the relay submitted the
+   * transaction itself, fills in whatever the record leaves blank plus the Hedera transaction id.
+   *
+   * @param hash The transaction hash
+   * @param record The immature contract result returned by the Mirror Node
+   * @returns {Promise<JsonRpcError>} A promise that resolves to the `-32003` rejection error
+   */
+  private async buildRejectedRecordError(hash: string, record: MirrorNodeContractResultDetails): Promise<JsonRpcError> {
+    const txHash = hash.toLowerCase();
+    const traced = await this.transactionTracingService.getByHash(hash);
+
+    return predefined.TRANSACTION_REJECTED_DETAILED({
+      txHash,
+      hederaStatus: record.result || traced?.hederaStatus,
+      detail:
+        record.error_message ||
+        traced?.error ||
+        'The transaction was rejected before execution and will never be included in a block.',
+      transactionId: traced?.transactionId,
+    });
   }
 
   /**

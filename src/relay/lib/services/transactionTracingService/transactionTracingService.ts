@@ -3,15 +3,12 @@
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../config-service/services';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
+import { type JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import {
   type ITransactionTracingService,
   type ITransactionTracingStorage,
   type TransactionTraceRecord,
 } from '../../types/transactionTracing';
-
-/** Sourced from {@link predefined.TRANSACTION_REJECTED} so the two cannot diverge. */
-const TRANSACTION_REJECTED_CODE = predefined.TRANSACTION_REJECTED('').code;
 
 /**
  * Facade coordinating the transaction tracing subsystem: records each submitted transaction's lifecycle,
@@ -176,30 +173,23 @@ export class TransactionTracingService implements ITransactionTracingService {
     if (!record) return null;
 
     if (record.status === 'rejected') {
-      return new JsonRpcError({
-        code: TRANSACTION_REJECTED_CODE,
-        message: `Transaction rejected: ${record.hederaStatus ?? record.error ?? 'unknown reason'}`,
-        data: {
-          txHash,
-          detail: record.error,
-          hederaStatus: record.hederaStatus,
-          transactionId: record.transactionId,
-        },
+      return predefined.TRANSACTION_REJECTED_DETAILED({
+        txHash,
+        detail: record.error,
+        hederaStatus: record.hederaStatus,
+        transactionId: record.transactionId,
       });
     }
 
     if (record.status === 'timedout') {
-      return new JsonRpcError({
-        code: TRANSACTION_REJECTED_CODE,
+      return predefined.TRANSACTION_REJECTED_DETAILED({
+        txHash,
         message:
           'Transaction submission timed out and has not yet reached consensus; it may still be confirmed within the network validity window',
-        data: {
-          txHash,
-          detail: record.error ?? 'The transaction timed out during submission and may still reach consensus.',
-          hederaStatus: record.hederaStatus,
-          provisional: true,
-          transactionId: record.transactionId,
-        },
+        detail: record.error ?? 'The transaction timed out during submission and may still reach consensus.',
+        hederaStatus: record.hederaStatus,
+        provisional: true,
+        transactionId: record.transactionId,
       });
     }
 
