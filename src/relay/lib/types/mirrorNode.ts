@@ -12,7 +12,7 @@ export interface IAccountInfo {
   /**
    * RFC4648 no-padding base32 encoded string of the account's alias.
    */
-  alias: string;
+  alias: string | null;
   balance?: IAccountBalance;
   created_timestamp?: string;
   deleted?: boolean;
@@ -119,14 +119,14 @@ export interface IMirrorNodeTransactionRecord {
   bytes: string | null;
   charged_tx_fee: number;
   consensus_timestamp: string;
-  entity_id: string;
-  max_fee: number;
+  entity_id: string | null;
+  max_fee: string;
   memo_base64: string | null;
   name: string;
   nft_transfers: INftTransfer[];
   node: string;
   nonce: number;
-  parent_consensus_timestamp: string;
+  parent_consensus_timestamp: string | null;
   result: string;
   scheduled: boolean;
   staking_reward_transfers: IStakingRewardTransfer[];
@@ -134,7 +134,7 @@ export interface IMirrorNodeTransactionRecord {
   transaction_id: string;
   token_transfers: ITokenTransfer[];
   transfers: ITransfer[];
-  valid_duration_seconds: number;
+  valid_duration_seconds: string | null;
   valid_start_timestamp: string;
 }
 
@@ -240,14 +240,14 @@ export class MirrorNodeTransactionRecord {
   public readonly bytes: string | null;
   public readonly charged_tx_fee: number;
   public readonly consensus_timestamp: string;
-  public readonly entity_id: string;
-  public readonly max_fee: number;
+  public readonly entity_id: string | null;
+  public readonly max_fee: string;
   public readonly memo_base64: string | null;
   public readonly name: string;
   public readonly nft_transfers: INftTransfer[];
   public readonly node: string;
   public readonly nonce: number;
-  public readonly parent_consensus_timestamp: string;
+  public readonly parent_consensus_timestamp: string | null;
   public readonly result: string;
   public readonly scheduled: boolean;
   public readonly staking_reward_transfers: IStakingRewardTransfer[];
@@ -255,7 +255,7 @@ export class MirrorNodeTransactionRecord {
   public readonly transaction_id: string;
   public readonly token_transfers: ITokenTransfer[];
   public readonly transfers: ITransfer[];
-  public readonly valid_duration_seconds: number;
+  public readonly valid_duration_seconds: string | null;
   public readonly valid_start_timestamp: string;
 
   constructor(transactionRecord: IMirrorNodeTransactionRecord) {
