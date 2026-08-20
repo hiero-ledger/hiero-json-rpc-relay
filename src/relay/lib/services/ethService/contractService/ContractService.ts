@@ -135,12 +135,12 @@ export class ContractService implements IContractService {
       }
 
       return result;
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof JsonRpcError) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
-      throw predefined.INTERNAL_ERROR(e.message.toString());
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
     }
   }
 
@@ -168,12 +168,12 @@ export class ContractService implements IContractService {
       }
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof JsonRpcError) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
-      throw predefined.INTERNAL_ERROR(e.message.toString());
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
     }
   }
 
@@ -222,12 +222,12 @@ export class ContractService implements IContractService {
       this.logger.debug(`Address %s is not a contract nor an HTS token, returning empty hex`, address);
 
       return constants.EMPTY_HEX;
-    } catch (error: any) {
+    } catch (error) {
       this.logger.error(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,
         blockNumber,
-        error.message,
+        (error as Error).message,
       );
       throw error;
     }
@@ -284,7 +284,7 @@ export class ContractService implements IContractService {
           result = response.state[0].value;
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         throw this.common.genericErrorHandler(
           error,
           `Failed to retrieve current contract state for address ${address} at slot=${slot}`,

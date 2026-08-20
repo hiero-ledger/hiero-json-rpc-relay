@@ -244,8 +244,8 @@ export default class MetricService {
         operatorAccountId,
         requestDetails,
       );
-    } catch (error: any) {
-      this.logger.warn(error, `Could not fetch transaction record: error=${error.message}`);
+    } catch (error) {
+      this.logger.warn(error, `Could not fetch transaction record: error=${(error as Error).message}`);
     }
   }
 }

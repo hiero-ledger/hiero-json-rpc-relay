@@ -298,7 +298,7 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
  */
 async function resolveContractResultAddresses(
   ctx: IWorkerContext,
-  contractResults: any[],
+  contractResults: MirrorNodeContractResult[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
   const { commonService } = ctx;
@@ -418,11 +418,7 @@ export async function getBlock(
 ): Promise<Block | null> {
   const { commonService, mirrorNodeClient, logger } = ctx;
   try {
-    const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
-      requestDetails,
-      blockHashOrNumber,
-      true,
-    );
+    const blockResponse = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrNumber, true);
 
     if (blockResponse == null) return null;
     const timestampRange = blockResponse.timestamp;

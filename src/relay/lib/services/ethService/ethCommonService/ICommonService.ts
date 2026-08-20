@@ -3,19 +3,22 @@
 import { type Log } from '../../../model';
 import {
   type IAccountInfo,
+  type IContractLogsResultsParams,
+  type MirrorNodeBlock,
   type MirrorNodeContractLog,
   type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
 
 export interface ICommonService {
-  addTopicsToParams(params: any, topics: any[] | null): void;
+  addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void;
 
-  blockTagIsLatestOrPending(tag: any): boolean;
+  blockTagIsLatestOrPending(tag: string | null | undefined): boolean;
 
   gasPrice(requestDetails: RequestDetails): Promise<string>;
 
-  genericErrorHandler(error: any, logMessage?: string): void;
+  genericErrorHandler(error: unknown, logMessage?: string): void;
 
   getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
 
@@ -29,7 +32,7 @@ export interface ICommonService {
     requestDetails: RequestDetails,
     blockNumberOrTag?: string | null,
     returnLatest?: boolean,
-  ): Promise<any>;
+  ): Promise<MirrorNodeBlock | null>;
 
   getLatestBlockNumber(requestDetails: RequestDetails): Promise<string>;
 
@@ -38,20 +41,20 @@ export interface ICommonService {
     fromBlock: string | 'latest',
     toBlock: string | 'latest',
     address: string | string[] | null,
-    topics: any[] | null,
+    topics: LogTopic[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]>;
 
   getLogsByAddress(
     address: string | string[],
-    params: any,
+    params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount?: number,
   ): Promise<MirrorNodeContractLog[]>;
 
   getLogsWithParams(
     address: string | string[] | null,
-    params: any,
+    params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount?: number,
   ): Promise<Log[]>;
@@ -63,7 +66,7 @@ export interface ICommonService {
   translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number>;
 
   validateBlockHashAndAddTimestampToParams(
-    params: any,
+    params: IContractLogsResultsParams,
     blockHash: string,
     requestDetails: RequestDetails,
     sliceCountWrapper?: { value: number },
@@ -72,7 +75,7 @@ export interface ICommonService {
   validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails): Promise<boolean>;
 
   validateBlockRangeAndAddTimestampToParams(
-    params: any,
+    params: IContractLogsResultsParams,
     fromBlock: string,
     toBlock: string,
     requestDetails: RequestDetails,

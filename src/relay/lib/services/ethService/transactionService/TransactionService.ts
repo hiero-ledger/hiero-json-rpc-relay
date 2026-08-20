@@ -791,11 +791,11 @@ export class TransactionService implements ITransactionService {
    *   post-exec failure   → nonce moved            → { null, true }
    */
   private async handleSubmissionError(
-    error: any,
+    error: unknown,
     parsedTx: EthersTransaction,
     senderAddress: string,
     requestDetails: RequestDetails,
-  ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
+  ): Promise<{ error: unknown; shouldPollAndCleanup: boolean }> {
     if (!error || !(error instanceof SDKClientError)) return { error: error ?? null, shouldPollAndCleanup: true };
 
     this.hapiService.decrementErrorCounter(error.statusCode);
@@ -868,11 +868,11 @@ export class TransactionService implements ITransactionService {
     requestDetails: RequestDetails,
   ): Promise<{
     submittedTransactionId: string;
-    error: any;
+    error: unknown;
   }> {
     let fileId: FileId | null = null;
     let submittedTransactionId = '';
-    let error = null;
+    let error: unknown = null;
 
     try {
       // Pass a lazy getter so the exchange rate is only fetched when the HFS path is actually
@@ -899,7 +899,7 @@ export class TransactionService implements ITransactionService {
           `Transaction successfully submitted but returned invalid transactionID: transactionId==${submittedTransactionId}`,
         );
       }
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof SDKClientError) {
         submittedTransactionId = e.transactionId || '';
       }

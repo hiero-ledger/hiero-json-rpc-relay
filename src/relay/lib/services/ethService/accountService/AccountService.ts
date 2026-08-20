@@ -379,7 +379,11 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
+  private getBalanceAtBlockTimestamp(
+    account: string,
+    transactions: IMirrorNodeTransactionRecord[],
+    blockTimestamp: string,
+  ): number {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;

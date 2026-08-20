@@ -70,7 +70,7 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
+    return this.getBlock(hash, showDetails, requestDetails).catch((e: unknown) => {
       throw this.common.genericErrorHandler(e, `Failed to retrieve block for hash ${hash}`);
     });
   }
@@ -88,7 +88,7 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
+    return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: unknown) => {
       throw this.common.genericErrorHandler(e, `Failed to retrieve block for blockNumber ${blockNumber}`);
     });
   }
@@ -145,7 +145,7 @@ export class BlockService implements IBlockService {
     try {
       const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
       return this.getTransactionCountFromBlockResponse(block);
-    } catch (error: any) {
+    } catch (error) {
       throw this.common.genericErrorHandler(error, `Failed to retrieve block for hash ${hash}`);
     }
   }
@@ -164,7 +164,7 @@ export class BlockService implements IBlockService {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
       return this.getTransactionCountFromBlockResponse(block);
-    } catch (error: any) {
+    } catch (error) {
       throw this.common.genericErrorHandler(error, `Failed to retrieve block for blockNum ${blockNum}`);
     }
   }
