@@ -117,6 +117,39 @@ describe('LocalLRUCache Test Suite', async function () {
       expect(key3).to.be.equal(keyValuePairs.key3);
     });
 
+    it('should size an instance by its maxEntries override without affecting CACHE_MAX consumers', async function () {
+      const sizedCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, undefined, 4);
+      const sharedCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+      const keys = ['key1', 'key2', 'key3', 'key4'];
+
+      for (const key of keys) {
+        await sizedCache.set(key, key, callingMethod);
+        await sharedCache.set(key, key, callingMethod);
+      }
+
+      for (const key of keys) {
+        expect(await sizedCache.get(key, callingMethod), `${key} should be retained`).to.be.equal(key);
+      }
+
+      // the instance without an override is still capped at CACHE_MAX = 2
+      expect(await sharedCache.get('key1', callingMethod)).to.be.null;
+      expect(await sharedCache.get('key2', callingMethod)).to.be.null;
+      expect(await sharedCache.get('key3', callingMethod)).to.be.equal('key3');
+      expect(await sharedCache.get('key4', callingMethod)).to.be.equal('key4');
+    });
+
+    it('should fall back to CACHE_MAX when the maxEntries override is not positive', async function () {
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, undefined, 0);
+
+      for (const key of ['key1', 'key2', 'key3']) {
+        await customLocalLRUCache.set(key, key, callingMethod);
+      }
+
+      expect(await customLocalLRUCache.get('key1', callingMethod)).to.be.null;
+      expect(await customLocalLRUCache.get('key2', callingMethod)).to.be.equal('key2');
+      expect(await customLocalLRUCache.get('key3', callingMethod)).to.be.equal('key3');
+    });
+
     it('should not evict reserved keys from the cache on reaching the max cache size limit', async function () {
       const reservedKeys = ['key1', 'key2'];
       const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, new Set(reservedKeys));

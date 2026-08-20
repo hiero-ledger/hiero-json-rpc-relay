@@ -14,6 +14,11 @@
     - [Examples of Using `debug_traceTransaction`](#examples-of-using-debug_traceTransaction)
         - [With `callTracer`](#1-with-callTracer)
         - [With `opcodeLogger`](#2-with-opcodeLogger)
+5. [Transaction Status Tracing](#4-transaction-status-tracing)
+    - [Enabling Tracing](#enabling-tracing)
+    - [Receipt Fallback](#receipt-fallback)
+    - [Client Decoding](#client-decoding)
+    - [Inspecting Traces via Admin Method](#inspecting-traces-via-admin-method)
 
 ## Overview
 
@@ -544,4 +549,53 @@ It contains the following fields:
     ]
   }
 }
+```
+
+## 4. Transaction Status Tracing
+
+After `eth_sendRawTransaction` returns a hash, a rejected or timed-out transaction is indistinguishable from a
+still-pending one: `eth_getTransactionReceipt` returns `null` for all three. Transaction status tracing closes
+that gap by recording each submitted transaction's lifecycle (`pending` → `sent` → `validated`, or `rejected`
+/ `timedout` on failure), keyed by its keccak256 hash.
+
+### Enabling Tracing
+
+Opt-in and off by default:
+
+- `TX_STATUS_TRACING=true` — enable it.
+- `TX_STATUS_TRACING_TTL_MS` — record TTL in ms (default `900000` = 15 min; `0`/`-1` = eternal).
+- `TX_STATUS_TRACING_MAX_ENTRIES` — entry bound for the in-memory store (default `10000`). Local retention is
+  whichever binds first, this count or the TTL; raise it if submissions over one TTL window exceed the bound.
+  Redis-backed tracing is bounded by the TTL alone.
+
+Uses the in-memory LRU cache by default; set `REDIS_ENABLED=true` to keep the fallback correct across replicas.
+With the flag off nothing is stored and there is no hot-path change.
+
+### Receipt Fallback
+
+When tracing is on and the Mirror Node has no receipt, `eth_getTransactionReceipt` consults the trace store: a
+`rejected` or `timedout` record returns a `-32003` error (`timedout` adds `data.provisional = true`, since the
+tx may still reach consensus within the ~120s validity window); anything else returns `null` as before. The
+error's `data` carries the `txHash`, failure `detail`, and `hederaStatus`:
+
+```json
+{
+  "code": -32003,
+  "message": "Transaction rejected: WRONG_NONCE",
+  "data": { "txHash": "0x...", "detail": "...", "hederaStatus": "WRONG_NONCE" }
+}
+```
+
+### Client Decoding
+
+For clients to read the `-32003` and its `data`, run the relay with `ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE=200`. At the default `400`, ethers surfaces an opaque transport error instead of the decoded code/data (viem and web3.js decode it either way).
+
+### Inspecting Traces via Admin Method
+
+`admin_getTransactionTraceByHash(hash)` returns the raw record by keccak256 hash (requires
+`TX_STATUS_TRACING=true` and `DISABLE_ADMIN_NAMESPACE=false`):
+
+```bash
+curl http://localhost:7546 -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"admin_getTransactionTraceByHash","params":["0x..."]}'
 ```
