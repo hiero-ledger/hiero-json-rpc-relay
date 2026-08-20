@@ -23,7 +23,13 @@ import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
-import { LockService, LockStrategyFactory, TransactionPoolService } from './services';
+import {
+  LockService,
+  LockStrategyFactory,
+  TransactionPoolService,
+  TransactionTracingService,
+  TransactionTracingStorageFactory,
+} from './services';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
@@ -357,6 +363,17 @@ export class Relay {
       this.register,
     );
 
+    // Build tracing storage only when TX_STATUS_TRACING is on (Redis-backed when available, else local);
+    // when off, no storage is constructed and the service is a no-op.
+    const transactionTracingStorage = TransactionTracingService.isEnabled()
+      ? TransactionTracingStorageFactory.create(
+          this.logger,
+          ConfigService.get('TX_STATUS_TRACING_TTL_MS'),
+          this.redisClient,
+        )
+      : undefined;
+    const transactionTracingService = new TransactionTracingService(this.logger, transactionTracingStorage);
+
     // Create Eth implementation with connected Redis client
     this.ethImpl = new EthImpl(
       hapiService,
@@ -367,6 +384,7 @@ export class Relay {
       transactionPoolService,
       lockService,
       this.register,
+      transactionTracingService,
     );
 
     // Set up event listeners
@@ -394,8 +412,9 @@ export class Relay {
       transactionPoolService,
       lockService,
       this.register,
+      transactionTracingService,
     );
-    this.adminImpl = new AdminImpl(this.cacheService);
+    this.adminImpl = new AdminImpl(this.cacheService, transactionTracingService);
 
     // Create HBAR spending plan config service
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -412,7 +431,7 @@ export class Relay {
     void this.populatePreconfiguredSpendingPlans();
 
     // Create RPC method registry
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
+    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool', 'admin'].map((namespace) => ({
       namespace,
       serviceImpl: this[namespace](),
     }));
