@@ -2,7 +2,7 @@
 
 export interface ICacheClient {
   keys(pattern: string, callingMethod: string): Promise<string[]>;
-  get<T = unknown>(key: string, callingMethod: string): Promise<T>;
+  get<T = unknown>(key: string, callingMethod: string): Promise<T | null>;
   set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void>;
   delete(key: string, callingMethod: string): Promise<void>;
   clear(): Promise<void>;
@@ -13,5 +13,5 @@ export interface ICacheClient {
   /**
    * @deprecated Alias of `get`; consider removing. Left in place to avoid modifying the CacheService interface.
    */
-  getAsync<T = unknown>(key: string, callingMethod: string): Promise<T>;
+  getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null>;
 }

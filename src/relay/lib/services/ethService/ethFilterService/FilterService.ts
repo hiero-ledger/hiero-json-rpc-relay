@@ -104,7 +104,7 @@ export class FilterService implements IFilterService {
    * @param filterId
    * @param method
    */
-  private async getFilterFromCache(filterId: string, method: string): Promise<CachedFilter> {
+  private async getFilterFromCache(filterId: string, method: string): Promise<CachedFilter | null> {
     const cacheKey = this.getCacheKey(filterId);
     return await this.cacheService.getAsync<CachedFilter>(cacheKey, method);
   }

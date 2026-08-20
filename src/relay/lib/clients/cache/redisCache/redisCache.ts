@@ -73,7 +73,7 @@ export class RedisCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     return this.get<T>(key, callingMethod);
   }
 
@@ -84,7 +84,7 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod - The name of the calling method.
    * @returns The cached value or null if not found.
    */
-  async get<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.get(prefixedKey);
     if (result) {
@@ -96,7 +96,7 @@ export class RedisCache implements ICacheClient {
       // TODO: add metrics
       return JSON.parse(result) as T;
     }
-    return null as T;
+    return null;
   }
 
   /**

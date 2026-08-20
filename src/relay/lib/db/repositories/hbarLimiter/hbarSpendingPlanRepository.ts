@@ -190,7 +190,9 @@ export class HbarSpendingPlanRepository {
     const plans = await Promise.all(keys.map((key) => this.cache.getAsync<IHbarSpendingPlan>(key, callerMethod)));
     return Promise.all(
       plans
-        .filter((plan) => tiers.includes(plan.subscriptionTier) && plan.active)
+        .filter(
+          (plan): plan is IHbarSpendingPlan => plan !== null && tiers.includes(plan.subscriptionTier) && plan.active,
+        )
         .map(
           async (plan) =>
             new HbarSpendingPlan({

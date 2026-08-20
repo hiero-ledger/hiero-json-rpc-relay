@@ -123,7 +123,7 @@ export class LocalLRUCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     return this.get<T>(key, callingMethod);
   }
 
@@ -134,7 +134,7 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async get<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
@@ -148,7 +148,7 @@ export class LocalLRUCache implements ICacheClient {
       return value as T;
     }
 
-    return null as T;
+    return null;
   }
 
   /**
@@ -278,7 +278,7 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The value of the key after incrementing
    */
   public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    const value = await this.get<number>(key, callingMethod);
+    const value = (await this.get<number>(key, callingMethod)) ?? 0;
     const newValue = value + amount;
     const remainingTtl = await this.getRemainingTtl(key, callingMethod);
     await this.set(key, newValue, callingMethod, remainingTtl);

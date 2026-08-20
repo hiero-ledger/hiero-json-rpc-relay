@@ -31,7 +31,7 @@ export class SafeRedisCache extends RedisCache {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     return this.get<T>(key, callingMethod);
   }
 
@@ -44,8 +44,8 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the method making the request (for logging).
    * @returns The cached value, or `null` if Redis fails or the value does not exist.
    */
-  async get<T = unknown>(key: string, callingMethod: string): Promise<T> {
-    return await this.safeCall(() => super.get<T>(key, callingMethod), null as T);
+  async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
+    return await this.safeCall(() => super.get<T>(key, callingMethod), null);
   }
 
   /**

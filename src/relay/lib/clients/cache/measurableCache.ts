@@ -58,7 +58,7 @@ export class MeasurableCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     return this.decoratedCacheClient.get<T>(key, callingMethod);
   }
 
@@ -70,7 +70,7 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async get<T = unknown>(key: string, callingMethod: string): Promise<T> {
+  public async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.GET);
     return await this.decoratedCacheClient.get<T>(key, callingMethod);
   }
