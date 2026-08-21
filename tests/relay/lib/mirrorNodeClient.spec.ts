@@ -1047,6 +1047,52 @@ describe('MirrorNodeClient', async function () {
     expect(mock.history.get.length).to.eq(1);
   });
 
+  it('`getContractResultsWithRetry` should not poll a child tx record', async () => {
+    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6396';
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...detailedContractResult,
+        transaction_index: null,
+        result: 'SUCCESS',
+        nonce: null,
+        v: null,
+        r: null,
+        s: null,
+      }),
+    );
+
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
+      requestDetails,
+    ]);
+
+    expect(result.result).to.eq('SUCCESS');
+    expect(result.transaction_index).to.be.null;
+    expect(mock.history.get.length).to.eq(1);
+  });
+
+  it('`getContractResultsWithRetry` should still poll a top-level record with no block linkage yet', async () => {
+    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6397';
+    mock
+      .onGet(`contracts/results/${hash}?hbar=false`)
+      .replyOnce(
+        200,
+        JSON.stringify({ ...detailedContractResult, transaction_index: null, block_number: null, block_hash: '0x' }),
+      )
+      .onGet(`contracts/results/${hash}?hbar=false`)
+      .replyOnce(200, JSON.stringify(detailedContractResult));
+
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
+      requestDetails,
+    ]);
+
+    expect(result.transaction_index).to.eq(detailedContractResult.transaction_index);
+    expect(result.block_number).to.eq(detailedContractResult.block_number);
+    expect(mock.history.get.length).to.eq(2);
+  });
+
   it('`getContractResultsWithRetry` should return the immature record when the caller opts in', async () => {
     const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6395';
     const immatureRecord = {
