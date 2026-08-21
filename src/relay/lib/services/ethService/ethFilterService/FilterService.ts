@@ -213,7 +213,7 @@ export class FilterService implements IFilterService {
     const { fromBlock, toBlock, address, topics } = filter.params as Required<INewFilterParams>;
     const result = await this.common.getLogs(
       null,
-      (filter?.lastQueried || fromBlock) as string,
+      String(filter?.lastQueried || fromBlock),
       toBlock,
       address,
       topics,

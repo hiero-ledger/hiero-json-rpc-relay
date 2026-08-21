@@ -444,7 +444,7 @@ export class AccountService implements IAccountService {
     const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
     if (accountData) {
       // with HIP 729 ethereum_nonce should always be 0+ and null. Historical contracts may have a null value as the nonce was not tracked, return default EVM compliant 0x1 in this case
-      return accountData.ethereum_nonce !== null ? numberTo0x(accountData.ethereum_nonce!) : constants.ONE_HEX;
+      return accountData.ethereum_nonce != null ? numberTo0x(accountData.ethereum_nonce) : constants.ONE_HEX;
     }
 
     return constants.ZERO_HEX;
