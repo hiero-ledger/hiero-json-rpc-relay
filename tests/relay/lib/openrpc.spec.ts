@@ -26,7 +26,7 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/r
 import { EthImpl } from '../../../src/relay/lib/eth';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { NetImpl } from '../../../src/relay/lib/net';
-import { TransactionPoolService } from '../../../src/relay/lib/services';
+import { TransactionPoolService, TransactionTracingService } from '../../../src/relay/lib/services';
 import ClientService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import { LockService } from '../../../src/relay/lib/services/lockService/LockService';
@@ -153,6 +153,7 @@ describe('Open RPC Specification', function () {
       transactionPoolService,
       lockServiceStub,
       testRegistry,
+      new TransactionTracingService(logger),
     );
     txpoolImpl = new TxPoolImpl(transactionPoolService);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl(), txpool: txpoolImpl };
