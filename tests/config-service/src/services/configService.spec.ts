@@ -71,27 +71,25 @@ describe('ConfigService tests', async function () {
     });
   });
 
-  [
-    { envValue: '0', label: '0' },
-    { envValue: '-2', label: 'less than -1' },
-  ].forEach(({ envValue, label }) => {
-    it(`should prevent the Relay from starting when \`WS_INPUT_SIZE_LIMIT\` is ${label}`, () => {
-      const envBefore = process.env;
-      process.env = { ...process.env, WS_INPUT_SIZE_LIMIT: envValue };
+  it('should apply GlobalConfig validation rules while the singleton is constructed', () => {
+    // The rules themselves are covered per-entry in validationService.spec.ts. This test exists to
+    // prove `ValidationService.validate` is actually reached during start-up, so deleting that call
+    // from the constructor fails here instead of silently disabling every rule at once.
+    const envBefore = process.env;
+    process.env = { ...process.env, WS_INPUT_SIZE_LIMIT: '0' };
 
-      try {
-        // @ts-expect-error: The operand of a 'delete' operator must be optional
-        delete ConfigService.instance;
+    try {
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
 
-        expect(() => ConfigService.get('WS_INPUT_SIZE_LIMIT')).to.throw(
-          'WS_INPUT_SIZE_LIMIT must be -1 or a positive number.',
-        );
-      } finally {
-        // @ts-expect-error: The operand of a 'delete' operator must be optional
-        delete ConfigService.instance;
-        process.env = envBefore;
-      }
-    });
+      expect(() => ConfigService.get('WS_INPUT_SIZE_LIMIT')).to.throw(
+        'Configuration error: WS_INPUT_SIZE_LIMIT must be -1 or a positive number.',
+      );
+    } finally {
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+      process.env = envBefore;
+    }
   });
 
   it('should be able to get existing env var', async () => {
