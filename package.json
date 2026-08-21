@@ -1,6 +1,6 @@
 {
   "name": "@hiero-ledger/hiero-json-rpc-relay",
-  "version": "0.79.0-SNAPSHOT",
+  "version": "0.80.0-SNAPSHOT",
   "bin": {
     "hiero-relay": "./bin/hiero-relay.js"
   },
@@ -50,7 +50,9 @@
     "sinon": "^22.0.0",
     "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "viem": "^2.55.8",
+    "web3": "^4.16.0"
   },
   "scripts": {
     "acceptancetest": "c8 ts-mocha tests/server/acceptance/index.spec.ts --exit",
@@ -104,7 +106,8 @@
     "start": "node dist/index.js",
     "start:ws": "RPC_HTTP_ENABLED=false RPC_WS_ENABLED=true node dist/index.js",
     "start:docker": "docker run --name hedera-relay -d -p 7546:7546 ${npm_package_name##*/}:latest",
-    "test": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' './tests/config-service/**/*.spec.ts' './tests/relay/**/*.spec.ts' './tests/server/integration/**/*.spec.ts' './tests/ws-server/unit/**/*.spec.ts' --exit && npm run test:client-libraries",
+    "test:client-libraries": "ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE=200 TX_STATUS_TRACING=true READ_ONLY=true REDIS_ENABLED=false RATE_LIMIT_DISABLED=true ts-mocha --recursive './tests/client-libraries/**/*.spec.ts' --exit",
     "test:bin": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' --exit",
     "test:relay": "c8 ts-mocha --recursive './tests/relay/**/*.spec.ts' --exit",
     "test:server": "c8 ts-mocha --recursive './tests/server/integration/**/*.spec.ts' --exit",
