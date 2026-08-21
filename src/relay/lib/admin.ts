@@ -3,10 +3,14 @@
 import axios from 'axios';
 
 import { ConfigService } from '../../config-service/services';
-import type { Admin } from '../index';
+import { type Admin, predefined } from '../index';
 import { Utils } from '../utils';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import constants from './constants';
+import { rpcMethod } from './decorators';
+import { TransactionTracingService } from './services';
+import { type TransactionTraceRecord } from './types';
+import { rpcParamValidationRules } from './validators';
 
 interface IAdminRelayConfig {
   version: string;
@@ -27,10 +31,25 @@ export interface IAdminConfig {
 export class AdminImpl implements Admin {
   private readonly cacheService: ICacheClient;
 
+  private readonly transactionTracingService: TransactionTracingService;
+
   public static readonly config = 'admin_config';
 
-  constructor(cacheService: ICacheClient) {
+  constructor(cacheService: ICacheClient, transactionTracingService: TransactionTracingService) {
     this.cacheService = cacheService;
+    this.transactionTracingService = transactionTracingService;
+  }
+
+  /**
+   * Guards the trace admin methods. Re-applies DISABLE_ADMIN_NAMESPACE here since the dispatch path does
+   * not (it only gates the REST /config route).
+   *
+   * @throws {JsonRpcError} UNSUPPORTED_METHOD when the admin namespace is disabled or tracing is off.
+   */
+  private static requireTxStatusTracingEnabled(): void {
+    if (ConfigService.get('DISABLE_ADMIN_NAMESPACE') || !TransactionTracingService.isEnabled()) {
+      throw predefined.UNSUPPORTED_METHOD;
+    }
   }
 
   /**
@@ -92,5 +111,21 @@ export class AdminImpl implements Admin {
     }
 
     return info;
+  }
+
+  /**
+   * Returns the traced lifecycle record for a transaction hash, or null if none exists.
+   *
+   * @param hash - The transaction's keccak256 hash.
+   * @returns The trace record, or null if none exists.
+   * @throws {JsonRpcError} UNSUPPORTED_METHOD when tracing is off or the admin namespace is disabled.
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: 'transactionHash', required: true },
+  })
+  public async getTransactionTraceByHash(hash: string): Promise<TransactionTraceRecord | null> {
+    AdminImpl.requireTxStatusTracingEnabled();
+    return this.transactionTracingService.getByHash(hash);
   }
 }

@@ -177,6 +177,10 @@ export const predefined = {
     code: -32611,
     message: `Unsupported transaction type: txType=3`,
   }),
+  UNSUPPORTED_TRANSACTION_TYPE_4: new JsonRpcError({
+    code: -32611,
+    message: `Unsupported transaction type: txType=4`,
+  }),
   VALUE_TOO_LOW: new JsonRpcError({
     code: -32602,
     message: "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
@@ -282,6 +286,11 @@ export const predefined = {
       code: -32201,
       message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
     }),
+  INITCODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number): JsonRpcError =>
+    new JsonRpcError({
+      code: -32201,
+      message: `Oversized data: initcode size ${actualSize}, initcode size limit ${expectedSize}`,
+    }),
   BATCH_REQUESTS_DISABLED: new JsonRpcError({
     code: -32202,
     message: 'Batch requests are disabled',
@@ -318,5 +327,35 @@ export const predefined = {
     new JsonRpcError({
       code: -32003,
       message: `Transaction rejected: ${status}${errorMessage ? ` - ${errorMessage}` : ''}`,
+    }),
+  /**
+   * The single `-32003` shape every rejected-transaction path returns, so the traced-outcome fallback and
+   * the Mirror-Node immature-record path cannot diverge in the `data` clients decode.
+   *
+   * @param details.txHash - The offending transaction's keccak256 hash (lower-cased).
+   * @param details.hederaStatus - The underlying Hedera status code (e.g. `WRONG_NONCE`), when known.
+   * @param details.detail - Human-readable failure detail.
+   * @param details.transactionId - The Hedera transaction id, when known.
+   * @param details.provisional - True when the outcome is not final (the tx may still reach consensus).
+   * @param details.message - Overrides the default `Transaction rejected: <status>` message.
+   */
+  TRANSACTION_REJECTED_DETAILED: (details: {
+    txHash: string;
+    hederaStatus?: string;
+    detail?: string;
+    transactionId?: string;
+    provisional?: boolean;
+    message?: string;
+  }): JsonRpcError =>
+    new JsonRpcError({
+      code: -32003,
+      message: details.message ?? `Transaction rejected: ${details.hederaStatus ?? details.detail ?? 'unknown reason'}`,
+      data: {
+        txHash: details.txHash,
+        detail: details.detail,
+        hederaStatus: details.hederaStatus,
+        ...(details.transactionId !== undefined && { transactionId: details.transactionId }),
+        ...(details.provisional !== undefined && { provisional: details.provisional }),
+      },
     }),
 };

@@ -17,7 +17,7 @@ export function validateObject<T extends object>(object: T, filters: IObjectSche
 
     if (isValidAndNonNullableParam(param, validation.nullable)) {
       try {
-        const result = TYPES[validation.type].test(param);
+        const result = TYPES[validation.type].test(param, validation.innerType);
 
         if (!result) {
           const paramString = typeof param === 'object' ? JSON.stringify(param) : param;

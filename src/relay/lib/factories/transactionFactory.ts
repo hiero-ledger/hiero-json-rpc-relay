@@ -12,6 +12,7 @@ import {
 } from '../../formatters';
 import constants from '../constants';
 import {
+  type AccessListEntry,
   type AuthorizationListEntry,
   type Log,
   Transaction,
@@ -33,19 +34,19 @@ export class TransactionFactory {
       case 1:
         return new Transaction2930({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
         }); // eip 2930 fields
       case 2:
         return new Transaction1559({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
         }); // eip 1559 fields
       case 4:
         return new Transaction7702({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
           authorizationList: formatAuthorizationList(fields.authorizationList),
@@ -58,14 +59,13 @@ export class TransactionFactory {
   }
 
   /**
-   * Creates a transaction object from a log entry
+   * Creates a transaction object from a log entry. All the synthetic transactions are treated as legacy transactions.
+   * @param chainId Chain id
    * @param log The log entry containing transaction data
-   * @param type Transaction type (2 by default)
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
   public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
     return TransactionFactory.createTransactionByType(type, {
-      accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
       chainId: chainId,
@@ -81,7 +81,7 @@ export class TransactionFactory {
       s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: numberTo0x(type), // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      type: numberTo0x(type),
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
@@ -106,18 +106,57 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
   authorizationList && Array.isArray(authorizationList)
     ? authorizationList
         .filter((item) => item !== null && typeof item === 'object')
+        .map((item) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { chain_id, ...rest } = item; // snake_case chain_id omitted from rest passthrough
+          return {
+            ...rest, // additional properties remain allowed for authorization list items
+            // Mirror node may send either camelCase (`chainId`) or snake_case (`chain_id`).
+            chainId: formatAuthorizationQuantity(item.chainId ?? item.chain_id),
+            nonce: formatAuthorizationQuantity(item.nonce),
+            address: formatAddress(item.address),
+            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(String(item.yParity)).substring(0, 4),
+            r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
+            s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
+          };
+        })
+    : [];
+
+/**
+ * Formats an access list by normalizing and sanitizing its fields.
+ * MirrorNode returns access list items with snake_case `storage_keys` field (MN v0.156+).
+ *
+ * @param {unknown} accessList - The raw access list array from MirrorNode.
+ * @returns {AccessListEntry[]} A normalized access list.
+ */
+const formatAccessList = (accessList: unknown): AccessListEntry[] =>
+  accessList && Array.isArray(accessList)
+    ? accessList
+        .filter((item: unknown): item is { address?: unknown; storage_keys?: string[] } => {
+          return item !== null && typeof item === 'object';
+        })
         .map((item) => ({
-          ...item, // additional properties remain allowed for authorization list items
-          chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
-          nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
-          address: !item.address
-            ? constants.ZERO_ADDRESS_HEX
-            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
-          yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
-          r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
-          s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
+          address: formatAddress(item.address),
+          // MN v0.156+ guarantees 32-byte padded storage keys, so normalization is intentionally skipped.
+          storageKeys: item.storage_keys ?? [],
         }))
     : [];
+
+/**
+ * Formats an address by normalizing and sanitizing its format.
+ *
+ * @param {any} address - The value received.
+ * @returns {string} - The formatted address as a 0x-prefixed hex string with a length of 40 characters.
+ */
+const formatAddress = (address: unknown): string => {
+  if (typeof address !== 'string' || !address) return constants.ZERO_ADDRESS_HEX;
+  return prepend0x(
+    address
+      .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
+      .slice(-40)
+      .padStart(40, '0'),
+  );
+};
 
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
@@ -127,6 +166,21 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
  */
 const formatGasFee = (gasFee: unknown): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
+
+/**
+ * Normalizes an EIP-7702 authorization tuple quantity (chainId/nonce) to a 0x-prefixed hex string.
+ * Accepts a number, a bigint, a plain-hex string, or an already-0x-prefixed string. Falsy values
+ * (0, '', null, undefined) and the MN "unset" sentinel "0x" collapse to "0x0", since a JSON-RPC
+ * uint must be at least "0x0".
+ */
+const formatAuthorizationQuantity = (raw: unknown): string => {
+  if (!raw) {
+    return constants.ZERO_HEX;
+  }
+  const s = typeof raw === 'string' ? raw : (raw as number | bigint).toString(16);
+  const with0x = prepend0x(s);
+  return with0x === constants.EMPTY_HEX ? constants.ZERO_HEX : with0x;
+};
 
 /**
  * Creates a Transaction object from a contract result
@@ -167,5 +221,6 @@ export const createTransactionFromContractResult = (cr: MirrorNodeContractResult
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
+    accessList: cr.access_list,
   } as TransactionFields);
 };

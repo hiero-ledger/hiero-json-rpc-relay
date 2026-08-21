@@ -20,6 +20,7 @@ import type {
   TraceBlockTxResult,
   TransactionTracerConfig,
 } from './lib/types';
+import type { TransactionTraceRecord } from './lib/types/transactionTracing';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -71,6 +72,8 @@ export interface Net {
 
 export interface Admin {
   config(): Promise<IAdminConfig>;
+
+  getTransactionTraceByHash(hash: string): Promise<TransactionTraceRecord | null>;
 }
 
 export interface TxPool {

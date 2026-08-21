@@ -39,7 +39,8 @@ let debugService: DebugImpl;
 
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
-  const { cacheService, hapiServiceInstance, transactionPoolService, lockService } = generateEthTestEnv(true);
+  const { cacheService, hapiServiceInstance, transactionPoolService, transactionTracingService, lockService } =
+    generateEthTestEnv(true);
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
   const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
   const nonExistentTransactionHash = '0xb8a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
@@ -276,7 +277,7 @@ describe('Debug API Test Suite', async function () {
     transaction_index: 5,
     status: '0x1',
     failed_initcode: null,
-    access_list: '0x',
+    access_list: [],
     block_gas_used: 240000,
     chain_id: '0x12a',
     gas_price: '0x',
@@ -407,6 +408,7 @@ describe('Debug API Test Suite', async function () {
       transactionPoolService,
       lockService,
       registry,
+      transactionTracingService,
     );
   });
 
@@ -2974,6 +2976,7 @@ describe('Debug API Test Suite', async function () {
           transactionPoolService,
           lockService,
           registry,
+          transactionTracingService,
         );
 
         // Mock the API calls for actions and contract result to return 404

@@ -15,6 +15,7 @@ import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
 import { formatTransactionId } from '../../formatters';
+import { Utils } from '../../utils';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
@@ -56,10 +57,30 @@ import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
+/**
+ * Whether a Mirror Node contract-result / log record is "immature" - the block linkage is not (yet)
+ * populated, so the record cannot be placed in a block.
+ *
+ * Immaturity is normally transient (the Mirror Node has not finished ingesting the block) and is polled
+ * away by the retry helpers. It is permanent for a transaction that was rejected before execution
+ * (e.g. `WRONG_NONCE`): it never lands in a block, so these fields never fill in. The retry helpers
+ * skip polling for a record they can already identify as such - see
+ * {@link Utils.isRejectedDueToHederaSpecificValidation}.
+ *
+ * @param record - The contract result or log record to classify; null/undefined is not immature.
+ * @returns True when `transaction_index`, `block_number`, or `block_hash` is unpopulated.
+ */
+export const isImmatureContractRecord = (
+  record?: { transaction_index?: number | null; block_number?: number | null; block_hash?: string | null } | null,
+): boolean =>
+  record != null &&
+  (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
+
 export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
   private static readonly GET_TOKENS_ENDPOINT = 'tokens';
+  private static readonly GET_SCHEDULES_ENDPOINT = 'schedules';
   private static readonly ADDRESS_PLACEHOLDER = '{address}';
   private static readonly GET_BALANCE_ENDPOINT = 'balances';
   private static readonly TIMESTAMP_PLACEHOLDER = '{timestamp}';
@@ -105,6 +126,7 @@ export class MirrorNodeClient {
     [MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT, [404]],
     [MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TOKENS_ENDPOINT, [404]],
+    [MirrorNodeClient.GET_SCHEDULES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_CALL_ENDPOINT, [404]],
     [MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT, [404]],
@@ -1028,11 +1050,23 @@ export class MirrorNodeClient {
    * - The record matures (all fields are properly populated)
    * - The maximum retry count is reached
    *
+   * Records rejected by a Hedera-specific validation (`HEDERA_SPECIFIC_REVERT_STATUSES`, e.g. `WRONG_NONCE`)
+   * never reached the EVM and are therefore never part of a block: their block linkage can never fill in,
+   * so they are returned immediately rather than polled for the full window.
+   *
    * @param methodName - The name of the method used to fetch contract results.
    * @param args - The arguments to be passed to the specified method for fetching contract results.
+   * @param options - Retry options.
+   * @param options.returnImmatureRecords - When true, a record still immature after the final polling
+   *   attempt is returned as-is instead of throwing `DEPENDENT_SERVICE_IMMATURE_RECORDS`, letting the
+   *   caller classify it (see {@link isImmatureContractRecord}) and surface the rejection itself.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry<T = unknown>(methodName: string, args: unknown[]): Promise<T> {
+  public async getContractResultWithRetry<T = unknown>(
+    methodName: string,
+    args: unknown[],
+    options: { returnImmatureRecords?: boolean } = {},
+  ): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -1047,29 +1081,39 @@ export class MirrorNodeClient {
         let foundImmatureRecord = false;
 
         for (const contractObject of contractObjects) {
-          if (
-            contractObject &&
-            (contractObject.transaction_index == null ||
-              contractObject.block_number == null ||
-              contractObject.block_hash === constants.EMPTY_HEX)
-          ) {
-            // Found immature record, log the info, set flag and exit record traversal
+          if (!isImmatureContractRecord(contractObject)) continue;
+
+          // A record rejected by a Hedera-specific validation never reached the EVM, so it is never part of
+          // a block and no amount of polling can populate its block linkage. It is a final record, not an
+          // immature one: skip it so it neither triggers a retry nor holds up the rest of the batch.
+          if (Utils.isRejectedDueToHederaSpecificValidation(contractObject)) {
             if (this.logger.isLevelEnabled('debug')) {
               this.logger.debug(
-                `Contract result contains nullable transaction_index or block_number, or block_hash is an empty hex (0x): contract_result=%s. %s}`,
+                `Contract result was rejected before EVM execution and will never be part of a block; skipping immature-record polling: contract_result=%s`,
                 JSON.stringify(contractObject),
-                !isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : ``,
               );
             }
-
-            // If immature records persist after the final polling attempt, throw the DEPENDENT_SERVICE_IMMATURE_RECORDS error.
-            if (isLastAttempt) {
-              throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
-            }
-
-            foundImmatureRecord = true;
-            break;
+            continue;
           }
+
+          // Found immature record, log the info, set flag and exit record traversal
+          if (this.logger.isLevelEnabled('debug')) {
+            this.logger.debug(
+              `Contract result contains nullable transaction_index or block_number, or block_hash is an empty hex (0x): contract_result=%s. %s}`,
+              JSON.stringify(contractObject),
+              !isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : ``,
+            );
+          }
+
+          // If immature records persist after the final polling attempt, hand the record back when the
+          // caller opted in (it classifies the outcome itself), otherwise throw DEPENDENT_SERVICE_IMMATURE_RECORDS.
+          if (isLastAttempt) {
+            if (options.returnImmatureRecords) return contractResult;
+            throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
+          }
+
+          foundImmatureRecord = true;
+          break;
         }
 
         // if foundImmatureRecord is still false after record traversal, it means no immature record was found. Simply return contractResult to stop the polling process
@@ -1260,14 +1304,7 @@ export class MirrorNodeClient {
     attempt: number = 0,
   ): Promise<MirrorNodeContractLog[]> {
     const logResults = await fetchFn();
-    const hasImmatureRecords = logResults.some(
-      (log) =>
-        log &&
-        (log.transaction_index == null ||
-          log.block_number == null ||
-          log.index == null ||
-          log.block_hash === constants.EMPTY_HEX),
-    );
+    const hasImmatureRecords = logResults.some((log) => log && (isImmatureContractRecord(log) || log.index == null));
 
     if (hasImmatureRecords) {
       const isLastAttempt = attempt >= maxAttempts - 1;
@@ -1552,6 +1589,15 @@ export class MirrorNodeClient {
     return this.get(
       `${MirrorNodeClient.GET_TOKENS_ENDPOINT}/${tokenId}`,
       MirrorNodeClient.GET_TOKENS_ENDPOINT,
+      requestDetails,
+      retries,
+    );
+  }
+
+  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number): Promise<unknown> {
+    return this.get(
+      `${MirrorNodeClient.GET_SCHEDULES_ENDPOINT}/${scheduleId}`,
+      MirrorNodeClient.GET_SCHEDULES_ENDPOINT,
       requestDetails,
       retries,
     );
@@ -2052,7 +2098,15 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      return cachedResponse;
+      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
+      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
+      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
+      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
+      // safe to return.
+      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
+      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
+        return cachedResponse;
+      }
     }
 
     const buildPromise = (fn): Promise<unknown> =>
@@ -2109,9 +2163,19 @@ export class MirrorNodeClient {
           : Promise.reject(),
       );
 
+      promises.push(
+        searchableTypes.includes(constants.TYPE_SCHEDULE)
+          ? buildPromise(
+              this.getScheduleById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
+                return null;
+              }),
+            )
+          : Promise.reject(),
+      );
+
       // maps the promises with indices of the promises array
       // because there is no such method as Promise.anyWithIndex in js
-      // the index is needed afterward for detecting the resolved promise type (contract, account, or token)
+      // the index is needed afterward for detecting the resolved promise type (contract, account, token, or schedule)
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
     } catch {
@@ -2128,13 +2192,26 @@ export class MirrorNodeClient {
         type = constants.TYPE_TOKEN;
         break;
       }
+      case 2: {
+        type = constants.TYPE_SCHEDULE;
+        break;
+      }
     }
 
     const response = {
       type: type as string,
       entity: data.value as IMirrorNodeEntity,
     };
-    await this.cacheService.set(cachedLabel, response, callerName);
+
+    // An account's EIP-7702 / HIP-1340 delegation designator (`delegation_address`) is mutable: an EOA can set,
+    // change, or clear its delegation at any time. Caching a latest-state ACCOUNT entity would therefore serve a
+    // stale `delegation_address` to `eth_getCode` and hide delegation changes until the TTL expires. Contracts,
+    // tokens, and schedules are immutable, and historical (timestamped) account lookups reflect fixed state, so
+    // those remain safe to cache.
+    if (type !== constants.TYPE_ACCOUNT || timestamp) {
+      await this.cacheService.set(cachedLabel, response, callerName);
+    }
+
     return response;
   }
 
