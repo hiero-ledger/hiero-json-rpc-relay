@@ -133,11 +133,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 10000,
   },
-  CONTRACT_CALL_GAS_LIMIT: {
-    type: 'number',
-    required: false,
-    defaultValue: 50_000_000,
-  },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     type: 'number',
     required: false,
@@ -238,6 +233,7 @@ const _CONFIG = {
       'INVALID_SOLIDITY_ADDRESS',
       'MAX_GAS_LIMIT_EXCEEDED',
       'INVALID_FILE_ID',
+      'INVALID_ETHEREUM_TRANSACTION',
     ],
   },
   FEE_HISTORY_MAX_RESULTS: {
@@ -405,7 +401,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
-  MAX_TRANSACTION_FEE_THRESHOLD: {
+  MAX_TRANSACTION_GAS_LIMIT: {
     type: 'number',
     required: false,
     defaultValue: 15_000_000,
@@ -781,10 +777,30 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  TX_TYPE_4_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   TXPOOL_API_ENABLED: {
     type: 'boolean',
     required: false,
     defaultValue: false,
+  },
+  TX_STATUS_TRACING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  TX_STATUS_TRACING_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
+  TX_STATUS_TRACING_TTL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 900000,
   },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
