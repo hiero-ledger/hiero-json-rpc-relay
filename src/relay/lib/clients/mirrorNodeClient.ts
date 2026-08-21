@@ -65,6 +65,19 @@ export const isImmatureContractRecord = (
   record != null &&
   (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
 
+/**
+ * Whether a Mirror Node contract-result record belongs to a child  transaction rather than to a
+ * top-level ethereum one.
+ *
+ * Ethereum has no notion of a child transaction: an inner call has no hash and no receipt of its own, so
+ * these records are reported as not found rather than as a rejection.
+ *
+ * @param record - The contract result record to classify; null/undefined is not a child record.
+ * @returns True when the record carries neither an ethereum nonce nor a signature recovery id.
+ */
+export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
+  record != null && record.nonce == null && record.v == null;
+
 export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
