@@ -1078,6 +1078,16 @@ export class MirrorNodeClient {
             continue;
           }
 
+          if (isChildContractRecord(contractObject)) {
+            if (this.logger.isLevelEnabled('debug')) {
+              this.logger.debug(
+                `Contract result belongs to a child transaction and is never assigned an index; skipping polling: contract_result=%s`,
+                JSON.stringify(contractObject),
+              );
+            }
+            continue;
+          }
+
           // Found immature record, log the info, set flag and exit record traversal
           if (this.logger.isLevelEnabled('debug')) {
             this.logger.debug(
