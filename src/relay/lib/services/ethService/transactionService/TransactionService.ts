@@ -9,7 +9,7 @@ import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { isImmatureContractRecord, type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
@@ -31,7 +31,13 @@ import type {
   TypedEvents,
 } from '../../../types';
 import type HAPIService from '../../hapiService/hapiService';
-import type { IAccountService, ICommonService, LockService, TransactionPoolService } from '../../index';
+import type {
+  IAccountService,
+  ICommonService,
+  LockService,
+  TransactionPoolService,
+  TransactionTracingService,
+} from '../../index';
 import type { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -100,6 +106,13 @@ export class TransactionService implements ITransactionService {
   private readonly transactionPoolService: TransactionPoolService;
 
   /**
+   * Records each submitted transaction's lifecycle for status tracing; no-op when TX_STATUS_TRACING is off.
+   * @private
+   * @readonly
+   */
+  private readonly transactionTracingService: TransactionTracingService;
+
+  /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
    * @private
    */
@@ -120,6 +133,7 @@ export class TransactionService implements ITransactionService {
     transactionPoolService: TransactionPoolService,
     lockService: LockService,
     registry: Registry,
+    transactionTracingService: TransactionTracingService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -130,6 +144,7 @@ export class TransactionService implements ITransactionService {
     this.mirrorNodeClient = mirrorNodeClient;
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
+    this.transactionTracingService = transactionTracingService;
     this.lockService = lockService;
 
     const metricName = 'rpc_relay_wrong_nonce_errors_total';
@@ -207,6 +222,7 @@ export class TransactionService implements ITransactionService {
       await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
         this.mirrorNodeClient.getContractResult.name,
         [hash, requestDetails],
+        { returnImmatureRecords: true },
       );
 
     if (contractResult === null || contractResult.hash === undefined) {
@@ -226,6 +242,14 @@ export class TransactionService implements ITransactionService {
       }
 
       return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
+    }
+
+    // A record still immature after the full polling window belongs to a transaction rejected before
+    // execution: it will never be part of a block. Filter it out rather than serve a transaction whose
+    // block fields can never be filled in - `eth_getTransactionReceipt` carries the rejection detail.
+    if (isImmatureContractRecord(contractResult)) {
+      this.logger.trace(`immature (rejected) contract result filtered out for %s`, hash);
+      return null;
     }
 
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
@@ -254,17 +278,66 @@ export class TransactionService implements ITransactionService {
       await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
         this.mirrorNodeClient.getContractResult.name,
         [hash, requestDetails],
+        { returnImmatureRecords: true },
       );
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
-      return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
+      const syntheticReceipt = await this.handleSyntheticTransactionReceipt(hash, requestDetails);
+      if (syntheticReceipt) {
+        return syntheticReceipt;
+      }
+
+      // Mirror Node has nothing for this hash. When tracing is enabled, consult the store: a recorded
+      // rejected/timedout outcome surfaces as a -32003 error instead of an indistinguishable null.
+      const fallbackError = await this.transactionTracingService.getReceiptFallbackError(hash);
+      if (fallbackError) {
+        throw fallbackError;
+      }
+
+      return null;
     } else {
+      // A record still immature after the full polling window belongs to a transaction rejected before
+      // execution: no block linkage will ever be filled in, so no receipt can be built. Surface the
+      // rejection with its details instead of a half-populated receipt.
+      if (isImmatureContractRecord(receiptResponse)) {
+        throw await this.buildRejectedRecordError(hash, receiptResponse);
+      }
+
+      // Mirror Node reflected a receipt - upgrade any traced record to validated (admin-inspection only).
+      // Fire-and-forget so receipt latency isn't coupled to the tracing store.
+      void this.transactionTracingService.recordValidated(hash);
+
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
       this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
       return receipt;
     }
+  }
+
+  /**
+   * Builds the `-32003` error for a transaction the Mirror Node reflects as a permanently immature record,
+   * i.e. one rejected before execution. The Mirror Node record is authoritative for the Hedera status
+   * (`result`) and failure detail (`error_message`); a traced record, when the relay submitted the
+   * transaction itself, fills in whatever the record leaves blank plus the Hedera transaction id.
+   *
+   * @param hash The transaction hash
+   * @param record The immature contract result returned by the Mirror Node
+   * @returns {Promise<JsonRpcError>} A promise that resolves to the `-32003` rejection error
+   */
+  private async buildRejectedRecordError(hash: string, record: MirrorNodeContractResultDetails): Promise<JsonRpcError> {
+    const txHash = hash.toLowerCase();
+    const traced = await this.transactionTracingService.getByHash(hash);
+
+    return predefined.TRANSACTION_REJECTED_DETAILED({
+      txHash,
+      hederaStatus: record.result || traced?.hederaStatus,
+      detail:
+        record.error_message ||
+        traced?.error ||
+        'The transaction was rejected before execution and will never be included in a block.',
+      transactionId: traced?.transactionId,
+    });
   }
 
   /**
@@ -394,7 +467,12 @@ export class TransactionService implements ITransactionService {
       // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
       // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
       // return a wrong pending state.
-      throw predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(error as Error).message}`);
+      // Mirror Node ingress / pool persistence errors surface here as INTERNAL_ERROR - trace them as rejected.
+      // Recorded for admin inspection: this error is thrown synchronously to the client (before the async
+      // hash return), so the receipt fallback never consults it.
+      const rejection = predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(error as Error).message}`);
+      await this.transactionTracingService.recordRejected(parsedTx.hash!, { error: rejection.message });
+      throw rejection;
     } finally {
       // Release Lock 1 regardless of outcome so that the caller can retry immediately if it was a precheck failure,
       // or after a short wait if it was an MN or pool failure.
@@ -402,6 +480,14 @@ export class TransactionService implements ITransactionService {
         await this.lockService.releaseLock(ingressLockKey, ingressLockResult.sessionKey, ingressLockResult.acquiredAt);
       }
     }
+
+    // Trace the pending state - only meaningful when the tx pool write actually happened. Recorded here, not
+    // inside the try, so the write never holds Lock 1: `finally` has already released it, and reaching this
+    // point means saveTransaction succeeded because every failure path above throws.
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionTracingService.recordPending(parsedTx.hash!);
+    }
+
     return { balance: verifiedBalance };
   }
 
@@ -475,6 +561,10 @@ export class TransactionService implements ITransactionService {
       // of the processing mode, because there will be no submission attempt, and we need to unlock next transactions.
       shouldLockBeReleased = true;
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
+      // Stateful precheck / Mirror Node ingress failures before submission - trace as rejected.
+      // Recorded for admin inspection: this error is thrown synchronously to the client (before the async
+      // hash return), so the receipt fallback never consults it.
+      await this.transactionTracingService.recordRejected(parsedTx.hash!, { error: (error as Error).message });
       throw error;
     } finally {
       if (execLockResult && shouldLockBeReleased) {
@@ -743,7 +833,7 @@ export class TransactionService implements ITransactionService {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
 
-    const { error } = await this.submitTransaction(
+    const { submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,
       senderAddress,
       networkGasPriceInWeiBars,
@@ -753,6 +843,13 @@ export class TransactionService implements ITransactionService {
     // Release Lock 2 once CN responds, regardless of outcome for other transactions can start being processed ASAP
     if (execLockResult) {
       await this.lockService.releaseLock(execLockKey, execLockResult.sessionKey, execLockResult.acquiredAt);
+    }
+
+    // A clean submission (no error) means the CN accepted the transaction - trace the sent state,
+    // capturing the transaction id so the record is resolvable by id. Recorded after the lock release so a
+    // tracing-store write never holds the per-sender lock.
+    if (!error) {
+      await this.transactionTracingService.recordSent(parsedTx.hash!, submittedTransactionId || undefined);
     }
 
     const { error: submissionError, shouldPollAndCleanup } = await this.handleSubmissionError(
@@ -795,11 +892,26 @@ export class TransactionService implements ITransactionService {
     senderAddress: string,
     requestDetails: RequestDetails,
   ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
-    if (!error || !(error instanceof SDKClientError)) return { error: error ?? null, shouldPollAndCleanup: true };
+    // Success: nothing to trace here (the processor already recorded `sent`).
+    if (!error) return { error: null, shouldPollAndCleanup: true };
+
+    // Non-SDK submission error (e.g. INTERNAL_ERROR on a malformed transaction id): outcome unknown, so
+    // trace as timedout (provisional). Without this, an async-mode failure after the hash returned would
+    // be untraced and receipt polling would return null forever.
+    if (!(error instanceof SDKClientError)) {
+      await this.transactionTracingService.recordTimedout(parsedTx.hash!, { error: (error as Error).message });
+      return { error, shouldPollAndCleanup: true };
+    }
 
     this.hapiService.decrementErrorCounter(error.statusCode);
 
     if (error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout()) {
+      // Outcome unknown - the tx may still reach consensus within the validity window. Trace as timedout (provisional).
+      await this.transactionTracingService.recordTimedout(parsedTx.hash!, {
+        error: error.message,
+        hederaStatus: error.status?.toString(),
+        transactionId: error.transactionId || undefined,
+      });
       return { error, shouldPollAndCleanup: true };
     }
 
@@ -841,6 +953,14 @@ export class TransactionService implements ITransactionService {
       } else {
         preExecError = predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
       }
+
+      // Pre-execution rejection (WRONG_NONCE / TRANSACTION_REJECTED / NONCE_TOO_*) - trace it so a later
+      // receipt poll can surface the failure to a client holding only the hash.
+      await this.transactionTracingService.recordRejected(parsedTx.hash!, {
+        error: preExecError.message,
+        hederaStatus: error.status.toString(),
+        transactionId: error.transactionId || undefined,
+      });
 
       // pre-execution failure would not have moved the nonce, safe to roll back and clean up here without needing to poll MN for certainty
       await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized);
@@ -935,6 +1055,7 @@ export class TransactionService implements ITransactionService {
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result?.hash) {
+          await this.transactionTracingService.recordValidated(txHash);
           await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
           return;
         }

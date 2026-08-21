@@ -875,11 +875,10 @@ describe('MirrorNodeClient', async function () {
     const hash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6399';
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -898,11 +897,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, transaction_index: undefined }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -921,11 +919,10 @@ describe('MirrorNodeClient', async function () {
       );
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -942,11 +939,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_number: undefined }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -962,11 +958,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_hash: '0x' }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.block_hash).equal(detailedContractResult.block_hash);
     expect(mock.history.get.length).to.eq(2);
@@ -989,11 +984,10 @@ describe('MirrorNodeClient', async function () {
 
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
       requestDetails,
-    );
+    ]);
     expect(result).to.exist;
     expect(result.transaction_index).equal(detailedContractResult.transaction_index);
     expect(result.block_number).equal(detailedContractResult.block_number);
@@ -1017,17 +1011,63 @@ describe('MirrorNodeClient', async function () {
     }, mock);
 
     try {
-      await mirrorNodeInstance.getContractResultWithRetry(
-        mirrorNodeInstance.getContractResult.name,
-        [hash, requestDetails],
+      await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+        hash,
         requestDetails,
-      );
+      ]);
       expect.fail('should have thrown an error');
     } catch (error) {
       expect(error).to.exist;
       expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
     }
 
+    expect(mock.history.get.length).to.eq(10);
+  });
+
+  it('`getContractResultsWithRetry` should not poll a record rejected by a Hedera-specific validation', async () => {
+    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6394';
+    mock.onGet(`contracts/results/${hash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...detailedContractResult,
+        transaction_index: null,
+        block_number: null,
+        block_hash: '0x',
+        result: 'WRONG_NONCE',
+      }),
+    );
+
+    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
+      hash,
+      requestDetails,
+    ]);
+
+    expect(result.result).to.eq('WRONG_NONCE');
+    expect(result.block_number).to.be.null;
+    expect(mock.history.get.length).to.eq(1);
+  });
+
+  it('`getContractResultsWithRetry` should return the immature record when the caller opts in', async () => {
+    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6395';
+    const immatureRecord = {
+      ...detailedContractResult,
+      transaction_index: null,
+      block_number: null,
+      block_hash: '0x',
+      result: 'INSUFFICIENT_PAYER_BALANCE',
+    };
+    [...Array(10)].reduce((mockChain) => {
+      return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(200, JSON.stringify(immatureRecord));
+    }, mock);
+
+    const result = await mirrorNodeInstance.getContractResultWithRetry(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+      { returnImmatureRecords: true },
+    );
+
+    expect(result.result).to.eq('INSUFFICIENT_PAYER_BALANCE');
+    expect(result.block_number).to.be.null;
     expect(mock.history.get.length).to.eq(10);
   });
 

@@ -24,6 +24,7 @@ import {
   type LockService,
   type TransactionPoolService,
   TransactionService,
+  type TransactionTracingService,
 } from './services';
 import { FeeService } from './services/ethService/feeService/FeeService';
 import { type IFeeService } from './services/ethService/feeService/IFeeService';
@@ -122,6 +123,7 @@ export class EthImpl implements Eth {
    * @param {TransactionPoolService} transactionPoolService - Service managing the pending transaction pool.
    * @param {LockService} lockService - Service providing per-address locking for nonce ordering.
    * @param {Registry} registry - Prometheus registry for metrics.
+   * @param {TransactionTracingService} transactionTracingService - Service recording submitted transaction lifecycle for status tracing.
    */
   constructor(
     hapiService: HAPIService,
@@ -132,6 +134,7 @@ export class EthImpl implements Eth {
     transactionPoolService: TransactionPoolService,
     lockService: LockService,
     registry: Registry,
+    transactionTracingService: TransactionTracingService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -161,6 +164,7 @@ export class EthImpl implements Eth {
       transactionPoolService,
       lockService,
       registry,
+      transactionTracingService,
     );
   }
 
