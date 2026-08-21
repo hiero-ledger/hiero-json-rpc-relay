@@ -3,7 +3,6 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import { predefined } from '../../../../src/relay';
 import { Transaction, Transaction1559, Transaction2930 } from '../../../../src/relay/lib/model';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
@@ -277,61 +276,53 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     expect(result!.v).to.eq('0x0');
   });
 
-  it('should throw an error if transaction_index is falsy', async function () {
-    const detailedResultsWithNullNullableValues = {
-      ...defaultDetailedContractResultByHash,
-      transaction_index: undefined,
-    };
-    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640534';
+  const immatureCases: { title: string; overrides: Record<string, unknown>; uniqueTxHash: string }[] = [
+    {
+      title: 'transaction_index is falsy',
+      overrides: { transaction_index: undefined },
+      uniqueTxHash: '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640534',
+    },
+    {
+      title: 'block_number is falsy',
+      overrides: { block_number: undefined },
+      uniqueTxHash: '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640511',
+    },
+    {
+      title: 'transaction_index and block_number are falsy',
+      overrides: { block_number: undefined, transaction_index: undefined },
+      uniqueTxHash: '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640511',
+    },
+    {
+      title: 'block_hash is an empty hex',
+      overrides: { block_hash: '0x' },
+      uniqueTxHash: '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640512',
+    },
+  ];
 
-    restMock
-      .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
-      .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
+  immatureCases.forEach(({ title, overrides, uniqueTxHash }) => {
+    it(`should filter out the transaction if ${title}`, async function () {
+      restMock
+        .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
+        .reply(200, JSON.stringify({ ...defaultDetailedContractResultByHash, result: 'WRONG_NONCE', ...overrides }));
 
-    try {
-      await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-      expect.fail('should have thrown an error');
-    } catch (error) {
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
-    }
+      expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
+    });
   });
 
-  it('should throw an error if block_number is falsy', async function () {
-    const detailedResultsWithNullNullableValues = {
-      ...defaultDetailedContractResultByHash,
-      block_number: undefined,
-    };
-    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640511';
+  it('should filter out the transaction if it stays immature for the whole polling window', async function () {
+    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640513';
 
-    restMock
-      .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
-      .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
-    try {
-      await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-      expect.fail('should have thrown an error');
-    } catch (error) {
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
-    }
-  });
+    restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        block_number: undefined,
+        transaction_index: undefined,
+        result: 'INSUFFICIENT_PAYER_BALANCE',
+      }),
+    );
 
-  it('should throw an error if transaction_index and block_number are falsy', async function () {
-    const detailedResultsWithNullNullableValues = {
-      ...defaultDetailedContractResultByHash,
-      block_number: undefined,
-      transaction_index: undefined,
-    };
-
-    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640511';
-
-    restMock
-      .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
-      .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
-    try {
-      await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-      expect.fail('should have thrown an error');
-    } catch (error) {
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
-    }
+    expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
   });
 
   it('returns reverted transactions', async function () {
