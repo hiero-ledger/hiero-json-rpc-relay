@@ -73,8 +73,12 @@ export class LocalLRUCache implements ICacheClient {
    * @param {Logger} logger - The logger instance to be used for logging.
    * @param {Registry} register - The registry instance used for metrics tracking.
    * @param {Set<string>} reservedKeys - These are the cache keys delegated to the reserved cache.
+   * @param {number} maxEntries - Overrides the shared `CACHE_MAX` bound for this instance only.
    */
-  public constructor(logger: Logger, register: Registry, reservedKeys: Set<string> = new Set()) {
+  public constructor(logger: Logger, register: Registry, reservedKeys: Set<string> = new Set(), maxEntries?: number) {
+    if (maxEntries !== undefined && maxEntries > 0) {
+      this.options.max = maxEntries;
+    }
     this.cache = new LRUCache(this.options);
     this.logger = logger;
     this.reservedKeys = reservedKeys;
