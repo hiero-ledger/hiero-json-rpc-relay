@@ -22,6 +22,14 @@ import { type IFilterService } from './IFilterService';
  * @param registry
  * @param cacheService
  */
+
+/** A filter as stored in the cache: log filters carry `INewFilterParams`, block filters carry `blockAtCreation`. */
+type CachedFilter = {
+  type: string;
+  params: INewFilterParams & { blockAtCreation?: string };
+  lastQueried: number | null;
+};
+
 export class FilterService implements IFilterService {
   /**
    * The interface through which we interact with the mirror node
@@ -83,7 +91,7 @@ export class FilterService implements IFilterService {
   private async updateFilterCache(
     filterId: string,
     type: string,
-    params: any,
+    params: CachedFilter['params'],
     lastQueried: number | null,
     method: string,
   ): Promise<void> {
@@ -96,9 +104,9 @@ export class FilterService implements IFilterService {
    * @param filterId
    * @param method
    */
-  private async getFilterFromCache(filterId: string, method: string): Promise<any> {
+  private async getFilterFromCache(filterId: string, method: string): Promise<CachedFilter | null> {
     const cacheKey = this.getCacheKey(filterId);
-    return await this.cacheService.getAsync(cacheKey, method);
+    return await this.cacheService.getAsync<CachedFilter>(cacheKey, method);
   }
 
   /**
@@ -106,7 +114,7 @@ export class FilterService implements IFilterService {
    * @param type
    * @param params
    */
-  async createFilter(type: string, params: any): Promise<string> {
+  async createFilter(type: string, params: CachedFilter['params']): Promise<string> {
     const filterId = prepend0x(trimPrecedingZeros(generateRandomHex()) ?? '0');
     await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter);
 
@@ -183,14 +191,8 @@ export class FilterService implements IFilterService {
       throw predefined.FILTER_NOT_FOUND;
     }
 
-    const logs = await this.common.getLogs(
-      null,
-      filter?.params.fromBlock,
-      filter?.params.toBlock,
-      filter?.params.address,
-      filter?.params.topics,
-      requestDetails,
-    );
+    const { fromBlock, toBlock, address, topics } = filter.params as Required<INewFilterParams>;
+    const logs = await this.common.getLogs(null, fromBlock, toBlock, address, topics, requestDetails);
 
     // update filter to refresh TTL
     await this.updateFilterCache(filterId, filter.type, filter.params, filter.lastQueried, this.ethGetFilterChanges);
@@ -205,15 +207,16 @@ export class FilterService implements IFilterService {
    * @private
    */
   private async handleLogFilterChanges(
-    filter: any,
+    filter: CachedFilter,
     requestDetails: RequestDetails,
   ): Promise<{ result: Log[]; latestBlockNumber: number }> {
+    const { fromBlock, toBlock, address, topics } = filter.params as Required<INewFilterParams>;
     const result = await this.common.getLogs(
       null,
-      filter?.lastQueried || filter?.params.fromBlock,
-      filter?.params.toBlock,
-      filter?.params.address,
-      filter?.params.topics,
+      String(filter?.lastQueried || fromBlock),
+      toBlock,
+      address,
+      topics,
       requestDetails,
     );
 
@@ -234,7 +237,7 @@ export class FilterService implements IFilterService {
    * @private
    */
   private async handleNewBlockFilterChanges(
-    filter: any,
+    filter: CachedFilter,
     requestDetails: RequestDetails,
   ): Promise<{ result: string[]; latestBlockNumber: number }> {
     const blockResponse = await this.mirrorNodeClient.getBlocks(

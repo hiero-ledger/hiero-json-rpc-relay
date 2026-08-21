@@ -11,7 +11,7 @@ import { getMultipleAddressesEnabled } from './utils';
 
 interface EthSubscribeLogsParams {
   address?: string | string[];
-  topics?: any[];
+  topics?: unknown[];
 }
 
 /**

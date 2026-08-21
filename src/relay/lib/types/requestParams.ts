@@ -10,12 +10,15 @@
  * @param address - Contract address or list of addresses to filter logs by. If null, logs are not filtered by address.
  * @param topics - Array of topics to filter logs by. If null, logs are not filtered by topics.
  */
+/** A single `topics` entry: an exact match, a set of alternatives, or a wildcard. */
+export type LogTopic = string | string[] | null;
+
 export interface IGetLogsParams {
   blockHash: string | null;
   fromBlock: string | 'latest';
   toBlock: string | 'latest';
   address: string | string[] | null;
-  topics: any[] | null;
+  topics: LogTopic[] | null;
 }
 
 /**
@@ -31,5 +34,5 @@ export interface INewFilterParams {
   fromBlock?: string | 'latest';
   toBlock?: string | 'latest';
   address?: string | string[];
-  topics?: any[];
+  topics?: LogTopic[];
 }

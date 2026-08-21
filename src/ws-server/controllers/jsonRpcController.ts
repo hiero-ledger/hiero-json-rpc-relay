@@ -21,7 +21,7 @@ import { handleEthUnsubscribe } from './unsubscribeController';
 export type ISharedParams = {
   request: IJsonRpcRequest;
   method: string;
-  params: any[];
+  params: unknown[];
   relay: Relay;
   logger: Logger;
   limiter: ConnectionLimiter;
@@ -94,7 +94,7 @@ export const getRequestResult = async (
   wsMetricRegistry: WsMetricRegistry,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
-): Promise<any> => {
+): Promise<IJsonRpcResponse> => {
   // Extract the method and parameters from the received request
   // eslint-disable-next-line prefer-const
   let { method, params } = request;
@@ -159,7 +159,7 @@ export const getRequestResult = async (
         // since unsupported methods have already been captured, the methods fall into this default block will always be valid and supported methods.
         response = await handleSendingRequestsToRelay({ ...sharedParams });
     }
-  } catch (error: any) {
+  } catch (error) {
     logger.warn(
       error,
       `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,
@@ -169,7 +169,7 @@ export const getRequestResult = async (
     if (error instanceof JsonRpcError) {
       jsonRpcError = error;
     } else {
-      jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
+      jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify((error as Error).message || error));
     }
 
     response = jsonRespError(request.id, jsonRpcError, requestDetails.requestId);

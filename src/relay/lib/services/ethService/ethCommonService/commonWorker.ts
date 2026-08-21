@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Log } from '../../../model';
-import { type RequestDetails } from '../../../types';
+import { type IContractLogsResultsParams, type RequestDetails } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
 import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 
@@ -11,13 +12,13 @@ export async function getLogs(
   fromBlock: string | 'latest',
   toBlock: string | 'latest',
   address: string | string[] | null,
-  topics: any[] | null,
+  topics: LogTopic[] | null,
   requestDetails: RequestDetails,
 ): Promise<Log[]> {
   const { commonService } = ctx;
   try {
     const EMPTY_RESPONSE = [];
-    const params: any = {};
+    const params: IContractLogsResultsParams = {};
     const sliceCountWrapper = { value: 1 };
 
     if (blockHash) {

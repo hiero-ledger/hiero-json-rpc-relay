@@ -60,16 +60,16 @@ export class RpcMethodDispatcher {
    */
   public async dispatch(
     rpcMethodName: string,
-    rpcMethodParams: any[] = [],
+    rpcMethodParams: unknown[] = [],
     requestDetails: RequestDetails,
-  ): Promise<any | JsonRpcError> {
+  ): Promise<unknown> {
     try {
       /////////////////////////////// Pre-execution Phase ///////////////////////////////
       const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams);
 
       /////////////////////////////// Execution Phase ///////////////////////////////
       return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
-    } catch (error: any) {
+    } catch (error) {
       /////////////////////////////// Error Handling Phase ///////////////////////////////
       return this.handleRpcMethodError(error, rpcMethodName);
     }
@@ -87,7 +87,7 @@ export class RpcMethodDispatcher {
    * @returns The operation handler for the requested method
    * @throws {JsonRpcError} If the method doesn't exist or parameters are invalid
    */
-  private precheckRpcMethod(rpcMethodName: string, rpcMethodParams: any[]): OperationHandler {
+  private precheckRpcMethod(rpcMethodName: string, rpcMethodParams: unknown[]): OperationHandler {
     // Validate RPC method existence
     const operationHandler = this.methodRegistry.get(rpcMethodName);
 
@@ -128,9 +128,9 @@ export class RpcMethodDispatcher {
    */
   private async processRpcMethod(
     operationHandler: OperationHandler,
-    rpcMethodParams: any[],
+    rpcMethodParams: unknown[],
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Rearrange the parameters as needed for the specific operation handler
     const rearrangedParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
@@ -163,8 +163,8 @@ export class RpcMethodDispatcher {
    * @param rpcMethodName - The name of the RPC method that failed
    * @returns A JsonRpcError instance with appropriate error code, message and request ID
    */
-  private handleRpcMethodError(error: any, rpcMethodName: string): JsonRpcError {
-    const errorMessage = error?.message?.toString() || 'Unknown error';
+  private handleRpcMethodError(error: unknown, rpcMethodName: string): JsonRpcError {
+    const errorMessage = (error as { message?: unknown })?.message?.toString() || 'Unknown error';
     this.logger.error(`Error executing method: rpcMethodName=%s, error=%s`, rpcMethodName, errorMessage);
 
     // If error is already a JsonRpcError, use it directly

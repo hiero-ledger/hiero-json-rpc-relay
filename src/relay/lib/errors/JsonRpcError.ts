@@ -129,9 +129,9 @@ export const predefined = {
     }),
   TIMESTAMP_RANGE_TOO_LARGE: (
     fromBlock: string,
-    fromTimestamp: number,
+    fromTimestamp: string | number,
     toBlock: string,
-    toTimestamp: number,
+    toTimestamp: string | number,
   ): JsonRpcError =>
     new JsonRpcError({
       code: -32004,

@@ -273,7 +273,7 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult> {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -291,13 +291,16 @@ export class DebugImpl implements Debug {
       const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage', 'fullStorage'];
       const filteredConfig = Object.keys(topLevelConfig)
         .filter((key) => validOpcodeLoggerKeys.includes(key))
-        .reduce((obj, key) => {
-          // Filter out non-standard parameters that shouldn't be passed to the actual tracer
-          if (key !== 'fullStorage') {
-            obj[key] = topLevelConfig[key];
-          }
-          return obj;
-        }, {} as any);
+        .reduce(
+          (obj, key) => {
+            // Filter out non-standard parameters that shouldn't be passed to the actual tracer
+            if (key !== 'fullStorage') {
+              obj[key] = topLevelConfig[key];
+            }
+            return obj;
+          },
+          {} as Record<string, unknown>,
+        );
 
       if (Object.keys(filteredConfig).length > 0) {
         tracerConfig = filteredConfig;
@@ -473,11 +476,11 @@ export class DebugImpl implements Debug {
    * Formats the result from the actions endpoint to the expected response
    *
    * @async
-   * @param {any} result - The response from the actions endpoint.
+   * @param {ContractAction[]} result - The response from the actions endpoint.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<[] | any>} The formatted actions response in an array.
+   * @returns {Promise<CallTracerResult[]>} The formatted actions response in an array.
    */
-  async formatActionsResult(result: any, requestDetails: RequestDetails): Promise<[] | any> {
+  async formatActionsResult(result: ContractAction[], requestDetails: RequestDetails): Promise<CallTracerResult[]> {
     return await Promise.all(
       result.map(async (action, index) => {
         const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
@@ -685,10 +688,10 @@ export class DebugImpl implements Debug {
     if (!preFetchedTransactionsResponse && !preFetchedActionsResponse) {
       [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
-          transactionHash,
-          requestDetails,
-        ]),
+        this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult>(
+          this.mirrorNodeClient.getContractResult.name,
+          [transactionHash, requestDetails],
+        ),
       ]);
     }
 
@@ -786,7 +789,7 @@ export class DebugImpl implements Debug {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
-    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name);
+    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(cacheKey, this.prestateTracer.name);
     if (cachedResult) {
       return cachedResult;
     }
@@ -796,10 +799,10 @@ export class DebugImpl implements Debug {
     if (!preFetchedContractResult && !preFetchedActionsResponse) {
       [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
-          transactionHash,
-          requestDetails,
-        ]),
+        this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult>(
+          this.mirrorNodeClient.getContractResult.name,
+          [transactionHash, requestDetails],
+        ),
       ]);
     }
 
@@ -870,8 +873,8 @@ export class DebugImpl implements Debug {
 
             // Fetch balance and state concurrently
             const [balanceResponse, stateResponse] = await Promise.all([
-              this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
-              this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getBalanceAtTimestamp(contractId!, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getContractState(contractId!, requestDetails, accountEntity.timestamp),
             ]);
 
             // Build storage map from state items
@@ -882,15 +885,15 @@ export class DebugImpl implements Debug {
 
             // Add contract data to result
             result[evmAddress] = {
-              balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
-              nonce: entityObject.entity.nonce,
-              code: entityObject.entity.runtime_bytecode,
+              balance: numberTo0x(balanceResponse!.balances[0]?.balance ?? 0),
+              nonce: entityObject.entity.nonce!,
+              code: entityObject.entity.runtime_bytecode!,
               storage: storageMap,
             };
           } else if (entityObject.type === constants.TYPE_ACCOUNT) {
             result[evmAddress] = {
-              balance: numberTo0x(entityObject.entity.balance?.balance || '0'),
-              nonce: entityObject.entity.ethereum_nonce,
+              balance: numberTo0x(entityObject.entity.balance?.balance ?? 0),
+              nonce: entityObject.entity.ethereum_nonce!,
               code: '0x',
               storage: {},
             };

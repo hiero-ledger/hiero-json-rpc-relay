@@ -70,8 +70,11 @@ export type GetTypeOfConfigKey<K extends string> =
 export interface ConfigProperty {
   type: 'string' | 'number' | 'boolean' | 'strArray' | 'numArray'; // Updated types
   required: boolean; // Whether the property is required
-  defaultValue: string | number | boolean | readonly string[] | readonly number[] | null; // Default value (if any)
+  defaultValue: ConfigValue | null; // Default value (if any)
 }
+
+/** A configuration value after type casting from its raw environment string. */
+export type ConfigValue = string | number | boolean | readonly string[] | readonly number[];
 
 /**
  * Configuration object defining various properties and their metadata.

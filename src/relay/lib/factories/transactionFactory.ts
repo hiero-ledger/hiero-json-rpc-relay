@@ -22,9 +22,12 @@ import {
 } from '../model';
 import { type MirrorNodeContractResult } from '../types/mirrorNode';
 
+// Every model takes the full Transaction shape; the type-specific extras are optional as only some types use them.
+type TransactionFields = Transaction & Partial<Transaction7702>;
+
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number | null, fields: any): Transaction | null {
+  public static createTransactionByType(type: number | null, fields: TransactionFields): Transaction | null {
     switch (type) {
       case 0:
         return new Transaction(fields); // eip 155 fields
@@ -129,8 +132,10 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
 const formatAccessList = (accessList: unknown): AccessListEntry[] =>
   accessList && Array.isArray(accessList)
     ? accessList
-        .filter((item: unknown) => item !== null && typeof item === 'object')
-        .map((item: any) => ({
+        .filter((item: unknown): item is { address?: unknown; storage_keys?: string[] } => {
+          return item !== null && typeof item === 'object';
+        })
+        .map((item) => ({
           address: formatAddress(item.address),
           // MN v0.156+ guarantees 32-byte padded storage keys, so normalization is intentionally skipped.
           storageKeys: item.storage_keys ?? [],
@@ -156,10 +161,10 @@ const formatAddress = (address: unknown): string => {
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
- * @param {any} gasFee - The raw gas price value (hex or number).
+ * @param {unknown} gasFee - The raw gas price value (hex or number).
  * @returns {string} The formatted gas fee as a 0x-prefixed hex string.
  */
-const formatGasFee = (gasFee: any): string =>
+const formatGasFee = (gasFee: unknown): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
 
 /**
@@ -217,5 +222,5 @@ export const createTransactionFromContractResult = (cr: MirrorNodeContractResult
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
     accessList: cr.access_list,
-  });
+  } as TransactionFields);
 };

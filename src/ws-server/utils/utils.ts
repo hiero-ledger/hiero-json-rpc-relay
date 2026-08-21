@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type Koa from 'koa';
 import type { Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
@@ -9,24 +10,24 @@ import type { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcReques
 import { type IJsonRpcResponse, jsonRespError } from '../../server/koaJsonRpc/lib/RpcResponse';
 import type ConnectionLimiter from '../metrics/connectionLimiter';
 import type WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { type SubscriptionService } from '../service/subscriptionService';
+import { type SubscriberConnection, type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from './constants';
 
-const hasOwnProperty = (obj: any, prop: any): boolean => Object.prototype.hasOwnProperty.call(obj, prop);
+const hasOwnProperty = (obj: object, prop: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(obj, prop);
 const getRequestIdIsOptional = (): boolean => {
   return ConfigService.get('REQUEST_ID_IS_OPTIONAL');
 };
 
 /**
  * Handles the closure of a WebSocket connection.
- * @param {any} ctx - The context object containing information about the WebSocket connection.
+ * @param {Koa.Context} ctx - The context object containing information about the WebSocket connection.
  * @param {Relay} relay - The relay instance used for handling subscriptions.
  * @param {ConnectionLimiter} limiter - The limiter instance used for managing connection limits.
  * @param {WsMetricRegistry} wsMetricRegistry - The metric registry used for tracking WebSocket metrics.
  * @param {[number, number]} startTime - The start time of the connection represented as a tuple of seconds and nanoseconds.
  */
 export const handleConnectionClose = async (
-  ctx: any,
+  ctx: Koa.Context,
   subscriptionService: SubscriptionService,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
@@ -63,14 +64,14 @@ export const handleConnectionClose = async (
 /**
  * Sends a JSON-RPC response message to the client WebSocket connection.
  * Resets the TTL timer for inactivity on the client connection.
- * @param {any} connection - The WebSocket connection object to the client.
+ * @param {SubscriberConnection} connection - The WebSocket connection object to the client.
  * @param {IJsonRpcRequest | IJsonRpcRequest[]} request - The request object received from the client.
  * @param {IJsonRpcResponse | IJsonRpcResponse[]} response - The response data to be sent back to the client.
  * @param {Logger} logger - The logger object used for logging messages.
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
  */
 export const sendToClient = (
-  connection: any,
+  connection: SubscriberConnection,
   request: IJsonRpcRequest | IJsonRpcRequest[],
   response: IJsonRpcResponse | IJsonRpcResponse[],
   logger: Logger,
@@ -170,10 +171,10 @@ export const areSubscriptionsEnabled = (): boolean => {
 
 /**
  * Constructs a valid log subscription filter from the provided filters, retaining only the 'address' and 'topics' fields while discarding any unexpected parameters.
- * @param {any} filters - The filters to construct the subscription filter from.
+ * @param {object} filters - The filters to construct the subscription filter from.
  * @returns {Object} A valid log subscription filter object.
  */
-export const constructValidLogSubscriptionFilter = (filters: any): object => {
+export const constructValidLogSubscriptionFilter = (filters: object): object => {
   return Object.fromEntries(
     Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
   );

@@ -43,14 +43,17 @@ interface CacheOptions {
  *   @cache(ICacheClient, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T = 'cacheService' as keyof T) {
-  return function (target: any, context: ClassMethodDecoratorContext<T>) {
+  return function <A extends unknown[], R>(
+    target: (this: T, ...args: A) => Promise<R>,
+    context: ClassMethodDecoratorContext<T>,
+  ) {
     const methodName = String(context.name);
 
-    return async function (this: T, ...args: unknown[]): Promise<any> {
+    return async function (this: T, ...args: A): Promise<R> {
       const cacheKey = generateCacheKey(methodName, args);
       const cacheService = this[cacheServiceProp] as ICacheClient;
 
-      const cachedResponse = await cacheService.getAsync(cacheKey, methodName);
+      const cachedResponse = await cacheService.getAsync<R>(cacheKey, methodName);
       if (cachedResponse) return cachedResponse;
 
       const result = await target.apply(this, args);

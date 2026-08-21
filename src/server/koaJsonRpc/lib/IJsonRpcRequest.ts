@@ -4,5 +4,5 @@ export interface IJsonRpcRequest {
   id: string | number;
   jsonrpc: '2.0';
   method: string;
-  params?: any[];
+  params?: unknown[];
 }

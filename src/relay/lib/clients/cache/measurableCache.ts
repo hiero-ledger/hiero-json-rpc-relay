@@ -58,8 +58,8 @@ export class MeasurableCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.decoratedCacheClient.get(key, callingMethod);
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
+    return this.decoratedCacheClient.get<T>(key, callingMethod);
   }
 
   /**
@@ -70,9 +70,9 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async get(key: string, callingMethod: string): Promise<any> {
+  public async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.GET);
-    return await this.decoratedCacheClient.get(key, callingMethod);
+    return await this.decoratedCacheClient.get<T>(key, callingMethod);
   }
 
   /**
@@ -84,7 +84,7 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @param ttl - Time to live for the cached value in milliseconds (optional).
    */
-  public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+  public async set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.SET);
     return await this.decoratedCacheClient.set(key, value, callingMethod, ttl);
   }
@@ -142,9 +142,9 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The list of elements in the range
    */
-  public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
+  public async lRange<T = unknown>(key: string, start: number, end: number, callingMethod: string): Promise<T[]> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.LRANGE);
-    return await this.decoratedCacheClient.lRange(key, start, end, callingMethod);
+    return await this.decoratedCacheClient.lRange<T>(key, start, end, callingMethod);
   }
 
   /**
@@ -156,7 +156,7 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The length of the list after pushing
    */
-  public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+  public async rPush(key: string, value: unknown, callingMethod: string): Promise<number> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.RPUSH);
     return await this.decoratedCacheClient.rPush(key, value, callingMethod);
   }

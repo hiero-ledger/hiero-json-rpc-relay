@@ -8,7 +8,11 @@ import { ConfigService } from '../../../../config-service/services';
 import { Utils } from '../../../utils';
 import type { ICacheClient } from './ICacheClient';
 
-type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache.OptionsTTLLimit<string, any, unknown>;
+/** lru-cache reserves `undefined` for misses, so its value type must be non-nullish. */
+type CacheValue = NonNullable<unknown>;
+
+type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, CacheValue, unknown> &
+  LRUCache.OptionsTTLLimit<string, CacheValue, unknown>;
 
 /**
  * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
@@ -37,7 +41,7 @@ export class LocalLRUCache implements ICacheClient {
    *
    * @private
    */
-  private readonly cache: LRUCache<string, any>;
+  private readonly cache: LRUCache<string, CacheValue>;
 
   /**
    * The logger used for logging all output from this class.
@@ -62,7 +66,7 @@ export class LocalLRUCache implements ICacheClient {
    *
    * @private
    */
-  private readonly reservedCache?: LRUCache<string, any>;
+  private readonly reservedCache?: LRUCache<string, CacheValue>;
 
   /**
    * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
@@ -123,8 +127,8 @@ export class LocalLRUCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.get(key, callingMethod);
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
+    return this.get<T>(key, callingMethod);
   }
 
   /**
@@ -134,7 +138,7 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async get(key: string, callingMethod: string): Promise<any> {
+  public async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
@@ -145,7 +149,7 @@ export class LocalLRUCache implements ICacheClient {
         const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
         this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
       }
-      return value;
+      return value as T;
     }
 
     return null;
@@ -175,14 +179,14 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @param ttl - Time to live for the cached value in milliseconds (optional).
    */
-  public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+  public async set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void> {
     const prefixedKey = this.prefixKey(key);
     const resolvedTtl = ttl ?? this.options.ttl;
     const cache = this.getCacheInstance(key);
     if (resolvedTtl > 0) {
-      cache.set(prefixedKey, value, { ttl: resolvedTtl });
+      cache.set(prefixedKey, value as CacheValue, { ttl: resolvedTtl });
     } else {
-      cache.set(prefixedKey, value, { ttl: 0 }); // 0 means indefinite time
+      cache.set(prefixedKey, value as CacheValue, { ttl: 0 }); // 0 means indefinite time
     }
     if (this.logger.isLevelEnabled('trace')) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -278,7 +282,7 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The value of the key after incrementing
    */
   public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    const value = await this.get(key, callingMethod);
+    const value = (await this.get<number>(key, callingMethod)) ?? 0;
     const newValue = value + amount;
     const remainingTtl = await this.getRemainingTtl(key, callingMethod);
     await this.set(key, newValue, callingMethod, remainingTtl);
@@ -294,8 +298,8 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The list of elements in the range
    */
-  public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
-    const values = (await this.get(key, callingMethod)) ?? [];
+  public async lRange<T = unknown>(key: string, start: number, end: number, callingMethod: string): Promise<T[]> {
+    const values = (await this.get<T[]>(key, callingMethod)) ?? [];
     if (!Array.isArray(values)) {
       throw new Error(`Value at key ${key} is not an array`);
     }
@@ -313,8 +317,8 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The length of the list after pushing
    */
-  public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
-    const values = (await this.get(key, callingMethod)) ?? [];
+  public async rPush(key: string, value: unknown, callingMethod: string): Promise<number> {
+    const values = (await this.get<unknown[]>(key, callingMethod)) ?? [];
     if (!Array.isArray(values)) {
       throw new Error(`Value at key ${key} is not an array`);
     }
@@ -333,7 +337,7 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The selected cache instance
    * @private
    */
-  private getCacheInstance(key: string): LRUCache<string, any> {
+  private getCacheInstance(key: string): LRUCache<string, CacheValue> {
     return this.reservedCache && this.reservedKeys.has(key) ? this.reservedCache : this.cache;
   }
 }

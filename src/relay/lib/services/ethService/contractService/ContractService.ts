@@ -136,12 +136,12 @@ export class ContractService implements IContractService {
       }
 
       return result;
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof JsonRpcError) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
-      throw predefined.INTERNAL_ERROR(e.message.toString());
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
     }
   }
 
@@ -169,12 +169,12 @@ export class ContractService implements IContractService {
       }
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof JsonRpcError) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
-      throw predefined.INTERNAL_ERROR(e.message.toString());
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
     }
   }
 
@@ -210,7 +210,7 @@ export class ContractService implements IContractService {
       if (result) {
         const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
         const entityCreatedTimestamp = result.entity?.created_timestamp ?? result.entity?.consensus_timestamp;
-        if (!blockInfo || parseFloat(entityCreatedTimestamp) > parseFloat(blockInfo.timestamp.to)) {
+        if (!blockInfo || parseFloat(entityCreatedTimestamp as string) > parseFloat(blockInfo.timestamp.to)) {
           return constants.EMPTY_HEX;
         }
         if (result.type === constants.TYPE_TOKEN) {
@@ -227,7 +227,7 @@ export class ContractService implements IContractService {
           return CommonService.getDelegationDesignator(constants.HSS_ADDRESS);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
-            return result.entity.runtime_bytecode;
+            return result.entity.runtime_bytecode!;
           }
         } else if (result.type === constants.TYPE_ACCOUNT) {
           const delegatedHex = ContractService.delegationAddressFromMirrorAccount(result.entity);
@@ -244,12 +244,12 @@ export class ContractService implements IContractService {
       );
 
       return constants.EMPTY_HEX;
-    } catch (error: any) {
+    } catch (error) {
       this.logger.error(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,
         blockNumber,
-        error.message,
+        (error as Error).message,
       );
       throw error;
     }
@@ -306,7 +306,7 @@ export class ContractService implements IContractService {
           result = response.state[0].value;
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         throw this.common.genericErrorHandler(
           error,
           `Failed to retrieve current contract state for address ${address} at slot=${slot}`,

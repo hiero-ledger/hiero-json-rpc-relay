@@ -74,7 +74,7 @@ export class WorkersPool {
    *
    * Populated on the first invocation of {@link run} to avoid repeating the dynamic import on every call.
    */
-  private static handleTaskFn: ((task: WorkerTask, ctx: IWorkerContext) => Promise<any>) | null = null;
+  private static handleTaskFn: ((task: WorkerTask, ctx: IWorkerContext) => Promise<unknown>) | null = null;
 
   /**
    * Updates a metric either by delegating the update to a worker thread
@@ -91,7 +91,7 @@ export class WorkersPool {
    */
   public static updateMetricViaWorkerOrLocal(
     messageType: string,
-    params: Record<string, any>,
+    params: Record<string, unknown>,
     metricUpdateFunc: () => void,
   ): void {
     if (parentPort) {
@@ -233,7 +233,7 @@ export class WorkersPool {
    * @throws The original error from the task handler; reconstructed from its serialized form
    *   in worker mode, or native in local mode.
    */
-  static async run(options: WorkerTask, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
+  static async run<T>(options: WorkerTask, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<T> {
     if (!ConfigService.get('WORKERS_POOL_ENABLED')) {
       if (!this.handleTaskFn) {
         // Dynamic import to defer loading worker modules and their dependencies until actually needed.
@@ -241,7 +241,7 @@ export class WorkersPool {
         this.handleTaskFn = mod.default;
       }
       // Reuse the shared per-thread cached context, built from the relay's client/cache on first use.
-      return this.handleTaskFn(options, getWorkerContext(mirrorNodeClient, cacheService));
+      return this.handleTaskFn(options, getWorkerContext(mirrorNodeClient, cacheService)) as Promise<T>;
     }
 
     this.mirrorNodeClient = mirrorNodeClient;

@@ -15,11 +15,13 @@ import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
 import {
   type IAccountInfo,
+  type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
   type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -121,7 +123,7 @@ export class CommonService implements ICommonService {
     return tag === constants.BLOCK_LATEST || tag === constants.BLOCK_PENDING;
   }
 
-  public blockTagIsLatestOrPending = (tag): boolean => {
+  public blockTagIsLatestOrPending = (tag: string | null | undefined): boolean => {
     return (
       tag == null ||
       tag === constants.BLOCK_LATEST ||
@@ -132,7 +134,7 @@ export class CommonService implements ICommonService {
   };
 
   public async validateBlockRangeAndAddTimestampToParams(
-    params: any,
+    params: IContractLogsResultsParams,
     fromBlock: string,
     toBlock: string,
     requestDetails: RequestDetails,
@@ -178,7 +180,7 @@ export class CommonService implements ICommonService {
         );
       }
     } else {
-      fromBlockNum = parseInt(fromBlockResponse.number);
+      fromBlockNum = fromBlockResponse.number;
       const toBlockResponse = await this.getHistoricalBlockResponse(requestDetails, toBlock, true);
 
       /**
@@ -192,11 +194,11 @@ export class CommonService implements ICommonService {
       }
 
       params.timestamp.push(`lte:${toBlockResponse.timestamp.to}`);
-      toBlockNum = parseInt(toBlockResponse.number);
+      toBlockNum = toBlockResponse.number;
 
       // Validate timestamp range for Mirror Node requests (maximum: 7 days or 604,800 seconds) to prevent exceeding the limit,
       // as requests with timestamp parameters beyond 7 days are rejected by the Mirror Node.
-      const timestampDiff = toBlockResponse.timestamp.to - fromBlockResponse.timestamp.from;
+      const timestampDiff = Number(toBlockResponse.timestamp.to) - Number(fromBlockResponse.timestamp.from);
       if (timestampDiff > this.maxTimestampParamRange) {
         throw predefined.TIMESTAMP_RANGE_TOO_LARGE(
           prepend0x(fromBlockNum.toString(16)),
@@ -229,8 +231,8 @@ export class CommonService implements ICommonService {
     toBlock: string,
     requestDetails: RequestDetails,
   ): Promise<boolean> {
-    let fromBlockNumber: any = null;
-    let toBlockNumber: any = null;
+    let fromBlockNumber: number | null = null;
+    let toBlockNumber: number | null = null;
 
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
@@ -260,15 +262,15 @@ export class CommonService implements ICommonService {
       const toBlockResponse = await this.getHistoricalBlockResponse(requestDetails, toBlock, true);
 
       if (fromBlockResponse) {
-        fromBlockNumber = parseInt(fromBlockResponse.number);
+        fromBlockNumber = fromBlockResponse.number;
       }
 
       if (toBlockResponse) {
-        toBlockNumber = parseInt(toBlockResponse.number);
+        toBlockNumber = toBlockResponse.number;
       }
     }
 
-    if (fromBlockNumber > toBlockNumber) {
+    if (fromBlockNumber! > toBlockNumber!) {
       throw predefined.INVALID_BLOCK_RANGE;
     }
 
@@ -287,7 +289,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
     returnLatest: boolean = true,
-  ): Promise<any> {
+  ): Promise<MirrorNodeBlock | null> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       this.logger.debug(
         `Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=%s, blockNumberOrTagOrHash=%s`,
@@ -362,7 +364,7 @@ export class CommonService implements ICommonService {
     return numberTo0x(latestBlock.number);
   }
 
-  public genericErrorHandler(error: any, logMessage?: string): void {
+  public genericErrorHandler(error: unknown, logMessage?: string): void {
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -373,11 +375,11 @@ export class CommonService implements ICommonService {
     if (error instanceof JsonRpcError || error instanceof SDKClientError || error instanceof MirrorNodeClientError) {
       throw error;
     }
-    throw predefined.INTERNAL_ERROR(error.message.toString());
+    throw predefined.INTERNAL_ERROR((error as Error).message.toString());
   }
 
   public async validateBlockHashAndAddTimestampToParams(
-    params: any,
+    params: IContractLogsResultsParams,
     blockHash: string,
     requestDetails: RequestDetails,
     sliceCountWrapper?: { value: number },
@@ -396,7 +398,7 @@ export class CommonService implements ICommonService {
       } else {
         return false;
       }
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof MirrorNodeClientError && e.isNotFound()) {
         return false;
       }
@@ -411,28 +413,30 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null): void {
+  public addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void {
+    const topicParams = params as Record<string, string | string[]>;
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
-        if (!_.isNil(topics[i])) {
-          if (Array.isArray(topics[i])) {
-            if (topics[i].length > 100) {
+        const topic = topics[i];
+        if (!_.isNil(topic)) {
+          if (Array.isArray(topic)) {
+            if (topic.length > 100) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
             }
-            const trimmedTopics = topics[i].map((t: string, j: number) => {
+            const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
               if (trimmed === null) {
                 throw predefined.INVALID_PARAMETER(i, `Topic ${i}[${j}] is not a valid hex string`);
               }
               return trimmed;
             });
-            params[`topic${i}`] = trimmedTopics;
+            topicParams[`topic${i}`] = trimmedTopics;
           } else {
-            const trimmed = trimPrecedingZeros(topics[i]);
+            const trimmed = trimPrecedingZeros(topic);
             if (trimmed === null) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} is not a valid hex string`);
             }
-            params[`topic${i}`] = trimmed;
+            topicParams[`topic${i}`] = trimmed;
           }
         }
       }
@@ -450,7 +454,7 @@ export class CommonService implements ICommonService {
    */
   public async getLogsByAddress(
     address: string | string[],
-    params: any,
+    params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<MirrorNodeContractLog[]> {
@@ -470,7 +474,7 @@ export class CommonService implements ICommonService {
 
   public async getLogsWithParams(
     address: string | string[] | null,
-    params: any,
+    params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<Log[]> {
@@ -500,7 +504,7 @@ export class CommonService implements ICommonService {
     fromBlock: string | 'latest',
     toBlock: string | 'latest',
     address: string | string[] | null,
-    topics: any[] | null,
+    topics: LogTopic[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
     return WorkersPool.run(
@@ -637,7 +641,7 @@ export class CommonService implements ICommonService {
    */
   public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
     const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
-    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS);
+    let account = await this.cacheService.getAsync<IAccountInfo | null>(key, constants.ETH_ESTIMATE_GAS);
     if (!account) {
       account = await this.mirrorNodeClient.getAccount(address, requestDetails);
       await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS);
