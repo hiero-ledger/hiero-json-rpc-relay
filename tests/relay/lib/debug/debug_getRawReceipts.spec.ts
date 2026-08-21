@@ -21,6 +21,7 @@ describe('debug_getRawReceipts', function () {
     logger,
     hapiServiceInstance,
     transactionPoolService,
+    transactionTracingService,
     lockService,
   } = generateEthTestEnv(true);
 
@@ -129,6 +130,7 @@ describe('debug_getRawReceipts', function () {
       transactionPoolService,
       lockService,
       registry,
+      transactionTracingService,
     );
   });
 
