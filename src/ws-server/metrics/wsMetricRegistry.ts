@@ -13,6 +13,14 @@ type WsMetricCounterTitles =
 
 type WsMetricHistogramTitles = 'connectionDuration' | 'messageDuration';
 
+/** Shape shared by the metric declarations in `WS_CONSTANTS`; not every metric declares labels or buckets. */
+type WsMetricDefinition = {
+  name: string;
+  help: string;
+  labelNames?: string[];
+  buckets?: number[];
+};
+
 export default class WsMetricRegistry {
   private methodsCounter: Counter; // tracks WebSocket method calls.
   private methodsCounterByIp: Counter; // tracks WebSocket method calls by IP address.
@@ -43,11 +51,12 @@ export default class WsMetricRegistry {
    * @returns {Counter} The generated counter metric.
    */
   private generateCounterMetric = (register: Registry, metricTitle: WsMetricCounterTitles): Counter => {
-    register.removeSingleMetric(WS_CONSTANTS[metricTitle].name);
+    const metric: WsMetricDefinition = WS_CONSTANTS[metricTitle];
+    register.removeSingleMetric(metric.name);
     return new Counter({
-      name: WS_CONSTANTS[metricTitle].name,
-      help: WS_CONSTANTS[metricTitle].help,
-      labelNames: WS_CONSTANTS[metricTitle]['labelNames'] || [],
+      name: metric.name,
+      help: metric.help,
+      labelNames: metric.labelNames || [],
       registers: [register],
     });
   };
@@ -59,12 +68,13 @@ export default class WsMetricRegistry {
    * @returns {Histogram} The generated histogram metric.
    */
   private generateHistogramMetric = (register: Registry, metricTitle: WsMetricHistogramTitles): Histogram => {
-    register.removeSingleMetric(WS_CONSTANTS[metricTitle].name);
+    const metric: WsMetricDefinition = WS_CONSTANTS[metricTitle];
+    register.removeSingleMetric(metric.name);
     return new Histogram({
-      name: WS_CONSTANTS[metricTitle].name,
-      help: WS_CONSTANTS[metricTitle].help,
-      labelNames: WS_CONSTANTS[metricTitle]['labelNames'] || [],
-      buckets: WS_CONSTANTS[metricTitle]['buckets'] || [],
+      name: metric.name,
+      help: metric.help,
+      labelNames: metric.labelNames || [],
+      buckets: metric.buckets || [],
       registers: [register],
     });
   };

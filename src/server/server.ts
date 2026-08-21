@@ -222,8 +222,8 @@ export async function initializeServer(
       query: ctx.get('query'),
     };
 
-    for (const key in options) {
-      if (typeof options[key] !== 'boolean' && typeof options[key] !== 'string') {
+    for (const [key, value] of Object.entries(options)) {
+      if (typeof value !== 'boolean' && typeof value !== 'string') {
         throw new Error(`Option \`${key}\` requires a boolean or a string`);
       }
     }

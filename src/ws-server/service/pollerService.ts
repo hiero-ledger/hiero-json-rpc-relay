@@ -79,12 +79,19 @@ export class PollerService {
 
           poll.lastPolled = this.latestBlock;
         } else if (event === this.NEW_HEADS_EVENT && this.newHeadsEnabled) {
-          data = await this.eth.getBlockByNumber(
+          const block = await this.eth.getBlockByNumber(
             'latest',
             filters?.includeTransactions ?? false,
             new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
           );
-          data.jsonrpc = '2.0';
+
+          // The mirror node has no block to report yet; skip this round rather than notifying with an empty result.
+          if (block === null) {
+            this.logger.warn(`${LOGGER_PREFIX} No block returned for tag: ${poll.tag}, skipping notification`);
+            return;
+          }
+
+          data = { ...block, jsonrpc: '2.0' };
           poll.lastPolled = this.latestBlock;
         } else {
           this.logger.error(`${LOGGER_PREFIX} Polling for unsupported event: ${event}. Tag: ${poll.tag}`);

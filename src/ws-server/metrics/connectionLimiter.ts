@@ -7,6 +7,8 @@ import { ConfigService } from '../../config-service/services';
 import { WebSocketError } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
 import { type IPRateLimiterService } from '../../relay/lib/services';
+import { type RequestDetails } from '../../relay/lib/types';
+import type { RelayWebSocket, WsContext } from '../types';
 import { WS_CONSTANTS } from '../utils/constants';
 
 type IpCounter = {
@@ -72,7 +74,7 @@ export default class ConnectionLimiter {
     });
   }
 
-  public incrementCounters(ctx): void {
+  public incrementCounters(ctx: WsContext): void {
     const { ip } = ctx.request;
 
     this.connectedClients = ctx.app.server._connections;
@@ -90,7 +92,7 @@ export default class ConnectionLimiter {
     this.activeConnectionsGaugeByIP.labels(ip).set(this.clientIps[ip]);
   }
 
-  public decrementCounters(ctx): void {
+  public decrementCounters(ctx: WsContext): void {
     if (ctx.websocket.ipCounted) {
       const { ip } = ctx.request;
       this.clientIps[ip]--;
@@ -101,7 +103,7 @@ export default class ConnectionLimiter {
     this.activeConnectionsGauge.set(this.connectedClients);
   }
 
-  public applyLimits(ctx): void {
+  public applyLimits(ctx: WsContext): void {
     // Limit total connections
     const MAX_CONNECTION_LIMIT = ConfigService.get('WS_CONNECTION_LIMIT');
     if (this.connectedClients > MAX_CONNECTION_LIMIT) {
@@ -163,20 +165,20 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(ctx.websocket);
   }
 
-  public incrementSubs(ctx): void {
+  public incrementSubs(ctx: WsContext): void {
     ctx.websocket.subscriptions++;
   }
 
-  public decrementSubs(ctx, amount = 1): void {
+  public decrementSubs(ctx: WsContext, amount = 1): void {
     ctx.websocket.subscriptions -= amount;
   }
 
-  public validateSubscriptionLimit(ctx): boolean {
+  public validateSubscriptionLimit(ctx: WsContext): boolean {
     return ctx.websocket.subscriptions < ConfigService.get('WS_SUBSCRIPTION_LIMIT');
   }
 
   // Starts a timeout timer that closes the connection
-  private startInactivityTTLTimer(websocket): void {
+  private startInactivityTTLTimer(websocket: RelayWebSocket): void {
     const maxInactivityTTL = ConfigService.get('WS_MAX_INACTIVITY_TTL');
     websocket.inactivityTTL = setTimeout(() => {
       if (websocket.readyState !== 3) {
@@ -207,7 +209,7 @@ export default class ConnectionLimiter {
   }
 
   // Resets the inactivity TTL timer
-  public resetInactivityTTLTimer(websocket): void {
+  public resetInactivityTTLTimer(websocket: RelayWebSocket): void {
     if (websocket?.inactivityTTL) {
       clearTimeout(websocket.inactivityTTL);
     }
@@ -215,7 +217,11 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(websocket);
   }
 
-  public async shouldRateLimitOnMethod(ip, methodName, requestDetails): Promise<boolean> {
+  public async shouldRateLimitOnMethod(
+    ip: string,
+    methodName: string,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
     // subcription limits are already covered in this.validateSubscriptionLimit()
     if (methodName === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE || methodName === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)
       return false;

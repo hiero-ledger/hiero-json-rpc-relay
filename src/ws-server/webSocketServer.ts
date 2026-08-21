@@ -25,6 +25,7 @@ import { getRequestResult } from './controllers/jsonRpcController';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
 import { SubscriptionService } from './service/subscriptionService';
+import type { WsContext } from './types';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 
@@ -113,13 +114,16 @@ export async function initializeWsServer(
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);
 
-  app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
+  // `koa-websocket` hands over a bare socket; these middlewares seed the state `WsContext` describes.
+  app.ws.use((koaCtx: Koa.Context, next: Koa.Next) => {
+    const ctx = koaCtx as WsContext;
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
     void next();
   });
 
-  app.ws.use(async (ctx: Koa.Context) => {
+  app.ws.use(async (koaCtx: Koa.Context) => {
+    const ctx = koaCtx as WsContext;
     // Increment the total opened connections
     wsMetricRegistry.getCounter('totalOpenedConnections').inc();
 
@@ -128,17 +132,14 @@ export async function initializeWsServer(
     ctx.websocket.limiter = limiter;
     ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
-    logger.info(
-      // @ts-ignore
-      `New connection established. Current active connections: ${ctx.app.server._connections}`,
-    );
+    logger.info(`New connection established. Current active connections: ${ctx.app.server._connections}`);
 
     // Close event handle
     // https://nodejs.org/api/async_context.html#static-method-asyncresourcebindfn-type-thisarg
     // https://nodejs.org/api/async_context.html#troubleshooting-context-loss
     ctx.websocket.on(
       'close',
-      AsyncResource.bind(async (code, message) => {
+      AsyncResource.bind(async (code: number, message: Buffer) => {
         logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
         await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
       }),
@@ -151,7 +152,7 @@ export async function initializeWsServer(
     limiter.applyLimits(ctx);
 
     // listen on message event
-    ctx.websocket.on('message', async (msg) => {
+    ctx.websocket.on('message', async (msg: Buffer) => {
       const requestId = uuid();
       ctx.websocket.requestId = requestId;
 
@@ -286,7 +287,7 @@ export async function initializeWsServer(
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
 
-  httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
+  httpApp.use(async (ctx: Koa.ParameterizedContext, next: Koa.Next) => {
     // prometheus metrics exposure
     if (ctx.url === '/metrics') {
       ctx.status = 200;
