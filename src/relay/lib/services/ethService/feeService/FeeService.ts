@@ -252,7 +252,12 @@ export class FeeService implements IFeeService {
     requestDetails: RequestDetails,
   ): Promise<Map<number, MirrorNodeBlock>> {
     try {
-      const blocks = await this.mirrorNodeClient.getBlocksByRange(requestDetails, oldestBlockNumber, newestBlockNumber);
+      const blocks = await this.mirrorNodeClient.getBlocksByRange(
+        requestDetails,
+        oldestBlockNumber,
+        newestBlockNumber,
+        ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX'),
+      );
       return new Map(blocks.map((block) => [block.number, block] as [number, MirrorNodeBlock]));
     } catch (error) {
       this.logger.warn(

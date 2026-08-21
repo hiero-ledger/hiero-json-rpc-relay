@@ -546,6 +546,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 30,
   },
+  MIRROR_NODE_TIMESTAMP_SLICING_ENUMERATION_MAX_BLOCKS: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
+  MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES: {
+    type: 'number',
+    required: false,
+    defaultValue: 200,
+  },
   // the actual env var in the node process is npm_package_version
   npm_package_version: {
     type: 'string',

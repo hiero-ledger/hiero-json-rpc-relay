@@ -625,6 +625,8 @@ describe('MirrorNodeClient', async function () {
     expect(firstBlock.number).equal(block.number);
   });
 
+  const DEFAULT_PAGE_MAX = 20; // Page ceiling supplied by getBlocksByRange callers
+
   it('`getBlocksByRange` returns a flat, oldest-to-newest list for a single-page range', async () => {
     const fromBlock = 5;
     const toBlock = 7;
@@ -637,7 +639,7 @@ describe('MirrorNodeClient', async function () {
       .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
       .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
 
-    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     expect(result).to.be.an('array').with.lengthOf(3);
     expect(result.map((b) => b.number)).to.deep.equal([5, 6, 7]);
@@ -669,7 +671,7 @@ describe('MirrorNodeClient', async function () {
       }),
     );
 
-    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     expect(result.map((b) => b.number)).to.deep.equal([1, 2, 3, 4]);
   });
@@ -687,13 +689,36 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
     // no mock registered for blocks/10 or blocks/11 — MockAdapter throws on unmatched requests
 
-    await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     // Both blocks must now be served from cache; if either hits the network, MockAdapter throws
     const b10 = await mirrorNodeInstance.getBlock(10, requestDetails);
     const b11 = await mirrorNodeInstance.getBlock(11, requestDetails);
     expect(b10.number).to.equal(10);
     expect(b11.number).to.equal(11);
+  });
+
+  it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
+    const fromBlock = 1;
+    const toBlock = 400;
+    const firstPageUrl = `blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const secondPageUrl = `blocks?block.number=gte:101&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const thirdPageUrl = `blocks?block.number=gte:201&block.number=lte:${toBlock}&limit=100&order=asc`;
+    mock
+      .onGet(firstPageUrl)
+      .reply(200, JSON.stringify({ blocks: [{ ...block, number: 1 }], links: { next: `/api/v1/${secondPageUrl}` } }));
+    mock
+      .onGet(secondPageUrl)
+      .reply(200, JSON.stringify({ blocks: [{ ...block, number: 101 }], links: { next: `/api/v1/${thirdPageUrl}` } }));
+    // no mock for the third page — traversal must stop before requesting it
+
+    try {
+      await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, 2);
+      expect.fail('should have thrown an error');
+    } catch (e: any) {
+      expect(e.message).to.equal('Exceeded maximum mirror node pagination count: 2');
+      expect(e.code).to.equal(predefined.PAGINATION_MAX(0).code);
+    }
   });
 
   it('`getContract`', async () => {
