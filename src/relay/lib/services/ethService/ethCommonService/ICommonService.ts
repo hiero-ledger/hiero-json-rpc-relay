@@ -7,9 +7,10 @@ import {
   type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
 
 export interface ICommonService {
-  addTopicsToParams(params: any, topics: any[] | null): void;
+  addTopicsToParams(params: any, topics: LogTopic[] | null): void;
 
   blockTagIsLatestOrPending(tag: any): boolean;
 
@@ -38,7 +39,7 @@ export interface ICommonService {
     fromBlock: string | 'latest',
     toBlock: string | 'latest',
     address: string | string[] | null,
-    topics: any[] | null,
+    topics: LogTopic[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]>;
 
