@@ -25,7 +25,7 @@ use(chaiAsPromised);
 
 describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async function () {
   this.timeout(10000);
-  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, mirrorNodeInstance, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
   const emptyBloom = constants.EMPTY_BLOOM;
 
@@ -396,6 +396,106 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
           'The transaction was rejected before execution and will never be included in a block.',
         );
       }
+    });
+  });
+
+  describe('records without a transaction index', function () {
+    const childTxHash = '0x51149a73c4094b5915457449f82eae9b0e45f705d24f6aeb33a858dfe0e765a5';
+    const rejectedParentTxHash = '0xf355f575abacc4c8b5493041b27247f957db285a91f25ad0d531abd831007850';
+
+    const childRecord = {
+      address: '0x0000000000000000000000000000000000000167',
+      amount: 0,
+      bloom: emptyBloom,
+      call_result: '0x0000000000000000000000000000000000000000000000000000000000000124',
+      contract_id: '0.0.359',
+      created_contract_ids: [],
+      error_message: 'SPENDER_DOES_NOT_HAVE_ALLOWANCE',
+      from: '0x0000000000000000000000000000000000893485',
+      function_parameters: '0x15dacbea',
+      gas_consumed: 15284,
+      gas_limit: 4577742,
+      gas_used: 15284,
+      timestamp: '1787298614.746518110',
+      to: '0x0000000000000000000000000000000000000167',
+      hash: childTxHash,
+      block_hash: '0xf299dce3f4b2a137c932dc476d566833e8061d7df9779ce12b69772a5cc6090f640ea131cbb346e04e441512d0045ea5',
+      block_number: 39523147,
+      logs: [],
+      result: 'SPENDER_DOES_NOT_HAVE_ALLOWANCE',
+      transaction_index: null,
+      state_changes: [],
+      status: '0x0',
+      failed_initcode: null,
+      access_list: [],
+      block_gas_used: 1482946,
+      chain_id: '0x128',
+      gas_price: '0x71',
+      max_fee_per_gas: null,
+      max_priority_fee_per_gas: null,
+      r: null,
+      s: null,
+      type: 0,
+      v: null,
+      nonce: null,
+    };
+
+    const rejectedParentRecord = {
+      ...childRecord,
+      address: '0xe8bf85ee602cb26402b73b3d0bb5b7442a2c3543',
+      call_result: '0x',
+      contract_id: '0.0.5508307',
+      error_message: '0x57524f4e475f4e4f4e4345', // WRONG_NONCE
+      from: '0x0000000000000000000000000000000000540d93',
+      function_parameters: '0xb1dc65a4',
+      gas_consumed: 0,
+      gas_used: 0,
+      gas_limit: 8000000,
+      timestamp: '1787298426.993500843',
+      to: '0xe8bf85ee602cb26402b73b3d0bb5b7442a2c3543',
+      hash: rejectedParentTxHash,
+      block_hash: '0xe4c45ec72408fa6a8b7ac221003c8ecd0bf24bf165786c871391018ac85f67861714e71718d89107e0caa710c71eb0f6',
+      block_number: 39523059,
+      result: 'WRONG_NONCE',
+      block_gas_used: 0,
+      gas_price: '0x87',
+      max_fee_per_gas: '0x',
+      max_priority_fee_per_gas: '0x',
+      r: '0x19ca0217817b3744f6bc22fe951ee4a84ae031242b31abf547c51a337d03bff1',
+      s: '0x3e38da1f058db712e57c37a779c229c0807909c03332f12a4f062bfd6bf71ea7',
+      v: 628,
+      nonce: 3019,
+    };
+
+    const collapseImmatureRecordPolling = () => {
+      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRequestRetryCount').returns(1);
+      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRetryDelay').returns(0);
+    };
+
+    it('should report a child (synthetic) record as not found rather than as a rejected transaction', async function () {
+      restMock.onGet(`contracts/results/${childTxHash}?hbar=false`).reply(200, JSON.stringify(childRecord));
+      collapseImmatureRecordPolling();
+
+      const receipt = await ethImpl.getTransactionReceipt(childTxHash, requestDetails);
+
+      expect(receipt).to.be.null;
+    });
+
+    it('should throw a -32003 rejection error for a rejected top-level transaction', async function () {
+      restMock
+        .onGet(`contracts/results/${rejectedParentTxHash}?hbar=false`)
+        .reply(200, JSON.stringify(rejectedParentRecord));
+      collapseImmatureRecordPolling();
+
+      const error = await ethImpl.getTransactionReceipt(rejectedParentTxHash, requestDetails).catch((e) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: WRONG_NONCE');
+      const data = jsonRpcError.data as Record<string, unknown>;
+      expect(data.txHash).to.eq(rejectedParentTxHash);
+      expect(data.hederaStatus).to.eq('WRONG_NONCE');
     });
   });
 
