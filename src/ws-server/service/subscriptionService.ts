@@ -3,9 +3,10 @@
 import crypto from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { type Logger } from 'pino';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
+import { METRICS, MetricsFactory } from '../../metrics';
 import { generateRandomHex } from '../../relay/formatters';
 import { type Relay } from '../../relay/lib/relay';
 import { PollerService } from './pollerService';
@@ -33,33 +34,9 @@ export class SubscriptionService {
 
     this.cache = new LRUCache({ max: ConfigService.get('CACHE_MAX'), ttl: CACHE_TTL });
 
-    const activeSubscriptionHistogramName = 'rpc_websocket_subscription_times';
-    register.removeSingleMetric(activeSubscriptionHistogramName);
-    this.activeSubscriptionHistogram = new Histogram({
-      name: activeSubscriptionHistogramName,
-      help: 'Relay websocket active subscription timer',
-      registers: [register],
-      buckets: [
-        0.05, // fraction of a second
-        1, // one second
-        10, // 10 seconds
-        60, // 1 minute
-        120, // 2 minute
-        300, // 5 minutes
-        1200, // 20 minutes
-        3600, // 1 hour
-        86400, // 24 hours
-      ],
-    });
-
-    const resultsSentToSubscribersCounterName = 'rpc_websocket_poll_received_results';
-    register.removeSingleMetric(resultsSentToSubscribersCounterName);
-    this.resultsSentToSubscribersCounter = new Counter({
-      name: 'rpc_websocket_poll_received_results',
-      help: 'Relay websocket counter for the unique results sent to subscribers',
-      registers: [register],
-      labelNames: ['subId', 'tag'],
-    });
+    const metricsFactory = new MetricsFactory(register);
+    this.activeSubscriptionHistogram = metricsFactory.histogram(METRICS.ws.subscription.activeSubscriptionTimes);
+    this.resultsSentToSubscribersCounter = metricsFactory.counter(METRICS.ws.subscription.resultsSentToSubscribers);
   }
 
   private createHash(data: string): string {
