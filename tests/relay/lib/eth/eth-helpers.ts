@@ -17,6 +17,8 @@ import {
   LocalPendingTransactionStorage,
   LockService,
   TransactionPoolService,
+  TransactionTracingService,
+  TransactionTracingStorageFactory,
 } from '../../../../src/relay/lib/services';
 import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
@@ -71,6 +73,10 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const storage = new LocalPendingTransactionStorage();
   const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} } as any);
   const transactionPoolService = new TransactionPoolService(storage, logger, registry);
+  const transactionTracingStorage = TransactionTracingService.isEnabled()
+    ? TransactionTracingStorageFactory.create(logger, ConfigService.get('TX_STATUS_TRACING_TTL_MS'))
+    : undefined;
+  const transactionTracingService = new TransactionTracingService(logger, transactionTracingStorage);
   const ethImpl = new EthImpl(
     hapiServiceInstance,
     mirrorNodeInstance,
@@ -80,6 +86,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     transactionPoolService,
     lockService,
     registry,
+    transactionTracingService,
   );
 
   return {
@@ -89,6 +96,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     web3Mock,
     hapiServiceInstance,
     transactionPoolService,
+    transactionTracingService,
     lockService,
     ethImpl,
     logger,

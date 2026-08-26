@@ -7,9 +7,11 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
+import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients/mirrorNodeClient';
 import { MirrorNodeClientError } from '../../../src/relay/lib/errors/MirrorNodeClientError';
+import { TransactionTracingStorageFactory } from '../../../src/relay/lib/services';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
@@ -52,6 +54,31 @@ describe('Relay', () => {
   it('should return the correct eth implementation', () => {
     const eth = relay.eth();
     expect(eth).to.not.be.undefined;
+  });
+
+  describe('transaction tracing wiring', () => {
+    let createStorageSpy: sinon.SinonSpy;
+
+    beforeEach(() => {
+      createStorageSpy = sinon.spy(TransactionTracingStorageFactory, 'create');
+    });
+
+    withOverriddenEnvsInMochaTest({ TX_STATUS_TRACING: true }, () => {
+      it('should build backing storage with the configured TTL when tracing is enabled', async () => {
+        await Relay.init(logger, register);
+
+        expect(createStorageSpy.calledOnce).to.be.true;
+        expect(createStorageSpy.firstCall.args[1]).to.equal(ConfigService.get('TX_STATUS_TRACING_TTL_MS'));
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ TX_STATUS_TRACING: false }, () => {
+      it('should build no storage when tracing is disabled', async () => {
+        await Relay.init(logger, register);
+
+        expect(createStorageSpy.called).to.be.false;
+      });
+    });
   });
 
   describe('populatePreconfiguredSpendingPlans', () => {

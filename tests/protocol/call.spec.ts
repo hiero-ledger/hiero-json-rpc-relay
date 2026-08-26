@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 
 import { ConfigService } from '../../src/config-service/services';
 import { type JsonRpcError, predefined } from '../../src/relay';
-import { numberTo0x } from '../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../src/relay/formatters';
 import Constants from '../../src/relay/lib/constants';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
@@ -176,6 +176,49 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           to: basicContractAddress,
           gas: numberTo0x(30000),
           data: BASIC_CONTRACT_PING_CALL_DATA,
+        };
+
+        const res = await client.call(METHOD_NAME, [callData, 'latest']);
+        expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+      });
+
+      it('@release should execute "eth_call" request to Basic contract with an access list provided', async () => {
+        const callData = {
+          from: accounts[0].address,
+          to: basicContractAddress,
+          gas: numberTo0x(30000),
+          data: BASIC_CONTRACT_PING_CALL_DATA,
+          accessList: [
+            {
+              address: accounts[0].address,
+              storageKeys: [prepend0x('00'.repeat(32))],
+            },
+          ],
+        };
+
+        const res = await client.call(METHOD_NAME, [callData, 'latest']);
+        expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+      });
+
+      // type 4 are not supported in CN 0.77 and MN 0.161.0
+      it.skip('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async () => {
+        const signer = accounts[0];
+        const currentNonce = await relay.getAccountNonce(signer.address);
+
+        const authorizationList = [
+          await signer.wallet.authorize({
+            address: basicContractAddress,
+            nonce: currentNonce + 1,
+          }),
+        ];
+
+        const callData = {
+          type: 4,
+          from: signer.address,
+          to: basicContractAddress,
+          gas: numberTo0x(30000),
+          data: BASIC_CONTRACT_PING_CALL_DATA,
+          authorizationList,
         };
 
         const res = await client.call(METHOD_NAME, [callData, 'latest']);

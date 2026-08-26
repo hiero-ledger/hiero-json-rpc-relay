@@ -676,11 +676,19 @@ export class CommonService implements ICommonService {
     return numberTo0x(gasPriceForTimestamp);
   }
 
-  public static redirectBytecodeAddressReplace(address: string): string {
-    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-    const redirectBytecodePostfix =
-      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
-    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
+  /**
+   * Builds an EIP-7702 delegation designator pointing at the given system-contract
+   * address, per HIP-1340. The relay returns this 23-byte value from `eth_getCode`
+   * for HTS token and HSS schedule facade addresses, replacing the previous
+   * hand-rolled proxy bytecode.
+   *
+   * @param systemContractAddress 20-byte hex address (with or without `0x` prefix)
+   *   of the target system contract (e.g. HTS at 0x167, HSS at 0x16b).
+   * @returns `0xef0100` || 20-byte system contract address.
+   */
+  public static getDelegationDesignator(systemContractAddress: string): string {
+    const trimmed = systemContractAddress.toLowerCase().replace(/^0x/, '');
+    return `${constants.EOA_DELEGATION_DESIGNATOR_PREFIX}${trimmed}`;
   }
 
   /**

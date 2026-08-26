@@ -66,6 +66,8 @@ export interface IContractCallRequest {
   value?: number | string | null;
   data?: string | null;
   input?: string;
+  accessList?: AccessListEntry[];
+  authorizationList?: AuthorizationListEntry[];
 }
 
 export interface IContractCallResponse {
@@ -260,8 +262,8 @@ export interface MirrorNodeContractResult extends MirrorNodeContractResultBase {
   status: string;
   /** The failed contract init code, if applicable, otherwise null. */
   failed_initcode: string | null;
-  /** The access list for EIP-2930 transactions. */
-  access_list: AccessListEntry[] | null;
+  /** The access list for EIP-2930 transactions. MirrorNode v0.156+ returns this as an array of objects. */
+  access_list: { address: string; storage_keys: string[] }[] | null;
   /** The total gas used in the block. */
   block_gas_used: number;
   /** The chain ID of the network. */
@@ -281,7 +283,9 @@ export interface MirrorNodeContractResult extends MirrorNodeContractResultBase {
   /** The ECDSA signature recovery id. */
   v: number | null;
   /** The account nonce for the transaction. */
-  nonce: number | null;
+  nonce: number;
+  /** Authorization list for EIP-7702 transactions. */
+  authorization_list?: AuthorizationListEntry[] | null;
 }
 
 /**

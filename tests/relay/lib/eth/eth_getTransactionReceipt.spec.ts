@@ -5,19 +5,27 @@ import chaiAsPromised from 'chai-as-promised';
 import type sinon from 'sinon';
 import { createSandbox } from 'sinon';
 
-import { predefined } from '../../../../src/relay';
+import { JsonRpcError } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
-import { BLOCK_HASH, BLOCK_NUMBER, DEFAULT_BLOCK, EMPTY_LOGS_RESPONSE, GAS_USED_1, GAS_USED_2 } from './eth-config';
+import {
+  BLOCK_HASH,
+  BLOCK_NUMBER,
+  DEFAULT_BLOCK,
+  DEFAULT_LOGS_3,
+  EMPTY_LOGS_RESPONSE,
+  GAS_USED_1,
+  GAS_USED_2,
+} from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
 describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async function () {
   this.timeout(10000);
-  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, mirrorNodeInstance, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
   const emptyBloom = constants.EMPTY_BLOOM;
 
@@ -70,7 +78,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       },
     ],
     status: '0x1',
-    access_list: '0x',
+    access_list: [],
     block_gas_used: 50000000,
     chain_id: '0x12a',
     gas_price: '0x4a817c80',
@@ -145,6 +153,27 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       .reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
     const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
     expect(receipt).to.be.null;
+  });
+
+  // Mirror Node has no contract result for the hash, but synthetic logs exist: a synthetic receipt is
+  // returned rather than falling through to the tracing fallback / null.
+  it('returns a synthetic receipt when no contract result exists but synthetic logs do', async function () {
+    const txHash = '0x0000000000000000000000000000000000000000000000000000000000000002';
+    restMock
+      .onGet(`contracts/results/${txHash}?hbar=false`)
+      .reply(404, JSON.stringify({ _status: { messages: [{ message: 'No correlating transaction' }] } }));
+    restMock
+      .onGet(`contracts/results/logs?transaction.hash=${txHash}&limit=100&order=asc`)
+      .reply(200, JSON.stringify({ logs: DEFAULT_LOGS_3 }));
+    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+
+    const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
+
+    expect(receipt).to.not.be.null;
+    expect(receipt.logs).to.be.an('array').with.lengthOf(DEFAULT_LOGS_3.length);
+    expect(receipt.transactionHash).to.equal(DEFAULT_LOGS_3[0].transaction_hash);
+    expect(receipt.effectiveGasPrice).to.equal('0xad78ebc5ac620000');
+    expect(receipt.status).to.equal(constants.ONE_HEX);
   });
 
   it('valid receipt on match', async function () {
@@ -314,24 +343,173 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt.gasUsed).to.eq('0x0');
   });
 
-  it('should throw an error if transaction index is falsy', async function () {
-    // fake unique hash so request dont re-use the cached value but the mock defined
-    const uniqueTxHash = '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+  const immatureCases: { title: string; overrides: Record<string, unknown>; uniqueTxHash: string }[] = [
+    {
+      title: 'transaction index is falsy',
+      overrides: { transaction_index: undefined },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533',
+    },
+    {
+      title: 'block number is falsy',
+      overrides: { block_number: undefined },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640534',
+    },
+    {
+      title: 'block hash is an empty hex',
+      overrides: { block_hash: '0x' },
+      uniqueTxHash: '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640535',
+    },
+  ];
 
-    // mirror node request mocks
+  immatureCases.forEach(({ title, overrides, uniqueTxHash }) => {
+    it(`should throw a -32003 rejection error if ${title}`, async function () {
+      // mirror node request mocks
+      restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+        200,
+        JSON.stringify({
+          ...defaultDetailedContractResultByHash,
+          ...overrides,
+          result: 'WRONG_NONCE',
+          error_message: null,
+        }),
+      );
+      restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
+        200,
+        JSON.stringify({
+          evm_address: contractEvmAddress,
+        }),
+      );
+      stubBlockAndFeesFunc(sandbox);
+
+      try {
+        await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
+        expect.fail('should have thrown an error');
+      } catch (error) {
+        expect(error).to.be.instanceOf(JsonRpcError);
+        const jsonRpcError = error as JsonRpcError;
+        expect(jsonRpcError.code).to.eq(-32003);
+        expect(jsonRpcError.message).to.eq('Transaction rejected: WRONG_NONCE');
+        const data = jsonRpcError.data as Record<string, unknown>;
+        expect(data.txHash).to.eq(uniqueTxHash);
+        expect(data.hederaStatus).to.eq('WRONG_NONCE');
+        expect(data.detail).to.eq(
+          'The transaction was rejected before execution and will never be included in a block.',
+        );
+      }
+    });
+  });
+
+  describe('records without a transaction index', function () {
+    const childTxHash = '0x51149a73c4094b5915457449f82eae9b0e45f705d24f6aeb33a858dfe0e765a5';
+    const rejectedParentTxHash = '0xf355f575abacc4c8b5493041b27247f957db285a91f25ad0d531abd831007850';
+
+    const childRecord = {
+      address: '0x0000000000000000000000000000000000000167',
+      amount: 0,
+      bloom: emptyBloom,
+      call_result: '0x0000000000000000000000000000000000000000000000000000000000000124',
+      contract_id: '0.0.359',
+      created_contract_ids: [],
+      error_message: 'SPENDER_DOES_NOT_HAVE_ALLOWANCE',
+      from: '0x0000000000000000000000000000000000893485',
+      function_parameters: '0x15dacbea',
+      gas_consumed: 15284,
+      gas_limit: 4577742,
+      gas_used: 15284,
+      timestamp: '1787298614.746518110',
+      to: '0x0000000000000000000000000000000000000167',
+      hash: childTxHash,
+      block_hash: '0xf299dce3f4b2a137c932dc476d566833e8061d7df9779ce12b69772a5cc6090f640ea131cbb346e04e441512d0045ea5',
+      block_number: 39523147,
+      logs: [],
+      result: 'SPENDER_DOES_NOT_HAVE_ALLOWANCE',
+      transaction_index: null,
+      state_changes: [],
+      status: '0x0',
+      failed_initcode: null,
+      access_list: [],
+      block_gas_used: 1482946,
+      chain_id: '0x128',
+      gas_price: '0x71',
+      max_fee_per_gas: null,
+      max_priority_fee_per_gas: null,
+      r: null,
+      s: null,
+      type: 0,
+      v: null,
+      nonce: null,
+    };
+
+    const rejectedParentRecord = {
+      ...childRecord,
+      address: '0xe8bf85ee602cb26402b73b3d0bb5b7442a2c3543',
+      call_result: '0x',
+      contract_id: '0.0.5508307',
+      error_message: '0x57524f4e475f4e4f4e4345', // WRONG_NONCE
+      from: '0x0000000000000000000000000000000000540d93',
+      function_parameters: '0xb1dc65a4',
+      gas_consumed: 0,
+      gas_used: 0,
+      gas_limit: 8000000,
+      timestamp: '1787298426.993500843',
+      to: '0xe8bf85ee602cb26402b73b3d0bb5b7442a2c3543',
+      hash: rejectedParentTxHash,
+      block_hash: '0xe4c45ec72408fa6a8b7ac221003c8ecd0bf24bf165786c871391018ac85f67861714e71718d89107e0caa710c71eb0f6',
+      block_number: 39523059,
+      result: 'WRONG_NONCE',
+      block_gas_used: 0,
+      gas_price: '0x87',
+      max_fee_per_gas: '0x',
+      max_priority_fee_per_gas: '0x',
+      r: '0x19ca0217817b3744f6bc22fe951ee4a84ae031242b31abf547c51a337d03bff1',
+      s: '0x3e38da1f058db712e57c37a779c229c0807909c03332f12a4f062bfd6bf71ea7',
+      v: 628,
+      nonce: 3019,
+    };
+
+    const collapseImmatureRecordPolling = () => {
+      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRequestRetryCount').returns(1);
+      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRetryDelay').returns(0);
+    };
+
+    it('should report a child (synthetic) record as not found rather than as a rejected transaction', async function () {
+      restMock.onGet(`contracts/results/${childTxHash}?hbar=false`).reply(200, JSON.stringify(childRecord));
+      collapseImmatureRecordPolling();
+
+      const receipt = await ethImpl.getTransactionReceipt(childTxHash, requestDetails);
+
+      expect(receipt).to.be.null;
+    });
+
+    it('should throw a -32003 rejection error for a rejected top-level transaction', async function () {
+      restMock
+        .onGet(`contracts/results/${rejectedParentTxHash}?hbar=false`)
+        .reply(200, JSON.stringify(rejectedParentRecord));
+      collapseImmatureRecordPolling();
+
+      const error = await ethImpl.getTransactionReceipt(rejectedParentTxHash, requestDetails).catch((e) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: WRONG_NONCE');
+      const data = jsonRpcError.data as Record<string, unknown>;
+      expect(data.txHash).to.eq(rejectedParentTxHash);
+      expect(data.hederaStatus).to.eq('WRONG_NONCE');
+    });
+  });
+
+  it('should carry the mirror node error_message as the rejection detail', async function () {
+    const uniqueTxHash = '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640536';
+
     restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
       200,
       JSON.stringify({
         ...defaultDetailedContractResultByHash,
-        ...{
-          transaction_index: undefined,
-        },
-      }),
-    );
-    restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
-      200,
-      JSON.stringify({
-        evm_address: contractEvmAddress,
+        block_number: undefined,
+        transaction_index: undefined,
+        result: 'INSUFFICIENT_PAYER_BALANCE',
+        error_message: 'payer cannot cover the fee',
       }),
     );
     stubBlockAndFeesFunc(sandbox);
@@ -340,8 +518,10 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
       expect.fail('should have thrown an error');
     } catch (error) {
-      expect(error).to.exist;
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: INSUFFICIENT_PAYER_BALANCE');
+      expect((jsonRpcError.data as Record<string, unknown>).detail).to.eq('payer cannot cover the fee');
     }
   });
 

@@ -27,6 +27,7 @@ import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 const registry = new Registry();
 import sinon from 'sinon';
 
+import { prepend0x } from '../../../src/relay/formatters';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/relay/lib/services';
 import { TransactionPoolService } from '../../../src/relay/lib/services/transactionPoolService/transactionPoolService';
@@ -234,9 +235,10 @@ describe('Precheck', async function () {
           };
           const signed = await signTransaction(tx);
           const parsedTx = ethers.Transaction.from(signed);
+          const maxTransactionGasLimit = ConfigService.get('MAX_TRANSACTION_GAS_LIMIT');
           const message =
-            gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD
-              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${constants.MAX_TRANSACTION_FEE_THRESHOLD}'`
+            gasLimit > maxTransactionGasLimit
+              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${maxTransactionGasLimit}'`
               : `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required `;
           try {
             await precheck.gasLimit(parsedTx);
@@ -276,6 +278,21 @@ describe('Precheck', async function () {
     testPassingGasLimitPrecheck(validGasLimits);
     testFailingGasLimitPrecheck(lowGasLimits, -32003);
     testFailingGasLimitPrecheck(highGasLimits, -32005);
+
+    withOverriddenEnvsInMochaTest({ MAX_TRANSACTION_GAS_LIMIT: 30_000_000 }, () => {
+      it('should pass for a gas limit that only a raised MAX_TRANSACTION_GAS_LIMIT allows', async function () {
+        const signed = await signTransaction({ ...defaultTx, gasLimit: 25_000_000 });
+        precheck.gasLimit(ethers.Transaction.from(signed));
+      });
+
+      it('should fail for a gas limit above the raised MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const signed = await signTransaction({ ...defaultTx, gasLimit: 35_000_000 });
+        expect(() => precheck.gasLimit(ethers.Transaction.from(signed)))
+          .to.throw(JsonRpcError)
+          .with.property('message')
+          .that.contains(`exceeds max gas per sec limit '30000000'`);
+      });
+    });
   });
 
   describe('gas price', async function () {
@@ -617,6 +634,7 @@ describe('Precheck', async function () {
         expectedError();
       } catch (e: any) {
         expect(e).to.eql(predefined.NONCE_TOO_LOW(parsedTx.nonce, mirrorAccount.ethereum_nonce));
+        expect(e.code).to.eq(-32000);
       }
     });
 
@@ -680,11 +698,12 @@ describe('Precheck', async function () {
     it('should be able to calculate small contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 60364;
+      const mirrorNodeEstimation = 70711;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 37964;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(smallestContractCreate);
+      const gasDifferenceFromOtherFactors = 16305;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: smallestContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
@@ -692,38 +711,136 @@ describe('Precheck', async function () {
     it('should be able to calculate normal contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 86351;
+      const mirrorNodeEstimation = 499055;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 16739;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(greeterContractCreate);
+      const gasDifferenceFromOtherFactors = 356525;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: greeterContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calculate contract call', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCall);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCall } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calucate tx without starting 0x', function () {
       const contractCallTrimmed = contractCall.replace('0x', '');
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCallTrimmed);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCallTrimmed } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to able to calculate transfer', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(transfer);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: transfer,
+        to: contractAddress1,
+      } as Transaction);
       expect(intrinsicGasCost).to.be.equal(constants.TX_BASE_COST);
     });
 
+    [
+      {
+        label: 'one address only',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'address and storage key',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`)],
+          },
+        ],
+      },
+      {
+        label: 'address and multiple storage keys',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + 3 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [
+              prepend0x(`${'0'.repeat(31)}1`),
+              prepend0x(`${'0'.repeat(31)}2`),
+              prepend0x(`${'0'.repeat(31)}3`),
+            ],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses and storage keys',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST + 2 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`), prepend0x(`${'0'.repeat(31)}2`)],
+          },
+        ],
+      },
+    ].forEach(({ label, accessList, expectedAccessListCost }) => {
+      it(`should be able to able to calculate cost of an access list With ${label}`, function () {
+        const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+          data: transfer,
+          to: contractAddress1,
+          accessList,
+        } as Transaction);
+
+        expect(intrinsicGasCost).to.equal(constants.TX_BASE_COST + expectedAccessListCost);
+      });
+    });
+
     it('should be able to calculate for odd length tx', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(invalidTx);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: invalidTx } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
+    });
+
+    it('should apply floor price for simple contract call (EIP-7623)', function () {
+      // Use realistic calldata: a function selector (4 non-zero bytes)
+      // For simple calls (with 'to' address), floor price is always >= standard gas when there's calldata
+      // because TOTAL_COST_FLOOR_PER_TOKEN (10) > STANDARD_TOKEN_COST (4)
+      const data = contractCall; // '0xcfae3217' - 4 non-zero bytes
+
+      const zeroBytes = 0;
+      const nonZeroBytes = 4;
+
+      const tokens = zeroBytes + nonZeroBytes * 4;
+      const standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokens;
+      const expectedFloorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokens;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: data,
+        to: contractAddress1, // not a contract creation
+      } as Transaction);
+
+      expect(expectedFloorPrice).to.be.greaterThan(standardIntrinsicGas);
+      expect(intrinsicGasCost).to.equal(expectedFloorPrice);
+      expect(intrinsicGasCost).to.be.greaterThan(standardIntrinsicGas);
     });
   });
 
@@ -839,6 +956,77 @@ describe('Precheck', async function () {
     });
   });
 
+  describe('initcodeSize', function () {
+    const createContractCreationTx = async (dataSize: number) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        value: ONE_TINYBAR_IN_WEI_HEX,
+        gasPrice: defaultGasPrice,
+        gasLimit: defaultGasLimit,
+        chainId: defaultChainId,
+        nonce: 5,
+        data: '0x' + '00'.repeat(dataSize),
+      };
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    const createRegularTx = async (dataSize: number) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        value: ONE_TINYBAR_IN_WEI_HEX,
+        gasPrice: defaultGasPrice,
+        gasLimit: defaultGasLimit,
+        chainId: defaultChainId,
+        nonce: 5,
+        to: contractAddress1,
+        data: '0x' + '00'.repeat(dataSize),
+      };
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    it('should accept contract creation with initcode exactly at the limit', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE);
+      expect(() => precheck.initcodeSize(tx)).not.to.throw();
+    });
+
+    it('should reject contract creation with initcode exceeding the limit', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE + 1);
+      try {
+        precheck.initcodeSize(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.INITCODE_SIZE_LIMIT_EXCEEDED(
+          constants.MAX_INITCODE_SIZE + 1,
+          constants.MAX_INITCODE_SIZE,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+
+    it('should not apply the initcode limit to regular call transactions', async () => {
+      const tx = await createRegularTx(constants.MAX_INITCODE_SIZE + 1);
+      expect(() => precheck.initcodeSize(tx)).not.to.throw();
+    });
+
+    it('should reject oversized initcode via validateBasicPropertiesStateless', async () => {
+      const tx = await createContractCreationTx(constants.MAX_INITCODE_SIZE + 1);
+      try {
+        precheck.validateBasicPropertiesStateless(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.INITCODE_SIZE_LIMIT_EXCEEDED(
+          constants.MAX_INITCODE_SIZE + 1,
+          constants.MAX_INITCODE_SIZE,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+  });
+
   describe('transactionType', async function () {
     const defaultTx = {
       value: ONE_TINYBAR_IN_WEI_HEX,
@@ -880,6 +1068,49 @@ describe('Precheck', async function () {
       expect(error).to.be.an.instanceOf(JsonRpcError);
       expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
       expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
+    });
+
+    describe('type 4 (EIP-7702) feature flag', async function () {
+      const authEntry = {
+        chainId: defaultChainId,
+        address: contractAddress1,
+        nonce: 0,
+        signature: {
+          r: '0x' + 'aa'.repeat(32),
+          s: '0x' + 'bb'.repeat(32),
+          yParity: 0,
+        },
+      };
+      const type4Tx = {
+        type: 4,
+        chainId: defaultChainId,
+        to: contractAddress1,
+        maxFeePerGas: defaultGasPrice,
+        maxPriorityFeePerGas: '0x0',
+        gasLimit: defaultGasLimit,
+        value: '0x0',
+        authorizationList: [authEntry],
+      };
+
+      it('should reject type 4 transactions when TX_TYPE_4_ENABLED is false (default)', async () => {
+        const signed = await signTransaction(type4Tx);
+        let error;
+        try {
+          precheck.transactionType(ethers.Transaction.from(signed));
+        } catch (e) {
+          error = e;
+        }
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
+        expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
+      });
+
+      withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+        it('should accept type 4 transactions when TX_TYPE_4_ENABLED is true', async () => {
+          const signed = await signTransaction(type4Tx);
+          expect(() => precheck.transactionType(ethers.Transaction.from(signed))).to.not.throw();
+        });
+      });
     });
   });
 
@@ -950,14 +1181,96 @@ describe('Precheck', async function () {
       expect(parsedTxWithMatchingChainId.accessList).to.be.empty;
     });
 
-    it('should throw NOT_YET_IMPLEMENTED for non-empty access list', function () {
+    it('should throw "not supported for legacy transactions" for non-empty access list when tx type is 0', function () {
       parsedTxWithMatchingChainId.accessList = [
         {
           address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
           storageKeys: [],
         },
       ];
-      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('Not yet implemented');
+      parsedTxWithMatchingChainId.type = 0;
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('not supported for legacy transactions');
+    });
+
+    it('should successfully parse a valid transaction string with non empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [
+        {
+          address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+          storageKeys: [],
+        },
+      ];
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.not.throw;
+    });
+  });
+
+  describe('authorizationList', () => {
+    const authEntry = {
+      chainId: 0x12a,
+      address: contractAddress1,
+      nonce: BigInt(0),
+      signature: { r: '0x' + 'aa'.repeat(32), s: '0x' + 'bb'.repeat(32), yParity: 0 },
+    };
+
+    // The method only reads tx.type, tx.authorizationList, and tx.to.
+    const makeTx = (overrides: Record<string, unknown> = {}) =>
+      ({
+        type: 2,
+        authorizationList: undefined as any,
+        to: contractAddress1,
+        ...overrides,
+      }) as unknown as Transaction;
+
+    // EIP-7702 (type 4) "set code" transaction whose single authorization tuple carries a
+    // nonce of 2**64, which overflows the uint64 maximum (taken from the reported issue #5462).
+    const txWithAuthorizationNonceOverflow =
+      '0x04f8d582012a80843b9aca0085a54f4c3c00830186a09400000000000000000000000000000000000000008080c0f865f863809400000000000000000000000000000000000000008901000000000000000001a0dbe49ec5146e214ce1c19405e88d43631e522b918b69a11a69dda9f9fd7f1fc6a052661856135d47a70999dfbcb53675bd1b30236effcd8f2c63221536e02d625e80a0e88f2d0ec9488b5208740bf3e39897b10582136e71f4fe18465c3f5007912182a03e47de17890240f0ccdd452f2ded3739dcee197cede52919e56f4bf1b5987a14';
+
+    it('should not throw for type 4 tx with non-empty authorizationList and valid to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry] }))).not.to.throw();
+    });
+
+    it('should throw for type 4 tx with valid authorizationList but null to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry], to: null }))).to.throw(
+        'type 4 transaction cannot be used to create contract',
+      );
+    });
+
+    it('should accept an authorization nonce at the uint64 maximum', () => {
+      const entry = { ...authEntry, nonce: constants.UINT64_MAX };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).not.to.throw();
+    });
+
+    it('should accept an authorization chainId at the uint256 maximum', () => {
+      const entry = { ...authEntry, chainId: constants.UINT256_MAX };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).not.to.throw();
+    });
+
+    it('should throw when an authorization chainId overflows uint256', () => {
+      const entry = { ...authEntry, chainId: constants.UINT256_MAX + BigInt(1) };
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [entry] }))).to.throw(
+        'exceeds uint256 maximum',
+      );
+    });
+
+    it('should throw when an authorization nonce overflows uint64', () => {
+      const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
+      try {
+        precheck.authorizationList(tx);
+        expectedError();
+      } catch (e: any) {
+        expect(e).to.be.an.instanceOf(JsonRpcError);
+        expect(e.code).to.eq(-32602);
+        expect(e.message).to.contain('exceeds uint64 maximum');
+      }
+    });
+
+    // TX_TYPE_4_ENABLED must be on so the tx reaches authorizationList validation; otherwise
+    // transactionType() rejects it earlier with UNSUPPORTED_TRANSACTION_TYPE_4 (covered above).
+    withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
+      it('should reject the overflow transaction via validateBasicPropertiesStateless', () => {
+        const tx = ethers.Transaction.from(txWithAuthorizationNonceOverflow);
+        expect(() => precheck.validateBasicPropertiesStateless(tx)).to.throw('exceeds uint64 maximum');
+      });
     });
   });
 });

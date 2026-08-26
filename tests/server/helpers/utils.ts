@@ -404,6 +404,32 @@ export class Utils {
     await new Promise((r) => setTimeout(r, time));
   }
 
+  /**
+   * Polls `predicate` until it resolves truthy, then returns. Throws once `timeoutMs` elapses.
+   *
+   * Prefer this over an unbounded poll when waiting on eventually-consistent state: a condition
+   * that never becomes true fails here with `description` attached, instead of stalling until the
+   * mocha timeout fires with no indication of what was being awaited.
+   *
+   * @param predicate Evaluated immediately, then once per `intervalMs` until truthy.
+   * @param options `timeoutMs` budget, `intervalMs` between attempts, `description` for the error.
+   */
+  static async waitUntil(
+    predicate: () => Promise<boolean>,
+    options: { timeoutMs?: number; intervalMs?: number; description?: string } = {},
+  ): Promise<void> {
+    const { timeoutMs = 30_000, intervalMs = 1_000, description = 'condition to be met' } = options;
+    const deadline = Date.now() + timeoutMs;
+
+    for (;;) {
+      if (await predicate()) return;
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out after ${timeoutMs}ms waiting for ${description}`);
+      }
+      await Utils.wait(intervalMs);
+    }
+  }
+
   static async writeHeapSnapshotAsync(): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
       try {

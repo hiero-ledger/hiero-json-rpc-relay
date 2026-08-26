@@ -4,6 +4,7 @@ import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
+import { ConfigService } from '../../../../src/config-service/services';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
@@ -19,6 +20,7 @@ import {
   ethCallFailing,
   mockData,
   overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -275,7 +277,7 @@ describe('@ethCall Eth Call spec', async function () {
         gas: 25_000_000,
       };
       await mockContractCall(
-        { ...callData, gas: constants.MAX_GAS_PER_SEC, block: 'latest' },
+        { ...callData, gas: ConfigService.get('MAX_TRANSACTION_GAS_LIMIT'), block: 'latest' },
         false,
         200,
         {
@@ -285,6 +287,40 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const res = await contractService.call(callData, 'latest', requestDetails);
       expect(res).to.equal('0x00');
+    });
+
+    withOverriddenEnvsInMochaTest({ MAX_TRANSACTION_GAS_LIMIT: 20_000_000 }, () => {
+      it('eth_call caps gas to the configured MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const callData = {
+          ...defaultCallData,
+          gas: 25_000_000,
+        };
+        await mockContractCall(
+          { ...callData, gas: 20_000_000, block: 'latest' },
+          false,
+          200,
+          { result: '0x00' },
+          requestDetails,
+        );
+        const res = await contractService.call(callData, 'latest', requestDetails);
+        expect(res).to.equal('0x00');
+      });
+
+      it('eth_call does not cap gas below the configured MAX_TRANSACTION_GAS_LIMIT', async function () {
+        const callData = {
+          ...defaultCallData,
+          gas: 18_000_000,
+        };
+        await mockContractCall(
+          { ...callData, gas: 18_000_000, block: 'latest' },
+          false,
+          200,
+          { result: '0x00' },
+          requestDetails,
+        );
+        const res = await contractService.call(callData, 'latest', requestDetails);
+        expect(res).to.equal('0x00');
+      });
     });
 
     it('eth_call with all fields and value', async function () {
@@ -308,6 +344,57 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
       expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with non-empty accessList', async () => {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        accessList: [
+          {
+            address: CONTRACT_ADDRESS_2,
+            storageKeys: [
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+            ],
+          },
+        ],
+      };
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+      const result = await contractService.call(callData, 'latest', requestDetails);
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with non-empty authorizationList', async () => {
+      const authEntry = {
+        chainId: '0x12a',
+        nonce: '0x5',
+        address: CONTRACT_ADDRESS_2,
+        yParity: '0x0',
+        r: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        s: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      };
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        authorizationList: [authEntry],
+      };
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+
+      web3Mock.resetHistory();
+      const result = await contractService.call(callData, 'latest', requestDetails);
+
+      expect(result).to.equal('0x00');
+      expect(web3Mock.history.post.length).to.gte(1);
+      const sentBody = JSON.parse(web3Mock.history.post[0].data);
+      expect(sentBody.authorizationList).to.be.an('array').with.lengthOf(1);
+      expect(sentBody.authorizationList[0]).to.deep.equal(authEntry);
     });
 
     it('eth_call with all fields but mirrorNode throws 429 hence rejected with COULD_NOT_SIMULATE_TRANSACTION', async function () {

@@ -36,6 +36,7 @@ import {
   type LockService,
   type TransactionPoolService,
   TransactionService,
+  type TransactionTracingService,
 } from './services';
 import type { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import type HAPIService from './services/hapiService/hapiService';
@@ -136,6 +137,7 @@ export class DebugImpl implements Debug {
     transactionPoolService: TransactionPoolService,
     lockService: LockService,
     registry: Registry,
+    transactionTracingService: TransactionTracingService,
   ) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
@@ -154,6 +156,7 @@ export class DebugImpl implements Debug {
       transactionPoolService,
       lockService,
       registry,
+      transactionTracingService,
     );
   }
 
