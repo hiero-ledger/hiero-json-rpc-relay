@@ -403,6 +403,42 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
+      describe('HTS crypto transfers', async function () {
+        let htsTransferBlockNumber, htsTransferBlockHash, htsTransferEvmTxHash;
+
+        before(async () => {
+          const transaction = new TransferTransaction()
+            .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+            .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
+            .setTransactionMemo('Relay test synthetic tx by block hash and index');
+          const resp = await transaction.execute(servicesNode.client);
+          await servicesNode.getRecordResponseDetails(resp);
+
+          htsTransferEvmTxHash = `0x${resp.transactionHash.toString('hex').slice(0, 64)}`;
+          const receipt = await relay.pollForValidTransactionReceipt(htsTransferEvmTxHash);
+          htsTransferBlockNumber = receipt.blockNumber;
+          htsTransferBlockHash = receipt.blockHash;
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockByNumber', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
+            htsTransferBlockNumber,
+            false,
+          ]);
+          expect(resp.transactions).to.contain(htsTransferEvmTxHash);
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockByHash', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [htsTransferBlockHash, false]);
+          expect(resp.transactions).to.contain(htsTransferEvmTxHash);
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockReceipts', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [htsTransferBlockNumber]);
+          expect(resp.some((tx) => tx.transactionHash === htsTransferEvmTxHash)).to.be.true;
+        });
+      });
+
       it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function () {
         const transaction = new TransferTransaction()
           .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
