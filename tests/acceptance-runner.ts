@@ -121,7 +121,29 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     });
 
     after(async () => {
-      const { evm_address: operatorAddress } = await global.mirrorNode.get(`accounts/${OPERATOR_ID}`);
+      const OPERATOR_LOOKUP_ATTEMPTS = 3;
+      const OPERATOR_LOOKUP_RETRY_DELAY = 5000;
+      let operatorAddress: string | undefined;
+      for (let attempt = 1; attempt <= OPERATOR_LOOKUP_ATTEMPTS; attempt++) {
+        try {
+          ({ evm_address: operatorAddress } = await global.mirrorNode.get(`accounts/${OPERATOR_ID}`));
+          break;
+        } catch (error) {
+          logger.warn(
+            `Could not resolve the operator address (attempt ${attempt}/${OPERATOR_LOOKUP_ATTEMPTS}): ${error}`,
+          );
+          if (attempt < OPERATOR_LOOKUP_ATTEMPTS) {
+            await new Promise((r) => setTimeout(r, OPERATOR_LOOKUP_RETRY_DELAY));
+          }
+        }
+      }
+
+      if (operatorAddress === undefined) {
+        logger.error('Could not resolve the operator address, skipping the refund of the test accounts.');
+        stopRelay();
+        return;
+      }
+
       const accounts: AliasAccount[] = global.accounts;
       for (let i = 0; i < accounts.length; i++) {
         const account = accounts[i];
