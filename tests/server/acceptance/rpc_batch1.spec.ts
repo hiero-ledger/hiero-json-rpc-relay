@@ -870,9 +870,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       describe('transactionIndex', () => {
         let block: any;
         let blockNumberHex: string;
-        let childCount: number;
         let parentHashes: Set<string>;
-        let logHashes: Set<string>;
+        let childHashes: Set<string>;
 
         const assertContiguousIndexes = (subject: any, label: string) => {
           const actual = subject.transactions.map((transaction: any) => transaction.transactionIndex);
@@ -883,6 +882,13 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           );
           expect(new Set(actual).size, `${label}: block ${subject.number} has duplicate indexes`).to.equal(
             actual.length,
+          );
+        };
+
+        const assertValidIndex = (value: any, label: string) => {
+          expect(value, `${label} must report a non-null transactionIndex`).to.be.a('string');
+          expect(value, `${label} transactionIndex must be an unpadded hex quantity`).to.match(
+            /^0x(0|[1-9a-f][0-9a-f]*)$/,
           );
         };
 
@@ -901,19 +907,16 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const parents = (await mirrorNode.get(`/contracts/results?${range}`)).results ?? [];
           const all = (await mirrorNode.get(`/contracts/results?${range}&internal=true`)).results ?? [];
-          childCount = all.length - parents.length;
 
           parentHashes = new Set<string>(parents.map((result: any) => result.hash));
-          logHashes = new Set<string>(
-            ((await mirrorNode.get(`/contracts/results/logs?${range}`)).logs ?? []).map(
-              (log: any) => log.transaction_hash,
-            ),
+          childHashes = new Set<string>(
+            all.map((result: any) => result.hash).filter((hash: string) => !parentHashes.has(hash)),
           );
 
           if (global.logger.isLevelEnabled('debug')) {
             global.logger.debug(
               `${requestIdPrefix} transactionIndex block ${mirrorContractDetails.block_number}: ` +
-                `${block.transactions.length} transaction(s), ${childCount} child transaction(s)`,
+                `${block.transactions.length} transaction(s), ${childHashes.size} child transaction(s)`,
             );
           }
         });
@@ -940,21 +943,27 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('@release should exclude child transactions from the block transaction list', async function () {
           expect(
-            childCount,
+            childHashes.size,
             'the createChild block contains no child transactions, so this assertion would be vacuous',
           ).to.be.greaterThan(0);
 
           const hashes = block.transactions.map((transaction: any) => transaction.hash);
           expect(new Set(hashes).size, 'the block must not list a transaction twice').to.equal(hashes.length);
 
-          for (const hash of hashes) {
-            const isParent = parentHashes.has(hash);
-            const isSynthetic = !isParent && logHashes.has(hash);
+          const blockHashes = new Set<string>(hashes);
+          for (const hash of parentHashes) {
             expect(
-              isParent || isSynthetic,
-              `${hash} is neither a parent contract result nor a synthetic log-only transaction, ` +
-                `so it is a child transaction that leaked into block ${mirrorContractDetails.block_number}`,
+              blockHashes.has(hash),
+              `parent contract result ${hash} is missing from block ${mirrorContractDetails.block_number}`,
             ).to.be.true;
+          }
+
+          for (const hash of hashes) {
+            expect(
+              childHashes.has(hash),
+              `${hash} is a child (internal) transaction that leaked into block ` +
+                `${mirrorContractDetails.block_number}`,
+            ).to.be.false;
           }
 
           assertContiguousIndexes(block, 'eth_getBlockByNumber');
@@ -962,8 +971,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('@release should agree on transactionIndex in "eth_getTransactionByHash" and "eth_getTransactionReceipt"', async function () {
           for (const transaction of block.transactions) {
+            assertValidIndex(transaction.transactionIndex, `block transaction ${transaction.hash}`);
+
             const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transaction.hash]);
             expect(receipt, `eth_getTransactionReceipt(${transaction.hash}) must not be null`).to.not.be.null;
+            assertValidIndex(receipt.transactionIndex, `eth_getTransactionReceipt(${transaction.hash})`);
             expect(
               receipt.transactionIndex,
               `eth_getTransactionReceipt must agree with the block on ${transaction.hash}`,
@@ -971,6 +983,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
             const byHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transaction.hash]);
             expect(byHash, `eth_getTransactionByHash(${transaction.hash}) must not be null`).to.not.be.null;
+            assertValidIndex(byHash.transactionIndex, `eth_getTransactionByHash(${transaction.hash})`);
             expect(
               byHash.transactionIndex,
               `eth_getTransactionByHash must agree with the block on ${transaction.hash}`,
@@ -987,6 +1000,12 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const expectedIndexes = indexByHash(block);
           for (const receipt of receipts) {
+            expect(
+              expectedIndexes.has(receipt.transactionHash),
+              `eth_getBlockReceipts returned ${receipt.transactionHash}, which is not in block ` +
+                `${mirrorContractDetails.block_number}`,
+            ).to.be.true;
+            assertValidIndex(receipt.transactionIndex, `eth_getBlockReceipts(${receipt.transactionHash})`);
             expect(
               receipt.transactionIndex,
               `eth_getBlockReceipts must agree with the block on ${receipt.transactionHash}`,
