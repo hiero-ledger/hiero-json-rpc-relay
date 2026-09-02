@@ -8,6 +8,7 @@ import { type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { type Block } from '../../../model';
 import { type ITransactionReceipt, type MirrorNodeBlock, type RequestDetails } from '../../../types';
+import { type IGetBlockWorkerResponse } from '../../../types/IGetBlockWorkerResponse';
 import { type IBlockService, type ICommonService } from '../../index';
 import { WorkersPool } from '../../workersService/WorkersPool';
 
@@ -227,7 +228,7 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return WorkersPool.run(
+    const result: IGetBlockWorkerResponse | null = await WorkersPool.run(
       {
         type: 'getBlock',
         blockHashOrNumber,
@@ -238,6 +239,18 @@ export class BlockService implements IBlockService {
       this.mirrorNodeClient,
       this.cacheService,
     );
+
+    if (!result) {
+      return null;
+    }
+
+    try {
+      await this.mirrorNodeClient.transactionTimestampIndex.setMany(result.syntheticTimestampEntries);
+    } catch (error) {
+      this.logger.warn(`Failed to record consensus timestamps for %s: %s`, blockHashOrNumber, error);
+    }
+
+    return result.block;
   }
 
   /**

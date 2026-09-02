@@ -776,6 +776,21 @@ const _CONFIG = {
     required: false,
     defaultValue: 900000,
   },
+  TX_TIMESTAMP_INDEX_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  TX_TIMESTAMP_INDEX_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
+  TX_TIMESTAMP_INDEX_TTL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
+  },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
     required: false,

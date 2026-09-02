@@ -12,17 +12,21 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClientError, predefined } from '../../../src/relay';
-import { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import {
+  DisabledTransactionTimestampIndex,
+  TransactionTimestampIndexFactory,
+} from '../../../src/relay/lib/services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
+import {
   type MirrorNodeContractLog,
   type MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../../../src/relay/lib/types';
-import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
+import { mockData, overrideEnvsInMochaDescribe, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
 
 describe('MirrorNodeClient', async function () {
@@ -61,6 +65,8 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('constructor', () => {
+    overrideEnvsInMochaDescribe({ TX_TIMESTAMP_INDEX_ENABLED: true });
+
     function mirrorNodeClientClassForMainThread(isMainThread: boolean): typeof MirrorNodeClient {
       return proxyquire.noCallThru()('../../../src/relay/lib/clients/mirrorNodeClient', {
         worker_threads: { isMainThread },
@@ -109,6 +115,75 @@ describe('MirrorNodeClient', async function () {
       );
       expect(infoSpy.calledOnce).to.be.true;
       expect(infoSpy.firstCall.args[0]).to.include('Mirror Node client successfully configured');
+    });
+
+    it('defaults to the disabled timestamp index so the feature is off unless one is supplied', async () => {
+      const { localRegistry, localLogger, localInstance, localCache } = buildLocalClientDeps();
+      const client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        localLogger,
+        localRegistry,
+        localCache,
+        localInstance,
+      );
+
+      expect(client.transactionTimestampIndex).to.be.instanceOf(DisabledTransactionTimestampIndex);
+      await client.transactionTimestampIndex.setMany([['0xaaa', '1.000000001']]);
+      expect(await client.transactionTimestampIndex.get('0xaaa')).to.be.null;
+    });
+
+    it('exposes the timestamp index it was given, so writers and readers holding this client share it', async () => {
+      const { localRegistry, localLogger, localInstance, localCache } = buildLocalClientDeps();
+      const index = TransactionTimestampIndexFactory.create(localLogger);
+      const client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        localLogger,
+        localRegistry,
+        localCache,
+        localInstance,
+        undefined,
+        undefined,
+        index,
+      );
+
+      expect(client.transactionTimestampIndex).to.equal(index);
+      await client.transactionTimestampIndex.setMany([['0xaaa', '1786958468.715212954']]);
+      expect(await index.get('0xaaa')).to.equal('1786958468.715212954');
+    });
+  });
+
+  describe('isSyntheticContractRecord', () => {
+    // Shapes captured from testnet block 39363179 and from a mainnet contract-result page.
+    const synthetic = { gas_limit: 0, nonce: null, v: null, r: null, s: null };
+    const real = { gas_limit: 622500, nonce: 563318, v: 628, r: '0xeb7cdd87', s: '0x3dc6b242' };
+    // A HAPI-submitted CONTRACTCALL: no ethereum signature, but it executed and resolves by hash.
+    const hapiContractCall = { gas_limit: 150000, nonce: null, v: null, r: null, s: null };
+
+    it('accepts a synthetic record', () => {
+      expect(isSyntheticContractRecord(synthetic)).to.be.true;
+    });
+
+    it('rejects a real transaction', () => {
+      expect(isSyntheticContractRecord(real)).to.be.false;
+    });
+
+    // isChildContractRecord matches these; a receipt built from their logs would have the wrong shape.
+    it('rejects a HAPI-submitted contract call', () => {
+      expect(isSyntheticContractRecord(hapiContractCall)).to.be.false;
+    });
+
+    it('rejects a record whose gas limit is unpopulated', () => {
+      expect(isSyntheticContractRecord({ ...synthetic, gas_limit: null })).to.be.false;
+    });
+
+    it('rejects a record carrying only part of a signature', () => {
+      expect(isSyntheticContractRecord({ ...synthetic, r: '0xeb7cdd87' })).to.be.false;
+      expect(isSyntheticContractRecord({ ...synthetic, v: 628 })).to.be.false;
+    });
+
+    it('rejects null and undefined', () => {
+      expect(isSyntheticContractRecord(null)).to.be.false;
+      expect(isSyntheticContractRecord(undefined)).to.be.false;
     });
   });
 

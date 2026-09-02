@@ -10,6 +10,7 @@ import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import { isSyntheticContractRecord } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
@@ -20,13 +21,14 @@ import {
   type IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { type Block, type Log, type Transaction } from '../../../model';
+import { type Log, type Transaction } from '../../../model';
 import {
   type IContractResultsParams,
   type ITransactionReceipt,
   type MirrorNodeBlock,
   type RequestDetails,
 } from '../../../types';
+import { type IGetBlockWorkerResponse } from '../../../types/IGetBlockWorkerResponse';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
@@ -320,7 +322,7 @@ export async function getBlock(
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
-): Promise<Block | null> {
+): Promise<IGetBlockWorkerResponse | null> {
   try {
     const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
       requestDetails,
@@ -388,12 +390,18 @@ export async function getBlock(
       );
     }
 
-    return await BlockFactory.createBlock({
+    const syntheticTimestampEntries = contractResults
+      .filter(isSyntheticContractRecord)
+      .map((cr) => [cr.hash, cr.timestamp] as const);
+
+    const block = await BlockFactory.createBlock({
       blockResponse,
       txArray,
       gasPrice,
       receiptsRoot,
     });
+
+    return { block, syntheticTimestampEntries };
   } catch (e: unknown) {
     throw wrapError(e);
   }
