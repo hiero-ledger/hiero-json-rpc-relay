@@ -2,7 +2,7 @@ version: "3.7"
 services:
   relay:
     container_name: hedera-json-rpc-relay
-    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.78.4"
+    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.78.5"
     restart: "unless-stopped"
     ports:
       - 7546:7546
@@ -18,7 +18,7 @@ services:
 
   relay-ws:
     container_name: hedera-json-rpc-relay-ws
-    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.78.4"
+    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.78.5"
     # Uses the image default CMD (dist/index.js); the transport is selected with env vars,
     # matching the Helm websocket chart and the `start:ws` script in package.json.
     environment:
