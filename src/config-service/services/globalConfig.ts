@@ -779,7 +779,7 @@ const _CONFIG = {
   TX_TIMESTAMP_INDEX_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   TX_TIMESTAMP_INDEX_MAX_ENTRIES: {
     type: 'number',

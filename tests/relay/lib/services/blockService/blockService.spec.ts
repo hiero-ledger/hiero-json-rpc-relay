@@ -26,6 +26,8 @@ const TS_B = '1786958469.000000001';
 describe('BlockService records synthetic consensus timestamps', function () {
   this.timeout(10000);
 
+  overrideEnvsInMochaDescribe({ TX_TIMESTAMP_INDEX_ENABLED: true });
+
   const logger = pino({ level: 'silent' });
   const requestDetails = new RequestDetails({ requestId: 'block-index', ipAddress: '0.0.0.0' });
 

@@ -26,7 +26,7 @@ import {
   type MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../../../src/relay/lib/types';
-import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
+import { mockData, overrideEnvsInMochaDescribe, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
 
 describe('MirrorNodeClient', async function () {
@@ -65,6 +65,8 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('constructor', () => {
+    overrideEnvsInMochaDescribe({ TX_TIMESTAMP_INDEX_ENABLED: true });
+
     function mirrorNodeClientClassForMainThread(isMainThread: boolean): typeof MirrorNodeClient {
       return proxyquire.noCallThru()('../../../src/relay/lib/clients/mirrorNodeClient', {
         worker_threads: { isMainThread },
