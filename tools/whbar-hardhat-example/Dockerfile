@@ -1,4 +1,4 @@
-FROM node:22-bullseye
+FROM node:22-bullseye@sha256:959fa6e5c12f4b08f58808f953c7a6a05f1f72629b57ef3a648b8809362fdad9
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,5 +17,5 @@ RUN apt-get update && \
 
 USER node
 
-RUN npm install --ignore-scripts
+RUN npm ci --ignore-scripts
 RUN npx hardhat compile

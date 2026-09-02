@@ -4,9 +4,16 @@ on:
   pull_request:
     types: [opened, edited, labeled, unlabeled, synchronize]
 
+permissions:
+  contents: read
+
 jobs:
   check_pr:
     runs-on: hiero-smart-contracts-linux-medium
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Harden Runner

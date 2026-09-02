@@ -8,9 +8,15 @@ on:
         type: string
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   branch_bump_tag:
     runs-on: hiero-smart-contracts-linux-medium
+    permissions:
+      contents: write
+      issues: write
     env:
       RELEASE_NOTES_FILENAME: release_notes
     outputs:
@@ -142,6 +148,9 @@ jobs:
     name: Create snapshot PR
     runs-on: hiero-smart-contracts-linux-medium
     needs: branch_bump_tag
+    permissions:
+      contents: write
+      pull-requests: write
     if: ${{ needs.branch_bump_tag.outputs.create_pr == 'true' }}
     env:
       NEXT_VERSION_SNAPSHOT: ${{ needs.branch_bump_tag.outputs.next_version_snapshot }}

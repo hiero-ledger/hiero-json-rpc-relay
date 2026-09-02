@@ -10,11 +10,13 @@ env:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
     runs-on: hiero-smart-contracts-linux-medium
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Harden Runner

@@ -7,6 +7,9 @@ on:
     branches: [main, release/**]
     tags: [v*]
 
+permissions:
+  contents: read
+
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -15,6 +18,11 @@ jobs:
   test-node:
     name: Tests
     runs-on: hiero-smart-contracts-linux-medium
+    permissions:
+      contents: read
+      checks: write
+      issues: read
+      pull-requests: write
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0

@@ -7,6 +7,9 @@ on:
     branches: [main, release/**]
     tags: [v*]
 
+permissions:
+  contents: read
+
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -14,6 +17,9 @@ concurrency:
 jobs:
   hardhat:
     name: Hardhat
+    permissions:
+      contents: write
+      actions: read
     uses: ./.github/workflows/dev-tool-workflow.yml
     with:
       command: cd ./tools/hardhat-example/ && npx hardhat test
@@ -21,6 +27,9 @@ jobs:
 
   web3js:
     name: Web3js
+    permissions:
+      contents: write
+      actions: read
     uses: ./.github/workflows/dev-tool-workflow.yml
     needs: [hardhat]
     with:
@@ -29,6 +38,9 @@ jobs:
 
   golang-http:
     name: Golang HTTP
+    permissions:
+      contents: write
+      actions: read
     uses: ./.github/workflows/dev-tool-workflow.yml
     with:
       command: cd ./tools/golang-json-rpc-tests/ && go run .
@@ -36,6 +48,9 @@ jobs:
 
   golang-wss:
     name: Golang WSS
+    permissions:
+      contents: write
+      actions: read
     uses: ./.github/workflows/dev-tool-workflow.yml
     with:
       command: cd ./tools/golang-json-rpc-tests/ && go run . --wss
