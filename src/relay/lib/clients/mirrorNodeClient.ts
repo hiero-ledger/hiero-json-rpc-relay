@@ -19,8 +19,10 @@ import { Utils } from '../../utils';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
+import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
+  type ContractAction,
   type IAccountRequestParams,
   type IContractCallRequest,
   type IContractCallResponse,
@@ -30,11 +32,12 @@ import {
   type IMirrorNodeTransactionRecord,
   type ITimestamp,
   type ITransactionRecordMetric,
+  type ITransactionTimestampIndex,
+  type MirrorNodeBlock,
   type MirrorNodeContractLog,
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import type { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
@@ -71,6 +74,29 @@ export const isImmatureContractRecord = (
  */
 export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
   record != null && record.nonce == null && record.v == null;
+
+/**
+ * Whether a Mirror Node contract-result record is synthetic: fabricated for a native Hedera transaction
+ * (CRYPTOTRANSFER, TOKENMINT and the like) that never reached the EVM, so it has no gas limit.
+ *
+ * Stricter than {@link isChildContractRecord}, which also matches HAPI-submitted CONTRACTCALL records: those
+ * carry no ethereum signature either, but they did execute and are resolvable by hash.
+ */
+export const isSyntheticContractRecord = (
+  record?: {
+    gas_limit?: number | null;
+    nonce?: number | null;
+    v?: number | null;
+    r?: string | null;
+    s?: string | null;
+  } | null,
+): boolean =>
+  record != null &&
+  record.gas_limit === 0 &&
+  record.nonce == null &&
+  record.v == null &&
+  record.r == null &&
+  record.s == null;
 
 export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
@@ -192,6 +218,12 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: ICacheClient;
 
+  /**
+   * Hash to consensus timestamp index for synthetic transactions, written while serving a block and read
+   * when a by-hash lookup finds nothing. Disabled unless the composition root supplies one.
+   */
+  public readonly transactionTimestampIndex: ITransactionTimestampIndex;
+
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
@@ -309,6 +341,7 @@ export class MirrorNodeClient {
     restClient?: AxiosInstance,
     web3Url?: string,
     web3Client?: AxiosInstance,
+    transactionTimestampIndex: ITransactionTimestampIndex = new DisabledTransactionTimestampIndex(),
   ) {
     if (!web3Url) {
       web3Url = restUrl;
@@ -359,6 +392,7 @@ export class MirrorNodeClient {
       );
     }
     this.cacheService = cacheService;
+    this.transactionTimestampIndex = transactionTimestampIndex;
 
     // set  up eth call  accepted error codes.
     const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
