@@ -514,8 +514,7 @@ export class MirrorNodeClient {
           // is converted to a JS Number type, precision is lost due to rounding.
           // To prevent this, `transformResponse` is used to intercept
           // and process the response before Axios’s default JSON.parse conversion.
-          // See parseResponseBody for how precision is preserved without paying for json-bigint
-          // on every response.
+          // See parseResponseBody for how precision is preserved without paying for json-bigint on every response.
           axiosRequestConfig['transformResponse'] = [(data): any => this.parseResponseBody(data)];
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
