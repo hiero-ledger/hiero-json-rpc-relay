@@ -437,6 +437,45 @@ export class MirrorNodeClient {
     return ip;
   }
 
+  /**
+   * Matches a JSON number literal that `json-bigint` would widen into a `BigNumber`.
+   *
+   * `json-bigint` widens a literal whose textual form is longer than 15 characters (`lib/parse.js`:
+   * `if (string.length > 15)`) - the form it measures includes the sign, the decimal point and the
+   * exponent, not just the integer digits. Both branches below therefore require a 16-character or
+   * longer literal, so nothing json-bigint widens can slip through.
+   *
+   * A JSON number only ever appears at the start of the document, after `[` or `,` in an array, or
+   * as an object value. Anchoring on those positions is what makes the probe usable at all: the
+   * zero-padded `data`, `topics` and `bloom` fields of a log response are long digit runs, and an
+   * unanchored scan would match nearly every response.
+   */
+  private static readonly WIDENED_NUMBER_LITERAL_REGEX = /(?:^|"\s*:|[,[])\s*(?:-[\d.eE+-]{15,}|\d[\d.eE+-]{15,})/;
+
+  /**
+   * Parses a response body and if there is a big number in it - uses JSONBigInt.parse instead of JSON.parse
+   *
+   * @param data - The raw response body as handed over by axios.
+   * @returns The parsed body, or `data` unchanged when it is empty or cannot be parsed.
+   */
+  private parseResponseBody(data: any): any {
+    // if the data is not valid, just return it to stick to the current behaviour
+    if (!data) {
+      return data;
+    }
+
+    try {
+      return typeof data === 'string' && !MirrorNodeClient.WIDENED_NUMBER_LITERAL_REGEX.test(data)
+        ? JSON.parse(data)
+        : JSONBigInt.parse(data);
+    } catch (error) {
+      this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
+    }
+
+    // return raw data so response can be processed properly by subsequent operations.
+    return data;
+  }
+
   private async request<T>(
     path: string,
     pathLabel: string,
@@ -475,23 +514,9 @@ export class MirrorNodeClient {
           // is converted to a JS Number type, precision is lost due to rounding.
           // To prevent this, `transformResponse` is used to intercept
           // and process the response before Axios’s default JSON.parse conversion.
-          // JSONBigInt reads the string representation from the received JSON
-          // and converts large numbers into BigNumber objects to maintain accuracy.
-          axiosRequestConfig['transformResponse'] = [
-            (data): any => {
-              // if the data is not valid, just return it to stick to the current behaviour
-              if (data) {
-                try {
-                  return JSONBigInt.parse(data);
-                } catch (error) {
-                  this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
-                }
-              }
-
-              // Return raw data so response can be processed properly by subsequent operations.
-              return data;
-            },
-          ];
+          // See parseResponseBody for how precision is preserved without paying for json-bigint
+          // on every response.
+          axiosRequestConfig['transformResponse'] = [(data): any => this.parseResponseBody(data)];
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {
