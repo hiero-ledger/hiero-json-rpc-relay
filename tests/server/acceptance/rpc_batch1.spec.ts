@@ -403,6 +403,42 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
+      describe('HTS crypto transfers', async function () {
+        let htsTransferBlockNumber, htsTransferBlockHash, htsTransferEvmTxHash;
+
+        before(async () => {
+          const transaction = new TransferTransaction()
+            .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+            .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
+            .setTransactionMemo('Relay test synthetic tx by block hash and index');
+          const resp = await transaction.execute(servicesNode.client);
+          await servicesNode.getRecordResponseDetails(resp);
+
+          htsTransferEvmTxHash = `0x${resp.transactionHash.toString('hex').slice(0, 64)}`;
+          const receipt = await relay.pollForValidTransactionReceipt(htsTransferEvmTxHash);
+          htsTransferBlockNumber = receipt.blockNumber;
+          htsTransferBlockHash = receipt.blockHash;
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockByNumber', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
+            htsTransferBlockNumber,
+            false,
+          ]);
+          expect(resp.transactions).to.contain(htsTransferEvmTxHash);
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockByHash', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [htsTransferBlockHash, false]);
+          expect(resp.transactions).to.contain(htsTransferEvmTxHash);
+        });
+
+        it('should be able to get hts crypto transfer via eth_getBlockReceipts', async () => {
+          const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [htsTransferBlockNumber]);
+          expect(resp.some((tx) => tx.transactionHash === htsTransferEvmTxHash)).to.be.true;
+        });
+      });
+
       it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function () {
         const transaction = new TransferTransaction()
           .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
@@ -867,6 +903,218 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(response.transactionIndex).to.equal(numberTo0x(transactionIndex));
       });
 
+      describe('transactionIndex', () => {
+        let block: any;
+        let blockNumberHex: string;
+        let parentHashes: Set<string>;
+        let childHashes: Set<string>;
+
+        const assertContiguousIndexes = (subject: any, label: string) => {
+          const actual = subject.transactions.map((transaction: any) => transaction.transactionIndex);
+          const expected = subject.transactions.map((_: any, position: number) => numberTo0x(position));
+
+          expect(actual, `${label}: block ${subject.number} indexes must be 0..n-1 with no gaps`).to.deep.equal(
+            expected,
+          );
+          expect(new Set(actual).size, `${label}: block ${subject.number} has duplicate indexes`).to.equal(
+            actual.length,
+          );
+        };
+
+        const assertValidIndex = (value: any, label: string) => {
+          expect(value, `${label} must report a non-null transactionIndex`).to.be.a('string');
+          expect(value, `${label} transactionIndex must be an unpadded hex quantity`).to.match(
+            /^0x(0|[1-9a-f][0-9a-f]*)$/,
+          );
+        };
+
+        const indexByHash = (subject: any): Map<string, string> =>
+          new Map(subject.transactions.map((transaction: any) => [transaction.hash, transaction.transactionIndex]));
+
+        before(async () => {
+          blockNumberHex = numberTo0x(mirrorContractDetails.block_number);
+          block = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [blockNumberHex, true]);
+          expect(block, `eth_getBlockByNumber(${blockNumberHex}) must not be null`).to.not.be.null;
+
+          const mirrorBlock = await mirrorNode.get(`/blocks/${mirrorContractDetails.block_number}`);
+          const range =
+            `timestamp=gte:${mirrorBlock.timestamp.from}&timestamp=lte:${mirrorBlock.timestamp.to}` +
+            `&limit=100&order=asc`;
+
+          const parents = (await mirrorNode.get(`/contracts/results?${range}`)).results ?? [];
+          const all = (await mirrorNode.get(`/contracts/results?${range}&internal=true`)).results ?? [];
+
+          parentHashes = new Set<string>(parents.map((result: any) => result.hash));
+          childHashes = new Set<string>(
+            all.map((result: any) => result.hash).filter((hash: string) => !parentHashes.has(hash)),
+          );
+
+          if (global.logger.isLevelEnabled('debug')) {
+            global.logger.debug(
+              `${requestIdPrefix} transactionIndex block ${mirrorContractDetails.block_number}: ` +
+                `${block.transactions.length} transaction(s), ${childHashes.size} child transaction(s)`,
+            );
+          }
+        });
+
+        it('@release should number transactions 0..n-1 with no gaps in "eth_getBlockByNumber"', async function () {
+          assertContiguousIndexes(block, 'eth_getBlockByNumber');
+        });
+
+        it('@release should report the same transactions and indexes from "eth_getBlockByHash"', async function () {
+          const byHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [block.hash, true]);
+          expect(byHash, `eth_getBlockByHash(${block.hash}) must not be null`).to.not.be.null;
+
+          const project = (subject: any) =>
+            subject.transactions.map((transaction: any) => ({
+              hash: transaction.hash,
+              transactionIndex: transaction.transactionIndex,
+            }));
+
+          expect(project(byHash), 'eth_getBlockByHash must agree with eth_getBlockByNumber').to.deep.equal(
+            project(block),
+          );
+          assertContiguousIndexes(byHash, 'eth_getBlockByHash');
+        });
+
+        it('@release should exclude child transactions from the block transaction list', async function () {
+          expect(
+            childHashes.size,
+            'the createChild block contains no child transactions, so this assertion would be vacuous',
+          ).to.be.greaterThan(0);
+
+          const hashes = block.transactions.map((transaction: any) => transaction.hash);
+          expect(new Set(hashes).size, 'the block must not list a transaction twice').to.equal(hashes.length);
+
+          const blockHashes = new Set<string>(hashes);
+          for (const hash of parentHashes) {
+            expect(
+              blockHashes.has(hash),
+              `parent contract result ${hash} is missing from block ${mirrorContractDetails.block_number}`,
+            ).to.be.true;
+          }
+
+          for (const hash of hashes) {
+            expect(
+              childHashes.has(hash),
+              `${hash} is a child (internal) transaction that leaked into block ` +
+                `${mirrorContractDetails.block_number}`,
+            ).to.be.false;
+          }
+
+          assertContiguousIndexes(block, 'eth_getBlockByNumber');
+        });
+
+        it('@release should agree on transactionIndex in "eth_getTransactionByHash" and "eth_getTransactionReceipt"', async function () {
+          for (const transaction of block.transactions) {
+            assertValidIndex(transaction.transactionIndex, `block transaction ${transaction.hash}`);
+
+            const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transaction.hash]);
+            expect(receipt, `eth_getTransactionReceipt(${transaction.hash}) must not be null`).to.not.be.null;
+            assertValidIndex(receipt.transactionIndex, `eth_getTransactionReceipt(${transaction.hash})`);
+            expect(
+              receipt.transactionIndex,
+              `eth_getTransactionReceipt must agree with the block on ${transaction.hash}`,
+            ).to.equal(transaction.transactionIndex);
+
+            const byHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transaction.hash]);
+            expect(byHash, `eth_getTransactionByHash(${transaction.hash}) must not be null`).to.not.be.null;
+            assertValidIndex(byHash.transactionIndex, `eth_getTransactionByHash(${transaction.hash})`);
+            expect(
+              byHash.transactionIndex,
+              `eth_getTransactionByHash must agree with the block on ${transaction.hash}`,
+            ).to.equal(transaction.transactionIndex);
+          }
+        });
+
+        it('@release should report matching indexes and count from "eth_getBlockReceipts"', async function () {
+          const receipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [blockNumberHex]);
+          expect(receipts, `eth_getBlockReceipts(${blockNumberHex}) must not be null`).to.not.be.null;
+          expect(receipts, 'eth_getBlockReceipts must return one receipt per block transaction').to.have.length(
+            block.transactions.length,
+          );
+
+          const expectedIndexes = indexByHash(block);
+          for (const receipt of receipts) {
+            expect(
+              expectedIndexes.has(receipt.transactionHash),
+              `eth_getBlockReceipts returned ${receipt.transactionHash}, which is not in block ` +
+                `${mirrorContractDetails.block_number}`,
+            ).to.be.true;
+            assertValidIndex(receipt.transactionIndex, `eth_getBlockReceipts(${receipt.transactionHash})`);
+            expect(
+              receipt.transactionIndex,
+              `eth_getBlockReceipts must agree with the block on ${receipt.transactionHash}`,
+            ).to.equal(expectedIndexes.get(receipt.transactionHash));
+          }
+        });
+
+        it('@release should report matching indexes from "eth_getLogs" and leak no child transactions', async function () {
+          const logs = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS, [
+            { fromBlock: blockNumberHex, toBlock: blockNumberHex },
+          ]);
+          expect(logs, `eth_getLogs for block ${blockNumberHex} must not be null`).to.not.be.null;
+
+          const expectedIndexes = indexByHash(block);
+          for (const log of logs) {
+            expect(
+              expectedIndexes.has(log.transactionHash),
+              `eth_getLogs returned ${log.transactionHash}, which is not in block ` +
+                `${mirrorContractDetails.block_number} — a child transaction has leaked into the logs`,
+            ).to.be.true;
+            expect(log.transactionIndex, `eth_getLogs must agree with the block on ${log.transactionHash}`).to.equal(
+              expectedIndexes.get(log.transactionHash),
+            );
+          }
+        });
+
+        it('@release should resolve every index via "eth_getTransactionByBlockNumberAndIndex"', async function () {
+          for (const [position, transaction] of block.transactions.entries()) {
+            const indexHex = numberTo0x(position);
+            const found = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX, [
+              blockNumberHex,
+              indexHex,
+            ]);
+
+            expect(found, `index ${indexHex} of block ${blockNumberHex} must resolve to a transaction`).to.not.be.null;
+            expect(found.hash, `index ${indexHex} must resolve to the transaction the block lists there`).to.equal(
+              transaction.hash,
+            );
+          }
+        });
+
+        it('@release should resolve every index via "eth_getTransactionByBlockHashAndIndex"', async function () {
+          for (const [position, transaction] of block.transactions.entries()) {
+            const indexHex = numberTo0x(position);
+            const found = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX, [
+              block.hash,
+              indexHex,
+            ]);
+
+            expect(found, `index ${indexHex} of block ${block.hash} must resolve to a transaction`).to.not.be.null;
+            expect(found.hash, `index ${indexHex} must resolve to the transaction the block lists there`).to.equal(
+              transaction.hash,
+            );
+          }
+        });
+
+        it('should return null for an index past the end of the block', async function () {
+          const outOfRange = numberTo0x(block.transactions.length);
+
+          const byNumber = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX, [
+            blockNumberHex,
+            outOfRange,
+          ]);
+          expect(byNumber, `index ${outOfRange} is past the end of the block and must be null`).to.be.null;
+
+          const byHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX, [
+            block.hash,
+            outOfRange,
+          ]);
+          expect(byHash, `index ${outOfRange} is past the end of the block and must be null`).to.be.null;
+        });
+      });
+
       it('@release should return the right "effectiveGasPrice" for SYNTHETIC HTS transaction', async function () {
         const currentPrice = await relay.gasPrice();
         const transaction = new TransferTransaction()
@@ -931,6 +1179,31 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           transactionHash,
         ]);
         expect(transactionReceipt).to.have.property('logs').with.lengthOf.greaterThan(1);
+      });
+
+      it('@release should resolve a synthetic receipt by its recorded consensus timestamp', async function () {
+        const fixture = new MultiLogReceiptFixture(servicesNode.client, mirrorNode);
+        const blockNumber = await fixture.createBlockWithMultiLogSyntheticTransaction();
+
+        const blockReceipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [blockNumber]);
+        expect(blockReceipts).to.be.an('array').with.lengthOf(1);
+        const fromBlockPath = blockReceipts[0];
+        const transactionHash = fromBlockPath.transactionHash;
+
+        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
+
+        await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [blockNumber, true]);
+
+        const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
+
+        expect(receipt.logs).to.deep.equal(fromBlockPath.logs);
+        expect(receipt.logs).to.have.lengthOf.greaterThan(1);
+
+        for (const field of ['transactionHash', 'blockHash', 'blockNumber', 'transactionIndex', 'status']) {
+          expect(receipt[field], field).to.equal(fromBlockPath[field]);
+        }
+
+        expect(receipt.from).to.equal(ethers.ZeroAddress);
       });
     });
   });

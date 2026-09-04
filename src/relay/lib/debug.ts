@@ -27,7 +27,7 @@ import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { BlockFactory } from './factories/blockFactory';
-import { type Block, Log } from './model';
+import type { Block, Log } from './model';
 import {
   AccountService,
   BlockService,
@@ -46,7 +46,6 @@ import type {
   EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
-  MirrorNodeContractLog,
   OpcodeLoggerResult,
   RequestDetails,
   TraceBlockTxResult,
@@ -66,10 +65,6 @@ import { rpcParamValidationRules } from './validators';
  * Represents pre-fetched data used during block tracing to avoid redundant mirror node requests.
  */
 interface PreFetchedData {
-  /**
-   * A map of contract logs keyed by transaction hash.
-   */
-  logs: Map<string, MirrorNodeContractLog>;
   /**
    * A map of transaction hashes to their corresponding contract results or actions.
    */
@@ -678,7 +673,6 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
     preFetchedTransactionsResponse?: MirrorNodeContractResult,
     preFetchedActionsResponse?: ContractAction[],
-    preFetchedLogs?: Map<string, MirrorNodeContractLog>,
   ): Promise<CallTracerResult> {
     let actionsResponse = preFetchedActionsResponse;
     let transactionsResponse = preFetchedTransactionsResponse;
@@ -693,16 +687,28 @@ export class DebugImpl implements Debug {
     }
 
     try {
-      // If we have a contract result but no actions, treat it as a non-synthetic tx
-      // that had no EVM execution and return an empty trace (with error details if any).
-      if (transactionsResponse && (!actionsResponse || actionsResponse.length === 0)) {
+      if (transactionsResponse && DebugImpl.isSyntheticContractResult(transactionsResponse)) {
+        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
+          transactionsResponse.from,
+          transactionsResponse.to ?? transactionsResponse.address,
+          requestDetails,
+        );
+        return this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo) as CallTracerResult;
+      }
+
+      if (transactionsResponse && !actionsResponse?.[0]?.call_operation_type) {
         const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
           transactionsResponse.from,
           transactionsResponse.to,
           requestDetails,
         );
+        const emptyTrace = this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo);
+        if (transactionsResponse.result === constants.SUCCESS) {
+          return emptyTrace;
+        }
+
         return {
-          ...this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo),
+          ...emptyTrace,
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
           output: isHex(transactionsResponse.result)
@@ -711,17 +717,17 @@ export class DebugImpl implements Debug {
         };
       }
 
-      if (!actionsResponse?.[0]?.call_operation_type || !transactionsResponse) {
+      if (!transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
           requestDetails,
-          preFetchedLogs?.get(transactionHash),
         )) as CallTracerResult;
       }
 
-      const { call_operation_type: type } = actionsResponse[0];
-      const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
+      const actions = actionsResponse as ContractAction[];
+      const { call_operation_type: type } = actions[0];
+      const formattedActions = await this.formatActionsResult(actions, requestDetails);
 
       const {
         from,
@@ -750,11 +756,11 @@ export class DebugImpl implements Debug {
         input,
         output: result !== constants.SUCCESS && error ? (isHex(error) ? error : prepend0x(toHexString(error))) : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),
-        ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error ?? undefined) }),
+        ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error ?? undefined) || result }),
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? [] : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actions.length === 1 ? [] : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);
@@ -781,7 +787,6 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
     preFetchedActionsResponse?: ContractAction[],
     preFetchedContractResult?: MirrorNodeContractResult,
-    preFetchedLogs?: Map<string, MirrorNodeContractLog>,
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
@@ -804,7 +809,7 @@ export class DebugImpl implements Debug {
     }
 
     if (!actionsResponse || actionsResponse.length === 0) {
-      // Contract result exists but no actions -> non-synthetic, non-executed; empty prestate
+      // Contract result exists but no actions -> synthetic or non-executed; empty prestate either way
       if (transactionsResponse) {
         return this.getEmptyTracerObject(TracerType.PrestateTracer) as EntityTraceStateMap;
       }
@@ -814,7 +819,6 @@ export class DebugImpl implements Debug {
         transactionHash,
         TracerType.PrestateTracer,
         requestDetails,
-        preFetchedLogs?.get(transactionHash),
       )) as EntityTraceStateMap;
     }
 
@@ -913,7 +917,11 @@ export class DebugImpl implements Debug {
 
   /**
    * Retrieves all transaction hashes in a block (EVM + synthetic) along with pre-fetched data.
-   * Optimizes performance by using parallel timestamp slicing for large result sets.
+   *
+   * Since mirror node v0.157.0 the `/contracts/results` endpoint also returns the synthetic
+   * transactions of the block (HAPI transactions that only emitted synthetic logs, e.g. a
+   * `CryptoTransfer` of an HTS token), so a single query covers every transaction of the block
+   * and the logs of the block no longer have to be fetched to discover them.
    *
    * @private
    * @param blockResponse - Block metadata including timestamp range and transaction count
@@ -929,46 +937,27 @@ export class DebugImpl implements Debug {
   }> {
     const timestampRange = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
 
-    // Calculate slice count based on actual transaction count in the block
-    const maxLogsPerSlice = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE');
-    const sliceCount = Math.ceil(blockResponse.count / maxLogsPerSlice);
-
-    // Fetch both contract results and all logs in the block in parallel
-    const [contractResults, allLogs] = await Promise.all([
-      this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRange }, undefined],
-      ),
-      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, sliceCount, {
-        timestamp: timestampRange,
-      }),
-    ]);
+    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
+      this.mirrorNodeClient.getContractResults.name,
+      [requestDetails, { timestamp: timestampRange }, undefined],
+    );
 
     // Collect all unique transaction hashes
     const transactionHashes = new Set<string>();
 
     // Create a map of contract results by hash for quick lookup
-    // Include all transactions, even pre-execution failures - they will return empty traces
+    // Include all transactions, even pre-execution failures and synthetic ones - they return empty traces
     const contractResultsByHash = new Map<string, MirrorNodeContractResult>();
     contractResults?.forEach((cr) => {
       contractResultsByHash.set(cr.hash, cr);
       transactionHashes.add(cr.hash);
     });
 
-    // Capture synthetic HTS transaction hashes from logs
-    allLogs?.forEach((log) => {
-      if (log.transaction_hash) {
-        transactionHashes.add(log.transaction_hash);
-      }
-    });
-
     const txHashArray = Array.from(transactionHashes);
 
-    // Fetch actions for all transactions in parallel, skipping pre-execution failures
-    // to avoid unnecessary API latency (they have no EVM actions)
     const actionsPromises = txHashArray.map(async (txHash) => {
       const cr = contractResultsByHash.get(txHash);
-      if (cr && Utils.isRejectedDueToHederaSpecificValidation(cr)) {
+      if (cr && (DebugImpl.isSyntheticContractResult(cr) || Utils.isRejectedDueToHederaSpecificValidation(cr))) {
         return { txHash, actions: [] };
       }
       try {
@@ -985,7 +974,6 @@ export class DebugImpl implements Debug {
 
     // Build pre-fetched data object
     const preFetchedData: PreFetchedData = {
-      logs: new Map((allLogs || []).map((log) => [log.transaction_hash, log])),
       txHashMap: {},
     };
 
@@ -1005,6 +993,35 @@ export class DebugImpl implements Debug {
       transactionHashes: txHashArray,
       preFetchedData,
     };
+  }
+
+  /**
+   * Checks whether a mirror node contract result belongs to a synthetic transaction - a HAPI
+   * transaction (e.g. a `CryptoTransfer` of an HTS token) that never executed on the EVM.
+   *
+   * Since mirror node v0.157.0 those transactions are returned by `/contracts/results` as well, built
+   * out of their synthetic contract logs, so every EVM execution field is empty: `gas_limit` is `0`,
+   * `gas_used`/`gas_consumed`/`amount`/`nonce` and the `r`/`s`/`v` signature components are `null`,
+   * while `bloom`, `call_result` and `function_parameters` are `0x`.
+   *
+   * Executed contract results - including the ones rejected by a hedera-specific validation before the
+   * EVM ran - always carry a gas limit and a nonce, so the absence of both, together with a missing
+   * signature, identifies a synthetic entry. A failed transaction is never reported as synthetic, so
+   * that its failure reason keeps being traced.
+   *
+   * @private
+   * @param contractResult - The mirror node contract result to inspect.
+   * @returns True when the contract result belongs to a synthetic transaction.
+   */
+  private static isSyntheticContractResult(contractResult: MirrorNodeContractResult): boolean {
+    return (
+      contractResult.result === constants.SUCCESS &&
+      !contractResult.error_message &&
+      contractResult.gas_used == null &&
+      !contractResult.gas_limit &&
+      contractResult.nonce == null &&
+      !contractResult.r
+    );
   }
 
   /**
@@ -1060,6 +1077,11 @@ export class DebugImpl implements Debug {
    * Handles synthetic HTS transactions by fetching logs and building
    * a minimal synthetic trace object for the appropriate trace.
    *
+   * Only reached when the transaction has no contract result at all - the mirror node still answers
+   * `/contracts/results/{transactionIdOrHash}` with a 404 for synthetic transactions, so the trace of a
+   * single synthetic transaction is derived from its logs. Block traces take the contract result route,
+   * see {@link callTracer}.
+   *
    * @private
    * @param transactionIdOrHash - The ID or hash of the transaction.
    * @param tracer - The tracer type to use for building the synthetic trace.
@@ -1071,21 +1093,15 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracer: TracerType,
     requestDetails: RequestDetails,
-    mirrorNodeLog?: MirrorNodeContractLog,
   ): Promise<EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult> {
-    // If no logs - make the API call to fetch logs for specific transaction hash.
-    const log: Log = mirrorNodeLog
-      ? Log.fromMirrorNodeContractLog(mirrorNodeLog)
-      : await this.common
-          .getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails)
-          .then((fetchedLogs: Log[]): Log => {
-            if (fetchedLogs.length === 0) {
-              throw predefined.RESOURCE_NOT_FOUND(
-                `Failed to retrieve transaction information for ${transactionIdOrHash}`,
-              );
-            }
-            return fetchedLogs[0];
-          });
+    const log: Log = await this.common
+      .getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails)
+      .then((fetchedLogs: Log[]): Log => {
+        if (fetchedLogs.length === 0) {
+          throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${transactionIdOrHash}`);
+        }
+        return fetchedLogs[0];
+      });
 
     if (tracer === TracerType.CallTracer) {
       let from = log.address;
@@ -1152,7 +1168,6 @@ export class DebugImpl implements Debug {
               requestDetails,
               preFetchedData.txHashMap[txHash]?.contractResult,
               preFetchedData.txHashMap[txHash]?.actions,
-              preFetchedData.logs,
             ),
           })),
         );
@@ -1168,7 +1183,6 @@ export class DebugImpl implements Debug {
               requestDetails,
               preFetchedData.txHashMap[txHash]?.actions,
               preFetchedData.txHashMap[txHash]?.contractResult,
-              preFetchedData.logs,
             ),
           })),
         );

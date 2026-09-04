@@ -71,6 +71,11 @@ export interface ConfigProperty {
   type: 'string' | 'number' | 'boolean' | 'strArray' | 'numArray'; // Updated types
   required: boolean; // Whether the property is required
   defaultValue: string | number | boolean | readonly string[] | readonly number[] | null; // Default value (if any)
+  /**
+   * Optional logic-based check applied to the casted value, with `envs` exposing every casted
+   * entry for cross-entry constraints. Returns `true` when accepted, or a rejection message.
+   */
+  validation?: (value: any, envs: NodeJS.Dict<any>) => boolean | string;
 }
 
 /**
@@ -360,11 +365,13 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 1,
+    validation: (value: number) => value > 0 || 'INPUT_SIZE_LIMIT must be a positive number.',
   },
   WS_INPUT_SIZE_LIMIT: {
     type: 'number',
     required: false,
     defaultValue: 1,
+    validation: (value: number) => value === -1 || value > 0 || 'WS_INPUT_SIZE_LIMIT must be -1 or a positive number.',
   },
   JUMBO_TX_ENABLED: {
     type: 'boolean',
@@ -460,6 +467,8 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 300,
+    validation: (value: number) =>
+      (Number.isInteger(value) && value >= 1) || 'MIRROR_NODE_HTTP_MAX_SOCKETS must be an integer of 1 or greater.',
   },
   MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: {
     type: 'number',
@@ -540,6 +549,8 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 100,
+    validation: (value: number) =>
+      value >= 1 || 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE must be 1 or greater.',
   },
   MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: {
     type: 'number',
@@ -791,6 +802,21 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 900000,
+  },
+  TX_TIMESTAMP_INDEX_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  TX_TIMESTAMP_INDEX_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
+  TX_TIMESTAMP_INDEX_TTL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
   },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
