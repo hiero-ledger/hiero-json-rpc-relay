@@ -455,7 +455,7 @@ export class MirrorNodeClient {
   /**
    * Parses a response body and if there is a big number in it - uses JSONBigInt.parse instead of JSON.parse
    *
-   * @param data - The raw response body as handed over by axios.
+   * @param data - The raw response body.
    * @returns The parsed body, or `data` unchanged when it is empty or cannot be parsed.
    */
   private parseResponseBody(data: any): any {
