@@ -91,7 +91,7 @@ export const METRICS = {
     }),
     errors: counter({
       name: 'rpc_relay_consensus_node_errors_total',
-      help: 'Counter for calls to methods of CacheService separated by CallingMethod and CacheType',
+      help: 'Count of errors returned from the Consensus Node by Hedera status name',
       labelNames: ['status_name'],
     }),
     clientResets: counter({
