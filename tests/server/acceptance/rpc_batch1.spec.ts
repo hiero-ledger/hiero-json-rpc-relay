@@ -327,7 +327,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res[0].transactionHash).to.equal(createChildTx.hash);
         expect(res[0].logs).to.not.be.empty;
         res[0].logs.map((log) =>
-          expect(log.blockTimestamp).to.equal(numberTo0x(Number(mirrorBlock.timestamp.to.split('.')[0]))),
+          expect(log.blockTimestamp).to.equal(numberTo0x(Number(mirrorBlock.timestamp.from.split('.')[0]))),
         );
       });
 
