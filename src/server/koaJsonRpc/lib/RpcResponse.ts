@@ -32,7 +32,7 @@ export function jsonRespResult<Result>(id: IJsonRpcResponse['id'], result: Resul
     throw new Error('Missing result');
   }
 
-  return { jsonrpc: '2.0', id, result };
+  return { jsonrpc: '2.0', result, id };
 }
 
 /**
@@ -67,11 +67,11 @@ export function jsonRespError(id: IJsonRpcResponse['id'], error: IJsonRpcError, 
 
   return {
     jsonrpc: '2.0',
-    id,
     error: {
       code: error.code,
       message: `[Request ID: ${requestId}] ${error.message}`,
       data: error.data,
     },
+    id,
   };
 }
