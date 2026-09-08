@@ -68,7 +68,7 @@ export interface MirrorBlockLike {
   number: number;
   previous_hash: string;
   size: number;
-  timestamp: { from: string };
+  timestamp: { from: string; to: string };
 }
 
 export interface ReceiptResponseLike {

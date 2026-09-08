@@ -29,7 +29,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
   const GAS_PRICE_TOO_LOW = '0x1';
   const GAS_PRICE_REF = '0x123456';
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     [''],
     [66],
@@ -234,7 +234,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
     signedTx: string,
     expectedError: { code: number; message: string },
     checkMessage = true,
-  ) {
+  ): Promise<void> {
     const response = await client.callRaw(METHOD_NAME, [signedTx]);
     expectJsonRpcEnvelope(response);
     expect(response.error).to.exist;
@@ -244,7 +244,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
     }
   }
 
-  function expectJsonRpcEnvelope(response: RpcRawResponse) {
+  function expectJsonRpcEnvelope(response: RpcRawResponse): void {
     expect(response.id).to.eq(1);
     expect(response.jsonrpc).to.eq('2.0');
     expect(response.method).to.not.exist;
@@ -786,7 +786,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
       });
 
       describe('Check subsidizing gas fees', async function () {
-        let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+        let paymasterEnabledBefore: boolean, paymasterWhitelistBefore: string[], maxGasAllowanceHbarBefore: number;
 
         before(async () => {
           paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
@@ -801,7 +801,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           Utils.reloadPaymasterConfigs();
         });
 
-        const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+        const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number): void => {
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
           ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
@@ -1301,7 +1301,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         const zeroGasPrice = '0x0';
         const MAX_ALLOWANCE = 100;
 
-        let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+        let paymasterEnabledBefore: boolean, paymasterWhitelistBefore: string[], maxGasAllowanceHbarBefore: number;
         before(() => {
           paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
           paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
@@ -1315,14 +1315,17 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           Utils.reloadPaymasterConfigs();
         });
 
-        const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+        const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number): void => {
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
           ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
           Utils.reloadPaymasterConfigs();
         };
 
-        const createAndSignPaymasterTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {
+        const createAndSignPaymasterTransaction = async (
+          senderAccount: AliasAccount,
+          recipientAddress?: string,
+        ): Promise<string> => {
           const transaction = {
             type: 2,
             chainId: Number(CHAIN_ID),
@@ -1341,7 +1344,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           txHash: string,
           signerAddress: string,
           initialBalance: bigint,
-        ) => {
+        ): Promise<void> => {
           await relay.pollForValidTransactionReceipt(txHash);
 
           const info = await mirrorNode.get(`/contracts/results/${txHash}`);
@@ -1411,13 +1414,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
       describe('Multiple paymasters', function () {
         let newPaymasters: AliasAccount[] = [];
-        let paymasterAccounts, paymasterAccountsWhitelists;
+        let paymasterAccounts: string[], paymasterAccountsWhitelists: string[];
 
         const createAndSignPaymasterTransfer = async (
           senderAccount: AliasAccount,
           to: string,
           gasPrice: string | number = '0x0',
-        ) => {
+        ): Promise<string> => {
           return senderAccount.wallet.signTransaction({
             to,
             maxPriorityFeePerGas: gasPrice,
@@ -1444,7 +1447,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           Utils.reloadPaymasterConfigs();
         });
 
-        const configurePaymasters = (accountsConfig: any, whitelistsConfig: any) => {
+        const configurePaymasters = (accountsConfig: unknown, whitelistsConfig: unknown): void => {
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', accountsConfig);
           ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', whitelistsConfig);
           Utils.reloadPaymasterConfigs();

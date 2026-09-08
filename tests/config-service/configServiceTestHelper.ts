@@ -17,7 +17,7 @@ export class ConfigServiceTestHelper {
    * @param value string
    * @returns void
    */
-  public static dynamicOverride(name: string, value: string | string[] | number | boolean | null | undefined): void {
+  public static dynamicOverride(name: string, value: unknown): void {
     // @ts-ignore
     ConfigService.getInstance().envs[name] = value;
   }

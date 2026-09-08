@@ -6,7 +6,12 @@ import { ethers } from 'ethers';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions, { type BlockResponseLike } from '../server/helpers/assertions';
+import Assertions, {
+  type BlockResponseLike,
+  type MirrorBlockLike,
+  type MirrorTransactionLike,
+  type TransactionResponseLike,
+} from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import RelayCalls from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
@@ -19,7 +24,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   const METHOD_NAME = 'eth_getBlockByHash';
 
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     ['0xhbar', false],
     ['0xhedera', true],
@@ -38,8 +43,8 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const accounts: AliasAccount[] = [];
-  let mirrorBlock: any;
-  const mirrorTransactions: any[] = [];
+  let mirrorBlock: MirrorBlockLike;
+  const mirrorTransactions: MirrorTransactionLike[] = [];
   let expectedGasPrice: string;
 
   before(async () => {
@@ -60,7 +65,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
     });
     await relay.pollForValidTransactionReceipt(fundTx.hash);
 
-    const createChildTx = await (parentContract as any).createChild(1);
+    const createChildTx = await parentContract.getFunction('createChild')(1);
     await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
     const mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
@@ -75,7 +80,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
     }
 
     for (const mirrorTx of mirrorTransactions) {
-      const resolvedAddresses = await resolveAccountEvmAddresses(mirrorNode, mirrorTx);
+      const resolvedAddresses = await resolveAccountEvmAddresses(mirrorNode, mirrorTx as { from: string; to: string });
       mirrorTx.from = resolvedAddresses.from;
       mirrorTx.to = resolvedAddresses.to;
     }
@@ -98,10 +103,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
       });
 
       it('@release should execute "eth_getBlockByHash", hydrated transactions = true', async () => {
-        const blockResult: any = await client.call(METHOD_NAME, [mirrorBlock.hash.substring(0, 66), true]);
+        const blockResult = (await client.call(METHOD_NAME, [
+          mirrorBlock.hash.substring(0, 66),
+          true,
+        ])) as BlockResponseLike;
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter(
-          (transaction: any) => transaction.value !== '0x1234',
+          (transaction) => (transaction as TransactionResponseLike).value !== '0x1234',
         );
         Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
       });
