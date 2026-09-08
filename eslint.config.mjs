@@ -130,6 +130,9 @@ export default defineConfig([
       'tests/server/helpers/**/*.ts',
       'tests/server/integration/**/*.ts',
       'tests/protocol/**/*.ts',
+      'tests/relay/assertions.ts',
+      'tests/relay/helpers.ts',
+      'tests/relay/lib/eth/**/*.ts',
     ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',

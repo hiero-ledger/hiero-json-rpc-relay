@@ -7,6 +7,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type AccountService } from '../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import type { ICacheClient } from '../../../../src/relay/services/cache';
 import { type CommonService } from '../../../../src/relay/services/commonService';
@@ -50,6 +51,8 @@ describe('@ethGetBalance using MirrorNode', async function () {
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBalanceTest', ipAddress: '0.0.0.0' });
+
+  const accountService = ethImpl['accountService'] as AccountService;
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
@@ -807,8 +810,10 @@ describe('@ethGetBalance using MirrorNode', async function () {
     const latestBlockHex = '0x2710';
     const latestBlockTimestampTo = '1651560389.060890949';
 
-    const extractBlockNumberAndTimestamp = (blockNumberOrTagOrHash: string) =>
-      ethImpl['accountService'].extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+    const extractBlockNumberAndTimestamp = (
+      blockNumberOrTagOrHash: string,
+    ): ReturnType<AccountService['extractBlockNumberAndTimestamp']> =>
+      accountService.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
 
     beforeEach(() => {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));
@@ -880,12 +885,12 @@ describe('@ethGetBalance using MirrorNode', async function () {
     const timestamp1 = 1651550386;
 
     it('Given a blockNumber, return the account balance at that blocknumber, with transactions that debit the account balance', async () => {
-      const transactionsInBlockTimestamp: any[] = [
+      const transactionsInBlockTimestamp = [
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${timestamp1}.060890955` }),
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl['accountService']['getBalanceAtBlockTimestamp'](
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -895,12 +900,12 @@ describe('@ethGetBalance using MirrorNode', async function () {
     });
 
     it('Given a blockNumber, return the account balance at that blocknumber, with transactions that credit the account balance', async () => {
-      const transactionsInBlockTimestamp: any[] = [
+      const transactionsInBlockTimestamp = [
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 100, { timestamp: `${timestamp1}.060890955` }),
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl['accountService']['getBalanceAtBlockTimestamp'](
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -910,12 +915,12 @@ describe('@ethGetBalance using MirrorNode', async function () {
     });
 
     it('Given a blockNumber, return the account balance at that blocknumber, with transactions that debit and credit the account balance', async () => {
-      const transactionsInBlockTimestamp: any[] = [
+      const transactionsInBlockTimestamp = [
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${timestamp1}.060890955` }),
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl['accountService']['getBalanceAtBlockTimestamp'](
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -925,13 +930,13 @@ describe('@ethGetBalance using MirrorNode', async function () {
     });
 
     it('Given a blockNumber, return the account balance at that blocknumber, with transactions that debit, credit, and debit the account balance', async () => {
-      const transactionsInBlockTimestamp: any[] = [
+      const transactionsInBlockTimestamp = [
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${timestamp1}.060890955` }),
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: `${timestamp1}.060890954` }),
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 20, { timestamp: `${timestamp1}.060890955` }),
       ];
 
-      const resultingUpdate = ethImpl['accountService']['getBalanceAtBlockTimestamp'](
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),

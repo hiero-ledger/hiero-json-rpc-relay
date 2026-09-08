@@ -12,6 +12,10 @@ import { RequestDetails } from '../../../../src/relay/lib/types';
 
 use(chaiAsPromised);
 
+interface RelayInternals {
+  waitForMirrorNode(): Promise<void>;
+}
+
 describe('@ethCommon', async function () {
   let relay: Relay;
   this.timeout(10000);
@@ -21,7 +25,7 @@ describe('@ethCommon', async function () {
 
   this.beforeAll(async () => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype as unknown as RelayInternals, 'waitForMirrorNode').resolves();
     relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 

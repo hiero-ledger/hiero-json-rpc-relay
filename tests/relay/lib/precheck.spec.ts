@@ -1071,7 +1071,7 @@ describe('Precheck', async function () {
     });
 
     describe('type 4 (EIP-7702) feature flag', async function () {
-      const authEntry = {
+      const authEntry: ethers.AuthorizationLike = {
         chainId: defaultChainId,
         address: contractAddress1,
         nonce: 0,

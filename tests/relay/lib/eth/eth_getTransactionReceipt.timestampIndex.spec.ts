@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
-import { RequestDetails } from '../../../../src/relay/lib/types';
+import { type MirrorNodeContractLog, RequestDetails } from '../../../../src/relay/lib/types';
 import { DEFAULT_NETWORK_FEES } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -15,7 +15,7 @@ const TS = '1786958468.715212954';
 const BLOCK_HASH = '0x' + 'b'.repeat(64);
 
 /** A synthetic transfer log as the Mirror Node returns it for a CryptoTransfer. */
-const syntheticLog = (transactionHash: string) => ({
+const syntheticLog = (transactionHash: string): MirrorNodeContractLog & { root_contract_id: string } => ({
   address: '0x0000000000000000000000000000000000120f46',
   bloom: '0x',
   contract_id: '0.0.1183558',
@@ -40,13 +40,13 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
    * Stubs what the block path would have recorded. Stubbed rather than written, because a real entry
    * outlives `cacheService.clear()` - the index has its own store - and would leak into the next test.
    */
-  const recordedTimestamp = (consensusTimestamp: string | null) =>
+  const recordedTimestamp = (consensusTimestamp: string | null): sinon.SinonStub =>
     sinon.stub(mirrorNodeInstance.transactionTimestampIndex, 'get').resolves(consensusTimestamp);
 
   /** Answers only the routes the fallback legitimately needs; records every path requested. */
-  const stubMirrorNode = (logsForTimestampQuery: object[] | null) => {
+  const stubMirrorNode = (logsForTimestampQuery: object[] | null): string[] => {
     const paths: string[] = [];
-    sinon.stub(mirrorNodeInstance, 'get' as any).callsFake(async (path: any) => {
+    sinon.stub(mirrorNodeInstance, 'get').callsFake(async (path: string) => {
       const p = String(path);
       paths.push(p);
       if (p.startsWith('blocks/')) {
@@ -63,7 +63,7 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
     return paths;
   };
 
-  const byHashPaths = (paths: string[]) =>
+  const byHashPaths = (paths: string[]): string[] =>
     paths.filter((p) => p.includes('transaction.hash') || p.includes(`results/${HASH}`));
 
   beforeEach(async () => {
@@ -125,7 +125,7 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
   it('falls through when the timestamp query itself fails', async () => {
     recordedTimestamp(TS);
     const paths: string[] = [];
-    sinon.stub(mirrorNodeInstance, 'get' as any).callsFake(async (path: any) => {
+    sinon.stub(mirrorNodeInstance, 'get').callsFake(async (path: string) => {
       const p = String(path);
       paths.push(p);
       if (p.includes(`timestamp=eq:${TS}`)) {

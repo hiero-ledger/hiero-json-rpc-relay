@@ -40,7 +40,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 
-const DEFAULTS: Record<string, any> = {
+const DEFAULTS: Record<string, unknown> = {
   [CONTRACT_RESULTS_WITH_FILTER_URL_2]: defaultContractResults,
   [CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2]: DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   [BLOCKS_LIMIT_ORDER_URL]: { blocks: [DEFAULT_BLOCK] },
@@ -86,14 +86,18 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     restMock.resetHandlers();
   });
 
-  function setupStandardResponses(overrides: Partial<Record<string, any>> = {}) {
+  function setupStandardResponses(overrides: Partial<Record<string, unknown>> = {}): void {
     Object.entries(DEFAULTS).forEach(([url, body]) => {
       const toReply = overrides[url] !== undefined ? overrides[url] : body;
       restMock.onGet(url).reply(200, JSON.stringify(toReply));
     });
   }
 
-  function expectValidReceipt(receipt, contractResult, cumulativeGasUsed: number) {
+  function expectValidReceipt(
+    receipt: ITransactionReceipt,
+    contractResult: { gas_used: number; hash: string },
+    cumulativeGasUsed: number,
+  ): void {
     expect(receipt.blockHash).to.equal(BLOCK_HASH_TRIMMED);
     expect(receipt.blockNumber).to.equal(BLOCK_NUMBER_HEX);
     expect(receipt.transactionHash).to.equal(contractResult.hash);
@@ -429,7 +433,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   });
 
   describe('Cache behavior', () => {
-    let spyCommonGetHistoricalBlockResponse;
+    let spyCommonGetHistoricalBlockResponse: sinon.SinonSpy;
 
     beforeEach(() => {
       spyCommonGetHistoricalBlockResponse = sinon.spy(commonService, 'getHistoricalBlockResponse');

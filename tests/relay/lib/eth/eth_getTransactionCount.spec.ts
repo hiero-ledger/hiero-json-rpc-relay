@@ -5,11 +5,13 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon, { stub } from 'sinon';
 
-import { type Eth, predefined } from '../../../../src/relay';
+import { predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type AccountService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { type TransactionPoolService } from '../../../../src/relay/lib/types/transactionPool';
@@ -39,7 +41,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
-    ethImpl: Eth;
+    ethImpl: EthImpl;
     cacheService: ICacheClient;
     transactionPoolService: TransactionPoolService;
   } = generateEthTestEnv();
@@ -58,7 +60,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   const blockPath = `blocks/${blockNumber}`;
   const latestBlockPath = `blocks?limit=1&order=desc`;
 
-  function transactionPath(address: string, num: number) {
+  function transactionPath(address: string, num: number): string {
     return `accounts/${address}?transactiontype=ETHEREUMTRANSACTION&timestamp=lte:${mockData.blocks.blocks[2].timestamp.to}&limit=${num}&order=desc`;
   }
 
@@ -152,7 +154,9 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: true });
     it('should return pending nonce for pending block', async () => {
       const pendingTxs: number = 2;
-      stub(ethImpl['accountService']['transactionPoolService'], 'getPendingCount').returns(pendingTxs);
+      stub((ethImpl['accountService'] as AccountService)['transactionPoolService'], 'getPendingCount').resolves(
+        pendingTxs,
+      );
       restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
       const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_PENDING, requestDetails);
       expect(nonce).to.exist;

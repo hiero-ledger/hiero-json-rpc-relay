@@ -6,7 +6,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import sinon from 'sinon';
 
-import { type Eth, predefined } from '../../../../src/relay';
+import { type Eth, type JsonRpcError, type MirrorNodeClientError, predefined } from '../../../../src/relay';
 import { trimPrecedingZeros } from '../../../../src/relay/formatters';
 import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
@@ -120,7 +120,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
       await ethGetLogsFailing(
         ethImpl,
         [{ blockHash: BLOCK_HASH, fromBlock: null, toBlock: null, address: null, topics: null }, requestDetails],
-        (error: any) => {
+        (error: MirrorNodeClientError) => {
           expect(error.statusCode).to.equal(504);
           expect(error.message).to.eq('timeout of 10000ms exceeded');
         },
@@ -134,7 +134,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
           { blockHash: null, fromBlock: null, toBlock: null, address: CONTRACT_ADDRESS_1, topics: null },
           requestDetails,
         ],
-        (error: any) => {
+        (error: MirrorNodeClientError) => {
           expect(error.statusCode).to.equal(504);
           expect(error.message).to.eq('timeout of 10000ms exceeded');
         },
@@ -154,10 +154,11 @@ describe('@ethGetLogs using MirrorNode', async function () {
         { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: null },
         requestDetails,
       );
-    } catch (error: any) {
+    } catch (error) {
+      const thrown = error as MirrorNodeClientError;
       errorReceived = true;
-      expect(error.statusCode).to.equal(400);
-      expect(error.message).to.eq('Mocked error');
+      expect(thrown.statusCode).to.equal(400);
+      expect(thrown.message).to.eq('Mocked error');
     }
 
     expect(errorReceived, 'Error should be thrown').to.be.true;
@@ -531,7 +532,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
     await ethGetLogsFailing(
       ethImpl,
       [{ blockHash: null, fromBlock: null, toBlock: '0x5', address: null, topics: null }, requestDetails],
-      (error: any) => {
+      (error: JsonRpcError) => {
         expect(error.code).to.equal(-32011);
         expect(error.message).to.equal('Provided toBlock parameter without specifying fromBlock');
       },
@@ -581,7 +582,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
       await ethGetLogsFailing(
         ethImpl,
         [{ blockHash: null, fromBlock: '0x1', toBlock: '0x3eb', address, topics: null }, requestDetails],
-        (error: any) => {
+        (error: JsonRpcError) => {
           expect(error.message).to.equal('Exceeded maximum block range: 1000');
         },
       );

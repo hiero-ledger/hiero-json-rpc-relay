@@ -311,7 +311,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
   it('eth_getBlockByHash with block match and authorization list', async function () {
     const resultWith7702Transaction = structuredClone(defaultContractResults);
     resultWith7702Transaction.results[0].type = 4;
-    resultWith7702Transaction.results[0]['authorization_list'] = DEFAULT_AUTHORIZATION_LIST;
+    Object.assign(resultWith7702Transaction.results[0], { authorization_list: DEFAULT_AUTHORIZATION_LIST });
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(resultWith7702Transaction));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));

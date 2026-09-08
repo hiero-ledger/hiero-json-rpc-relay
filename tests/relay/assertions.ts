@@ -6,30 +6,60 @@ import chaiAsPromised from 'chai-as-promised';
 import { type JsonRpcError } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import constants from '../../src/relay/lib/constants';
-import { type Block, type Transaction } from '../../src/relay/lib/model';
+import { type Block, type Receipt, type Transaction, type Transaction1559 } from '../../src/relay/lib/model';
 
 chai.use(chaiAsPromised);
+
+interface ExpectedTransaction {
+  accessList: unknown[];
+  blockHash: string;
+  blockNumber: string;
+  chainId: string;
+  from: string;
+  gas: string;
+  gasPrice: string;
+  hash: string;
+  input: string;
+  maxFeePerGas: string | null;
+  maxPriorityFeePerGas: string | null;
+  nonce: number;
+  r: string;
+  s: string;
+  to: string;
+  transactionIndex: string;
+  type: number;
+  v: number;
+  value: string;
+}
+
+type ExpectedBlock = Partial<Block> &
+  Pick<Block, 'gasUsed' | 'hash' | 'number' | 'parentHash' | 'timestamp' | 'transactions'>;
 
 export default class RelayAssertions {
   static assertRejection = async (
     error: JsonRpcError,
-    method,
+    method: (...args: never[]) => Promise<unknown>,
     checkMessage: boolean,
-    thisObj,
-    args?: any[],
-  ): Promise<any> => {
-    return await expect(method.apply(thisObj, args), `${error.message}`).to.eventually.be.rejected.and.satisfy(
-      (err) => {
-        if (!checkMessage) {
-          return err.code === error.code;
-        }
+    thisObj: unknown,
+    args?: unknown[],
+  ): Promise<unknown> => {
+    return await expect(
+      method.apply(thisObj, args as never[]),
+      `${error.message}`,
+    ).to.eventually.be.rejected.and.satisfy((err: JsonRpcError) => {
+      if (!checkMessage) {
+        return err.code === error.code;
+      }
 
-        return err.code === error.code && err.message === error.message;
-      },
-    );
+      return err.code === error.code && err.message === error.message;
+    });
   };
 
-  static assertTransactionReceipt = (receipt, expectedReceipt, liveData) => {
+  static assertTransactionReceipt = (
+    receipt: Receipt | null,
+    expectedReceipt: Receipt,
+    liveData: { effectiveGasPrice: string },
+  ): void => {
     const { effectiveGasPrice } = liveData;
     expect(receipt).to.exist;
     if (receipt == null) return;
@@ -65,11 +95,13 @@ export default class RelayAssertions {
     expect(receipt.effectiveGasPrice).to.eq(effectiveGasPrice);
   };
 
-  static assertTransaction = (tx, expectedTx) => {
+  static assertTransaction = (tx: Transaction | null, expectedTx: ExpectedTransaction): void => {
     expect(tx).to.exist;
     if (tx == null) return;
 
-    expect(tx.accessList).to.deep.eq(expectedTx.accessList);
+    const tx1559 = tx as Transaction1559;
+
+    expect(tx1559.accessList).to.deep.eq(expectedTx.accessList);
     expect(tx.blockHash).to.eq(expectedTx.blockHash);
     expect(tx.blockNumber).to.eq(expectedTx.blockNumber);
     expect(tx.chainId).to.eq(expectedTx.chainId);
@@ -78,8 +110,8 @@ export default class RelayAssertions {
     expect(tx.gasPrice).to.eq(expectedTx.gasPrice);
     expect(tx.hash).to.eq(expectedTx.hash);
     expect(tx.input).to.eq(expectedTx.input);
-    expect(tx.maxFeePerGas).to.eq(expectedTx.maxFeePerGas);
-    expect(tx.maxPriorityFeePerGas).to.eq(expectedTx.maxPriorityFeePerGas);
+    expect(tx1559.maxFeePerGas).to.eq(expectedTx.maxFeePerGas);
+    expect(tx1559.maxPriorityFeePerGas).to.eq(expectedTx.maxPriorityFeePerGas);
     expect(tx.nonce).to.eq(numberTo0x(expectedTx.nonce));
     expect(tx.r).to.eq(expectedTx.r);
     expect(tx.s).to.eq(expectedTx.s);
@@ -87,16 +119,17 @@ export default class RelayAssertions {
     expect(tx.transactionIndex).to.eq(expectedTx.transactionIndex);
     expect(tx.type).to.eq(numberTo0x(expectedTx.type));
     if (tx.type === '0x1' || tx.type === '0x2') {
-      expect(tx.yParity).to.eq(numberTo0x(expectedTx.v));
+      expect(tx1559.yParity).to.eq(numberTo0x(expectedTx.v));
     } else {
       expect(tx.v).to.eq(numberTo0x(expectedTx.v));
     }
     expect(tx.value).to.eq(expectedTx.value);
   };
 
-  static assertBlock = (block, expectedBlock, txDetails = false) => {
+  static assertBlock = (block: Block | null, expectedBlock: ExpectedBlock, txDetails = false): void => {
     expect(block).to.exist;
     expect(block).to.not.be.null;
+    if (block == null) return;
 
     // verify aggregated info
     expect(block.hash).equal(expectedBlock.hash);
@@ -121,11 +154,11 @@ export default class RelayAssertions {
     this.verifyBlockConstants(block);
   };
 
-  static validateUint = (value: string) => {
+  static validateUint = (value: string): boolean => {
     return /^0x([1-9a-f]+[0-9a-f]*|0)$/.test(value);
   };
 
-  static validateHash = (hash: string, len?: number) => {
+  static validateHash = (hash: string, len?: number): boolean => {
     let regex;
     if (len && len > 0) {
       regex = new RegExp(`^0x[a-f0-9]{${len}}$`);
@@ -136,7 +169,7 @@ export default class RelayAssertions {
     return !!regex.exec(hash);
   };
 
-  static verifyBlockConstants = (block: Block) => {
+  static verifyBlockConstants = (block: Block): void => {
     expect(block.gasLimit).equal(numberTo0x(constants.DEFAULT_BLOCK_GAS_LIMIT));
     expect(block.difficulty).equal(constants.ZERO_HEX);
     expect(block.extraData).equal(constants.EMPTY_HEX);
