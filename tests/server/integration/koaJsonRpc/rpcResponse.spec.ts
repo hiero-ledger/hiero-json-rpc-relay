@@ -54,11 +54,11 @@ describe('RpcResponse', function () {
       });
     });
 
-    it('should maintain JSON-RPC 2.0 field order: jsonrpc, id, result', () => {
+    it('should maintain JSON-RPC 2.0 field order: jsonrpc, result, id', () => {
       const response = jsonRespResult(1, { key: 'value' });
       const keys = Object.keys(response);
 
-      expect(keys).to.deep.equal(['jsonrpc', 'id', 'result']);
+      expect(keys).to.deep.equal(['jsonrpc', 'result', 'id']);
     });
   });
 
@@ -92,11 +92,11 @@ describe('RpcResponse', function () {
       expect(() => jsonRespError(id, error as any, '')).to.throw(TypeError, 'Invalid error message type number');
     });
 
-    it('should maintain JSON-RPC 2.0 field order: jsonrpc, id, error', () => {
+    it('should maintain JSON-RPC 2.0 field order: jsonrpc, error, id', () => {
       const response = jsonRespError(1, { code: 123, message: 'An error occurred' }, 'req-123');
       const keys = Object.keys(response);
 
-      expect(keys).to.deep.equal(['jsonrpc', 'id', 'error']);
+      expect(keys).to.deep.equal(['jsonrpc', 'error', 'id']);
     });
   });
 });
