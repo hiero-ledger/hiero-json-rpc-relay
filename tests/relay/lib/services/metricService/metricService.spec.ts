@@ -87,7 +87,7 @@ describe('Metric Service', function () {
     ],
   } as unknown as TransactionRecord;
 
-  const verifyConsensusNodeClientHistogramGasFee = async () => {
+  const verifyConsensusNodeClientHistogramGasFee = async (): Promise<void> => {
     // @ts-ignore
     const gasMetricObject = (await metricService['consensusNodeClientHistogramGasFee'].get()).values.find(
       (metric) => metric.metricName === metricHistogramGasFeeSumTitle,
@@ -99,7 +99,10 @@ describe('Metric Service', function () {
     );
   };
 
-  const verifyConsensusNodeClientHistogramCost = async (executionMode: string, expectedTxRecordFee: number = 0) => {
+  const verifyConsensusNodeClientHistogramCost = async (
+    executionMode: string,
+    expectedTxRecordFee: number = 0,
+  ): Promise<void> => {
     const metricObjects = await metricService['consensusNodeClientHistogramCost'].get();
 
     if (expectedTxRecordFee) {
@@ -190,7 +193,7 @@ describe('Metric Service', function () {
       originalCallerAddress: mockedOriginalCallerAddress,
     };
 
-    const verifyMetrics = async (originalBudget: Hbar, expectedTxRecordFee: number) => {
+    const verifyMetrics = async (originalBudget: Hbar, expectedTxRecordFee: number): Promise<void> => {
       // validate hbarLimitService
       // note: since the query is made to consensus node, the total charged amount = txFee + txRecordFee
       const updatedBudget = await hbarLimitService['getRemainingBudget'](requestDetails);
@@ -276,7 +279,7 @@ describe('Metric Service', function () {
       originalCallerAddress: mockedOriginalCallerAddress,
     };
 
-    const verifyMetrics = async (originalBudget: Hbar) => {
+    const verifyMetrics = async (originalBudget: Hbar): Promise<void> => {
       const updatedBudget = await hbarLimitService['getRemainingBudget'](requestDetails);
       expect(originalBudget.toTinybars().toNumber() - updatedBudget.toTinybars().toNumber()).to.eq(mockedTxFee);
 

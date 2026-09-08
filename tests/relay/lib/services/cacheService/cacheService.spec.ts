@@ -23,13 +23,13 @@ describe('CacheService Test Suite', async function () {
 
   let cacheService: ICacheClient;
 
-  const initCacheEntriesForTests = async (datasetEntries) => {
+  const initCacheEntriesForTests = async (datasetEntries: Record<string, string>): Promise<void> => {
     for (const [key, value] of Object.entries(datasetEntries)) {
       await cacheService.set(key, value, callingMethod);
     }
   };
 
-  const describeKeysTestSuite = () => {
+  const describeKeysTestSuite = (): void => {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;
       before(async () => {
@@ -37,7 +37,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve all keys', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['key1'] = 'value1';
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
@@ -49,7 +49,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve keys matching pattern', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['key1'] = 'value1';
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
@@ -61,7 +61,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve keys matching pattern with ?', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['key1'] = 'value1';
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
@@ -73,7 +73,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve keys matching pattern with []', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['key1'] = 'value1';
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
@@ -85,7 +85,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve keys matching pattern with [^]', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['key1'] = 'value1';
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
@@ -98,7 +98,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should retrieve keys matching pattern with [a-b]', async function () {
-        const entries: Record<string, any> = {};
+        const entries: Record<string, string> = {};
         entries['keya'] = 'value1';
         entries['keyb'] = 'value2';
         entries['keyc'] = 'value3';
@@ -121,7 +121,7 @@ describe('CacheService Test Suite', async function () {
 
       if (RedisClientManager.isRedisEnabled()) {
         it('should retrieve keys from internal cache in case of Redis error', async function () {
-          const entries: Record<string, any> = {};
+          const entries: Record<string, string> = {};
           entries['key1'] = 'value1';
           entries['key2'] = 'value2';
           entries['key3'] = 'value3';
@@ -179,7 +179,7 @@ describe('CacheService Test Suite', async function () {
     });
 
     it('should be able to set multiple keys and get them separately', async function () {
-      const entries: Record<string, any> = {};
+      const entries: Record<string, string> = {};
       entries['key1'] = 'value1';
       entries['key2'] = 'value2';
       entries['key3'] = 'value3';
@@ -242,7 +242,8 @@ describe('CacheService Test Suite', async function () {
 
     describe('should not initialize redis cache if shared cache is not enabled', async function () {
       it('should not initialize redis cache if shared cache is not enabled', async function () {
-        expect(cacheService['decoratedCacheClient']).to.be.an.instanceOf(LocalLRUCache);
+        const decorated = cacheService as unknown as { decoratedCacheClient: unknown };
+        expect(decorated.decoratedCacheClient).to.be.an.instanceOf(LocalLRUCache);
       });
     });
   });

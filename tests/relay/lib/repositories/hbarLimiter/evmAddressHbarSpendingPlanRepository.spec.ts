@@ -24,7 +24,7 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
   const registry = new Registry();
   const ttl = 86_400_000; // 1 day
 
-  const tests = (isSharedCacheEnabled: boolean) => {
+  const tests = (isSharedCacheEnabled: boolean): void => {
     let cacheService: ICacheClient;
     let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let repository: EvmAddressHbarSpendingPlanRepository;

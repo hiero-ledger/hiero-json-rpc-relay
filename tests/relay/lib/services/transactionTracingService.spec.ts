@@ -20,6 +20,14 @@ const HASH_UPPER = '0x' + 'A'.repeat(64);
 const OTHER_HASH = '0x' + 'b'.repeat(64);
 const TX_ID = '0.0.1234@1700000000.000000001';
 
+interface ReceiptFallbackData {
+  txHash: string;
+  detail: string;
+  hederaStatus: string;
+  transactionId: string;
+  provisional?: boolean;
+}
+
 describe('TransactionTracingService', function () {
   describe('when TX_STATUS_TRACING is disabled', function () {
     let service: TransactionTracingService;
@@ -136,7 +144,7 @@ describe('TransactionTracingService', function () {
         const error = await service.getReceiptFallbackError(HASH);
         expect(error).to.be.instanceOf(JsonRpcError);
         expect(error!.code).to.equal(-32003);
-        const data = error!.data as any;
+        const data = error!.data as ReceiptFallbackData;
         expect(data.txHash).to.equal(HASH);
         expect(data.detail).to.equal('boom');
         expect(data.hederaStatus).to.equal('WRONG_NONCE');
@@ -155,7 +163,7 @@ describe('TransactionTracingService', function () {
         const error = await service.getReceiptFallbackError(HASH);
         expect(error).to.be.instanceOf(JsonRpcError);
         expect(error!.code).to.equal(-32003);
-        const data = error!.data as any;
+        const data = error!.data as ReceiptFallbackData;
         expect(data.txHash).to.equal(HASH);
         expect(data.detail).to.equal('timeout exceeded');
         expect(data.hederaStatus).to.equal('TRANSACTION_EXPIRED');

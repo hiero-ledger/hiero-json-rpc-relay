@@ -11,6 +11,8 @@ import {
 } from '../../../../src/relay/lib/validators';
 import * as validator from '../../../../src/relay/lib/validators';
 
+type ValidationRulesMarked = { [RPC_PARAM_VALIDATION_RULES_KEY]?: Record<number, IParamValidation> };
+
 describe('rpcParamValidationRules decorator', () => {
   // Reset sinon after each test
   afterEach(() => {
@@ -24,7 +26,7 @@ describe('rpcParamValidationRules decorator', () => {
         0: { type: 'address', required: true },
         1: { type: 'blockNumber', required: false },
       })
-      addressAndBlockMethod(address: string, blockNumber?: string) {
+      addressAndBlockMethod(address: string, blockNumber?: string): string {
         return `${address}-${blockNumber || 'latest'}`;
       }
 
@@ -33,11 +35,11 @@ describe('rpcParamValidationRules decorator', () => {
         0: { type: 'transactionHash', required: true },
         1: { type: 'boolean', required: false, errorMessage: 'Custom error message' },
       })
-      customErrorMethod(txHash: string, fullTx: boolean = false) {
+      customErrorMethod(txHash: string, fullTx: boolean = false): string {
         return `${txHash}-${fullTx}`;
       }
 
-      regularMethod() {
+      regularMethod(): string {
         return 'regular-method';
       }
     }
@@ -49,19 +51,21 @@ describe('rpcParamValidationRules decorator', () => {
     });
 
     it('should add RPC_PARAM_VALIDATION_RULES_KEY to decorated methods', () => {
-      const addressSchema = testInstance.addressAndBlockMethod[RPC_PARAM_VALIDATION_RULES_KEY];
+      const addressSchema = (testInstance.addressAndBlockMethod as ValidationRulesMarked)[
+        RPC_PARAM_VALIDATION_RULES_KEY
+      ]!;
       expect(addressSchema).to.be.an('object');
       expect(addressSchema[0].type).to.equal('address');
       expect(addressSchema[0].required).to.be.true;
       expect(addressSchema[1].type).to.equal('blockNumber');
       expect(addressSchema[1].required).to.be.false;
 
-      const customSchema = testInstance.customErrorMethod[RPC_PARAM_VALIDATION_RULES_KEY];
+      const customSchema = (testInstance.customErrorMethod as ValidationRulesMarked)[RPC_PARAM_VALIDATION_RULES_KEY]!;
       expect(customSchema).to.be.an('object');
       expect(customSchema[0].type).to.equal('transactionHash');
       expect(customSchema[1].errorMessage).to.equal('Custom error message');
 
-      expect(testInstance.regularMethod[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.undefined;
+      expect((testInstance.regularMethod as ValidationRulesMarked)[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.undefined;
     });
 
     it('should maintain method functionality after decoration', () => {
@@ -88,13 +92,13 @@ describe('rpcParamValidationRules decorator', () => {
           0: { type: 'address', required: true },
           1: { type: 'blockNumber', required: false },
         })
-        testMethod(address: string, blockNumber?: string) {
+        testMethod(address: string, blockNumber?: string): string {
           return `${address}-${blockNumber || 'latest'}`;
         }
       }
 
       const instance = new TestValidationClass();
-      const schema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
+      const schema = (instance.testMethod as ValidationRulesMarked)[RPC_PARAM_VALIDATION_RULES_KEY]!;
 
       // Verify schema structure
       expect(schema).to.be.an('object');
@@ -120,13 +124,13 @@ describe('rpcParamValidationRules decorator', () => {
       class TestTypeClass {
         // @ts-ignore
         @rpcParamValidationRules(schema)
-        testMethod() {
+        testMethod(): string {
           return 'test';
         }
       }
 
       const instance = new TestTypeClass();
-      const appliedSchema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
+      const appliedSchema = (instance.testMethod as ValidationRulesMarked)[RPC_PARAM_VALIDATION_RULES_KEY]!;
 
       // Verify all schema properties were correctly applied
       expect(appliedSchema[0].type).to.equal('address');
@@ -143,13 +147,13 @@ describe('rpcParamValidationRules decorator', () => {
         @rpcParamValidationRules({
           0: { type: customType, required: true },
         })
-        testMethod() {
+        testMethod(): string {
           return 'test';
         }
       }
 
       const instance = new TestCustomTypeClass();
-      const schema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
+      const schema = (instance.testMethod as ValidationRulesMarked)[RPC_PARAM_VALIDATION_RULES_KEY]!;
 
       expect(schema[0].type).to.equal(customType);
     });
@@ -157,7 +161,7 @@ describe('rpcParamValidationRules decorator', () => {
 
   describe('Multiple decorators interaction', () => {
     it('should work alongside other decorators', () => {
-      const mockDecorator = (target: any, _context: ClassMethodDecoratorContext): void => {
+      const mockDecorator = (target: Record<string, unknown>, _context: ClassMethodDecoratorContext): void => {
         target.MOCK_KEY = 'mock-value';
       };
 
@@ -168,7 +172,7 @@ describe('rpcParamValidationRules decorator', () => {
         @rpcParamValidationRules({
           0: { type: 'address', required: true },
         })
-        testMethod(address: string) {
+        testMethod(address: string): string {
           return address;
         }
       }
@@ -176,8 +180,9 @@ describe('rpcParamValidationRules decorator', () => {
       const instance = new TestMultiDecoratorClass();
 
       // Both decorators should have applied their metadata
-      expect(instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.an('object');
-      expect(instance.testMethod['MOCK_KEY']).to.equal('mock-value');
+      const decorated = instance.testMethod as ValidationRulesMarked & { MOCK_KEY?: string };
+      expect(decorated[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.an('object');
+      expect(decorated['MOCK_KEY']).to.equal('mock-value');
 
       // Method should still work
       expect(instance.testMethod('0x123')).to.equal('0x123');

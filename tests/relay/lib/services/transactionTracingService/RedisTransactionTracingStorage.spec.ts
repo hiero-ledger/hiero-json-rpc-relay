@@ -28,7 +28,7 @@ describe('RedisTransactionTracingStorage Test Suite', function () {
   before(async () => {
     redisClient = createClient({ url: 'redis://127.0.0.1:6391' });
     await redisClient.connect();
-    redisClient.on('error', (err: any) => {
+    redisClient.on('error', (err: Error) => {
       const message: string = err?.message ?? '';
       if (message.includes('Socket closed') || message.includes('The client is closed')) {
         return;

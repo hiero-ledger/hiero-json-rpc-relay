@@ -14,8 +14,16 @@ import { prepend0x } from '../../../../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
 import { predefined } from '../../../../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../../../../src/relay/lib/factories/cacheClientFactory';
-import { CommonService } from '../../../../../../src/relay/lib/services';
+import { CommonService, type PaymasterAccount } from '../../../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../../../src/relay/lib/types';
+
+interface PaymasterStatics {
+  PAYMASTER_WHITELIST: string[];
+  PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount>;
+  PAYMASTER_ACCOUNTS_WHITELISTS_MAP: Map<string, string>;
+}
+
+const paymasterStatics = CommonService as unknown as PaymasterStatics;
 
 describe('CommonService', () => {
   describe('getPaymasterIfTxCanBeSubsidized', async () => {
@@ -23,8 +31,8 @@ describe('CommonService', () => {
 
     beforeEach(() => {
       // reset maps before each test
-      (CommonService as any).PAYMASTER_ACCOUNTS_WHITELISTS_MAP = new Map();
-      (CommonService as any).PAYMASTER_ACCOUNTS_MAP = new Map();
+      paymasterStatics.PAYMASTER_ACCOUNTS_WHITELISTS_MAP = new Map();
+      paymasterStatics.PAYMASTER_ACCOUNTS_MAP = new Map();
 
       configStub = sinon.stub(ConfigService, 'get');
     });
@@ -37,8 +45,13 @@ describe('CommonService', () => {
       const toAddress = '0x0000000000000000000000000000000000000000';
       const normalized = prepend0x(toAddress.toLowerCase());
 
-      (CommonService as any).PAYMASTER_ACCOUNTS_WHITELISTS_MAP.set(normalized, '0.0.9303');
-      (CommonService as any).PAYMASTER_ACCOUNTS_MAP.set('0.0.9303', ['0.0.9303', null, null, 100]);
+      paymasterStatics.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.set(normalized, '0.0.9303');
+      paymasterStatics.PAYMASTER_ACCOUNTS_MAP.set('0.0.9303', [
+        '0.0.9303',
+        null,
+        null,
+        100,
+      ] as unknown as PaymasterAccount);
 
       const result = CommonService.getPaymasterIfTxCanBeSubsidized(toAddress);
 
@@ -52,7 +65,7 @@ describe('CommonService', () => {
       const toAddress = '0x0000000000000000000000000000000000000000';
       const normalized = prepend0x(toAddress.toLowerCase());
 
-      (CommonService as any).PAYMASTER_ACCOUNTS_WHITELISTS_MAP.set(normalized, '0.0.9303');
+      paymasterStatics.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.set(normalized, '0.0.9303');
 
       configStub.withArgs('PAYMASTER_ENABLED').returns(false);
 
@@ -62,7 +75,7 @@ describe('CommonService', () => {
     });
 
     it('should return default paymaster when PAYMASTER_ENABLED and whitelist contains *', () => {
-      (CommonService as any).PAYMASTER_WHITELIST = ['*'];
+      paymasterStatics.PAYMASTER_WHITELIST = ['*'];
       configStub.withArgs('PAYMASTER_ENABLED').returns(true);
       configStub.withArgs('OPERATOR_ID_MAIN').returns('0.0.1000');
       configStub.withArgs('MAX_GAS_ALLOWANCE_HBAR').returns(120);
@@ -79,7 +92,7 @@ describe('CommonService', () => {
       const toAddress = '0x0000000000000000000000000000000000000000';
       const normalized = prepend0x(toAddress.toLowerCase());
 
-      (CommonService as any).PAYMASTER_WHITELIST = [normalized];
+      paymasterStatics.PAYMASTER_WHITELIST = [normalized];
       configStub.withArgs('PAYMASTER_ENABLED').returns(true);
       configStub.withArgs('OPERATOR_ID_MAIN').returns('0.0.1000');
       configStub.withArgs('MAX_GAS_ALLOWANCE_HBAR').returns(500);

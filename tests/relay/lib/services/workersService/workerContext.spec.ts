@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { Gauge } from 'prom-client';
 
+import { type ICacheClient } from '../../../../../src/relay/lib/clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../../../src/relay/lib/clients/mirrorNodeClient';
 import { RegistryFactory } from '../../../../../src/relay/lib/factories/registryFactory';
 import { AccountService } from '../../../../../src/relay/lib/services/ethService/accountService/AccountService';
@@ -19,8 +20,8 @@ describe('WorkerContext Test Suite', () => {
     overrideEnvsInMochaDescribe({ MIRROR_NODE_URL: 'http://localhost:5551' });
 
     it('should reuse the supplied client + cache and wire the wrapper services around them', () => {
-      const mirrorNodeClient = { label: 'relay-client' } as any;
-      const cacheService = { label: 'relay-cache' } as any;
+      const mirrorNodeClient = { label: 'relay-client' } as unknown as MirrorNodeClient;
+      const cacheService = { label: 'relay-cache' } as unknown as ICacheClient;
 
       const ctx = createWorkerContext(mirrorNodeClient, cacheService);
 
@@ -34,7 +35,7 @@ describe('WorkerContext Test Suite', () => {
       const registry = RegistryFactory.getInstance(true);
       const sentinel = new Gauge({ name: 'rpc_relay_txpool_pending_count', help: 'sentinel', registers: [registry] });
 
-      createWorkerContext({} as any, {} as any);
+      createWorkerContext({} as MirrorNodeClient, {} as ICacheClient);
 
       expect(registry.getSingleMetric('rpc_relay_txpool_pending_count')).to.equal(sentinel);
       for (const name of [
@@ -59,7 +60,10 @@ describe('WorkerContext Test Suite', () => {
     afterEach(() => resetWorkerContext());
 
     it('should build the context once and return the same instance on subsequent calls', () => {
-      const first = getWorkerContext({ label: 'client' } as any, { label: 'cache' } as any);
+      const first = getWorkerContext(
+        { label: 'client' } as unknown as MirrorNodeClient,
+        { label: 'cache' } as unknown as ICacheClient,
+      );
       const second = getWorkerContext();
 
       // Args on the second call are ignored — the first-built context is returned verbatim.

@@ -53,7 +53,11 @@ describe('Filter API Test Suite', async function () {
   const LATEST_BLOCK_QUERY = 'blocks?limit=1&order=desc';
   const BLOCK_BY_NUMBER_QUERY = 'blocks';
 
-  const validateFilterCache = async (filterId: string, expectedFilterType: string, expectedParams = {}) => {
+  const validateFilterCache = async (
+    filterId: string,
+    expectedFilterType: string,
+    expectedParams: object = {},
+  ): Promise<void> => {
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
     const cachedFilter = await cacheService.getAsync(cacheKey, 'validateFilterCache');
     expect(cachedFilter).to.exist;

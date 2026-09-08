@@ -32,6 +32,11 @@ import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 chai.use(chaiAsPromised);
 
+interface HbarLimitServiceInternals {
+  hbarLimitCounter: { inc(labels: Record<string, string>, value: number): void };
+  updateAverageAmountSpentPerSubscriptionTier(subscriptionTier: SubscriptionTier): Promise<void>;
+}
+
 describe('HBAR Rate Limit Service', function () {
   const logger = pino({ level: 'silent' });
   const register = new Registry();
@@ -91,7 +96,7 @@ describe('HBAR Rate Limit Service', function () {
     sinon.restore();
   });
 
-  function createSpendingPlan(id: string, amountSpent: number | Long | Hbar = 0) {
+  function createSpendingPlan(id: string, amountSpent: number | Long | Hbar = 0): HbarSpendingPlan {
     return new HbarSpendingPlan({
       id,
       subscriptionTier: SubscriptionTier.BASIC,
@@ -642,7 +647,10 @@ describe('HBAR Rate Limit Service', function () {
   });
 
   describe('getSpendingPlanByEvmAddress', function () {
-    const testGetSpendingPlanByEvmAddressError = async (error: Error, errorClass: any) => {
+    const testGetSpendingPlanByEvmAddressError = async (
+      error: Error,
+      errorClass: new (...args: never[]) => Error,
+    ): Promise<void> => {
       const result = hbarLimitService['getSpendingPlanByEvmAddress'](mockEvmAddress);
       await expect(result).to.be.eventually.rejectedWith(errorClass, error.message);
     };
@@ -690,7 +698,7 @@ describe('HBAR Rate Limit Service', function () {
   });
 
   describe('createSpendingPlanForAddress', function () {
-    const testCreateSpendingPlanForAddress = async (evmAddress: string, ipAddress?: string) => {
+    const testCreateSpendingPlanForAddress = async (evmAddress: string, ipAddress?: string): Promise<void> => {
       const requestDetails = new RequestDetails({ requestId: 'hbarLimitServiceTest', ipAddress: ipAddress ?? '' });
 
       const promise = hbarLimitService['createSpendingPlanForAddress'](evmAddress, requestDetails);
@@ -727,7 +735,7 @@ describe('HBAR Rate Limit Service', function () {
   });
 
   describe('addExpense', function () {
-    const testAddExpense = async (evmAddress: string, ipAddress: string, expense: number = 100) => {
+    const testAddExpense = async (evmAddress: string, ipAddress: string, expense: number = 100): Promise<void> => {
       const otherPlanOfTheSameTier = createSpendingPlan(uuidV4(randomBytes(16)), 200);
       await cacheService.set(
         `hbarSpendingPlan:${otherPlanOfTheSameTier.id}`,
@@ -749,8 +757,8 @@ describe('HBAR Rate Limit Service', function () {
         'set',
       );
       const updateAverageAmountSpentPerSubscriptionTierSpy = sinon.spy(
-        hbarLimitService,
-        <any>'updateAverageAmountSpentPerSubscriptionTier',
+        hbarLimitService as unknown as HbarLimitServiceInternals,
+        'updateAverageAmountSpentPerSubscriptionTier',
       );
 
       const addExpensePromise = hbarLimitService.addExpense(
@@ -850,7 +858,7 @@ describe('HBAR Rate Limit Service', function () {
   });
 
   describe('isTotalBudgetExceeded', function () {
-    const testIsTotalBudgetExceeded = async (remainingBudget: number, expected: boolean) => {
+    const testIsTotalBudgetExceeded = async (remainingBudget: number, expected: boolean): Promise<void> => {
       const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
       await hbarSpendingPlanRepository.addToAmountSpent(
         operatorPlan.id,
@@ -882,8 +890,10 @@ describe('HBAR Rate Limit Service', function () {
         });
 
         it('should update the hbar limit counter when a method is called and the total budget is exceeded', async function () {
-          // @ts-ignore
-          const hbarLimitCounterSpy = sinon.spy(hbarLimitService.hbarLimitCounter, <any>'inc');
+          const hbarLimitCounterSpy = sinon.spy(
+            (hbarLimitService as unknown as HbarLimitServiceInternals).hbarLimitCounter,
+            'inc',
+          );
           await testIsTotalBudgetExceeded(0, true);
           expect(hbarLimitCounterSpy.calledWithMatch({ mode, methodName }, 1)).to.be.true;
         });
