@@ -31,7 +31,7 @@ import { type AliasAccount } from '../../types/AliasAccount';
  */
 describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', async function () {
   this.timeout(240 * 1000); // 240 seconds
-  const { servicesNode, mirrorNode, relay }: any = global;
+  const { servicesNode, mirrorNode, relay } = global;
 
   const TX_SUCCESS_CODE = BigInt(22);
 
@@ -43,10 +43,8 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   let mainContract: ethers.Contract;
   let mainContractOwner: ethers.Contract;
   let mainContractReceiverWalletFirst: ethers.Contract;
-  let requestId: string;
 
   this.beforeAll(async () => {
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '10000000000'; //100 Hbar
 
@@ -65,14 +63,8 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       mainContractMirror.contract_id,
       200,
       relay.provider,
-      requestId,
     );
-    accounts[1] = await servicesNode.createAccountWithContractIdKey(
-      mainContractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[1] = await servicesNode.createAccountWithContractIdKey(mainContractMirror.contract_id, 30, relay.provider);
     global.accounts.push(...accounts);
     // allow mirror node a 2 full record stream write windows (2 sec) and a buffer to persist setup details
     await new Promise((r) => setTimeout(r, 2000));
@@ -92,8 +84,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await tx1.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await tx1.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const tx2 = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -102,8 +95,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await tx2.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await tx2.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const tx3 = await mainContractOwner.associateTokenPublic(
@@ -112,8 +106,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await tx3.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await tx3.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const tx4 = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -122,43 +117,40 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await tx4.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await tx4.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
-  this.beforeEach(async () => {
-    requestId = Utils.generateRequestId();
-  });
-
-  async function createHTSToken() {
+  async function createHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 10000000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
-  async function createNftHTSToken() {
+  async function createNftHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 10000000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
   describe('HTS Precompile Wipe Tests', async function () {
-    let tokenAddress, tokenContract, nftAddress;
+    let tokenAddress: string, tokenContract: ethers.Contract, nftAddress: string;
 
     before(async function () {
       // Create token and nft contracts
@@ -173,8 +165,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await tx1.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await tx1.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       const tx2 = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -183,8 +176,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await tx2.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await tx2.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       const tx3 = await mainContractOwner.associateTokenPublic(
@@ -193,8 +187,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await tx3.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await tx3.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       const tx4 = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -203,8 +198,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await tx4.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await tx4.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       // Grant Kyc to receiver account for token
@@ -214,7 +210,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
 
@@ -225,7 +221,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeGrantKycNft = (await grantKycNftTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeGrantKycNft).to.equal(TX_SUCCESS_CODE);
       const amount = 5;
@@ -260,7 +256,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_50_000,
       );
       const { responseCode } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
       await new Promise((r) => setTimeout(r, 2000));
@@ -276,11 +272,11 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       {
         const tx = await mainContract.mintTokenPublic(nftAddress, 0, ['0x02'], Constants.GAS.LIMIT_1_000_000);
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
         const { serialNumbers } = (await tx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
         )[0].args;
         NftSerialNumber = Number(serialNumbers[0]);
         expect(NftSerialNumber).to.be.greaterThan(0);
@@ -296,7 +292,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           NftSerialNumber,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
       }
@@ -309,10 +305,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           Constants.GAS.LIMIT_1_000_000,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         const { tokenInfo } = (await tx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
         expect(tokenInfo).to.exist;
@@ -323,11 +319,11 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         const tx = await mainContract.wipeTokenAccountNFTPublic(
           nftAddress,
           accounts[1].wallet.address,
-          serials.toArray().map((e) => Number(e)),
+          serials.toArray().map((e: unknown) => Number(e)),
           Constants.GAS.LIMIT_50_000,
         );
         const { responseCode } = (await tx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args;
         expect(responseCode).to.equal(TX_SUCCESS_CODE);
       }
@@ -350,12 +346,13 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const txReceipt = await tx.wait();
 
       const responseCode = txReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
-      const isTokenFlag = txReceipt.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.IsToken)[0]
-        .args.isToken;
+      const isTokenFlag = txReceipt.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.IsToken,
+      )[0].args.isToken;
       expect(isTokenFlag).to.equal(false);
     });
 
@@ -364,12 +361,13 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const txReceipt = await tx.wait();
 
       const responseCode = txReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
-      const isTokenFlag = txReceipt.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.IsToken)[0]
-        .args.isToken;
+      const isTokenFlag = txReceipt.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.IsToken,
+      )[0].args.isToken;
       expect(isTokenFlag).to.equal(true);
     });
 
@@ -378,12 +376,13 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const txReceipt = await tx.wait();
 
       const responseCode = txReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
-      const tokenType = txReceipt.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenType)[0]
-        .args.tokenType;
+      const tokenType = txReceipt.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenType,
+      )[0].args.tokenType;
       expect(tokenType).to.equal(BigInt(0));
     });
 
@@ -392,12 +391,13 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const txReceipt = await tx.wait();
 
       const responseCode = txReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
-      const tokenType = txReceipt.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenType)[0]
-        .args.tokenType;
+      const tokenType = txReceipt.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenType,
+      )[0].args.tokenType;
       expect(tokenType).to.equal(BigInt(1));
     });
 
@@ -414,14 +414,19 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     const TOKEN_UPDATE_SYMBOL = 'tokenUpdateSymbol';
     const TOKEN_UPDATE_MEMO = 'tokenUpdateMemo';
 
-    function setUpdatedValues(token) {
+    function setUpdatedValues(token: unknown[]): void {
       token[0] = TOKEN_UPDATE_NAME;
       token[1] = TOKEN_UPDATE_SYMBOL;
       token[2] = accounts[0].wallet.address;
       token[3] = TOKEN_UPDATE_MEMO;
     }
 
-    async function checkUpdatedTokenInfo(tokenInfo) {
+    async function checkUpdatedTokenInfo(tokenInfo: {
+      treasury: string;
+      name: string;
+      symbol: string;
+      memo: string;
+    }): Promise<void> {
       //token info return treasury as long zero address, we convert it to evm address to compare
       const treasury = await mirrorNodeAddressReq(tokenInfo.treasury);
       expect(tokenInfo.name).to.equal(TOKEN_UPDATE_NAME);
@@ -430,7 +435,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       expect(tokenInfo.memo).to.equal(TOKEN_UPDATE_MEMO);
     }
 
-    async function mirrorNodeAddressReq(address) {
+    async function mirrorNodeAddressReq(address: string): Promise<string> {
       const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`);
       return accountEvmAddress.evm_address;
     }
@@ -441,7 +446,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const tokenInfoBefore = (await txBeforeInfo.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo[0];
 
       // updating only token info, not token keys
@@ -457,13 +462,14 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await txUpdate.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txUpdate.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.be.equal(TX_SUCCESS_CODE);
 
       const txAfterInfo = await mainContract.getTokenInfoPublic(HTSTokenContractAddress, Constants.GAS.LIMIT_1_000_000);
       const tokenInfoAfter = (await txAfterInfo.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo[0];
       await checkUpdatedTokenInfo(tokenInfoAfter);
     });
@@ -474,7 +480,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const tokenInfoBefore = (await txBeforeInfo.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo[0];
 
       // updating only token info, not token keys
@@ -489,8 +495,9 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await txUpdate.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txUpdate.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.be.equal(TX_SUCCESS_CODE);
 
       const txAfterInfo = await mainContract.getTokenInfoPublic(
@@ -498,14 +505,18 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const tokenInfoAfter = (await txAfterInfo.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo[0];
       await checkUpdatedTokenInfo(tokenInfoAfter);
     });
   });
 
   describe('HTS Precompile Freeze/Unfreeze Tests', async function () {
-    async function checkTokenFrozen(contractOwner, tokenAddress, expectedValue: boolean) {
+    async function checkTokenFrozen(
+      contractOwner: ethers.Contract,
+      tokenAddress: string,
+      expectedValue: boolean,
+    ): Promise<void> {
       const txBefore = await contractOwner.isFrozenPublic(
         tokenAddress,
         accounts[0].wallet.address,
@@ -513,26 +524,30 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       );
       const txBeforeReceipt = await txBefore.wait();
       const responseCodeBefore = txBeforeReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const isFrozenBefore = txBeforeReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Frozen,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Frozen,
       )[0].args.frozen;
 
       expect(responseCodeBefore).to.equal(TX_SUCCESS_CODE);
       expect(isFrozenBefore).to.be.equal(expectedValue);
     }
 
-    async function checkTokenDefaultFreezeStatus(contractOwner, tokenAddress, expectedValue: boolean) {
+    async function checkTokenDefaultFreezeStatus(
+      contractOwner: ethers.Contract,
+      tokenAddress: string,
+      expectedValue: boolean,
+    ): Promise<void> {
       const txTokenDefaultStatus = await contractOwner.getTokenDefaultFreezeStatusPublic(
         tokenAddress,
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeTokenDefaultStatus = (await txTokenDefaultStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const defaultTokenFreezeStatus = (await txTokenDefaultStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenDefaultFreezeStatus,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenDefaultFreezeStatus,
       )[0].args.defaultFreezeStatus;
       expect(responseCodeTokenDefaultStatus).to.equal(TX_SUCCESS_CODE);
       expect(defaultTokenFreezeStatus).to.equal(expectedValue);
@@ -552,7 +567,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeFreeze = (await freezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeFreeze).to.equal(TX_SUCCESS_CODE);
 
@@ -566,7 +581,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeUnfreeze = (await unfreezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeUnfreeze).to.equal(TX_SUCCESS_CODE);
 
@@ -588,7 +603,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeFreeze = (await freezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeFreeze).to.equal(TX_SUCCESS_CODE);
 
@@ -602,7 +617,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeUnfreeze = (await unfreezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeUnfreeze).to.equal(TX_SUCCESS_CODE);
 
@@ -617,7 +632,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const newDefaultFreezeStatus = (await txSetDefaultFreezeStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.DefaultFreezeStatusChanged,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.DefaultFreezeStatusChanged,
       )[0].args.freezeStatus;
 
       expect(newDefaultFreezeStatus).to.equal(true);
@@ -629,7 +644,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       });
 
       const { tokenAddress } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
       )[0].args;
 
       // get token default freeze status
@@ -643,7 +658,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const newDefaultFreezeStatus = (await txSetDefaultFreezeStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.DefaultFreezeStatusChanged,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.DefaultFreezeStatusChanged,
       )[0].args.freezeStatus;
 
       expect(newDefaultFreezeStatus).to.equal(true);
@@ -654,7 +669,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         gasLimit: 10000000,
       });
       const { tokenAddress } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
       )[0].args;
 
       // get token default freeze status
@@ -666,17 +681,17 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     it('should be able to pause fungible token', async () => {
       const txTokenInfoBefore = await mainContract.getTokenInfoPublic(HTSTokenContractAddress);
       const { pauseStatus: pauseStatusBefore } = (await txTokenInfoBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       const txPause = await mainContract.pauseTokenPublic(HTSTokenContractAddress, Constants.GAS.LIMIT_1_000_000);
       const pauseResponse = (await txPause.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.PausedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.PausedToken,
       )[0].args;
 
       const txTokenInfoAfter = await mainContract.getTokenInfoPublic(HTSTokenContractAddress);
       const { pauseStatus: pauseStatusAfter } = (await txTokenInfoAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(pauseStatusBefore).to.equal(false);
@@ -687,17 +702,17 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     it('should be able to unpause fungible token', async () => {
       const txTokenInfoBefore = await mainContract.getTokenInfoPublic(HTSTokenContractAddress);
       const { pauseStatus: pauseStatusBefore } = (await txTokenInfoBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       const txPause = await mainContract.unpauseTokenPublic(HTSTokenContractAddress, Constants.GAS.LIMIT_1_000_000);
       const unpauseResponse = (await txPause.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.UnpausedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.UnpausedToken,
       )[0].args;
 
       const txTokenInfoAfter = await mainContract.getTokenInfoPublic(HTSTokenContractAddress);
       const { pauseStatus: pauseStatusAfter } = (await txTokenInfoAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(unpauseResponse.unpaused).to.equal(true);
@@ -708,17 +723,17 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     it('should be able to pause non fungible token', async () => {
       const txTokenInfoBefore = await mainContract.getTokenInfoPublic(NftHTSTokenContractAddress);
       const { pauseStatus: pauseStatusBefore } = (await txTokenInfoBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       const txPause = await mainContract.pauseTokenPublic(NftHTSTokenContractAddress, Constants.GAS.LIMIT_1_000_000);
       const pauseResponse = (await txPause.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.PausedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.PausedToken,
       )[0].args;
 
       const txTokenInfoAfter = await mainContract.getTokenInfoPublic(NftHTSTokenContractAddress);
       const { pauseStatus: pauseStatusAfter } = (await txTokenInfoAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(pauseResponse.paused).to.equal(true);
@@ -731,17 +746,17 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
 
       const txTokenInfoBefore = await mainContract.getTokenInfoPublic(NftHTSTokenContractAddress);
       const { pauseStatus: pauseStatusBefore } = (await txTokenInfoBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       const txPause = await mainContract.unpauseTokenPublic(NftHTSTokenContractAddress, Constants.GAS.LIMIT_1_000_000);
       const unpauseResponse = (await txPause.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.UnpausedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.UnpausedToken,
       )[0].args;
 
       const txTokenInfoAfter = await mainContract.getTokenInfoPublic(NftHTSTokenContractAddress);
       const { pauseStatus: pauseStatusAfter } = (await txTokenInfoAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(unpauseResponse.unpaused).to.equal(true);
@@ -757,7 +772,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
 
     //Expiry Info auto renew account returns account id from type - 0x000000000000000000000000000000000000048C
     //We expect account to be evm address, but because we can't compute one address for the other, we have to make a mirror node query to get expiry info auto renew evm address
-    async function mirrorNodeAddressReq(address) {
+    async function mirrorNodeAddressReq(address: string): Promise<string> {
       const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`);
       return accountEvmAddress.evm_address;
     }
@@ -769,10 +784,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       // get current expiry info
       const getTokenExpiryInfoTxBefore = await mainContract.getTokenExpiryInfoPublic(HTSTokenContractAddress);
       const responseCode = (await getTokenExpiryInfoTxBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const tokenExpiryInfoBefore = (await getTokenExpiryInfoTxBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
       )[0].args.expiryInfo;
 
       const renewAccountEvmAddress = await mirrorNodeAddressReq(tokenExpiryInfoBefore.autoRenewAccount);
@@ -793,16 +808,16 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const updateExpiryInfoResponseCode = (await updateTokenExpiryInfoTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
 
       // get updated expiryInfo
       const getTokenExpiryInfoTxAfter = await mainContract.getTokenExpiryInfoPublic(HTSTokenContractAddress);
       const getExpiryInfoResponseCode = (await getTokenExpiryInfoTxAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const tokenExpiryInfoAfter = (await getTokenExpiryInfoTxAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
       )[0].args.expiryInfo;
 
       const newRenewAccountEvmAddress = await mirrorNodeAddressReq(tokenExpiryInfoAfter.autoRenewAccount);
@@ -823,10 +838,10 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       // get current expiry info
       const getTokenExpiryInfoTxBefore = await mainContract.getTokenExpiryInfoPublic(NftHTSTokenContractAddress);
       const responseCode = (await getTokenExpiryInfoTxBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const tokenExpiryInfoBefore = (await getTokenExpiryInfoTxBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
       )[0].args.expiryInfo;
 
       //Expiry Info auto renew account returns account id from type - 0x000000000000000000000000000000000000048C
@@ -850,16 +865,16 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_1_000_000,
       );
       const updateExpiryInfoResponseCode = (await updateTokenExpiryInfoTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
 
       // get updated expiryInfo
       const getTokenExpiryInfoTxAfter = await mainContract.getTokenExpiryInfoPublic(NftHTSTokenContractAddress);
       const getExpiryInfoResponseCode = (await getTokenExpiryInfoTxAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const tokenExpiryInfoAfter = (await getTokenExpiryInfoTxAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenExpiryInfo,
       )[0].args.expiryInfo;
 
       const newRenewAccountEvmAddress = await mirrorNodeAddressReq(tokenExpiryInfoAfter.autoRenewAccount);
@@ -880,7 +895,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       // Get key value before update
       const getKeyTx = await mainContract.getTokenKeyPublic(HTSTokenContractAddress, 2);
       const originalKey = (await getKeyTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey,
       )[0].args.key;
       const updateKey = [
         false,
@@ -893,7 +908,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       // Update keys. After updating there should be only one key with keyValue = 6. Other keys are removed
       const updateTx = await mainContract.updateTokenKeysPublic(HTSTokenContractAddress, [[2, updateKey]]);
       const updateResponseCode = (await updateTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(updateResponseCode).to.equal(TX_SUCCESS_CODE);
 
@@ -901,11 +916,12 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const tx = await mainContract.getTokenKeyPublic(HTSTokenContractAddress, 2);
       const result = await tx.wait();
       const { responseCode } = result.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
-      const updatedKey = result.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey)[0].args
-        .key;
+      const updatedKey = result.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey,
+      )[0].args.key;
 
       expect(updatedKey).to.exist;
       expect(updatedKey.inheritAccountKey).to.eq(updateKey[0]);
@@ -920,10 +936,12 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       const tx = await mainContract.getTokenKeyPublic(HTSTokenContractAddress, 2);
       const result = await tx.wait();
       const { responseCode } = result.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
-      const { key } = result.logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey)[0].args;
+      const { key } = result.logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenKey,
+      )[0].args;
 
       expect(key).to.exist;
       expect(key.inheritAccountKey).to.eq(false);

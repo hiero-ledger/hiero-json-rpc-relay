@@ -127,6 +127,8 @@ export default defineConfig([
       'tests/bin/**/*.ts',
       'tests/client-libraries/**/*.ts',
       'tests/config-service/**/*.ts',
+      'tests/server/acceptance/htsPrecompile/**/*.ts',
+      'tests/server/acceptance/htsPrecompile_v1.spec.ts',
       'tests/server/helpers/**/*.ts',
       'tests/server/integration/**/*.ts',
       'tests/protocol/**/*.ts',

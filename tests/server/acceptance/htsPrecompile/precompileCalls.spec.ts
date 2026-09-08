@@ -53,16 +53,18 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
   const accounts: AliasAccount[] = [];
 
-  let IERC20Metadata, IERC20, IERC721Metadata, IERC721Enumerable, IERC721, TokenManager;
-  let nftSerial, tokenAddress, nftAddress, htsImplAddress, htsImpl, adminAccountLongZero, account2LongZero;
+  let IERC20Metadata: ethers.Contract, IERC20: ethers.Contract, IERC721Metadata: ethers.Contract;
+  let IERC721Enumerable: ethers.Contract, IERC721, TokenManager;
+  let nftSerial: number, tokenAddress: string, nftAddress: string, htsImplAddress: string;
+  let htsImpl: ethers.Contract, adminAccountLongZero: string, account2LongZero: string;
 
-  let tokenAddressFixedHbarFees,
-    tokenAddressFixedTokenFees,
-    tokenAddressNoFees,
-    tokenAddressFractionalFees,
-    tokenAddressAllFees,
-    nftAddressRoyaltyFees,
-    createTokenCost;
+  let tokenAddressFixedHbarFees: string,
+    tokenAddressFixedTokenFees: string,
+    tokenAddressNoFees: string,
+    tokenAddressFractionalFees: string,
+    tokenAddressAllFees: string,
+    nftAddressRoyaltyFees: string,
+    createTokenCost: number;
 
   before(async () => {
     const hbarToWeibar = 100_000_000;
@@ -77,7 +79,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       HederaTokenServiceImplJson.bytecode,
       contractDeployer.wallet,
     );
-    htsImplAddress = htsImpl.target;
+    htsImplAddress = htsImpl.target as string;
 
     // Deploy the Token Management contract
     TokenManager = await Utils.deployContract(
@@ -224,13 +226,13 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       Constants.GAS.LIMIT_1_000_000,
     );
     await rec3.wait();
-    const rec4 = await IERC721.connect(accounts[1].wallet).approve(
+    const rec4 = await (IERC721.connect(accounts[1].wallet) as ethers.Contract).approve(
       accounts[2].address,
       nftSerial,
       Constants.GAS.LIMIT_1_000_000,
     );
     await rec4.wait();
-    const rec5 = await IERC721.connect(accounts[1].wallet).setApprovalForAll(
+    const rec5 = await (IERC721.connect(accounts[1].wallet) as ethers.Contract).setApprovalForAll(
       accounts[0].address,
       true,
       Constants.GAS.LIMIT_1_000_000,
@@ -238,7 +240,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     await rec5.wait();
   });
 
-  function getContract(address, abi, wallet) {
+  function getContract(address: string, abi: ethers.InterfaceAbi, wallet: ethers.Wallet): ethers.Contract {
     return new ethers.Contract(address, abi, wallet);
   }
 
@@ -488,7 +490,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
   });
 
   describe('Create HTS token via direct call to Hedera Token service', async () => {
-    let myNFT, myImmutableFungibleToken, fixedFee;
+    let myNFT: unknown, myImmutableFungibleToken: unknown, fixedFee: unknown;
 
     before(async () => {
       const compressedPublicKey = accounts[0].wallet.signingKey.compressedPublicKey.replace('0x', '');
@@ -543,7 +545,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       ];
     });
 
-    async function getTokenInfoFromMirrorNode(transactionHash: string) {
+    async function getTokenInfoFromMirrorNode(transactionHash: string): Promise<{ call_result: string }> {
       setTimeout(() => {
         console.log('waiting for mirror node...');
       }, 1000);
@@ -567,7 +569,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     });
 
     it('calls createFungibleToken with custom fees', async () => {
-      const fractionalFee = [];
+      const fractionalFee: unknown[] = [];
       const contract = new ethers.Contract(HTS_SYTEM_CONTRACT_ADDRESS, IHederaTokenServiceJson.abi, accounts[0].wallet);
       const tx = await contract.createFungibleTokenWithCustomFees(
         myImmutableFungibleToken,
