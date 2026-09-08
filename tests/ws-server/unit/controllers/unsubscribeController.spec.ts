@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 import type Koa from 'koa';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -9,6 +10,7 @@ import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeCl
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type ISharedParams } from '../../../../src/ws-server/controllers/jsonRpcController';
 import { handleEthUnsubscribe } from '../../../../src/ws-server/controllers/unsubscribeController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
@@ -33,7 +35,7 @@ function createMockContext(): Koa.Context {
 describe('Unsubscribe Controller', function () {
   const subscriptionId = '5644';
 
-  let mockLogger: any;
+  let mockLogger: { warn: sinon.SinonStub };
   let stubWsMetricRegistry: WsMetricRegistry;
   let stubRelay: Relay;
   let stubConnectionLimiter: ConnectionLimiter;
@@ -70,7 +72,7 @@ describe('Unsubscribe Controller', function () {
   });
 
   describe('handleEthUnsubscribe', async function () {
-    let defaultParams: any;
+    let defaultParams: ISharedParams;
 
     beforeEach(() => {
       defaultParams = {
@@ -78,7 +80,7 @@ describe('Unsubscribe Controller', function () {
         method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
         params: [subscriptionId],
         relay: stubRelay,
-        logger: mockLogger,
+        logger: mockLogger as unknown as Logger,
         limiter: stubConnectionLimiter,
         mirrorNodeClient: stubMirrorNodeClient,
         ctx: createMockContext(),

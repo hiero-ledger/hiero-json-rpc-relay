@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 import type Koa from 'koa';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -15,6 +16,12 @@ import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry
 import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { withOverriddenEnvsInMochaTest } from '../../../../tests/relay/helpers';
+
+interface MockLogger {
+  warn: sinon.SinonStub;
+  trace: sinon.SinonStub;
+  isLevelEnabled?: sinon.SinonStub;
+}
 
 function createMockContext(): Koa.Context {
   return {
@@ -32,7 +39,7 @@ function createMockContext(): Koa.Context {
 }
 
 describe('JSON Rpc Controller', function () {
-  let mockLogger: any;
+  let mockLogger: MockLogger;
   let stubWsMetricRegistry: WsMetricRegistry;
   let stubRelay: Relay;
   let stubConnectionLimiter: ConnectionLimiter;
@@ -69,13 +76,13 @@ describe('JSON Rpc Controller', function () {
   });
 
   describe('getRequestResult', async function () {
-    let defaultRequestParams: any;
+    let defaultRequestParams: Parameters<typeof getRequestResult>;
 
     beforeEach(() => {
       defaultRequestParams = [
         createMockContext(),
         stubRelay,
-        mockLogger,
+        mockLogger as unknown as Logger,
         { id: '2', method: 'eth_chainId', jsonrpc: '2.0' } as IJsonRpcRequest,
         stubConnectionLimiter,
         stubMirrorNodeClient,

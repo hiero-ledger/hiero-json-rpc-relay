@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 import { type Counter, type Histogram } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
 import { EthImpl } from '../../../src/relay/lib/eth';
+import { type IJsonRpcRequest } from '../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type IJsonRpcResponse } from '../../../src/server/koaJsonRpc/lib/RpcResponse';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
@@ -37,7 +39,7 @@ describe('Utilities unit tests', async function () {
       };
       const originalFilterKeys = Object.keys(originalFilter);
 
-      const validFilter = constructValidLogSubscriptionFilter(originalFilter);
+      const validFilter = constructValidLogSubscriptionFilter(originalFilter) as Record<string, unknown>;
       const validFilterKeys = Object.keys(validFilter);
 
       expect(validFilterKeys).to.not.deep.eq(originalFilterKeys);
@@ -54,7 +56,7 @@ describe('Utilities unit tests', async function () {
       const originalFilter1 = {
         topics: ['0x1d29d0f04057864b829c60f025fdba344f1623eb30b90820f5a6c39ffbd1c512'],
       };
-      const validFilter1 = constructValidLogSubscriptionFilter(originalFilter1);
+      const validFilter1 = constructValidLogSubscriptionFilter(originalFilter1) as Record<string, unknown>;
       const validFilter1Keys = Object.keys(validFilter1);
       expect(validFilter1Keys.length).to.eq(1);
       expect(validFilter1['address']).to.not.exist;
@@ -64,7 +66,7 @@ describe('Utilities unit tests', async function () {
       const originalFilter2 = {
         address: '0x23f5e49569A835d7bf9AefD30e4f60CdD570f225',
       };
-      const validFilter2 = constructValidLogSubscriptionFilter(originalFilter2);
+      const validFilter2 = constructValidLogSubscriptionFilter(originalFilter2) as Record<string, unknown>;
       const validFilter2Keys = Object.keys(validFilter2);
       expect(validFilter2Keys.length).to.eq(1);
       expect(validFilter2['topics']).to.not.exist;
@@ -73,10 +75,10 @@ describe('Utilities unit tests', async function () {
   });
 
   describe('sendToClient', () => {
-    let connectionMock: any;
-    let loggerMock: any;
-    let request: any;
-    let response: any;
+    let connectionMock: { send: sinon.SinonStub; limiter: { resetInactivityTTLTimer: sinon.SinonStub } };
+    let loggerMock: { trace: sinon.SinonStub };
+    let request: IJsonRpcRequest;
+    let response: IJsonRpcResponse;
 
     beforeEach(() => {
       connectionMock = {
@@ -90,8 +92,8 @@ describe('Utilities unit tests', async function () {
         trace: sinon.stub(),
       };
 
-      request = { id: '1', method: 'testMethod' };
-      response = { result: 'testResult' };
+      request = { id: '1', method: 'testMethod' } as IJsonRpcRequest;
+      response = { result: 'testResult' } as IJsonRpcResponse;
     });
 
     afterEach(() => {
@@ -99,7 +101,7 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should log the response being sent to the client', () => {
-      sendToClient(connectionMock, request, response, loggerMock);
+      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
 
       const expectedLogMessage = `Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(
         request,
@@ -110,14 +112,14 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should send the response to the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock);
+      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
 
       expect(connectionMock.send.calledOnce).to.be.true;
       expect(connectionMock.send.calledWith(JSON.stringify(response))).to.be.true;
     });
 
     it('should reset the inactivity TTL timer for the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock);
+      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
 
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledOnce).to.be.true;
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledWith(connectionMock)).to.be.true;
@@ -128,7 +130,7 @@ describe('Utilities unit tests', async function () {
     let relayStub: sinon.SinonStubbedInstance<Relay>;
     let limiterStub: sinon.SinonStubbedInstance<ConnectionLimiter>;
     let wsMetricRegistryStub: sinon.SinonStubbedInstance<WsMetricRegistry>;
-    let ctxStub: any;
+    let ctxStub: { websocket: { id: string; terminate: sinon.SinonSpy } };
     let startTime: [number, number];
     let subscriptionService: SubscriptionService | undefined;
     let unsubscribeSpy: sinon.SinonSpy;

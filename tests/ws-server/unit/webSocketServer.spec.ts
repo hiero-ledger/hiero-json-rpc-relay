@@ -2,8 +2,9 @@
 
 import { expect } from 'chai';
 import http from 'http';
+import type Koa from 'koa';
 import { type AddressInfo } from 'net';
-import { Registry } from 'prom-client';
+import { type Histogram, Registry } from 'prom-client';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 
@@ -36,6 +37,15 @@ const isAddressInfo = (addr: string | AddressInfo | null): addr is AddressInfo =
   return !!addr && typeof addr !== 'string';
 };
 
+type WsApp = Koa & {
+  ws: { server: { options: { maxPayload: number } } };
+};
+
+interface MockRelay {
+  eth: sinon.SinonStub;
+  mirrorClient: sinon.SinonStub;
+}
+
 function wsUrl(server: http.Server): string {
   const address = server.address();
   if (!isAddressInfo(address)) {
@@ -45,9 +55,9 @@ function wsUrl(server: http.Server): string {
 }
 
 describe('webSocketServer http endpoints', () => {
-  let server: http.Server<any, any>;
-  let httpApp: any;
-  let mockRelay: any;
+  let server: http.Server;
+  let httpApp: Koa;
+  let mockRelay: MockRelay;
 
   beforeEach(async function () {
     // Create a mock relay object
@@ -55,7 +65,7 @@ describe('webSocketServer http endpoints', () => {
       eth: sinon.stub().returns({ chainId: () => '0x12a' }),
       mirrorClient: sinon.stub(),
     };
-    sinon.stub(Relay, 'init').resolves(mockRelay as any);
+    sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
 
     const wsServer = await webSocketServer.initializeWsServer();
     httpApp = wsServer.httpApp;
@@ -118,11 +128,11 @@ describe('webSocketServer http endpoints', () => {
 });
 
 describe('webSocketServer websocket handling', () => {
-  let server: http.Server<any, any>;
-  let wsApp: any;
+  let server: http.Server;
+  let wsApp: WsApp;
   const sockets: WebSocket[] = [];
 
-  async function openWsServerAndUpdateSockets(server, socketsArr) {
+  async function openWsServerAndUpdateSockets(server: http.Server, socketsArr: WebSocket[]): Promise<WebSocket> {
     const ws = new WebSocket(wsUrl(server));
     socketsArr.push(ws);
     await new Promise((resolve) => ws.on('open', resolve));
@@ -136,7 +146,7 @@ describe('webSocketServer websocket handling', () => {
       eth: sinon.stub().returns({ chainId: () => '0x12a' }),
       mirrorClient: sinon.stub(),
     };
-    sinon.stub(Relay, 'init').resolves(mockRelay as any);
+    sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
     const { app } = await webSocketServer.initializeWsServer();
     wsApp = app;
 
@@ -216,7 +226,7 @@ describe('webSocketServer websocket handling', () => {
   it('should generate a correct label for messageDuration histogram', async () => {
     const histStub = sinon.stub(wsMetricRegistry.prototype, 'getHistogram').returns({
       labels: () => ({ observe: sinon.stub() }),
-    } as any);
+    } as unknown as Histogram);
     sinon.stub(jsonRpcController, 'getRequestResult').resolves({ id: 1, jsonrpc: '2.0', result: 'ok' });
     const ws = await openWsServerAndUpdateSockets(server, sockets);
     ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] }));
@@ -228,10 +238,10 @@ describe('webSocketServer websocket handling', () => {
   });
 
   it('should be able to execute batch request', async () => {
-    sinon.stub(ConfigService, 'get').callsFake(((key: string) => {
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
       if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
-      return process.env[key] as any;
-    }) as any);
+      return process.env[key] as string;
+    });
     sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
     sinon.stub(utils, 'getBatchRequestsMaxSize').returns(2);
     const ws = await openWsServerAndUpdateSockets(server, sockets);
@@ -289,14 +299,14 @@ describe('webSocketServer websocket handling', () => {
   it('should configure WebSocket maxPayload from WS_INPUT_SIZE_LIMIT', () => {
     const limitBytes = (ConfigService.get('WS_INPUT_SIZE_LIMIT') as number) * 1024 * 1024;
     // Verify maxPayload is wired to the config value at construction time.
-    expect((wsApp.ws.server as any).options.maxPayload).to.equal(limitBytes);
+    expect(wsApp.ws.server.options.maxPayload).to.equal(limitBytes);
   });
 
   it('should process WebSocket batch requests under payload limit', async () => {
-    sinon.stub(ConfigService, 'get').callsFake(((key: string) => {
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
       if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
-      return process.env[key] as any;
-    }) as any);
+      return process.env[key] as string;
+    });
     sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
     sinon.stub(utils, 'getBatchRequestsMaxSize').returns(3);
     const sendToClientStub = sinon.stub(utils, 'sendToClient');
@@ -331,17 +341,20 @@ describe('webSocketServer websocket handling', () => {
   it('should configure WebSocket maxPayload to 0 when WS_INPUT_SIZE_LIMIT is -1', async () => {
     sinon
       .stub(ConfigService, 'get')
-      .callsFake(((key: string) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as any))) as any);
+      .callsFake((key) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as string)));
 
     const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
-    const { app: testApp } = await webSocketServer.initializeWsServer(mockRelayInstance as any, new Registry());
+    const { app: testApp } = await webSocketServer.initializeWsServer(
+      mockRelayInstance as unknown as Relay,
+      new Registry(),
+    );
 
     const testServer: http.Server = await new Promise((resolve) => {
       const s = testApp.listen(0, '127.0.0.1', () => resolve(s));
     });
 
     try {
-      expect((testApp.ws.server as any).options.maxPayload).to.equal(0);
+      expect((testApp as WsApp).ws.server.options.maxPayload).to.equal(0);
     } finally {
       await new Promise<void>((resolve) => testServer.close(resolve));
     }
@@ -350,10 +363,13 @@ describe('webSocketServer websocket handling', () => {
   it('should not reject messages with 1009 when WS_INPUT_SIZE_LIMIT is -1', async () => {
     sinon
       .stub(ConfigService, 'get')
-      .callsFake(((key: string) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as any))) as any);
+      .callsFake((key) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as string)));
 
     const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
-    const { app: testApp } = await webSocketServer.initializeWsServer(mockRelayInstance as any, new Registry());
+    const { app: testApp } = await webSocketServer.initializeWsServer(
+      mockRelayInstance as unknown as Relay,
+      new Registry(),
+    );
 
     const testServer: http.Server = await new Promise((resolve) => {
       const s = testApp.listen(0, '127.0.0.1', () => resolve(s));

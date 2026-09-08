@@ -145,6 +145,7 @@ export default defineConfig([
       'tests/relay/lib/repositories/**/*.ts',
       'tests/relay/lib/services/**/*.ts',
       'tests/relay/lib/validators/**/*.ts',
+      'tests/ws-server/**/*.ts',
     ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
