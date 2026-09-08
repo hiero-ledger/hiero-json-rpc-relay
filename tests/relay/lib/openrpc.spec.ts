@@ -270,7 +270,7 @@ describe('Open RPC Specification', function () {
     await mockWorkersPool(mirrorNodeInstance, ethImpl['common'], cacheService);
   });
 
-  const validateResponseSchema = (schema: JSONSchema, response: unknown) => {
+  const validateResponseSchema = (schema: JSONSchema, response: unknown): void => {
     const ajv = new Ajv();
     ajv.validate(schema, response);
 
@@ -565,19 +565,19 @@ describe('Open RPC Specification', function () {
     type RpcMethodName = { [k in keyof typeof ns]: `${k}_${Exclude<keyof (typeof ns)[k], symbol>}` }[keyof typeof ns];
 
     const unsupportedMethods = {
-      eth_coinbase: () => ns.eth.coinbase(),
-      eth_simulateV1: () => ns.eth.simulateV1(),
-      eth_blobBaseFee: () => ns.eth.blobBaseFee(),
-      eth_getWork: () => ns.eth.getWork(),
-      eth_newPendingTransactionFilter: () => ns.eth.newPendingTransactionFilter(),
-      eth_protocolVersion: () => ns.eth.protocolVersion(),
-      eth_sendTransaction: () => ns.eth.sendTransaction(),
-      eth_signTransaction: () => ns.eth.signTransaction(),
-      eth_sign: () => ns.eth.sign(),
-      eth_submitHashrate: () => ns.eth.submitHashrate(),
-      eth_getProof: () => ns.eth.getProof(),
-      eth_createAccessList: () => ns.eth.createAccessList(),
-      net_peerCount: () => ns.net.peerCount(),
+      eth_coinbase: (): JsonRpcError => ns.eth.coinbase(),
+      eth_simulateV1: (): JsonRpcError => ns.eth.simulateV1(),
+      eth_blobBaseFee: (): JsonRpcError => ns.eth.blobBaseFee(),
+      eth_getWork: (): JsonRpcError => ns.eth.getWork(),
+      eth_newPendingTransactionFilter: (): JsonRpcError => ns.eth.newPendingTransactionFilter(),
+      eth_protocolVersion: (): JsonRpcError => ns.eth.protocolVersion(),
+      eth_sendTransaction: (): JsonRpcError => ns.eth.sendTransaction(),
+      eth_signTransaction: (): JsonRpcError => ns.eth.signTransaction(),
+      eth_sign: (): JsonRpcError => ns.eth.sign(),
+      eth_submitHashrate: (): JsonRpcError => ns.eth.submitHashrate(),
+      eth_getProof: (): JsonRpcError => ns.eth.getProof(),
+      eth_createAccessList: (): JsonRpcError => ns.eth.createAccessList(),
+      net_peerCount: (): JsonRpcError => ns.net.peerCount(),
     } satisfies { [rpcMethodName in RpcMethodName]?: () => JsonRpcError };
 
     Object.entries(unsupportedMethods).forEach(([rpcMethodName, fn]) => {

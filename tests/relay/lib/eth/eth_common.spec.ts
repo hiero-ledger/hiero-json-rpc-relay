@@ -9,12 +9,9 @@ import sinon from 'sinon';
 import { ConfigService } from '../../../../src/config-service/services';
 import { Relay } from '../../../../src/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types';
+import { type RelayInternals } from '../../helpers';
 
 use(chaiAsPromised);
-
-interface RelayInternals {
-  waitForMirrorNode(): Promise<void>;
-}
 
 describe('@ethCommon', async function () {
   let relay: Relay;
@@ -24,8 +21,9 @@ describe('@ethCommon', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_commonTest', ipAddress: '0.0.0.0' });
 
   this.beforeAll(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype as unknown as RelayInternals, 'waitForMirrorNode').resolves();
+    const relayInternals = Relay.prototype as unknown as RelayInternals;
+    sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
     relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 

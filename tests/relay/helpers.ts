@@ -36,6 +36,12 @@ import { RedisInMemoryServer } from './redisInMemoryServer';
 // Randomly generated key
 const defaultPrivateKey = '8841e004c6f47af679c91d9282adc62aeb9fabd19cdff6a9da5a358d0613c30a';
 
+export interface RelayInternals {
+  ensureOperatorHasBalance(): Promise<void>;
+  populatePreconfiguredSpendingPlans(): Promise<void>;
+  waitForMirrorNode(): Promise<void>;
+}
+
 const getQueryParams = (params: object): string => {
   if (!Object.keys(params).length) {
     return '';
