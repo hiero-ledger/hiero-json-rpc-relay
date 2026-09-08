@@ -15,7 +15,7 @@ import type RelayClient from '../server/clients/relayClient';
 import type ServicesClient from '../server/clients/servicesClient';
 import basicContract from '../server/contracts/Basic.json';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions, { computeExpectedCumulativeGasUsed } from '../server/helpers/assertions';
+import Assertions, { computeExpectedCumulativeGasUsed, type ReceiptResponseLike } from '../server/helpers/assertions';
 import { Utils } from '../server/helpers/utils';
 import { type AliasAccount } from '../server/types/AliasAccount';
 import { ALL_PROTOCOL_CLIENTS, type RpcRawResponse } from './helpers/protocolClient';
@@ -1027,7 +1027,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
             mirrorResult.from = accounts[2].wallet.address;
             mirrorResult.to = parentContractAddress;
 
-            const receipt = await client.call('eth_getTransactionReceipt', [txHash]);
+            const receipt = (await client.call('eth_getTransactionReceipt', [txHash])) as ReceiptResponseLike;
             const currentPrice = await relay.gasPrice();
             const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
             Assertions.transactionReceipt(receipt, mirrorResult, currentPrice, expectedCumulativeGasUsed);

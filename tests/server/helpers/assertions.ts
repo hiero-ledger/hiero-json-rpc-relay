@@ -2,7 +2,7 @@
 
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
-import { ethers } from 'ethers';
+import { type ContractTransactionResponse, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { type JsonRpcError, predefined } from '../../../src/relay';
@@ -13,13 +13,125 @@ import RelayAssertions from '../../relay/assertions';
 
 chai.use(chaiExclude);
 
-export function requestIdRegex(message: string) {
+export interface TransactionResponseLike {
+  blockHash: string;
+  blockNumber: string;
+  from: string;
+  gas: string;
+  hash: string;
+  input: string;
+  to?: string | null;
+  transactionIndex: string;
+  value: string;
+}
+
+export interface BlockResponseLike {
+  baseFeePerGas: string;
+  difficulty: string;
+  extraData: string;
+  gasLimit: string;
+  gasUsed: string;
+  hash: string;
+  logsBloom: string;
+  miner: string;
+  mixHash: string;
+  nonce: string;
+  number: string;
+  parentHash: string;
+  sha3Uncles: string;
+  size: string;
+  stateRoot: string;
+  timestamp: string;
+  totalDifficulty: string;
+  transactions: Array<TransactionResponseLike | string>;
+  transactionsRoot: string;
+  uncles: unknown[];
+}
+
+export interface MirrorTransactionLike {
+  amount: number;
+  block_hash: string;
+  block_number: number;
+  from: string;
+  function_parameters: string;
+  gas_limit: number;
+  hash: string;
+  to?: string | null;
+  transaction_index: number;
+}
+
+export interface MirrorBlockLike {
+  gas_used: number;
+  hapi_version: string;
+  hash: string;
+  logs_bloom: string;
+  number: number;
+  previous_hash: string;
+  size: number;
+  timestamp: { from: string };
+}
+
+export interface ReceiptResponseLike {
+  blockHash: string;
+  blockNumber: string;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
+  from: string;
+  gasUsed: string;
+  logs: unknown[];
+  logsBloom: string;
+  status: string;
+  to: string;
+  transactionHash: string;
+  transactionIndex: string;
+  type: string;
+}
+
+export interface MirrorReceiptLike {
+  block_hash: string;
+  block_number: number;
+  bloom: string;
+  from: string;
+  gas_used: number;
+  hash: string;
+  logs: unknown[];
+  status: string;
+  to: string;
+  transaction_index: number;
+  type: number;
+}
+
+export interface FeeHistoryResponseLike {
+  baseFeePerGas: string[];
+  gasUsedRatio: number[];
+  oldestBlock: string;
+  reward?: string[][];
+}
+
+export interface FeeHistoryExpectation {
+  resultCount: number;
+  oldestBlock: string;
+  checkReward?: boolean;
+}
+
+interface RpcErrorLike {
+  code?: number;
+  message?: string;
+}
+
+/** One page of `/contracts/results`, as read by `computeExpectedCumulativeGasUsed`. */
+interface ContractResultsPage {
+  results?: Array<{ transaction_index?: number | null; gas_used?: number | null }>;
+  links?: { next?: string | null };
+}
+
+export function requestIdRegex(message: string): RegExp {
   message = message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${message}`);
 }
 
 export async function computeExpectedCumulativeGasUsed(
-  mirrorNode: { get: (path: string) => Promise<any> },
+  mirrorNode: { get: (path: string) => Promise<ContractResultsPage> },
   mirrorResult: { block_number: number; transaction_index: number },
 ): Promise<number> {
   let sum = 0;
@@ -27,7 +139,7 @@ export async function computeExpectedCumulativeGasUsed(
 
   while (path !== null) {
     const page = await mirrorNode.get(path);
-    const results: any[] = page.results ?? [];
+    const results = page.results ?? [];
 
     for (const cr of results) {
       if (cr.transaction_index == null || cr.gas_used == null) continue;
@@ -36,7 +148,7 @@ export async function computeExpectedCumulativeGasUsed(
     }
 
     // Stop early if the last result on this page is already past our target
-    const lastIndex = results.at(-1)?.transaction_index;
+    const lastIndex = results[results.length - 1]?.transaction_index;
     if (lastIndex != null && lastIndex >= mirrorResult.transaction_index) return sum;
 
     path = page.links?.next ?? null;
@@ -57,14 +169,14 @@ export default class Assertions {
 
   public static readonly gasPriceDeviation = ConfigService.get('TEST_GAS_PRICE_DEVIATION');
 
-  static assertId = (id) => {
+  static assertId = (id: string): void => {
     const [shard, realm, num] = id.split('.');
     expect(shard, 'Id shard should not be null').to.not.be.null;
     expect(realm, 'Id realm should not be null').to.not.be.null;
     expect(num, 'Id num should not be null').to.not.be.null;
   };
 
-  static unsupportedResponse = (resp: any) => {
+  static unsupportedResponse = (resp: { error: { code: number; message: string } }): void => {
     expect(resp.error.code, 'Unsupported response.error.code should equal -32601').to.eq(-32601);
     expect(
       resp.error.message.endsWith('Unsupported JSON-RPC method'),
@@ -72,7 +184,7 @@ export default class Assertions {
     ).to.be.true;
   };
 
-  static expectedError = () => {
+  static expectedError = (): void => {
     expect(true).to.eq(false);
   };
 
@@ -84,12 +196,12 @@ export default class Assertions {
    * @param hydratedTransactions - aka showDetails flag
    */
   public static block(
-    relayResponse,
-    mirrorNodeResponse,
-    mirrorTransactions,
-    expectedGasPrice,
+    relayResponse: BlockResponseLike,
+    mirrorNodeResponse: MirrorBlockLike,
+    mirrorTransactions: MirrorTransactionLike[],
+    expectedGasPrice: string,
     hydratedTransactions = false,
-  ) {
+  ): void {
     // Assert static values
     expect(relayResponse.baseFeePerGas).to.exist;
 
@@ -167,16 +279,23 @@ export default class Assertions {
     for (const i in relayResponse.transactions) {
       const tx = relayResponse.transactions[i];
       if (hydratedTransactions) {
-        const mirrorTx = mirrorTransactions.find((mTx) => mTx.hash.slice(0, 66) === tx.hash);
-        Assertions.transaction(tx, mirrorTx);
+        const hydratedTx = tx as TransactionResponseLike;
+        const mirrorTx = mirrorTransactions.find((mTx) => mTx.hash.slice(0, 66) === hydratedTx.hash);
+        if (!mirrorTx) {
+          expect.fail(`Assert block: no mirrorNode transaction matching ${hydratedTx.hash}`);
+        }
+        Assertions.transaction(hydratedTx, mirrorTx);
       } else {
         const mirrorTx = mirrorTransactions.find((mTx) => mTx.hash.slice(0, 66) === tx);
+        if (!mirrorTx) {
+          expect.fail(`Assert block: no mirrorNode transaction matching ${tx}`);
+        }
         expect(tx).to.eq(mirrorTx.hash.slice(0, 66));
       }
     }
   }
 
-  public static transaction(relayResponse, mirrorNodeResponse) {
+  public static transaction(relayResponse: TransactionResponseLike, mirrorNodeResponse: MirrorTransactionLike): void {
     expect(relayResponse.blockHash, "Assert transaction: 'blockHash' should equal mirrorNode response").to.eq(
       mirrorNodeResponse.block_hash.slice(0, 66),
     );
@@ -198,8 +317,8 @@ export default class Assertions {
       mirrorNodeResponse.function_parameters,
     );
     if (relayResponse.to || mirrorNodeResponse.to) {
-      expect(relayResponse.to.toLowerCase(), "Assert transaction: 'to' should equal mirrorNode response").to.eq(
-        mirrorNodeResponse.to.toLowerCase(),
+      expect(relayResponse.to?.toLowerCase(), "Assert transaction: 'to' should equal mirrorNode response").to.eq(
+        mirrorNodeResponse.to?.toLowerCase(),
       );
     }
     expect(
@@ -212,7 +331,12 @@ export default class Assertions {
     ).to.eq(ethers.toQuantity(BigInt(mirrorNodeResponse.amount * constants.TINYBAR_TO_WEIBAR_COEF)));
   }
 
-  static transactionReceipt = (transactionReceipt, mirrorResult, effectiveGas, expectedCumulativeGasUsed: number) => {
+  static transactionReceipt = (
+    transactionReceipt: ReceiptResponseLike,
+    mirrorResult: MirrorReceiptLike,
+    effectiveGas: number,
+    expectedCumulativeGasUsed: number,
+  ): void => {
     expect(transactionReceipt.blockHash, "Assert transactionReceipt: 'blockHash' should exists").to.exist;
     expect(transactionReceipt.blockHash, "Assert transactionReceipt: 'blockHash' should not be 0x0").to.not.eq('0x0');
     expect(
@@ -320,7 +444,7 @@ export default class Assertions {
     );
   };
 
-  public static feeHistory(res: any, expected: any) {
+  public static feeHistory(res: FeeHistoryResponseLike, expected: FeeHistoryExpectation): void {
     expect(res.baseFeePerGas, "Assert feeHistory: 'baseFeePerGas' should exist and be an Array").to.exist.to.be.an(
       'Array',
     );
@@ -343,60 +467,68 @@ export default class Assertions {
 
     if (expected.checkReward) {
       expect(res.reward, "Assert feeHistory: 'reward' should exist and be an Array").to.exist.to.be.an('Array');
-      expect(res.reward.length, "Assert feeHistory: 'reward' length should equal passed expected value").to.equal(
+      expect(res.reward?.length, "Assert feeHistory: 'reward' length should equal passed expected value").to.equal(
         expected.resultCount,
       );
     }
   }
 
-  static unknownResponse(err: any) {
+  static unknownResponse(err: unknown): void {
     Assertions.jsonRpcError(err, predefined.INTERNAL_ERROR());
   }
 
-  static jsonRpcError(err: any, expectedError: JsonRpcError) {
+  static jsonRpcError(err: unknown, expectedError: JsonRpcError): void {
     expect(err).to.exist;
-    expect(err.code).to.be.equal(expectedError.code);
-    expect(err.message).to.match(requestIdRegex(expectedError.message));
+    const thrown = err as RpcErrorLike;
+    expect(thrown.code).to.be.equal(expectedError.code);
+    expect(thrown.message).to.match(requestIdRegex(expectedError.message));
   }
 
   static assertPredefinedRpcError = async (
     expectedError: JsonRpcError,
-    method: (...args: any[]) => Promise<any>,
+    method: (...args: never[]) => Promise<unknown>,
     checkMessage: boolean,
-    thisObj: any,
-    args?: any[],
-  ): Promise<any> => {
+    thisObj: unknown,
+    args?: unknown[],
+  ): Promise<void> => {
     try {
       if (args) {
-        await method.apply(thisObj, args);
+        await method.apply(thisObj, args as never[]);
       } else {
         await method.apply(thisObj);
       }
       Assertions.expectedError();
-    } catch (e: any) {
+    } catch (e) {
       expect(e).to.have.any.keys('response', 'error');
 
-      const { error } = e?.response ? e.response.bodyJson : e;
-      expect(error.code).to.equal(expectedError.code);
+      const thrown = e as { response?: { bodyJson?: { error?: RpcErrorLike } }; error?: RpcErrorLike };
+      const error = thrown?.response ? thrown.response.bodyJson?.error : thrown.error;
+      expect(error?.code).to.equal(expectedError.code);
       if (checkMessage) {
-        expect(error.message).to.include(expectedError.message);
+        expect(error?.message).to.include(expectedError.message);
       }
     }
   };
 
-  static expectRevert = async (promise) => {
+  static expectRevert = async (promise: Promise<ContractTransactionResponse>): Promise<void> => {
     try {
       const tx = await promise;
       const receipt = await tx.wait();
+      if (receipt === null) {
+        throw new Error('transaction receipt was null');
+      }
       expect(receipt.to).to.equal(null);
-    } catch (e: any) {
+    } catch (e) {
       expect(e).to.exist;
     }
   };
 
-  static expectLogArgs = (log, contract, args: any[] = []) => {
-    expect(log.address.toLowerCase()).to.equal(contract.target.toLowerCase());
+  static expectLogArgs = (log: ethers.Log, contract: ethers.BaseContract, args: unknown[] = []): void => {
+    expect(log.address.toLowerCase()).to.equal(String(contract.target).toLowerCase());
     const decodedLog1 = contract.interface.parseLog(log);
+    if (decodedLog1 === null) {
+      expect.fail(`log with topic ${log.topics[0]} could not be decoded by the contract interface`);
+    }
     expect(decodedLog1.args).to.exist;
     expect(decodedLog1.args.length).to.eq(args.length);
     for (let i = 0; i < args.length; i++) {
@@ -404,42 +536,44 @@ export default class Assertions {
     }
   };
 
-  static expectAnonymousLog = (log, contract, data) => {
+  static expectAnonymousLog = (log: ethers.Log, contract: ethers.BaseContract, data: string): void => {
     expect(log.data).to.equal(data);
-    expect(log.address.toLowerCase()).to.equal(contract.target.toLowerCase());
+    expect(log.address.toLowerCase()).to.equal(String(contract.target).toLowerCase());
   };
 
   static assertRejection = async (
     error: JsonRpcError,
-    method: (...args: any[]) => Promise<any>,
-    args: any[],
+    method: (...args: never[]) => Promise<unknown>,
+    args: unknown[],
     checkMessage: boolean,
-  ): Promise<any> => {
-    return expect(method.apply(global.relay, args)).to.eventually.be.rejected.and.satisfy((err: { body: string }) => {
-      if (!checkMessage) {
-        return [error.code.toString()].every((substring) => err.body.includes(substring));
-      }
-      return [error.code.toString(), error.message].every((substring) => err.body.includes(substring));
-    });
+  ): Promise<unknown> => {
+    return expect(method.apply(global.relay, args as never[])).to.eventually.be.rejected.and.satisfy(
+      (err: { body: string }) => {
+        if (!checkMessage) {
+          return [error.code.toString()].every((substring) => err.body.includes(substring));
+        }
+        return [error.code.toString(), error.message].every((substring) => err.body.includes(substring));
+      },
+    );
   };
 
-  static evmAddress = (address) => {
+  static evmAddress = (address: string): void => {
     expect(address).to.match(/(\b0x[a-f0-9]{40}\b)/g, 'matches evm address format');
     expect(address).to.not.match(/(\b0x(0){15})/g, 'does not contain 15 consecutive zeros');
   };
 
-  static longZeroAddress = (address) => {
+  static longZeroAddress = (address: string): void => {
     expect(address).to.match(/(\b0x[a-f0-9]{40}\b)/g, 'matches evm address format');
     expect(address).to.match(/(\b0x(0){15})/g, 'contains 15 consecutive zeros');
   };
 
   static validateResultDebugValues = (
-    result: { from: string; calls: any[] },
+    result: { from: string; calls: unknown[] },
     excludedValues: string[],
     nestedExcludedValues: string[],
-    expectedResult: { from?: any; calls?: any[] },
-  ) => {
-    const hasValidHash = (currentValue: string) => RelayAssertions.validateHash(currentValue);
+    expectedResult: { from?: string; calls?: unknown[] },
+  ): void => {
+    const hasValidHash = (currentValue: string): boolean => RelayAssertions.validateHash(currentValue);
 
     // Validate result schema
     expect(result).to.have.keys(Object.keys(expectedResult));
@@ -473,7 +607,7 @@ export default class Assertions {
    * @param actual
    * @param tolerance
    */
-  static expectWithinTolerance(expected: number, actual: number, tolerance: number) {
+  static expectWithinTolerance(expected: number, actual: number, tolerance: number): void {
     if (global.logger.isLevelEnabled('debug')) {
       global.logger.debug(`Expected: ${expected} ±${tolerance}%`);
       global.logger.debug(`Actual: ${actual}`);
@@ -485,12 +619,17 @@ export default class Assertions {
 
   /**
    * Validates the result from a Call Tracer debug trace
-   * @param {any} result - The result object from the Call Tracer
+   * @param result - The result object from the Call Tracer
    * @param {string} expectedInput - The expected input data for the call
    * @param {string} expectedFrom - The expected 'from' address of the call
    * @param {string} expectedTo - The expected 'to' address of the call
    */
-  static validateCallTracerResult(result: any, expectedInput: string, expectedFrom: string, expectedTo: string) {
+  static validateCallTracerResult(
+    result: { from: string; to: string },
+    expectedInput: string,
+    expectedFrom: string,
+    expectedTo: string,
+  ): void {
     expect(result).to.be.an('object');
     expect(result).to.have.property('type', 'CALL');
     expect(result.from.toLowerCase()).to.equal(expectedFrom.toLowerCase());
@@ -504,9 +643,9 @@ export default class Assertions {
 
   /**
    * Validates the result from an Opcode Logger debug trace
-   * @param {any} result - The result object from the Opcode Logger
+   * @param result - The result object from the Opcode Logger
    */
-  static validateOpcodeLoggerResult(result: any) {
+  static validateOpcodeLoggerResult(result: { structLogs: unknown }): void {
     expect(result).to.be.an('object');
     expect(result).to.have.property('gas');
     expect(result).to.have.property('failed');
@@ -515,7 +654,7 @@ export default class Assertions {
     expect(result.structLogs).to.be.an('array');
   }
 
-  static validatePrestateTracerResult(state: any) {
+  static validatePrestateTracerResult(state: unknown): void {
     expect(state).to.be.an('object');
     expect(state).to.have.property('balance');
     expect(state).to.have.property('nonce');

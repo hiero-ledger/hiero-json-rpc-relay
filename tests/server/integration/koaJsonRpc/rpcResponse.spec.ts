@@ -2,6 +2,7 @@
 
 import { expect } from 'chai';
 
+import { type IJsonRpcError } from '../../../../src/server/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '../../../../src/server/koaJsonRpc/lib/RpcResponse';
 
 describe('RpcResponse', function () {
@@ -75,21 +76,27 @@ describe('RpcResponse', function () {
 
     it('should throw a TypeError for invalid id type ', () => {
       const error = { code: 123, message: 'An error occurred' };
-      expect(() => jsonRespError({} as any, error, '')).to.throw(TypeError, 'Invalid id type object');
+      expect(() => jsonRespError({} as unknown as number, error, '')).to.throw(TypeError, 'Invalid id type object');
     });
 
     it('should throw a TypeError for invalid error code type', () => {
       const id = 1;
       const error = { code: 'invalid_code', message: 'An error occurred' };
 
-      expect(() => jsonRespError(id, error as any, '')).to.throw(TypeError, 'Invalid error code type string');
+      expect(() => jsonRespError(id, error as unknown as IJsonRpcError, '')).to.throw(
+        TypeError,
+        'Invalid error code type string',
+      );
     });
 
     it('should throw a TypeError for invalid error message type', () => {
       const id = 1;
       const error = { code: 123, message: 456 };
 
-      expect(() => jsonRespError(id, error as any, '')).to.throw(TypeError, 'Invalid error message type number');
+      expect(() => jsonRespError(id, error as unknown as IJsonRpcError, '')).to.throw(
+        TypeError,
+        'Invalid error message type number',
+      );
     });
 
     it('should maintain JSON-RPC 2.0 field order: jsonrpc, id, error', () => {

@@ -21,6 +21,21 @@ import {
 } from '../../relay/helpers';
 import RelayCalls from '../helpers/constants';
 
+interface RelayInternals {
+  waitForMirrorNode(): Promise<void>;
+}
+
+interface RateLimitErrorLike {
+  response: { status: number; data: { error: { code: number; message: string } } };
+}
+
+interface TestRpcRequest {
+  id: string;
+  jsonrpc: string;
+  method: string;
+  params: null[];
+}
+
 describe('Proxy Headers Integration Tests', function () {
   this.timeout(30000);
 
@@ -55,7 +70,7 @@ describe('Proxy Headers Integration Tests', function () {
 
   before(async function () {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(Relay.prototype as unknown as RelayInternals, 'waitForMirrorNode').resolves();
     const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
@@ -72,7 +87,7 @@ describe('Proxy Headers Integration Tests', function () {
     register.clear();
   });
 
-  function createTestClient(port = ConfigService.get('E2E_SERVER_PORT')) {
+  function createTestClient(port = ConfigService.get('E2E_SERVER_PORT')): AxiosInstance {
     return Axios.create({
       baseURL: 'http://localhost:' + port,
       responseType: 'json' as const,
@@ -84,7 +99,7 @@ describe('Proxy Headers Integration Tests', function () {
     });
   }
 
-  function createRequestWithIP(id: string) {
+  function createRequestWithIP(id: string): TestRpcRequest {
     return {
       id: id,
       jsonrpc: '2.0',
@@ -93,7 +108,7 @@ describe('Proxy Headers Integration Tests', function () {
     };
   }
 
-  async function makeRequestWithForwardedIP(ip: string, id: string = '1') {
+  async function makeRequestWithForwardedIP(ip: string, id: string = '1'): Promise<AxiosResponse> {
     return testClient.post('/', createRequestWithIP(id), {
       headers: {
         'X-Forwarded-For': ip,
@@ -101,11 +116,11 @@ describe('Proxy Headers Integration Tests', function () {
     });
   }
 
-  async function makeRequestWithoutForwardedIP(id: string = '1') {
+  async function makeRequestWithoutForwardedIP(id: string = '1'): Promise<AxiosResponse> {
     return testClient.post('/', createRequestWithIP(id));
   }
 
-  async function makeRequestWithForwardedHeader(forwardedValue: string, id: string = '1') {
+  async function makeRequestWithForwardedHeader(forwardedValue: string, id: string = '1'): Promise<AxiosResponse> {
     return testClient.post('/', createRequestWithIP(id), {
       headers: {
         Forwarded: forwardedValue,
@@ -130,10 +145,11 @@ describe('Proxy Headers Integration Tests', function () {
     try {
       await makeRequestWithForwardedIP(TEST_IP_A, '4');
       expect.fail('Expected rate limit to be exceeded');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605); // IP Rate Limit Exceeded
-      expect(error.response.data.error.message).to.include('IP Rate limit exceeded');
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605); // IP Rate Limit Exceeded
+      expect(response.data.error.message).to.include('IP Rate limit exceeded');
     }
   });
 
@@ -147,9 +163,10 @@ describe('Proxy Headers Integration Tests', function () {
     try {
       await makeRequestWithForwardedIP(TEST_IP_B, 'b4');
       expect.fail('Expected rate limit to be exceeded for TEST_IP_B');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605);
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605);
     }
 
     // Now make requests with TEST_IP_C - should not be rate limited
@@ -163,9 +180,10 @@ describe('Proxy Headers Integration Tests', function () {
     try {
       await makeRequestWithForwardedIP(TEST_IP_C, 'c4');
       expect.fail('Expected rate limit to be exceeded for TEST_IP_C');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605);
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605);
     }
   });
 
@@ -182,9 +200,10 @@ describe('Proxy Headers Integration Tests', function () {
     try {
       await makeRequestWithoutForwardedIP('4');
       expect.fail('Expected rate limit to be exceeded for actual client IP');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605);
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605);
     }
   });
 
@@ -213,9 +232,10 @@ describe('Proxy Headers Integration Tests', function () {
         },
       });
       expect.fail('Expected rate limit to be exceeded for first IP in X-Forwarded-For');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605);
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605);
     }
   });
 
@@ -240,9 +260,10 @@ describe('Proxy Headers Integration Tests', function () {
         },
       });
       expect.fail('Expected rate limit to be exceeded');
-    } catch (error: any) {
-      expect(error.response.status).to.eq(429);
-      expect(error.response.data.error.code).to.eq(-32605);
+    } catch (error) {
+      const { response } = error as RateLimitErrorLike;
+      expect(response.status).to.eq(429);
+      expect(response.data.error.code).to.eq(-32605);
     }
   });
 
@@ -262,9 +283,10 @@ describe('Proxy Headers Integration Tests', function () {
       try {
         await makeRequestWithForwardedHeader(forwardedHeader, 'f4');
         expect.fail('Expected rate limit to be exceeded for Forwarded header IP');
-      } catch (error: any) {
-        expect(error.response.status).to.eq(429);
-        expect(error.response.data.error.code).to.eq(-32605);
+      } catch (error) {
+        const { response } = error as RateLimitErrorLike;
+        expect(response.status).to.eq(429);
+        expect(response.data.error.code).to.eq(-32605);
       }
     });
 
@@ -283,9 +305,10 @@ describe('Proxy Headers Integration Tests', function () {
       try {
         await makeRequestWithForwardedHeader(forwardedHeader, 'g4');
         expect.fail('Expected rate limit to be exceeded for unquoted Forwarded IP');
-      } catch (error: any) {
-        expect(error.response.status).to.eq(429);
-        expect(error.response.data.error.code).to.eq(-32605);
+      } catch (error) {
+        const { response } = error as RateLimitErrorLike;
+        expect(response.status).to.eq(429);
+        expect(response.data.error.code).to.eq(-32605);
       }
     });
 
@@ -304,9 +327,10 @@ describe('Proxy Headers Integration Tests', function () {
       try {
         await makeRequestWithForwardedHeader(forwardedHeader, 'ipv6_4');
         expect.fail('Expected rate limit to be exceeded for IPv6 Forwarded IP');
-      } catch (error: any) {
-        expect(error.response.status).to.eq(429);
-        expect(error.response.data.error.code).to.eq(-32605);
+      } catch (error) {
+        const { response } = error as RateLimitErrorLike;
+        expect(response.status).to.eq(429);
+        expect(response.data.error.code).to.eq(-32605);
       }
     });
 
@@ -325,9 +349,10 @@ describe('Proxy Headers Integration Tests', function () {
       try {
         await makeRequestWithForwardedHeader(forwardedHeader, 'h4');
         expect.fail('Expected rate limit to be exceeded for first IP in Forwarded header');
-      } catch (error: any) {
-        expect(error.response.status).to.eq(429);
-        expect(error.response.data.error.code).to.eq(-32605);
+      } catch (error) {
+        const { response } = error as RateLimitErrorLike;
+        expect(response.status).to.eq(429);
+        expect(response.data.error.code).to.eq(-32605);
       }
     });
 
@@ -356,9 +381,10 @@ describe('Proxy Headers Integration Tests', function () {
           },
         });
         expect.fail('Expected rate limit to be exceeded for X-Forwarded-For IP');
-      } catch (error: any) {
-        expect(error.response.status).to.eq(429);
-        expect(error.response.data.error.code).to.eq(-32605);
+      } catch (error) {
+        const { response } = error as RateLimitErrorLike;
+        expect(response.status).to.eq(429);
+        expect(response.data.error.code).to.eq(-32605);
       }
 
       // Verify that the Forwarded header IP (TEST_IP_I) is not rate limited

@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions from '../server/helpers/assertions';
+import Assertions, { type BlockResponseLike } from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import RelayCalls from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
@@ -90,7 +90,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('should execute "eth_getBlockByHash", hydrated transactions = false', async () => {
-        const blockResult = await client.call(METHOD_NAME, [mirrorBlock.hash.substring(0, 66), false]);
+        const blockResult = (await client.call(METHOD_NAME, [
+          mirrorBlock.hash.substring(0, 66),
+          false,
+        ])) as BlockResponseLike;
         Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
       });
 

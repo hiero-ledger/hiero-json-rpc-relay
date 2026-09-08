@@ -445,7 +445,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       )[0].args.tokenInfo[0];
 
       // updating only token info, not token keys
-      const token = Utils.convertEthersResultIntoStringsArray(tokenInfoBefore);
+      const token = Utils.convertEthersResultIntoStringsArray(tokenInfoBefore) as unknown[];
       token[7] = [];
 
       setUpdatedValues(token);
@@ -478,7 +478,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       )[0].args.tokenInfo[0];
 
       // updating only token info, not token keys
-      const token = Utils.convertEthersResultIntoStringsArray(tokenInfoBefore);
+      const token = Utils.convertEthersResultIntoStringsArray(tokenInfoBefore) as unknown[];
       token[7] = [];
 
       setUpdatedValues(token);

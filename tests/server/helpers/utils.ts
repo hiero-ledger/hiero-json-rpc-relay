@@ -10,7 +10,8 @@ import { runInNewContext } from 'vm';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { numberTo0x } from '../../../src/relay/formatters';
-import { CommonService, type PaymasterAccount } from '../../../src/relay/lib/services';
+import { CommonService, type PaymasterAccount, type PaymasterAccountWhitelist } from '../../../src/relay/lib/services';
+import { type ITransactionReceipt } from '../../../src/relay/lib/types';
 import { GitHubClient } from '../clients/githubClient';
 import type MirrorClient from '../clients/mirrorClient';
 import type RelayClient from '../clients/relayClient';
@@ -19,6 +20,18 @@ import RelayCall from '../helpers/constants';
 import { type AliasAccount } from '../types/AliasAccount';
 import { type HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
 import Assertions from './assertions';
+
+export interface BuiltTransaction {
+  to: string;
+  from: string;
+  gasLimit: string;
+  chainId: string;
+  type: number;
+  maxFeePerGas: number;
+  maxPriorityFeePerGas: number;
+  data: string;
+  nonce: number;
+}
 
 export class Utils {
   static readonly HEAP_SIZE_DIFF_MEMORY_LEAK_THRESHOLD: number = 4e6; // 4 MB
@@ -95,11 +108,11 @@ export class Utils {
   };
 
   static deployContractWithEthers = async (
-    constructorArgs: any[] = [],
+    constructorArgs: unknown[] = [],
     contractJson: { abi: ethers.InterfaceAbi | ethers.Interface; bytecode: ethers.BytesLike | { object: string } },
     wallet: ethers.Wallet,
     relay: RelayClient,
-  ) => {
+  ): Promise<ethers.Contract> => {
     const factory = new ethers.ContractFactory(contractJson.abi, contractJson.bytecode, wallet);
     const contract = await factory.deploy(...constructorArgs);
     await contract.waitForDeployment();
@@ -122,10 +135,10 @@ export class Utils {
   // The main difference between this and deployContractWithEthers is that this does not re-init the contract with the deployed address
   // and that results in the contract address coming in EVM Format instead of LongZero format
   static deployContractWithEthersV2 = async (
-    constructorArgs: any[] = [],
+    constructorArgs: unknown[] = [],
     contractJson: { abi: ethers.Interface | ethers.InterfaceAbi; bytecode: ethers.BytesLike | { object: string } },
     wallet: ethers.Wallet,
-  ) => {
+  ): Promise<Awaited<ReturnType<ethers.ContractFactory['deploy']>>> => {
     const factory = new ethers.ContractFactory(contractJson.abi, contractJson.bytecode, wallet);
     const contract = await factory.deploy(...constructorArgs);
     await contract.waitForDeployment();
@@ -142,7 +155,7 @@ export class Utils {
     associatedAccounts: AliasAccount[],
     owner: AliasAccount,
     servicesNode: ServicesClient,
-  ) => {
+  ): Promise<ethers.Contract> => {
     const htsResult = await servicesNode.createHTS({
       tokenName,
       symbol,
@@ -173,11 +186,11 @@ export class Utils {
     return new ethers.Contract(evmAddress, abi, owner.wallet);
   };
 
-  static add0xPrefix = (num: string) => {
+  static add0xPrefix = (num: string): string => {
     return num.startsWith('0x') ? num : '0x' + num;
   };
 
-  static gasOptions = async (gasLimit = 1_500_000) => {
+  static gasOptions = async (gasLimit = 1_500_000): Promise<{ gasLimit: number; gasPrice: number }> => {
     const relay: RelayClient = global.relay;
     return {
       gasLimit: gasLimit,
@@ -185,7 +198,9 @@ export class Utils {
     };
   };
 
-  static convertEthersResultIntoStringsArray = (res) => {
+  static convertEthersResultIntoStringsArray = (
+    res: ethers.Result | string | number | bigint | boolean,
+  ): string | unknown[] => {
     if (typeof res === 'object') {
       return res.toArray().map((e) => Utils.convertEthersResultIntoStringsArray(e));
     }
@@ -194,7 +209,7 @@ export class Utils {
 
   static ethCallWRetries = async (
     relay: RelayClient,
-    callData: { from: string; to: any; gas: string; data: string },
+    callData: { from: string; to: string | ethers.Addressable; gas: string; data: string },
     blockNumber: string,
   ): Promise<string> => {
     let numberOfCalls = 0;
@@ -228,12 +243,12 @@ export class Utils {
   };
 
   static sendTransaction = async (
-    ONE_TINYBAR: any,
+    ONE_TINYBAR: ethers.BigNumberish,
     CHAIN_ID: string | number,
     accounts: AliasAccount[],
-    rpcServer: any,
-    mirrorNodeServer: any,
-  ) => {
+    rpcServer: RelayClient,
+    mirrorNodeServer: MirrorClient,
+  ): Promise<unknown> => {
     const transaction = {
       value: ONE_TINYBAR,
       gasLimit: numberTo0x(30000),
@@ -345,9 +360,9 @@ export class Utils {
     host: string,
     port: number,
     method: string,
-    params: any[],
+    params: unknown[],
     delayMs: number,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const requestData = JSON.stringify({
       jsonrpc: '2.0',
       method: method,
@@ -454,7 +469,7 @@ export class Utils {
 
     let isWarmUpCompleted = false;
 
-    const warmUp = async () => {
+    const warmUp = async (): Promise<void> => {
       for (let i = 0; i < Utils.WARM_UP_TEST_COUNT; i++) {
         // Run dummy tests to warm up the environment
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -518,7 +533,11 @@ export class Utils {
     });
   }
 
-  static async getReceipt(relay: RelayClient, transactionProps: object, wallet: ethers.Wallet) {
+  static async getReceipt(
+    relay: RelayClient,
+    transactionProps: object,
+    wallet: ethers.Wallet,
+  ): Promise<ITransactionReceipt> {
     const signedTx = await wallet.signTransaction(transactionProps);
     const transactionHash = await relay.sendRawTransaction(signedTx);
 
@@ -527,7 +546,7 @@ export class Utils {
     return receipt;
   }
 
-  static async buildTransaction(relay: RelayClient, to: string, from: string, data: string) {
+  static async buildTransaction(relay: RelayClient, to: string, from: string, data: string): Promise<BuiltTransaction> {
     const chainId = ConfigService.get('CHAIN_ID');
     return {
       to,
@@ -645,12 +664,14 @@ export class Utils {
    * @param before
    */
   private static objectDifference<T extends object>(after: T, before: T): T {
-    const diff = { ...after };
+    const diff = { ...after } as Record<string, unknown>;
+    const afterProps = after as Record<string, number | string | object | object[]>;
+    const beforeProps = before as Record<string, number | string | object | object[]>;
     for (const key of Object.keys(after)) {
       if (!(key in before)) {
         throw new Error(`Mismatched properties: ${key} is not present in both objects`);
       }
-      diff[key] = this.difference(after[key], before[key]);
+      diff[key] = this.difference(afterProps[key], beforeProps[key]);
     }
     return diff as T;
   }
@@ -691,19 +712,21 @@ export class Utils {
    * and arrays from the current `ConfigService` state, allowing tests to inject custom configurations without
    * restarting the application.
    */
-  public static reloadPaymasterConfigs() {
+  public static reloadPaymasterConfigs(): void {
     const { relayImpl } = global;
 
     // @ts-ignore
     CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
     // @ts-ignore
     CommonService.PAYMASTER_ACCOUNTS_MAP = new Map(
-      (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
+      (ConfigService.get('PAYMASTER_ACCOUNTS') as unknown as PaymasterAccount[]).map(
+        (acc) => [acc[0], acc] as [string, PaymasterAccount],
+      ),
     );
     // @ts-ignore
     CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP = new Map(
-      (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
-        whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
+      (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as unknown as PaymasterAccountWhitelist[]).flatMap(
+        ([accountId, whitelist]) => whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
       ),
     );
     // @ts-ignore

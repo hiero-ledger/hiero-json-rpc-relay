@@ -127,6 +127,8 @@ export default defineConfig([
       'tests/bin/**/*.ts',
       'tests/client-libraries/**/*.ts',
       'tests/config-service/**/*.ts',
+      'tests/server/helpers/**/*.ts',
+      'tests/server/integration/**/*.ts',
     ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
