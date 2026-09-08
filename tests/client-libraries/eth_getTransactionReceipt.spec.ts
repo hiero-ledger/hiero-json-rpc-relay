@@ -13,6 +13,7 @@ import { ConfigService } from '../../src/config-service/services';
 import { Relay } from '../../src/relay';
 import { MirrorNodeClient } from '../../src/relay/lib/clients';
 import { TransactionService } from '../../src/relay/lib/services/ethService/transactionService/TransactionService';
+import { type TransactionTracingService } from '../../src/relay/lib/services/transactionTracingService/transactionTracingService';
 import { initializeServer } from '../../src/server/server';
 
 use(chaiAsPromised);
@@ -51,11 +52,33 @@ interface DecodedError {
   data?: { txHash?: string; detail?: string; hederaStatus?: string; transactionId?: string; provisional?: boolean };
 }
 
-async function captureError(request: Promise<unknown>): Promise<any> {
+interface RpcErrorLike {
+  code?: number;
+  data?: DecodedError['data'];
+  error?: { code?: number; data?: DecodedError['data'] };
+  cause?: { code?: number; data?: DecodedError['data'] };
+  innerError?: { code?: number };
+}
+
+/** Private members this suite stubs; sinon needs a nominal handle for them. */
+interface RelayInternals {
+  waitForMirrorNode(): Promise<void>;
+}
+
+interface TransactionServiceInternals {
+  handleSyntheticTransactionReceipt(): Promise<unknown>;
+  handleRegularTransactionReceipt(): Promise<unknown>;
+}
+
+interface EthInternals {
+  transactionService: { transactionTracingService: TransactionTracingService };
+}
+
+async function captureError(request: Promise<unknown>): Promise<RpcErrorLike> {
   try {
     await request;
   } catch (error) {
-    return error;
+    return error as RpcErrorLike;
   }
   throw new Error('expected the receipt request to reject with a -32003 error, but it resolved');
 }
@@ -90,19 +113,22 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
     {
       name: 'ethers',
       request: (hash: string): Promise<unknown> => ethersProvider.send('eth_getTransactionReceipt', [hash]),
-      decode: (err: any): DecodedError => ({ code: err?.error?.code, data: err?.error?.data }),
+      decode: (err: RpcErrorLike): DecodedError => ({ code: err?.error?.code, data: err?.error?.data }),
     },
     {
       name: 'viem',
       request: (hash: string): Promise<unknown> =>
-        viemClient.request({ method: 'eth_getTransactionReceipt' as any, params: [hash as `0x${string}`] as any }),
-      decode: (err: any): DecodedError => ({ code: err?.code, data: err?.cause?.data }),
+        (viemClient.request as unknown as (args: { method: string; params: unknown[] }) => Promise<unknown>)({
+          method: 'eth_getTransactionReceipt',
+          params: [hash],
+        }),
+      decode: (err: RpcErrorLike): DecodedError => ({ code: err?.code, data: err?.cause?.data }),
     },
     {
       name: 'web3.js',
       request: (hash: string): Promise<unknown> =>
         web3.requestManager.send({ method: 'eth_getTransactionReceipt', params: [hash] }),
-      decode: (err: any): DecodedError => ({
+      decode: (err: RpcErrorLike): DecodedError => ({
         code: err?.cause?.code ?? err?.innerError?.code,
         data: err?.data ?? err?.cause?.data,
       }),
@@ -110,28 +136,29 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
   ];
 
   before(async () => {
-    sinon.stub(ConfigService, 'getAllMasked').returns({ CHAIN_ID: '0x12a' } as any);
-    sinon.stub(Relay.prototype as any, 'waitForMirrorNode').resolves();
+    sinon.stub(ConfigService, 'getAllMasked').returns({ CHAIN_ID: '0x12a' });
+    sinon.stub(Relay.prototype as unknown as RelayInternals, 'waitForMirrorNode').resolves();
 
     const { app, relay } = await initializeServer();
 
     sinon
       .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
-      .callsFake(async (_method: string, params: any[]) =>
+      .callsFake(async (_method: string, params: unknown[]) =>
         String(params?.[0] ?? '').toLowerCase() === HASHES.validated
-          ? ({
+          ? {
               hash: HASHES.validated,
               block_hash: RECEIPT.blockHash,
               block_number: 17,
               transaction_index: 0,
               result: 'SUCCESS',
-            } as any)
+            }
           : null,
       );
-    sinon.stub(TransactionService.prototype as any, 'handleSyntheticTransactionReceipt').resolves(null);
-    sinon.stub(TransactionService.prototype as any, 'handleRegularTransactionReceipt').resolves(RECEIPT);
+    const transactionServiceInternals = TransactionService.prototype as unknown as TransactionServiceInternals;
+    sinon.stub(transactionServiceInternals, 'handleSyntheticTransactionReceipt').resolves(null);
+    sinon.stub(transactionServiceInternals, 'handleRegularTransactionReceipt').resolves(RECEIPT);
 
-    const tracing: any = (relay.eth() as any).transactionService.transactionTracingService;
+    const tracing = (relay.eth() as unknown as EthInternals).transactionService.transactionTracingService;
     await tracing.recordRejected(HASHES.rejected, {
       error: REJECT_DETAIL,
       hederaStatus: REJECT_HEDERA_STATUS,

@@ -118,4 +118,19 @@ export default defineConfig([
       'no-console': 'off',
     },
   },
+
+  // #5192 phase 4 - the three typing rules for `tests`, enabled per directory as the tree is migrated.
+  // This glob list grows with each commit and collapses to 'tests/**/*.ts' once `tests` is clean.
+  {
+    files: [
+      'tests/acceptance-runner.ts',
+      'tests/bin/**/*.ts',
+      'tests/client-libraries/**/*.ts',
+      'tests/config-service/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/explicit-function-return-type': 'error',
+    },
+  },
 ]);

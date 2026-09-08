@@ -122,7 +122,7 @@ describe('CliHelper', () => {
   });
 
   describe('gracefulStop', () => {
-    let exitStub;
+    let exitStub: sinon.SinonStub;
 
     beforeEach(() => {
       exitStub = sinon.stub(process, 'exit');

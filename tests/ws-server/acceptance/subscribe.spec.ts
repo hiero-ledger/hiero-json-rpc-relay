@@ -59,7 +59,6 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   const { servicesNode, relay, mirrorNode } = global;
 
   // cached entities
-  let requestId;
   let wsProvider;
   const accounts: AliasAccount[] = [];
   let logContractSigner;
@@ -74,7 +73,6 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   before(async () => {
     server = global.socketServer;
 
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar
 
@@ -90,7 +88,6 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
   beforeEach(async () => {
     wsProvider = await new ethers.WebSocketProvider(WS_RELAY_URL);
-    requestId = Utils.generateRequestId();
     // Stabilizes the initial connection test.
     await new Promise((resolve) => setTimeout(resolve, 1000));
     if (server) expect(server._connections).to.equal(1);
@@ -729,9 +726,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       htsEventsReceived = [];
 
     before(async function () {
-      htsAccounts[0] = await servicesNode.createAliasAccount(400, relay.provider, requestId);
-      htsAccounts[1] = await servicesNode.createAliasAccount(200, relay.provider, requestId);
-      htsAccounts[2] = await servicesNode.createAliasAccount(5, relay.provider, requestId);
+      htsAccounts[0] = await servicesNode.createAliasAccount(400, relay.provider);
+      htsAccounts[1] = await servicesNode.createAliasAccount(200, relay.provider);
+      htsAccounts[2] = await servicesNode.createAliasAccount(5, relay.provider);
 
       const htsResult = await servicesNode.createHTS({
         tokenName: 'TEST_TOKEN',
@@ -741,20 +738,25 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
         adminPrivateKey: htsAccounts[0].privateKey,
       });
 
+      const htsTokenId = htsResult.receipt.tokenId;
+      if (!htsTokenId) {
+        throw new Error('createHTS did not return a token id');
+      }
+
       await servicesNode.associateHTSToken(
         htsAccounts[1].accountId,
-        htsResult.receipt.tokenId,
+        htsTokenId,
         htsAccounts[1].privateKey,
         htsResult.client,
       );
       await servicesNode.associateHTSToken(
         htsAccounts[2].accountId,
-        htsResult.receipt.tokenId,
+        htsTokenId,
         htsAccounts[2].privateKey,
         htsResult.client,
       );
 
-      const tokenAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId.toString());
+      const tokenAddress = Utils.idToEvmAddress(htsTokenId.toString());
       htsToken = new ethers.Contract(tokenAddress, IERC20Json.abi, htsAccounts[0].wallet);
     });
 
