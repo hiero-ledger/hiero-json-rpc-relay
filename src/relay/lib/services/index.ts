@@ -18,6 +18,12 @@ export * from './rateLimiterService/RedisRateLimitStore';
 export * from './rateLimiterService/rateLimiterService';
 export * from './transactionPoolService/LocalPendingTransactionStorage';
 export * from './transactionPoolService/transactionPoolService';
+<<<<<<< HEAD
+=======
+export * from './transactionTimestampIndexService/LocalTransactionTimestampIndex';
+export * from './transactionTimestampIndexService/RedisTransactionTimestampIndex';
+export * from './transactionTimestampIndexService/TransactionTimestampIndexFactory';
+>>>>>>> main
 export * from './transactionTracingService/LocalTransactionTracingStorage';
 export * from './transactionTracingService/RedisTransactionTracingStorage';
 export * from './transactionTracingService/TransactionTracingStorageFactory';

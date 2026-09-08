@@ -8,15 +8,16 @@ import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
 import { Utils } from '../../../../utils';
+import { isSyntheticContractRecord } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
-import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
+import { createTransactionFromContractResult } from '../../../factories/transactionFactory';
 import {
   type IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { type Block, type Log, type Transaction } from '../../../model';
+import { type Log, type Transaction } from '../../../model';
 import {
   type IContractResultsParams,
   type ITransactionReceipt,
@@ -25,6 +26,7 @@ import {
   type MirrorNodeContractResultReceipt,
   type RequestDetails,
 } from '../../../types';
+import { type IGetBlockWorkerResponse } from '../../../types/IGetBlockWorkerResponse';
 import { type IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
@@ -46,82 +48,6 @@ interface IReceiptRootHash {
 }
 
 type SerializedLog = [Uint8Array, Uint8Array[], Uint8Array];
-
-/**
- * Populates synthetic transactions from contract logs that are not already present
- * in the transactions array.
- *
- * @param showDetails - If true, returns full Transaction objects; if false, returns hash strings
- * @param logs - Array of contract logs to extract synthetic transactions from
- * @param transactionsArray - Existing transactions (either Transaction objects or hash strings)
- * @param chain - Chain ID for synthetic transaction creation
- * @returns Merged array of original and new synthetic transactions, deduplicated by hash
- */
-function populateSyntheticTransactions(
-  showDetails: boolean,
-  logs: Log[],
-  transactionsArray: Transaction[] | string[],
-  chain: string,
-): Transaction[] | string[] {
-  // Deduplicate the input array and build O(1) lookup set from existing transaction hashes
-  const seenHashes = new Set<string>();
-  const deduplicatedInput: (Transaction | string)[] = [];
-
-  // Single pass through transactions array
-  for (const item of transactionsArray) {
-    const hash = showDetails ? (item as Transaction).hash : (item as string);
-    if (!seenHashes.has(hash)) {
-      seenHashes.add(hash);
-      deduplicatedInput.push(item);
-    }
-  }
-
-  // Track new synthetic transactions; Map auto-deduplicates by key
-  const syntheticTransactions = new Map<string, Transaction | string>();
-
-  // Single pass through logs
-  for (const log of logs) {
-    const hash = log.transactionHash;
-
-    // Skip if already in original array or already added as synthetic
-    if (seenHashes.has(hash) || syntheticTransactions.has(hash)) {
-      continue;
-    }
-
-    if (showDetails) {
-      const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
-        accessList: undefined,
-        blockHash: log.blockHash,
-        blockNumber: log.blockNumber,
-        chainId: chain,
-        from: log.address,
-        gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
-        gasPrice: constants.INVALID_EVM_INSTRUCTION,
-        hash: log.transactionHash,
-        input: constants.ZERO_HEX_8_BYTE,
-        maxPriorityFeePerGas: constants.ZERO_HEX,
-        maxFeePerGas: constants.ZERO_HEX,
-        nonce: nanOrNumberTo0x(0),
-        r: constants.ZERO_HEX,
-        s: constants.ZERO_HEX,
-        to: log.address,
-        transactionIndex: log.transactionIndex,
-        type: constants.ZERO_HEX, // 0x0 for legacy and synthetic transactions, 0x1 for access list types, 0x2 for dynamic fees.
-        v: constants.ZERO_HEX,
-        value: constants.ZERO_HEX,
-      });
-
-      if (transaction !== null) {
-        syntheticTransactions.set(hash, transaction);
-      }
-    } else {
-      syntheticTransactions.set(hash, hash);
-    }
-  }
-
-  // Merge deduplicated original transactions with new unique synthetic transactions
-  return [...deduplicatedInput, ...syntheticTransactions.values()] as Transaction[] | string[];
-}
 
 /**
  * Builds Ethereum-style receipt objects.
@@ -340,6 +266,20 @@ async function resolveContractResultAddresses(
   return [fromResolved, toResolved];
 }
 
+/**
+ * Builds the transaction list of a block out of its contract results, deduplicated by transaction hash.
+ *
+ * The mirror node reports one contract result per transaction of the block, synthetic transactions
+ * included, but the same transaction may appear more than once in the response, so the hashes are
+ * deduplicated to keep the block from listing a transaction twice.
+ *
+ * @param ctx - The shared worker context providing the clients and services
+ * @param contractResults - Contract results returned by the mirror node for the block
+ * @param showDetails - If true, returns full Transaction objects; if false, returns hash strings
+ * @param requestDetails - Request details for logging and tracking
+ * @param chain - Chain ID to report on transactions whose contract result has none
+ * @returns The block transactions, either as full objects or as hashes
+ */
 async function prepareTransactionArray(
   ctx: IWorkerContext,
   contractResults: MirrorNodeContractResult[],
@@ -347,13 +287,26 @@ async function prepareTransactionArray(
   requestDetails: RequestDetails,
   chain: string,
 ): Promise<Transaction[] | string[]> {
+  const seenHashes = new Set<string>();
+  const uniqueContractResults = contractResults.filter((cr) => {
+    if (seenHashes.has(cr.hash)) {
+      return false;
+    }
+    seenHashes.add(cr.hash);
+    return true;
+  });
+
   if (!showDetails) {
-    return contractResults.map((cr) => cr.hash);
+    return uniqueContractResults.map((cr) => cr.hash);
   }
 
-  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(ctx, contractResults, requestDetails);
+  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(
+    ctx,
+    uniqueContractResults,
+    requestDetails,
+  );
 
-  return contractResults
+  return uniqueContractResults
     .map((contractResult) => {
       contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
       if (contractResult.to !== null) {
@@ -415,7 +368,7 @@ export async function getBlock(
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
-): Promise<Block | null> {
+): Promise<IGetBlockWorkerResponse | null> {
   const { commonService, mirrorNodeClient, logger } = ctx;
   try {
     const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
@@ -434,6 +387,12 @@ export async function getBlock(
       blockResponse.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
     );
 
+    // Two consumers of logs in getBlock:
+    // Transaction list — Redundant, contract results carry synthetic txs, so the list + ordering comes from them.
+    //                Logs only serve as fallback for MN < 0.157 / syntheticContractResults=false.
+    // receiptsRoot — Still needs real logs. Receipt RLP is [status|root, cumulativeGasUsed, logsBloom, logs], and the
+    //                log entries themselves (address, topics, data) come from logsPerTx. /contracts/results gives
+    //                bloom only — no log entries. Drop the fetch → every block with events gets a wrong receiptsRoot.
     const [contractResults, logs] = await Promise.all([
       mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResult[]>(
         mirrorNodeClient.getContractResults.name,
@@ -451,15 +410,13 @@ export async function getBlock(
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
-    let txArray: Transaction[] | string[] = await prepareTransactionArray(
+    const txArray: Transaction[] | string[] = await prepareTransactionArray(
       ctx,
       contractResults,
       showDetails,
       requestDetails,
       chain,
     );
-
-    txArray = populateSyntheticTransactions(showDetails, logs, txArray, chain);
 
     const receipts: IReceiptRootHash[] = buildReceiptRootHashes(
       txArray.map((tx: Transaction | string) => (showDetails ? (tx as Transaction).hash : (tx as string))),
@@ -483,12 +440,18 @@ export async function getBlock(
       );
     }
 
-    return await BlockFactory.createBlock({
+    const syntheticTimestampEntries = contractResults
+      .filter(isSyntheticContractRecord)
+      .map((cr) => [cr.hash, cr.timestamp] as const);
+
+    const block = await BlockFactory.createBlock({
       blockResponse,
       txArray,
       gasPrice,
       receiptsRoot,
     });
+
+    return { block, syntheticTimestampEntries };
   } catch (e: unknown) {
     throw wrapError(e);
   }
@@ -734,11 +697,3 @@ function createSyntheticReceiptRlpInput(syntheticLogs: Log[]): IReceiptRlpInput 
     type: constants.ZERO_HEX, // fallback to 0x0 from HAPI transactions
   };
 }
-
-// export private methods under __test__ "namespace" but using const
-// due to `ES2015 module syntax is preferred over namespaces` eslint warning
-export const __test__ = {
-  __private: {
-    populateSyntheticTransactions,
-  },
-};

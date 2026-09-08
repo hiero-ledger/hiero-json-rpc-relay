@@ -9,7 +9,15 @@ import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
+<<<<<<< HEAD
 import { isImmatureContractRecord, type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+=======
+import {
+  isChildContractRecord,
+  isImmatureContractRecord,
+  type MirrorNodeClient,
+} from '../../../clients/mirrorNodeClient';
+>>>>>>> main
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
@@ -274,6 +282,15 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
+    try {
+      const receiptByTimestamp = await this.resolveSyntheticReceiptByRecordedTimestamp(hash, requestDetails);
+      if (receiptByTimestamp) {
+        return receiptByTimestamp;
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to resolve %s by recorded consensus timestamp: %s`, hash, error);
+    }
+
     const receiptResponse =
       await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
         this.mirrorNodeClient.getContractResult.name,
@@ -301,6 +318,17 @@ export class TransactionService implements ITransactionService {
       // execution: no block linkage will ever be filled in, so no receipt can be built. Surface the
       // rejection with its details instead of a half-populated receipt.
       if (isImmatureContractRecord(receiptResponse)) {
+<<<<<<< HEAD
+=======
+        // A child record lacks an index too, but it is no rejection: it is not an ethereum
+        // transaction at all, so it has no receipt of its own. Report it as not found, the way
+        // `eth_getTransactionByHash` already does for the same record.
+        if (isChildContractRecord(receiptResponse)) {
+          this.logger.trace(`child (synthetic) record has no receipt of its own for %s`, hash);
+          return null;
+        }
+
+>>>>>>> main
         throw await this.buildRejectedRecordError(hash, receiptResponse);
       }
 
@@ -780,6 +808,17 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
+    return await this.buildSyntheticReceipt(hash, syntheticLogs, requestDetails);
+  }
+
+  /**
+   * Builds a synthetic transaction receipt from the logs of the transaction it belongs to.
+   */
+  private async buildSyntheticReceipt(
+    hash: string,
+    syntheticLogs: Log[],
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt> {
     const gasPriceForTimestamp = await this.common.getCurrentGasPriceForBlock(
       syntheticLogs[0].blockHash,
       requestDetails,
@@ -796,6 +835,30 @@ export class TransactionService implements ITransactionService {
     }
 
     return receipt;
+  }
+
+  /**
+   * Resolves a synthetic transaction by the consensus timestamp recorded while its block was served,
+   * bypassing the by-hash routes the Mirror Node cannot answer until its hash index catches up.
+   */
+  private async resolveSyntheticReceiptByRecordedTimestamp(
+    hash: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt | null> {
+    const consensusTimestamp = await this.mirrorNodeClient.transactionTimestampIndex.get(hash);
+    if (!consensusTimestamp) {
+      return null;
+    }
+
+    const logs = await this.common.getLogsWithParams(null, { timestamp: `eq:${consensusTimestamp}` }, requestDetails);
+    const ownLogs = logs.filter((log) => log.transactionHash === hash);
+    if (!ownLogs.length) {
+      return null;
+    }
+
+    this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
+
+    return await this.buildSyntheticReceipt(hash, ownLogs, requestDetails);
   }
 
   /**

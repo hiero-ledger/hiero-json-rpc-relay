@@ -19,6 +19,7 @@ import { Utils } from '../../utils';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
+import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
   type IAccountRequestParams,
@@ -34,6 +35,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
+import { type ITransactionTimestampIndex } from '../types/ITransactionTimestampIndex';
 import type {
   ContractAction,
   MirrorNodeBlock,
@@ -65,6 +67,45 @@ export const isImmatureContractRecord = (
   record != null &&
   (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
 
+<<<<<<< HEAD
+=======
+/**
+ * Whether a Mirror Node contract-result record belongs to a child  transaction rather than to a
+ * top-level ethereum one.
+ *
+ * Ethereum has no notion of a child transaction: an inner call has no hash and no receipt of its own, so
+ * these records are reported as not found rather than as a rejection.
+ *
+ * @param record - The contract result record to classify; null/undefined is not a child record.
+ * @returns True when the record carries neither an ethereum nonce nor a signature recovery id.
+ */
+export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
+  record != null && record.nonce == null && record.v == null;
+
+/**
+ * Whether a Mirror Node contract-result record is synthetic: fabricated for a native Hedera transaction
+ * (CRYPTOTRANSFER, TOKENMINT and the like) that never reached the EVM, so it has no gas limit.
+ *
+ * Stricter than {@link isChildContractRecord}, which also matches HAPI-submitted CONTRACTCALL records: those
+ * carry no ethereum signature either, but they did execute and are resolvable by hash.
+ */
+export const isSyntheticContractRecord = (
+  record?: {
+    gas_limit?: number | null;
+    nonce?: number | null;
+    v?: number | null;
+    r?: string | null;
+    s?: string | null;
+  } | null,
+): boolean =>
+  record != null &&
+  record.gas_limit === 0 &&
+  record.nonce == null &&
+  record.v == null &&
+  record.r == null &&
+  record.s == null;
+
+>>>>>>> main
 export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
   private static readonly GET_BLOCKS_ENDPOINT = 'blocks';
@@ -187,6 +228,12 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: ICacheClient;
 
+  /**
+   * Hash to consensus timestamp index for synthetic transactions, written while serving a block and read
+   * when a by-hash lookup finds nothing. Disabled unless the composition root supplies one.
+   */
+  public readonly transactionTimestampIndex: ITransactionTimestampIndex;
+
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
@@ -304,6 +351,7 @@ export class MirrorNodeClient {
     restClient?: AxiosInstance,
     web3Url?: string,
     web3Client?: AxiosInstance,
+    transactionTimestampIndex: ITransactionTimestampIndex = new DisabledTransactionTimestampIndex(),
   ) {
     if (!web3Url) {
       web3Url = restUrl;
@@ -354,6 +402,7 @@ export class MirrorNodeClient {
       );
     }
     this.cacheService = cacheService;
+    this.transactionTimestampIndex = transactionTimestampIndex;
 
     // set  up eth call  accepted error codes.
     const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
@@ -1065,6 +1114,19 @@ export class MirrorNodeClient {
             continue;
           }
 
+<<<<<<< HEAD
+=======
+          if (isChildContractRecord(contractObject)) {
+            if (this.logger.isLevelEnabled('debug')) {
+              this.logger.debug(
+                `Contract result belongs to a child transaction and is never assigned an index; skipping polling: contract_result=%s`,
+                JSON.stringify(contractObject),
+              );
+            }
+            continue;
+          }
+
+>>>>>>> main
           // Found immature record, log the info, set flag and exit record traversal
           if (this.logger.isLevelEnabled('debug')) {
             this.logger.debug(

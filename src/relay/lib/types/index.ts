@@ -10,6 +10,10 @@ export * from './mirrorNode';
 export * from './RequestDetails';
 export * from './requestParams';
 export * from './spendingPlanConfig';
+<<<<<<< HEAD
+=======
+export * from './ITransactionTimestampIndex';
+>>>>>>> main
 export * from './transactionTracing';
 export * from './registry';
 export * from './debug';
