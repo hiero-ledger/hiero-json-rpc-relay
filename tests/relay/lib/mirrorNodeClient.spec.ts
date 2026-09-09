@@ -3066,7 +3066,7 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('response body parsing', () => {
-    const getNetworkFeesWithBody = async (body: string): Promise<any> => {
+    const getNetworkFeesWithBody = async (body: string): ReturnType<MirrorNodeClient['getNetworkFees']> => {
       mock.onGet('network/fees').reply(200, body);
       return mirrorNodeInstance.getNetworkFees(requestDetails);
     };
