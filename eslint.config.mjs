@@ -128,6 +128,7 @@ export default defineConfig([
     },
   },
 
+  // TODO(#5192): fold into the `src/**/*.ts` block above once #5659 merges and both carry the same rules.
   {
     files: ['tests/**/*.ts'],
     rules: {
