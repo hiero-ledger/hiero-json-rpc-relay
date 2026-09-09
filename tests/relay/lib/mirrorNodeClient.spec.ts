@@ -2,6 +2,7 @@
 
 import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
+import BigNumber from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
@@ -3048,6 +3049,61 @@ describe('MirrorNodeClient', async function () {
           expect(uniqueHashes.size).to.equal(4);
         });
       });
+    });
+  });
+
+  describe('response body parsing', () => {
+    const getNetworkFeesWithBody = async (body: string): Promise<any> => {
+      mock.onGet('network/fees').reply(200, body);
+      return mirrorNodeInstance.getNetworkFees(requestDetails);
+    };
+
+    it('should preserve an integer beyond the safe range as a BigNumber', async () => {
+      const response = await getNetworkFeesWithBody('{"amount":1000000000000000000000}');
+
+      expect(BigNumber.isBigNumber(response.amount)).to.be.true;
+      expect(response.amount.toString()).to.equal('1000000000000000000000');
+    });
+
+    it('should preserve a negative integer beyond the safe range as a BigNumber', async () => {
+      const response = await getNetworkFeesWithBody('{"amount":-1000000000000000000000}');
+
+      expect(BigNumber.isBigNumber(response.amount)).to.be.true;
+      expect(response.amount.toString()).to.equal('-1000000000000000000000');
+    });
+
+    it('should widen at the same literal-length boundary as json-bigint', async () => {
+      const response = await getNetworkFeesWithBody('{"small":999999999999999,"big":1000000000000000}');
+
+      expect(response.small).to.be.a('number');
+      expect(response.small).to.equal(999999999999999);
+      expect(BigNumber.isBigNumber(response.big)).to.be.true;
+      expect(response.big.toString()).to.equal('1000000000000000');
+    });
+
+    it('should leave long digit runs inside strings untouched', async () => {
+      const paddedTopic = `0x${'0'.repeat(64)}`;
+      const response = await getNetworkFeesWithBody(
+        JSON.stringify({ data: paddedTopic, timestamp: '1700000000.123456789', gas: 57 }),
+      );
+
+      expect(response.data).to.equal(paddedTopic);
+      expect(response.timestamp).to.equal('1700000000.123456789');
+      expect(response.gas).to.equal(57);
+    });
+
+    it('should not treat a timestamp filter inside links.next as a widened literal', async () => {
+      const next = '/api/v1/contracts/results/logs?limit=100&order=desc&timestamp=lt:1788415891.548547568';
+      const response = await getNetworkFeesWithBody(JSON.stringify({ logs: [{ index: 3 }], links: { next } }));
+
+      expect(response.links.next).to.equal(next);
+      expect(response.logs[0].index).to.be.a('number').that.equals(3);
+    });
+
+    it('should return the raw body when it cannot be parsed', async () => {
+      const response = await getNetworkFeesWithBody('not a json body');
+
+      expect(response).to.equal('not a json body');
     });
   });
 });
