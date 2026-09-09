@@ -3,12 +3,12 @@
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
+import { type MirrorNodeBlock } from '../../src/relay/lib/types';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions, {
   type BlockResponseLike,
-  type MirrorBlockLike,
   type MirrorTransactionLike,
   type TransactionResponseLike,
 } from '../server/helpers/assertions';
@@ -43,7 +43,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const accounts: AliasAccount[] = [];
-  let mirrorBlock: MirrorBlockLike;
+  let mirrorBlock: MirrorNodeBlock;
   const mirrorTransactions: MirrorTransactionLike[] = [];
   let expectedGasPrice: string;
 

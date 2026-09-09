@@ -15,6 +15,7 @@ import { MirrorNodeClient } from '../../src/relay/lib/clients';
 import { TransactionService } from '../../src/relay/lib/services/ethService/transactionService/TransactionService';
 import { type TransactionTracingService } from '../../src/relay/lib/services/transactionTracingService/transactionTracingService';
 import { initializeServer } from '../../src/server/server';
+import { type RelayInternals } from '../relay/helpers';
 
 use(chaiAsPromised);
 
@@ -58,11 +59,6 @@ interface RpcErrorLike {
   error?: { code?: number; data?: DecodedError['data'] };
   cause?: { code?: number; data?: DecodedError['data'] };
   innerError?: { code?: number };
-}
-
-/** Private members this suite stubs; sinon needs a nominal handle for them. */
-interface RelayInternals {
-  waitForMirrorNode(): Promise<void>;
 }
 
 interface TransactionServiceInternals {

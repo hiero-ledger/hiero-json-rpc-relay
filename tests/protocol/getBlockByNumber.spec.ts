@@ -5,13 +5,13 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { formatTransactionId, numberTo0x } from '../../src/relay/formatters';
+import { type MirrorNodeBlock } from '../../src/relay/lib/types';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import type ServicesClient from '../server/clients/servicesClient';
 import parentContractJson from '../server/contracts/Parent.json';
 import Assertions, {
   type BlockResponseLike,
-  type MirrorBlockLike,
   type MirrorTransactionLike,
   type TransactionResponseLike,
 } from '../server/helpers/assertions';
@@ -51,7 +51,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   } = global;
 
   const accounts: AliasAccount[] = [];
-  let mirrorBlock: MirrorBlockLike;
+  let mirrorBlock: MirrorNodeBlock;
   let mirrorContractDetails: { block_number: number; contract_id: string; from: string };
   const mirrorTransactions: MirrorTransactionLike[] = [];
   let expectedGasPrice: string;

@@ -12,7 +12,7 @@ import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { numberTo0x, prepend0x, strip0x, toHexString } from '../../../src/relay/formatters';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
-import { type ITransactionReceipt } from '../../../src/relay/lib/types';
+import { type CallTracerResult, type ITransactionReceipt, type TraceBlockTxResult } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import type MirrorClient from '../clients/mirrorClient';
@@ -32,10 +32,7 @@ import { type AliasAccount } from '../types/AliasAccount';
 
 chai.use(chaiExclude);
 
-interface BlockTrace {
-  txHash: string;
-  result: { from: string; to: string; type?: string; gas?: string; gasUsed?: string; calls?: unknown[] };
-}
+type BlockTrace = Omit<TraceBlockTxResult, 'result'> & { result: CallTracerResult };
 
 interface RawBlockInfo {
   parentHash: string;

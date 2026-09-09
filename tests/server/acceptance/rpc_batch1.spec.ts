@@ -11,6 +11,7 @@ import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
+import { type MirrorNodeBlock } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import type MirrorClient from '../clients/mirrorClient';
@@ -21,8 +22,7 @@ import basicContractJson from '../contracts/Basic.json';
 // Local resources from contracts directory
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
-// Assertions from local resources
-import Assertions, { type MirrorBlockLike, type MirrorTransactionLike } from '../helpers/assertions';
+import Assertions, { type MirrorTransactionLike } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { type AliasAccount } from '../types/AliasAccount';
@@ -285,7 +285,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     });
 
     describe('Block related RPC calls', () => {
-      let mirrorBlock: MirrorBlockLike & { count: number };
+      let mirrorBlock: MirrorNodeBlock;
 
       before(async () => {
         mirrorBlock = (await mirrorNode.get(`/blocks?block.number=${mirrorContractDetails.block_number}`)).blocks[0];

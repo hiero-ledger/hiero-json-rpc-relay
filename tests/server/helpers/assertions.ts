@@ -9,6 +9,7 @@ import { type JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';
+import { type IFeeHistory, type MirrorNodeBlock } from '../../../src/relay/lib/types';
 import RelayAssertions from '../../relay/assertions';
 
 chai.use(chaiExclude);
@@ -60,17 +61,6 @@ export interface MirrorTransactionLike {
   transaction_index: number;
 }
 
-export interface MirrorBlockLike {
-  gas_used: number;
-  hapi_version: string;
-  hash: string;
-  logs_bloom: string;
-  number: number;
-  previous_hash: string;
-  size: number;
-  timestamp: { from: string; to: string };
-}
-
 export interface ReceiptResponseLike {
   blockHash: string;
   blockNumber: string;
@@ -101,12 +91,10 @@ export interface MirrorReceiptLike {
   type: number;
 }
 
-export interface FeeHistoryResponseLike {
+export type FeeHistoryResponseLike = Omit<IFeeHistory, 'baseFeePerGas' | 'gasUsedRatio'> & {
   baseFeePerGas: string[];
   gasUsedRatio: number[];
-  oldestBlock: string;
-  reward?: string[][];
-}
+};
 
 export interface FeeHistoryExpectation {
   resultCount: number;
@@ -197,7 +185,7 @@ export default class Assertions {
    */
   public static block(
     relayResponse: BlockResponseLike,
-    mirrorNodeResponse: MirrorBlockLike,
+    mirrorNodeResponse: MirrorNodeBlock,
     mirrorTransactions: MirrorTransactionLike[],
     expectedGasPrice: string,
     hydratedTransactions = false,
@@ -259,7 +247,7 @@ export default class Assertions {
       ethers.toQuantity(mirrorNodeResponse.size | 0),
     );
     expect(relayResponse.gasUsed, "Assert block: 'gasUsed' should equal mirrorNode response").to.equal(
-      ethers.toQuantity(mirrorNodeResponse.gas_used),
+      ethers.toQuantity(mirrorNodeResponse.gas_used!),
     );
     expect(relayResponse.timestamp, "Assert block: 'timestamp' should equal mirrorNode response").to.equal(
       ethers.toQuantity(Number(mirrorNodeResponse.timestamp.from.split('.')[0])),

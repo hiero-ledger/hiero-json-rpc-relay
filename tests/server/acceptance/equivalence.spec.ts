@@ -7,6 +7,7 @@ import { ethers, toUtf8Bytes } from 'ethers';
 
 import { hexToASCII } from '../../../src/relay/formatters';
 import type { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { type ContractAction } from '../../../src/relay/lib/types';
 import type ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
@@ -31,13 +32,6 @@ interface ContractCallRecord {
   result: string;
   status: string;
   hash: string;
-}
-
-interface ContractActionRecord {
-  timestamp: string;
-  call_operation_type: string;
-  result_data_type: string;
-  result_data: string;
 }
 
 const removeLeading0x = (input: string): string => {
@@ -136,7 +130,7 @@ describe('Equivalence tests', async function () {
   };
 
   const validateContractActions = (
-    contractAction: ContractActionRecord,
+    contractAction: ContractAction,
     callType: CallTypes,
     outcome: Outcomes,
     message?: string,
@@ -360,7 +354,7 @@ describe('Equivalence tests', async function () {
    * @param transactionIdOrHash Transaction Id or a 32 byte hash with optional 0x prefix
    * @returns list of ContractActions
    */
-  async function getContractActions(transactionIdOrHash: string): Promise<{ actions: ContractActionRecord[] }> {
+  async function getContractActions(transactionIdOrHash: string): Promise<{ actions: ContractAction[] }> {
     return await mirrorNode.get(`/contracts/results/${transactionIdOrHash}/actions`);
   }
 

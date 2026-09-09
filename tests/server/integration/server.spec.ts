@@ -31,6 +31,7 @@ import {
   contractHash1,
   contractId1,
   overrideEnvsInMochaDescribe,
+  type RelayInternals,
   withOverriddenEnvsInMochaTest,
 } from '../../relay/helpers';
 import Assertions, { requestIdRegex } from '../helpers/assertions';
@@ -38,11 +39,6 @@ import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 
 const MISSING_PARAM_ERROR = 'Missing value for required parameter';
-
-interface RelayInternals {
-  waitForMirrorNode(): Promise<void>;
-  populatePreconfiguredSpendingPlans(): Promise<void>;
-}
 
 interface BatchRequest {
   id?: string;

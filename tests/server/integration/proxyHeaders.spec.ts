@@ -16,14 +16,11 @@ import { Relay } from '../../../src/relay';
 import { initializeServer, register } from '../../../src/server/server';
 import {
   overrideEnvsInMochaDescribe,
+  type RelayInternals,
   useInMemoryRedisServer,
   withOverriddenEnvsInMochaTest,
 } from '../../relay/helpers';
 import RelayCalls from '../helpers/constants';
-
-interface RelayInternals {
-  waitForMirrorNode(): Promise<void>;
-}
 
 interface RateLimitErrorLike {
   response: { status: number; data: { error: { code: number; message: string } } };
