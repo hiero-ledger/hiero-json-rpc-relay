@@ -10,10 +10,11 @@ import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
 import type { Logger } from 'pino';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Histogram, type Registry } from 'prom-client';
 import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
 import { predefined } from '../errors/JsonRpcError';
@@ -202,12 +203,6 @@ export class MirrorNodeClient {
   public readonly web3Url: string;
 
   /**
-   * The metrics register used for metrics tracking.
-   * @private
-   */
-  private readonly register: Registry;
-
-  /**
    * The histogram used for tracking the response time of the mirror node.
    * @private
    */
@@ -369,27 +364,10 @@ export class MirrorNodeClient {
     }
 
     this.logger = logger;
-    this.register = register;
 
-    // clear and create metric in registry
-    const metricHistogramName = 'rpc_relay_mirror_response';
-    this.register.removeSingleMetric(metricHistogramName);
-    this.mirrorResponseHistogram = new Histogram({
-      name: metricHistogramName,
-      help: 'Mirror node response method statusCode latency histogram',
-      labelNames: ['method', 'statusCode'],
-      registers: [register],
-      buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000], // ms (milliseconds)
-    });
-
-    // Initialize the error counter
-    this.register.removeSingleMetric('rpc_relay_mirror_node_http_error_code_count');
-    this.mirrorErrorCodeCounter = new Counter({
-      name: 'rpc_relay_mirror_node_http_error_code_count',
-      help: 'Count of errors returned from Mirror Node by HTTP status code and error type',
-      labelNames: ['method', 'statusCode'],
-      registers: [register],
-    });
+    const metricsFactory = new MetricsFactory(register);
+    this.mirrorResponseHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseLatency);
+    this.mirrorErrorCodeCounter = metricsFactory.counter(METRICS.mirrorNode.httpErrorCodes);
 
     if (isMainThread) {
       this.logger.info(

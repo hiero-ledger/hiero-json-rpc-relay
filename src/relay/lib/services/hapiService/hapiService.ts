@@ -3,9 +3,10 @@
 import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hiero-ledger/sdk';
 import { EventEmitter } from 'events';
 import type { Logger } from 'pino';
-import { Counter, type Registry } from 'prom-client';
+import { type Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { SDKClient } from '../../clients';
 import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import type { HbarLimitService } from '../hbarLimitService';
@@ -119,14 +120,7 @@ export default class HAPIService {
     }
     this.shouldReset = false;
 
-    const metricCounterName = 'rpc_relay_client_service';
-    register.removeSingleMetric(metricCounterName);
-    this.clientResetCounter = new Counter({
-      name: metricCounterName,
-      help: 'Relay Client Service',
-      registers: [register],
-      labelNames: ['transactions', 'errors'],
-    });
+    this.clientResetCounter = new MetricsFactory(register).counter(METRICS.consensusNode.clientResets);
   }
 
   /**

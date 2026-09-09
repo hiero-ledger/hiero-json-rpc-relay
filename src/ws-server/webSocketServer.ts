@@ -5,11 +5,12 @@ import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import Koa from 'koa';
 import websockify from 'koa-websocket';
 import pino from 'pino';
-import { Counter, type Registry } from 'prom-client';
+import { type Registry } from 'prom-client';
 import type { RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
+import { METRICS, MetricsFactory } from '../metrics';
 import { predefined } from '../relay';
 import { Relay } from '../relay';
 import { RedisClientManager } from '../relay/lib/clients/redisClientManager';
@@ -67,17 +68,7 @@ export async function initializeWsServer(
   if (!redisClient && !sharedRelay) {
     redisClient = RedisClientManager.isRedisEnabled() ? await RedisClientManager.getClient(logger) : undefined;
   }
-  // Initialize rate limit store failure counter
-  const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';
-  if (register.getSingleMetric(storeFailureMetricName)) {
-    register.removeSingleMetric(storeFailureMetricName);
-  }
-  const rateLimitStoreFailureCounter = new Counter({
-    name: storeFailureMetricName,
-    help: 'Rate limit store failure counter',
-    labelNames: ['storeType', 'operation'],
-    registers: [register],
-  });
+  const rateLimitStoreFailureCounter = new MetricsFactory(register).counter(METRICS.rateLimiter.storeFailures);
 
   // Create rate limit store using factory pattern
   const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
