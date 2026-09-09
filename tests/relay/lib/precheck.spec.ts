@@ -1067,7 +1067,7 @@ describe('Precheck', async function () {
     });
 
     it('should reject Cancun transactions', async () => {
-      let error;
+      let error: JsonRpcError | undefined;
       try {
         const signedCancun = await signTransaction({
           ...defaultTx,
@@ -1077,11 +1077,11 @@ describe('Precheck', async function () {
         });
         precheck.transactionType(ethers.Transaction.from(signedCancun));
       } catch (e) {
-        error = e;
+        error = e as JsonRpcError;
       }
       expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
-      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
+      expect(error!.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
+      expect(error!.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
     });
 
     describe('type 4 (EIP-7702) feature flag', async function () {
@@ -1108,15 +1108,15 @@ describe('Precheck', async function () {
 
       it('should reject type 4 transactions when TX_TYPE_4_ENABLED is false (default)', async () => {
         const signed = await signTransaction(type4Tx);
-        let error;
+        let error: JsonRpcError | undefined;
         try {
           precheck.transactionType(ethers.Transaction.from(signed));
         } catch (e) {
-          error = e;
+          error = e as JsonRpcError;
         }
         expect(error).to.be.an.instanceOf(JsonRpcError);
-        expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
-        expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
+        expect(error!.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
+        expect(error!.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
       });
 
       withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {

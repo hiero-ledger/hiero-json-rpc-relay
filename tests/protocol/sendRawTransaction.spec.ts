@@ -1545,7 +1545,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           await relay.pollForValidTransactionReceipt(txHash3);
           senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
           receiverBalanceAfter = await relay.getBalance(accounts[0].address, 'latest');
-          expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter);
+          expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter as unknown as number);
           expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
 
           const paymaster0BalanceAfter3 = await relay.getBalance(newPaymasters[0].address, 'latest');

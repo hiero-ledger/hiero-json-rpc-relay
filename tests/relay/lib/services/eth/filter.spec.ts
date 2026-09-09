@@ -13,6 +13,7 @@ import { MirrorNodeClient } from '../../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../../src/relay/lib/constants';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
+import { type Log } from '../../../../../src/relay/lib/model';
 import { CommonService, FilterService } from '../../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../../src/relay/lib/types';
 import RelayAssertions from '../../../assertions';
@@ -627,7 +628,7 @@ describe('Filter API Test Suite', async function () {
 
       const logs = await filterService.getFilterChanges(filterId, requestDetails);
       expect(logs).to.not.be.empty;
-      logs.forEach((log) => expect(Number(log.blockNumber)).to.equal(9));
+      (logs as Log[]).forEach((log) => expect(Number(log.blockNumber)).to.equal(9));
     });
 
     it('should return an empty set if there are no logs', async function () {

@@ -12,7 +12,7 @@ import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clie
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { type EthImpl } from '../../../../src/relay/lib/eth';
-import { type Block, type Transaction } from '../../../../src/relay/lib/model';
+import { type Block, type Transaction, type Transaction1559 } from '../../../../src/relay/lib/model';
 import { type CommonService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
@@ -403,7 +403,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
-      result.transactions.forEach((tx) => {
+      (result.transactions as Transaction1559[]).forEach((tx) => {
         expect(tx.maxFeePerGas).to.not.exist;
         expect(tx.maxPriorityFeePerGas).to.not.exist;
         expect(tx.type).to.be.eq(constants.ZERO_HEX);

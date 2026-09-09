@@ -15,7 +15,7 @@ import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import Constants from '../../server/helpers/constants';
 import { Utils } from '../../server/helpers/utils';
 import type { AliasAccount } from '../../server/types/AliasAccount';
-import { WsTestHelper } from '../helper';
+import { type WsJsonRpcResponse, WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
 
@@ -51,6 +51,10 @@ const createLogs = async (contract: ethers.Contract): Promise<void> => {
 
   await new Promise((resolve) => setTimeout(resolve, 2000));
 };
+
+interface SubscriptionEvent {
+  params: { subscription: string; result: { address: string } };
+}
 
 describe('@web-socket-batch-3 eth_subscribe', async function () {
   this.timeout(240 * 1000); // 240 seconds
@@ -228,7 +232,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           let subscriptionId = '';
           const webSocket = new WebSocket(WS_RELAY_URL);
 
-          let latestEventFromSubscription;
+          let latestEventFromSubscription: SubscriptionEvent | undefined;
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
@@ -255,28 +259,28 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           const tx1 = await logContractSigner.log1(100, gasOptions);
           await tx1.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
-          expect('1: ' + latestEventFromSubscription.params.result.address).to.be.eq(
+          expect('1: ' + latestEventFromSubscription!.params.result.address).to.be.eq(
             '1: ' + String(logContractSigner.target).toLowerCase(),
           );
-          expect('1: ' + latestEventFromSubscription.params.subscription).to.be.eq('1: ' + subscriptionId);
+          expect('1: ' + latestEventFromSubscription!.params.subscription).to.be.eq('1: ' + subscriptionId);
 
           // create event on contract 2
           const tx2 = await logContractSigner2.log1(200, gasOptions);
           await tx2.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
-          expect('2: ' + latestEventFromSubscription.params.result.address).to.be.eq(
+          expect('2: ' + latestEventFromSubscription!.params.result.address).to.be.eq(
             '2: ' + logContractSigner2.target.toLowerCase(),
           );
-          expect('2: ' + latestEventFromSubscription.params.subscription).to.be.eq('2: ' + subscriptionId);
+          expect('2: ' + latestEventFromSubscription!.params.subscription).to.be.eq('2: ' + subscriptionId);
 
           // create event on contract 3
           const tx3 = await logContractSigner3.log1(300, gasOptions);
           await tx3.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
-          expect('3: ' + latestEventFromSubscription.params.result.address).to.be.eq(
+          expect('3: ' + latestEventFromSubscription!.params.result.address).to.be.eq(
             '3: ' + logContractSigner3.target.toLowerCase(),
           );
-          expect('3: ' + latestEventFromSubscription.params.subscription).to.be.eq('3: ' + subscriptionId);
+          expect('3: ' + latestEventFromSubscription!.params.subscription).to.be.eq('3: ' + subscriptionId);
 
           // close the connection
           webSocket.close();
@@ -299,16 +303,16 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           )}}],"id":${requestId}}`;
           webSocket.send(request);
         });
-        let response;
+        let response: WsJsonRpcResponse | undefined;
         webSocket.on('message', function incoming(data) {
           response = JSON.parse(data);
         });
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        expect(response.id).to.be.eq(requestId);
-        expect(response.error.code).to.be.eq(-32602);
-        expect(response.error.message).to.match(
+        expect(response!.id).to.be.eq(requestId);
+        expect(response!.error!.code).to.be.eq(-32602);
+        expect(response!.error!.message).to.match(
           requestIdRegex(`Invalid parameter filters.address: Only one contract address is allowed`),
         );
 

@@ -29,8 +29,17 @@ export default defineConfig([
   // Global ignores
   {
     ignores: [
-      '**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', 'tools/**',
-      'dapp-example/**', 'k6/**', 'scripts/**', '.github/**', 'docs/**'],
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+      'tools/**',
+      'dapp-example/**',
+      'k6/**',
+      'scripts/**',
+      '.github/**',
+      'docs/**',
+    ],
   },
 
   // Main configuration for all TS files
@@ -72,7 +81,7 @@ export default defineConfig([
       'no-trailing-spaces': 'error',
       'no-useless-escape': 'warn',
       'prefer-const': 'error',
-      'eqeqeq': ["error", "always", { "null": "ignore" }],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-console': 'warn',
       'comma-dangle': [
         'error',
@@ -119,36 +128,8 @@ export default defineConfig([
     },
   },
 
-  // #5192 phase 4 - the three typing rules for `tests`, enabled per directory as the tree is migrated.
-  // This glob list grows with each commit and collapses to 'tests/**/*.ts' once `tests` is clean.
   {
-    files: [
-      'tests/acceptance-runner.ts',
-      'tests/bin/**/*.ts',
-      'tests/client-libraries/**/*.ts',
-      'tests/config-service/**/*.ts',
-      'tests/server/acceptance/**/*.ts',
-      'tests/server/clients/**/*.ts',
-      'tests/server/helpers/**/*.ts',
-      'tests/server/integration/**/*.ts',
-      'tests/protocol/**/*.ts',
-      'tests/relay/assertions.ts',
-      'tests/relay/helpers.ts',
-      'tests/relay/lib/*.spec.ts',
-      'tests/relay/lib/clients/**/*.ts',
-      'tests/relay/lib/config/**/*.ts',
-      'tests/relay/lib/debug/**/*.ts',
-      'tests/relay/lib/decorators/**/*.ts',
-      'tests/relay/lib/dispatcher/**/*.ts',
-      'tests/relay/lib/errors/**/*.ts',
-      'tests/relay/lib/eth/**/*.ts',
-      'tests/relay/lib/factories/**/*.ts',
-      'tests/relay/lib/fixtures/**/*.ts',
-      'tests/relay/lib/repositories/**/*.ts',
-      'tests/relay/lib/services/**/*.ts',
-      'tests/relay/lib/validators/**/*.ts',
-      'tests/ws-server/**/*.ts',
-    ],
+    files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'error',
