@@ -902,6 +902,38 @@ describe('RPC Server', function () {
       BaseTest.batchRequestLimitError(response, requests.length, 100);
     });
 
+    function getEthGetLogsRequest(id, addresses) {
+      return {
+        id: `${id}`,
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS,
+        params: [{ address: addresses, fromBlock: 'latest', toBlock: 'latest' }],
+      };
+    }
+
+    withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 2 }, async function () {
+      it('should reject the whole batch when the address total across entries exceeds the cap', async function () {
+        // 2 + 1 = 3 addresses across two eth_getLogs entries, over the cap of 2
+        const requests = [getEthGetLogsRequest(1, ['0xa', '0xb']), getEthGetLogsRequest(2, ['0xc'])];
+        const response = await testClient.post('/', requests);
+
+        BaseTest.batchRequestAddressLimitError(response, 3, 2);
+        // the whole batch is rejected: every position carries the same error
+        expect(response.data.length).to.equal(requests.length);
+        response.data.forEach((entry: any) => expect(entry.error.code).to.eq(-32204));
+      });
+
+      it('should not reject a batch with no address-bearing methods under a low cap', async function () {
+        const response = await testClient.post('/', [getEthChainIdRequest(1), getEthChainIdRequest(2)]);
+
+        BaseTest.baseDefaultResponseChecks(response);
+        response.data.forEach((entry: any) => {
+          expect(entry.error?.code).to.not.eq(-32204);
+          expect(entry.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+        });
+      });
+    });
+
     withOverriddenEnvsInMochaTest({ BATCH_REQUESTS_ENABLED: false }, async function () {
       it('should not execute batch request when disabled', async function () {
         try {
@@ -3299,21 +3331,40 @@ describe('RPC Server', function () {
 
       it('should execute with synthetic transactions in block', async () => {
         const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
-        const syntheticLog = {
+        const syntheticContractResult = {
           address: contractAddress1,
+          amount: null,
+          bloom: '0x',
+          call_result: '0x',
+          contract_id: '0.0.1033',
+          created_contract_ids: [],
+          error_message: null,
+          from: contractAddress2,
+          function_parameters: '0x',
+          gas_consumed: null,
+          gas_limit: 0,
+          gas_used: null,
+          timestamp: '1696438011.462526383',
+          to: contractAddress1,
+          hash: syntheticTxHash,
           block_hash:
             '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
           block_number: 1,
-          data: '0x0000000000000000000000000000000000000000000000000000000000000064',
-          index: 0,
-          timestamp: '1696438011.462526383',
-          topics: [
-            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
-            `0x000000000000000000000000${contractAddress2.slice(2)}`,
-            `0x000000000000000000000000${contractAddress1.slice(2)}`,
-          ],
-          transaction_hash: syntheticTxHash,
+          result: 'SUCCESS',
           transaction_index: 1,
+          status: '0x1',
+          failed_initcode: null,
+          access_list: null,
+          block_gas_used: 0,
+          chain_id: '0x12a',
+          gas_price: '0x56',
+          max_fee_per_gas: null,
+          max_priority_fee_per_gas: null,
+          r: null,
+          s: null,
+          type: 0,
+          v: null,
+          nonce: null,
         };
 
         const syntheticCallTracerResult = {
@@ -3327,11 +3378,7 @@ describe('RPC Server', function () {
           output: '0x',
         };
 
-        // Mock getContractResultWithRetry to return empty (no EVM transactions)
-        getContractResultWithRetry.resolves([]);
-
-        // Mock getContractResultsLogsWithRetry to return synthetic log
-        getContractResultsLogsWithRetry.resolves([syntheticLog]);
+        getContractResultWithRetry.resolves([syntheticContractResult]);
 
         // Mock callTracer to return result for synthetic hash
         callTracer.withArgs(syntheticTxHash, sinon.match.any, sinon.match.any).resolves(syntheticCallTracerResult);
@@ -3545,6 +3592,15 @@ class BaseTest {
       requestIdRegex(`Batch request amount ${amount} exceeds max ${max}`),
     );
     expect(response.data[0].error.code).to.eq(-32203);
+  }
+
+  static batchRequestAddressLimitError(response: any, total: number, max: number) {
+    expect(response.status).to.eq(200);
+    expect(response.statusText).to.be.equal('OK');
+    expect(response.data[0].error.message).to.match(
+      requestIdRegex(`Batch request address total ${total} exceeds max ${max}`),
+    );
+    expect(response.data[0].error.code).to.eq(-32204);
   }
 
   static invalidParamError(response: any, code: number, message: string) {

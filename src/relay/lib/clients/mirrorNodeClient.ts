@@ -10,15 +10,17 @@ import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
 import type { Logger } from 'pino';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Histogram, type Registry } from 'prom-client';
 import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
+import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
   type IAccountRequestParams,
@@ -34,6 +36,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
+import { type ITransactionTimestampIndex } from '../types/ITransactionTimestampIndex';
 import type {
   ContractAction,
   MirrorNodeBlock,
@@ -77,6 +80,29 @@ export const isImmatureContractRecord = (
  */
 export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
   record != null && record.nonce == null && record.v == null;
+
+/**
+ * Whether a Mirror Node contract-result record is synthetic: fabricated for a native Hedera transaction
+ * (CRYPTOTRANSFER, TOKENMINT and the like) that never reached the EVM, so it has no gas limit.
+ *
+ * Stricter than {@link isChildContractRecord}, which also matches HAPI-submitted CONTRACTCALL records: those
+ * carry no ethereum signature either, but they did execute and are resolvable by hash.
+ */
+export const isSyntheticContractRecord = (
+  record?: {
+    gas_limit?: number | null;
+    nonce?: number | null;
+    v?: number | null;
+    r?: string | null;
+    s?: string | null;
+  } | null,
+): boolean =>
+  record != null &&
+  record.gas_limit === 0 &&
+  record.nonce == null &&
+  record.v == null &&
+  record.r == null &&
+  record.s == null;
 
 export class MirrorNodeClient {
   private static readonly GET_BLOCK_ENDPOINT = 'blocks/';
@@ -177,12 +203,6 @@ export class MirrorNodeClient {
   public readonly web3Url: string;
 
   /**
-   * The metrics register used for metrics tracking.
-   * @private
-   */
-  private readonly register: Registry;
-
-  /**
    * The histogram used for tracking the response time of the mirror node.
    * @private
    */
@@ -199,6 +219,12 @@ export class MirrorNodeClient {
    * @private
    */
   private readonly cacheService: ICacheClient;
+
+  /**
+   * Hash to consensus timestamp index for synthetic transactions, written while serving a block and read
+   * when a by-hash lookup finds nothing. Disabled unless the composition root supplies one.
+   */
+  public readonly transactionTimestampIndex: ITransactionTimestampIndex;
 
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
@@ -317,6 +343,7 @@ export class MirrorNodeClient {
     restClient?: AxiosInstance,
     web3Url?: string,
     web3Client?: AxiosInstance,
+    transactionTimestampIndex: ITransactionTimestampIndex = new DisabledTransactionTimestampIndex(),
   ) {
     if (!web3Url) {
       web3Url = restUrl;
@@ -337,27 +364,10 @@ export class MirrorNodeClient {
     }
 
     this.logger = logger;
-    this.register = register;
 
-    // clear and create metric in registry
-    const metricHistogramName = 'rpc_relay_mirror_response';
-    this.register.removeSingleMetric(metricHistogramName);
-    this.mirrorResponseHistogram = new Histogram({
-      name: metricHistogramName,
-      help: 'Mirror node response method statusCode latency histogram',
-      labelNames: ['method', 'statusCode'],
-      registers: [register],
-      buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000], // ms (milliseconds)
-    });
-
-    // Initialize the error counter
-    this.register.removeSingleMetric('rpc_relay_mirror_node_http_error_code_count');
-    this.mirrorErrorCodeCounter = new Counter({
-      name: 'rpc_relay_mirror_node_http_error_code_count',
-      help: 'Count of errors returned from Mirror Node by HTTP status code and error type',
-      labelNames: ['method', 'statusCode'],
-      registers: [register],
-    });
+    const metricsFactory = new MetricsFactory(register);
+    this.mirrorResponseHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseLatency);
+    this.mirrorErrorCodeCounter = metricsFactory.counter(METRICS.mirrorNode.httpErrorCodes);
 
     if (isMainThread) {
       this.logger.info(
@@ -367,6 +377,7 @@ export class MirrorNodeClient {
       );
     }
     this.cacheService = cacheService;
+    this.transactionTimestampIndex = transactionTimestampIndex;
 
     // set  up eth call  accepted error codes.
     const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
@@ -402,6 +413,45 @@ export class MirrorNodeClient {
       return `[${ip}]`;
     }
     return ip;
+  }
+
+  /**
+   * Matches a JSON number literal that `json-bigint` would widen into a `BigNumber`.
+   *
+   * `json-bigint` widens a literal whose textual form is longer than 15 characters (`lib/parse.js`:
+   * `if (string.length > 15)`) - the form it measures includes the sign, the decimal point and the
+   * exponent, not just the integer digits. Both branches below therefore require a 16-character or
+   * longer literal, so nothing json-bigint widens can slip through.
+   *
+   * A JSON number only ever appears at the start of the document, after `[` or `,` in an array, or
+   * as an object value. Anchoring on those positions is what makes the probe usable at all: the
+   * zero-padded `data`, `topics` and `bloom` fields of a log response are long digit runs, and an
+   * unanchored scan would match nearly every response.
+   */
+  private static readonly WIDENED_NUMBER_LITERAL_REGEX = /(?:^|"\s*:|[,[])\s*(?:-[\d.eE+-]{15,}|\d[\d.eE+-]{15,})/;
+
+  /**
+   * Parses a response body and if there is a big number in it - uses JSONBigInt.parse instead of JSON.parse
+   *
+   * @param data - The raw response body.
+   * @returns The parsed body, or `data` unchanged when it is empty or cannot be parsed.
+   */
+  private parseResponseBody(data: any): any {
+    // if the data is not valid, just return it to stick to the current behaviour
+    if (!data) {
+      return data;
+    }
+
+    try {
+      return typeof data === 'string' && !MirrorNodeClient.WIDENED_NUMBER_LITERAL_REGEX.test(data)
+        ? JSON.parse(data)
+        : JSONBigInt.parse(data);
+    } catch (error) {
+      this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
+    }
+
+    // return raw data so response can be processed properly by subsequent operations.
+    return data;
   }
 
   private async request<T>(
@@ -442,23 +492,7 @@ export class MirrorNodeClient {
           // is converted to a JS Number type, precision is lost due to rounding.
           // To prevent this, `transformResponse` is used to intercept
           // and process the response before Axios’s default JSON.parse conversion.
-          // JSONBigInt reads the string representation from the received JSON
-          // and converts large numbers into BigNumber objects to maintain accuracy.
-          axiosRequestConfig['transformResponse'] = [
-            (data): any => {
-              // if the data is not valid, just return it to stick to the current behaviour
-              if (data) {
-                try {
-                  return JSONBigInt.parse(data);
-                } catch (error) {
-                  this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
-                }
-              }
-
-              // Return raw data so response can be processed properly by subsequent operations.
-              return data;
-            },
-          ];
+          axiosRequestConfig['transformResponse'] = [(data): any => this.parseResponseBody(data)];
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {

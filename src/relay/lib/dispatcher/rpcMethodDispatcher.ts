@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
+import { type Counter, Registry } from 'prom-client';
 
+import { METRICS, MetricsFactory } from '../../../metrics';
 import { Utils } from '../../utils';
 import { JsonRpcError } from '../errors/JsonRpcError';
 import { predefined } from '../errors/JsonRpcError';
@@ -35,14 +36,7 @@ export class RpcMethodDispatcher {
     private readonly logger: Logger,
     register: Registry = new Registry(),
   ) {
-    const metricName = 'rpc_relay_consensus_node_errors_total';
-    register.removeSingleMetric(metricName);
-    this.consensusNodeErrorsCounter = new Counter({
-      name: metricName,
-      help: 'Counter for calls to methods of CacheService separated by CallingMethod and CacheType',
-      registers: [register],
-      labelNames: ['status_name'],
-    });
+    this.consensusNodeErrorsCounter = new MetricsFactory(register).counter(METRICS.consensusNode.errors);
   }
 
   /**

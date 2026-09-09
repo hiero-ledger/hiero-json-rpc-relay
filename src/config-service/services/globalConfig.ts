@@ -403,6 +403,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  MAX_ADDRESSES_PER_REQUEST: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
@@ -813,6 +818,21 @@ const _CONFIG = {
     required: false,
     defaultValue: 900000,
   },
+  TX_TIMESTAMP_INDEX_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  TX_TIMESTAMP_INDEX_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 10000,
+  },
+  TX_TIMESTAMP_INDEX_TTL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
+  },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
     required: false,
@@ -897,11 +917,6 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
-  },
-  WS_MULTIPLE_ADDRESSES_LIMIT: {
-    type: 'number',
-    required: false,
-    defaultValue: 1000,
   },
   WS_NEW_HEADS_ENABLED: {
     type: 'boolean',

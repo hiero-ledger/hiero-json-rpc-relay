@@ -11,15 +11,19 @@ services:
     volumes:
       - ./.env:/home/node/app/.env
     environment:
+      RPC_HTTP_ENABLED: "true"
+      RPC_WS_ENABLED: "false"
       REDIS_ENABLED: true
       REDIS_URL: "redis://redis:6379"
 
   relay-ws:
     container_name: hedera-json-rpc-relay-ws
     image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:main"
-    # Override the default HTTP server CMD with the WebSocket server entry-point in Dockerfile.
-    command: ["packages/ws-server/dist/index.js"]
+    # Uses the image default CMD (dist/index.js); the transport is selected with env vars,
+    # matching the Helm websocket chart and the `start:ws` script in package.json.
     environment:
+      RPC_HTTP_ENABLED: "false"
+      RPC_WS_ENABLED: "true"
       HEALTHCHECK_PORT: 8547
       SUBSCRIPTIONS_ENABLED: true
       REDIS_ENABLED: true

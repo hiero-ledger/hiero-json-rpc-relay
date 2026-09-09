@@ -2,10 +2,11 @@
 
 import { type AccountId } from '@hiero-ledger/sdk';
 import { type Logger } from 'pino';
-import { Gauge, type Registry } from 'prom-client';
+import { type Gauge, type Registry } from 'prom-client';
 import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../config-service/services';
+import { METRICS, MetricsFactory } from '../../metrics';
 import type { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
@@ -27,6 +28,7 @@ import {
   LockService,
   LockStrategyFactory,
   TransactionPoolService,
+  TransactionTimestampIndexFactory,
   TransactionTracingService,
   TransactionTracingStorageFactory,
 } from './services';
@@ -202,13 +204,7 @@ export class Relay {
     logger: Logger,
     register: Registry,
   ): Gauge {
-    const metricGaugeName = 'rpc_relay_operator_balance';
-    register.removeSingleMetric(metricGaugeName);
-    return new Gauge({
-      name: metricGaugeName,
-      help: 'Relay operator balance gauge',
-      labelNames: ['mode', 'type', 'accountId'],
-      registers: [register],
+    return new MetricsFactory(register).gauge(METRICS.operator.balance, {
       async collect(): Promise<void> {
         // Invoked when the registry collects its metrics' values.
         // Allows for updated account balance tracking
@@ -340,7 +336,7 @@ export class Relay {
     this.web3Impl = new Web3Impl();
     this.netImpl = new NetImpl();
 
-    // Create Mirror Node client
+    // Create Mirror Node client.
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       this.logger.child({ name: `mirror-node` }),
@@ -348,6 +344,8 @@ export class Relay {
       this.cacheService,
       undefined,
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
+      undefined,
+      TransactionTimestampIndexFactory.create(this.logger.child({ name: 'tx-timestamp-index' }), this.redisClient),
     );
 
     // Create Metric service

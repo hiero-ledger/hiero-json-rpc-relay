@@ -2,9 +2,10 @@
 
 import { type Transaction } from 'ethers/transaction';
 import { type Logger } from 'pino';
-import { Counter, Gauge, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import {
   type PendingTransactionStorage,
   type TransactionPoolService as ITransactionPoolService,
@@ -78,42 +79,17 @@ export class TransactionPoolService implements ITransactionPoolService {
     this.storage = storage;
     this.logger = logger.child({ name: 'transaction-pool-service' });
     this.storageType = storage instanceof RedisPendingTransactionStorage ? 'redis' : 'local';
-    const metricNames = [
-      'rpc_relay_txpool_pending_count',
-      'rpc_relay_txpool_operations_total',
-      'rpc_relay_txpool_storage_errors_total',
-      'rpc_relay_txpool_active_addresses',
-    ];
-    metricNames.forEach((name) => register.removeSingleMetric(name));
+    const metricsFactory = new MetricsFactory(register);
 
-    this.pendingCountGauge = new Gauge({
-      name: 'rpc_relay_txpool_pending_count',
-      help: 'Current total pending transactions across all addresses.',
-      registers: [register],
+    this.pendingCountGauge = metricsFactory.gauge(METRICS.transactionPool.pendingCount, {
       collect: async (): Promise<void> => {
         const count = (await this.getAllTransactions()).size;
         this.pendingCountGauge.set(count);
       },
     });
-
-    this.operationsCounter = new Counter({
-      name: 'rpc_relay_txpool_operations_total',
-      help: 'Pool operations. Operation: add, remove.',
-      labelNames: ['operation'],
-      registers: [register],
-    });
-
-    this.storageErrorsCounter = new Counter({
-      name: 'rpc_relay_txpool_storage_errors_total',
-      help: 'Storage operation failures. Backend: local, redis. Operation: add, remove, get.',
-      labelNames: ['operation', 'backend'],
-      registers: [register],
-    });
-
-    this.activeAddressesGauge = new Gauge({
-      name: 'rpc_relay_txpool_active_addresses',
-      help: 'All current unique addresses having transactions in the pending pool',
-      registers: [register],
+    this.operationsCounter = metricsFactory.counter(METRICS.transactionPool.operations);
+    this.storageErrorsCounter = metricsFactory.counter(METRICS.transactionPool.storageErrors);
+    this.activeAddressesGauge = metricsFactory.gauge(METRICS.transactionPool.activeAddresses, {
       collect: async (): Promise<void> => {
         const count = await this.getUniqueAddressesCount();
         this.activeAddressesGauge.set(count);
