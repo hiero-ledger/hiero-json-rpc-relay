@@ -21,7 +21,7 @@ export default class RelayClient {
    * @param methodName
    * @param params
    */
-  async call(methodName: string, params: any[]) {
+  async call(methodName: string, params: unknown[]): ReturnType<ethers.JsonRpcProvider['send']> {
     return await this.provider.send(methodName, params);
   }
 
@@ -34,7 +34,9 @@ export default class RelayClient {
    * @param payload
    * @returns
    */
-  async callBatch(payload: { id: number; method: string; params: any[] }[]) {
+  async callBatch(
+    payload: { id: number; method: string; params: unknown[] }[],
+  ): Promise<ethers.FetchResponse['bodyJson']> {
     const request = this.provider._getConnection();
     request.setHeader('content-type', 'application/json');
     request.body = JSON.stringify(payload.map((r) => ({ ...r, jsonrpc: '2.0' })));
@@ -50,21 +52,30 @@ export default class RelayClient {
    * @param params
    * @param expectedRpcError
    */
-  async callFailing(methodName: string, params: any[], expectedRpcError = predefined.INTERNAL_ERROR()) {
+  async callFailing(
+    methodName: string,
+    params: unknown[],
+    expectedRpcError = predefined.INTERNAL_ERROR(),
+  ): Promise<void> {
     try {
       await this.call(methodName, params);
       Assertions.expectedError();
-    } catch (e: any) {
+    } catch (e) {
+      const thrown = e as {
+        info?: { error?: unknown };
+        error?: unknown;
+        response?: { bodyJson?: { error?: unknown } };
+      };
       if (expectedRpcError.message.includes('execution reverted')) {
-        if (e?.info) {
-          Assertions.jsonRpcError(e.info.error, expectedRpcError);
-        } else if (e?.error) {
-          Assertions.jsonRpcError(e.error, expectedRpcError);
+        if (thrown?.info) {
+          Assertions.jsonRpcError(thrown.info.error, expectedRpcError);
+        } else if (thrown?.error) {
+          Assertions.jsonRpcError(thrown.error, expectedRpcError);
         } else {
           Assertions.expectedError();
         }
       } else {
-        Assertions.jsonRpcError(e?.response?.bodyJson?.error, expectedRpcError);
+        Assertions.jsonRpcError(thrown?.response?.bodyJson?.error, expectedRpcError);
       }
     }
   }
@@ -74,12 +85,13 @@ export default class RelayClient {
    * @param methodName
    * @param params
    */
-  async callUnsupported(methodName: string, params: any[]) {
+  async callUnsupported(methodName: string, params: unknown[]): Promise<void> {
     try {
       await this.call(methodName, params);
       Assertions.expectedError();
-    } catch (e: any) {
-      Assertions.unsupportedResponse(e?.response?.bodyJson);
+    } catch (e) {
+      const thrown = e as { response?: { bodyJson?: { error: { code: number; message: string } } } };
+      Assertions.unsupportedResponse(thrown?.response?.bodyJson as { error: { code: number; message: string } });
     }
   }
 
@@ -88,7 +100,7 @@ export default class RelayClient {
    * @param address
    * @param block
    */
-  async getBalance(address: ethers.AddressLike, block: BlockTag = 'latest') {
+  async getBalance(address: ethers.AddressLike, block: BlockTag = 'latest'): Promise<bigint> {
     return this.provider.getBalance(address, block);
   }
 
@@ -108,7 +120,7 @@ export default class RelayClient {
    * Returns: Transaction hash
    * @param signedTx
    */
-  async sendRawTransaction(signedTx): Promise<string> {
+  async sendRawTransaction(signedTx: string): Promise<string> {
     return this.provider.send('eth_sendRawTransaction', [signedTx]);
   }
 

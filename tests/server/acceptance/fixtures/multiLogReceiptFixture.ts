@@ -11,6 +11,7 @@ import {
   type TokenId,
   TokenSupplyType,
   TokenType,
+  type TransactionRecord,
   TransferTransaction,
 } from '@hiero-ledger/sdk';
 
@@ -40,7 +41,7 @@ export class MultiLogReceiptFixture {
    *
    * @returns Hex-encoded block number (e.g. `0x83`)
    */
-  public async createBlockWithMultiLogSyntheticTransaction() {
+  public async createBlockWithMultiLogSyntheticTransaction(): Promise<string> {
     const { recipientId, recipientKey } = await this.createRecipient();
     const tokenIds = await Promise.all([
       this.createToken('MultiLog Testing Token', 'MLTT'),
@@ -63,7 +64,7 @@ export class MultiLogReceiptFixture {
    * @param symbol - Token symbol
    * @returns Created token ID
    */
-  private async createToken(name: string, symbol: string) {
+  private async createToken(name: string, symbol: string): Promise<TokenId> {
     const tokenCreateTx = await new TokenCreateTransaction()
       .setTokenName(name)
       .setTokenSymbol(symbol)
@@ -83,7 +84,7 @@ export class MultiLogReceiptFixture {
    *
    * @returns Recipient account ID and private key
    */
-  private async createRecipient() {
+  private async createRecipient(): Promise<{ recipientId: AccountId; recipientKey: PrivateKey }> {
     const recipientKey = PrivateKey.generateED25519();
     const recipientCreateTx = await new AccountCreateTransaction()
       .setKeyWithoutAlias(recipientKey.publicKey)
@@ -104,7 +105,7 @@ export class MultiLogReceiptFixture {
    * @param maxRetries - Maximum number of retry attempts
    * @returns Hedera block number
    */
-  private async fetchBlockNumberWithRetries(timestamp: string, maxRetries = 3) {
+  private async fetchBlockNumberWithRetries(timestamp: string, maxRetries = 3): Promise<number> {
     let attempt = 0;
     while (attempt++ < maxRetries) {
       const blockData = await this.mirrorNode.get(`/blocks?timestamp=gte:${timestamp}&limit=1&order=asc`);
@@ -121,7 +122,7 @@ export class MultiLogReceiptFixture {
    * @param accountId - Account to associate tokens with
    * @param signerKey - Private key of the account being associated
    */
-  private async associate(tokenIds: TokenId[], accountId: AccountId, signerKey: PrivateKey) {
+  private async associate(tokenIds: TokenId[], accountId: AccountId, signerKey: PrivateKey): Promise<void> {
     const assocTx = await new TokenAssociateTransaction()
       .setAccountId(accountId)
       .setTokenIds(tokenIds)
@@ -142,7 +143,7 @@ export class MultiLogReceiptFixture {
    * @param recipientId - Recipient account
    * @returns Transaction record of the executed transfer
    */
-  private async executeCryptoTransfer(tokenIds: TokenId[], recipientId: AccountId) {
+  private async executeCryptoTransfer(tokenIds: TokenId[], recipientId: AccountId): Promise<TransactionRecord> {
     const tokenAmount = 5_000_000;
 
     const cryptoTransfer = new TransferTransaction();

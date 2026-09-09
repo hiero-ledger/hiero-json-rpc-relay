@@ -24,7 +24,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
   async function sendRaw(
     method: 'GET' | 'POST' | 'PUT',
     path: string,
-    body?: any,
+    body?: unknown,
     headers?: Record<string, string>,
   ): Promise<AxiosResponse> {
     return client.request({
@@ -36,7 +36,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
   }
 
   async function sendJsonRpc(
-    payload: any,
+    payload: unknown,
     headers?: Record<string, string>,
   ): Promise<AxiosResponse<JsonRpcResponse | JsonRpcResponse[]>> {
     return sendRaw('POST', '/', payload, {
@@ -45,7 +45,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     });
   }
 
-  function expectValidJsonRpc(response: AxiosResponse, { allowEmptyBody = false } = {}) {
+  function expectValidJsonRpc(response: AxiosResponse, { allowEmptyBody = false } = {}): void {
     if (allowEmptyBody) {
       expect(response.data === '' || response.data === undefined || response.data === null).to.be.true;
       return;
@@ -68,18 +68,18 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     }
   }
 
-  function expectCorrectResult(response: AxiosResponse<JsonRpcResponse>) {
+  function expectCorrectResult(response: AxiosResponse<JsonRpcResponse>): void {
     expect(response.status).to.equal(200);
     expect(response.data).to.have.property('result');
     expect(response.data).to.not.have.property('error');
     expect(response.data).to.have.property('jsonrpc', '2.0');
   }
 
-  function expectNoHttp500(response: AxiosResponse) {
+  function expectNoHttp500(response: AxiosResponse): void {
     expect(response.status).to.not.equal(500);
   }
 
-  function expectBatchLimitExceeded(response: AxiosResponse) {
+  function expectBatchLimitExceeded(response: AxiosResponse): void {
     expect(response.status).to.equal(200);
     expect(Array.isArray(response.data)).to.be.true;
 
@@ -389,7 +389,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     });
 
     it('All syntactically valid JSON-RPC payloads return HTTP 200 (errors only via JSON-RPC error objects)', async function () {
-      const cases: any[] = [
+      const cases: unknown[] = [
         {
           jsonrpc: '2.0',
           id: 'unknown',

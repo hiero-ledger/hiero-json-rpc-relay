@@ -192,7 +192,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
       it('creates a new filter and retrieves logs using eth_getLogs with the same filter', async function () {
         const filter = { fromBlock: 'latest', toBlock: 'latest' };
-        const createUintFilterIdWithLessThan16Bytes = async () => {
+        const createUintFilterIdWithLessThan16Bytes = async (): Promise<bigint | null> => {
           for (let attempt = 0; attempt < 200; attempt++) {
             // Each attempt has 10% of success rate.
             const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [filter]);
@@ -1160,7 +1160,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
     it('@release Should return errors for blacklisted methods', async function () {
       const disallowedMethods = ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS');
-      const payload: any[] = [];
+      const payload: { id: number; method: string; params: unknown[] }[] = [];
       for (let index = 0; index < disallowedMethods.length; index++) {
         payload.push({
           id: index,
@@ -1205,9 +1205,11 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
         const res = await relay.callBatch(payload);
         expect(res).to.have.length(payload.length);
-        expect(res.filter((r) => r.id === 1)[0].result).to.be.equal(CHAIN_ID);
-        expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x0');
-        expect(res.filter((r) => r.id === 3)[0].result).to.be.equal('0x' + Assertions.defaultGasPrice.toString(16));
+        expect(res.filter((r: { id: number }) => r.id === 1)[0].result).to.be.equal(CHAIN_ID);
+        expect(res.filter((r: { id: number }) => r.id === 2)[0].result).to.be.equal('0x0');
+        expect(res.filter((r: { id: number }) => r.id === 3)[0].result).to.be.equal(
+          '0x' + Assertions.defaultGasPrice.toString(16),
+        );
       }
 
       let transactionHash: string;
@@ -1263,8 +1265,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
         const res = await relay.callBatch(payload);
         expect(res).to.have.length(payload.length);
-        expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x1');
-        expect(res.filter((r) => r.id === 3)[0].result.transactionHash).to.be.equal(transactionHash);
+        expect(res.filter((r: { id: number }) => r.id === 2)[0].result).to.be.equal('0x1');
+        expect(res.filter((r: { id: number }) => r.id === 3)[0].result.transactionHash).to.be.equal(transactionHash);
       }
     });
   });
@@ -1280,7 +1282,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       timeout: 30 * 1000,
     });
 
-    const generateTest = (method, params) => {
+    const generateTest = (method: string, params: unknown[]): void => {
       it(method, async () => {
         try {
           await testClient.post('/', {
@@ -1291,8 +1293,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           });
 
           Assertions.expectedError();
-        } catch (e: any) {
-          const res = e.response;
+        } catch (e) {
+          const res = (e as { response: { status: number; data: { error: unknown } } }).response;
           expect(res.status).to.equal(400);
           Assertions.jsonRpcError(res.data.error, predefined.INVALID_PARAMETERS);
         }
