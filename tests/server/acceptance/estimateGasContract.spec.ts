@@ -16,14 +16,14 @@ describe('EstimateGasContract tests', function () {
   const signers: AliasAccount[] = [];
   let contract: ethers.Contract;
   let randomAddress: string;
-  const { servicesNode, relay }: any = global;
+  const { servicesNode, relay } = global;
 
   before(async function () {
     signers[0] = await servicesNode.createAliasAccount(15, relay.provider);
 
     const contractReceipt = await servicesNode.deployContract(EstimateGasContractJson, 500_000);
     contract = new ethers.Contract(
-      Utils.add0xPrefix(contractReceipt.contractId.toSolidityAddress()),
+      Utils.add0xPrefix(contractReceipt.contractId!.toSolidityAddress()),
       EstimateGasContractJson.abi,
       signers[0].wallet,
     );
@@ -31,7 +31,7 @@ describe('EstimateGasContract tests', function () {
     randomAddress = ethers.Wallet.createRandom().address;
   });
 
-  const baseGasCheck = (estimatedGasValue, expectedValue: number) => {
+  const baseGasCheck = (estimatedGasValue: string, expectedValue: number): void => {
     // handle deviation of 20%
     expect(Number(estimatedGasValue)).to.be.lessThan(expectedValue * 1.4);
   };

@@ -26,11 +26,25 @@ enum Outcomes {
   Error = 'ERROR',
 }
 
-const removeLeading0x = (input: string) => {
+interface ContractCallRecord {
+  contract_id: string;
+  result: string;
+  status: string;
+  hash: string;
+}
+
+interface ContractActionRecord {
+  timestamp: string;
+  call_operation_type: string;
+  result_data_type: string;
+  result_data: string;
+}
+
+const removeLeading0x = (input: string): string => {
   return input.startsWith(Constants.EMPTY_HEX) ? input.replace(Constants.EMPTY_HEX, '') : input;
 };
 
-const removeLeadingZeros = (input) => {
+const removeLeadingZeros = (input: string): string => {
   let result = input;
   while (result[0] === '0') {
     result = result.substring(1);
@@ -38,25 +52,32 @@ const removeLeadingZeros = (input) => {
   return result;
 };
 
-const decodeResultData = (input: string) => {
+const decodeResultData = (input: string): string => {
   return hexToASCII(removeLeading0x(input));
 };
 
-const getTransactionIdFromException = (error) => {
-  const idFromEx = error.transactionId.toString().split('@');
+const getTransactionIdFromException = (error: unknown): string => {
+  const idFromEx = (error as { transactionId: { toString(): string } }).transactionId.toString().split('@');
   return `${idFromEx[0]}-${idFromEx[1].replace('.', '-')}`;
 };
 
-async function testRejection(errorMessage, method, checkMessage, thisObj, args?) {
-  await expect(method.apply(thisObj, args), `${errorMessage}`).to.eventually.be.rejected.and.satisfy((err) => {
+async function testRejection(
+  errorMessage: string,
+  method: (...args: never[]) => unknown,
+  checkMessage: boolean,
+  thisObj: unknown,
+  args: unknown[] = [],
+): Promise<void> {
+  const invoke = method as (...invokeArgs: unknown[]) => unknown;
+  await expect(invoke.apply(thisObj, args), `${errorMessage}`).to.eventually.be.rejected.and.satisfy((err: Error) => {
     return err.message.includes(errorMessage);
   });
 }
 
 describe('Equivalence tests', async function () {
-  const { servicesNode, mirrorNode, relay }: any = global;
+  const { servicesNode, mirrorNode, relay } = global;
   const servicesClient = servicesNode as ServicesClient;
-  const mirrorNodeClient = mirrorNode as MirrorNodeClient;
+  const mirrorNodeClient = mirrorNode as unknown as MirrorNodeClient;
 
   const SUCCESS = 'SUCCESS';
   const STATUS_SUCCESS = '0x1';
@@ -95,26 +116,31 @@ describe('Equivalence tests', async function () {
   const MAKE_HTS_CALL_WITHOUT_AMOUNT = 'htsCallWithoutAmount';
   const MAKE_HTS_CALL_WITH_AMOUNT = 'htsCallWithAmount';
   const accounts: AliasAccount[] = [];
-  let tokenAddress;
+  let tokenAddress: string;
   let estimatePrecompileContractReceipt;
-  let estimatePrecompileContractAddress;
-  let estimatePrecompileSolidityAddress;
+  let estimatePrecompileContractAddress: string;
+  let estimatePrecompileSolidityAddress: string;
   let equivalenceContractReceipt;
-  let equivalenceContractId;
+  let equivalenceContractId: string;
   let estimateContract;
 
   const validateContractCall = (
-    record,
+    record: ContractCallRecord,
     expectedContractId = equivalenceContractId,
     expectedResult = SUCCESS,
     expectedStatus = STATUS_SUCCESS,
-  ) => {
+  ): void => {
     expect(record.contract_id).to.equal(expectedContractId, "Record 'contract_id' was not as expected.");
     expect(record.result).to.equal(expectedResult, "Record 'result' was not as expected.");
     expect(record.status).to.equal(expectedStatus, "Record 'status' was not as expected.");
   };
 
-  const validateContractActions = (contractAction, callType: CallTypes, outcome: Outcomes, message?: string) => {
+  const validateContractActions = (
+    contractAction: ContractActionRecord,
+    callType: CallTypes,
+    outcome: Outcomes,
+    message?: string,
+  ): void => {
     const txLookup = `\nCheck transaction record by timestamp:'${contractAction.timestamp}'`;
     expect(contractAction.call_operation_type).to.equal(
       callType.toUpperCase(),
@@ -152,15 +178,15 @@ describe('Equivalence tests', async function () {
       EstimatePrecompileContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    estimatePrecompileContractAddress = estimatePrecompileContractReceipt.contractId.toString();
-    estimatePrecompileSolidityAddress = estimatePrecompileContractReceipt.contractId.toSolidityAddress();
+    estimatePrecompileContractAddress = estimatePrecompileContractReceipt.contractId!.toString();
+    estimatePrecompileSolidityAddress = estimatePrecompileContractReceipt.contractId!.toSolidityAddress();
 
     //Deploying Equivalence contract
     equivalenceContractReceipt = await servicesClient.deployContract(
       EquivalenceContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    equivalenceContractId = equivalenceContractReceipt.contractId.toString();
+    equivalenceContractId = equivalenceContractReceipt.contractId!.toString();
 
     const contractMirror = await mirrorNodeClient.get(`/contracts/${estimatePrecompileSolidityAddress}`);
 
@@ -325,7 +351,7 @@ describe('Equivalence tests', async function () {
     return params;
   };
 
-  async function getResultByEntityIdAndTxTimestamp(entityId, txTimestamp) {
+  async function getResultByEntityIdAndTxTimestamp(entityId: string, txTimestamp: string): Promise<ContractCallRecord> {
     return await mirrorNode.get(`/contracts/${entityId}/results/${txTimestamp}`);
   }
 
@@ -334,11 +360,11 @@ describe('Equivalence tests', async function () {
    * @param transactionIdOrHash Transaction Id or a 32 byte hash with optional 0x prefix
    * @returns list of ContractActions
    */
-  async function getContractActions(transactionIdOrHash: string) {
+  async function getContractActions(transactionIdOrHash: string): Promise<{ actions: ContractActionRecord[] }> {
     return await mirrorNode.get(`/contracts/results/${transactionIdOrHash}/actions`);
   }
 
-  async function createFungibleToken() {
+  async function createFungibleToken(): Promise<string> {
     estimateContract = new ethers.Contract(
       Constants.EMPTY_HEX + estimatePrecompileSolidityAddress,
       EstimatePrecompileContractJson.abi,
@@ -350,7 +376,7 @@ describe('Equivalence tests', async function () {
     });
 
     const tokenAddress = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args[0];
     return tokenAddress;
   }
