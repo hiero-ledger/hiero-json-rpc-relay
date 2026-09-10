@@ -3,11 +3,12 @@
 import { expect } from 'chai';
 import { type Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { type RedisClientType } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { RedisRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../../src/relay/lib/types/rateLimiter';
+import { useInMemoryRedisServer } from '../../../helpers';
 
 describe('RedisRateLimitStore Test Suite', function () {
   this.timeout(10000);
@@ -214,5 +215,134 @@ describe('RedisRateLimitStore Test Suite', function () {
       const evalOptions = evalCall.args[1] as { keys: string[]; arguments: string[] };
       expect(evalOptions.arguments[1]).to.equal('2'); // TTL ceiled to 2 seconds
     });
+  });
+});
+
+describe('RedisRateLimitStore Real Redis Test Suite', function () {
+  this.timeout(20000);
+
+  const logger = pino({ level: 'silent' });
+  const duration = 1000;
+  const port = 6386;
+
+  let redisClient: RedisClientType;
+  let store: RedisRateLimitStore;
+  let keyCounter = 0;
+
+  const uniqueKey = () => new RateLimitKey(`127.0.0.${++keyCounter}`, 'eth_chainId');
+
+  after(() => {
+    redisClient?.destroy();
+  });
+
+  useInMemoryRedisServer(logger, port);
+
+  before(async () => {
+    redisClient = createClient({ url: `redis://127.0.0.1:${port}` }) as RedisClientType;
+    await redisClient.connect();
+    store = new RedisRateLimitStore(redisClient, logger, duration);
+  });
+
+  it('should allow requests up to the limit', async () => {
+    const key = uniqueKey();
+
+    for (let i = 0; i < 5; i++) {
+      expect(await store.incrementAndCheck(key, 5)).to.be.false;
+    }
+  });
+
+  it('should block the request that exceeds the limit', async () => {
+    const key = uniqueKey();
+
+    for (let i = 0; i < 5; i++) {
+      await store.incrementAndCheck(key, 5);
+    }
+
+    expect(await store.incrementAndCheck(key, 5)).to.be.true;
+  });
+
+  it('should keep blocking once the limit is exceeded', async () => {
+    const key = uniqueKey();
+
+    for (let i = 0; i < 6; i++) {
+      await store.incrementAndCheck(key, 5);
+    }
+
+    expect(await store.incrementAndCheck(key, 5)).to.be.true;
+    expect(await store.incrementAndCheck(key, 5)).to.be.true;
+  });
+
+  it('should count each IP address independently', async () => {
+    const first = new RateLimitKey('10.0.0.1', 'eth_chainId');
+    const second = new RateLimitKey('10.0.0.2', 'eth_chainId');
+
+    for (let i = 0; i < 2; i++) {
+      await store.incrementAndCheck(first, 2);
+    }
+
+    expect(await store.incrementAndCheck(first, 2)).to.be.true;
+    expect(await store.incrementAndCheck(second, 2)).to.be.false;
+  });
+
+  it('should count each method independently', async () => {
+    const chainId = new RateLimitKey('10.0.1.1', 'eth_chainId');
+    const blockNumber = new RateLimitKey('10.0.1.1', 'eth_blockNumber');
+
+    for (let i = 0; i < 2; i++) {
+      await store.incrementAndCheck(chainId, 2);
+    }
+
+    expect(await store.incrementAndCheck(chainId, 2)).to.be.true;
+    expect(await store.incrementAndCheck(blockNumber, 2)).to.be.false;
+  });
+
+  it('should set the expiry on the first request only', async () => {
+    const key = uniqueKey();
+
+    await store.incrementAndCheck(key, 5);
+    const ttlAfterFirst = await redisClient.ttl(key.toString());
+    expect(ttlAfterFirst).to.be.greaterThan(0);
+
+    await store.incrementAndCheck(key, 5);
+    const ttlAfterSecond = await redisClient.ttl(key.toString());
+    expect(ttlAfterSecond).to.be.at.most(ttlAfterFirst);
+  });
+
+  it('should allow requests again once the window has elapsed', async () => {
+    const key = uniqueKey();
+
+    for (let i = 0; i < 3; i++) {
+      await store.incrementAndCheck(key, 2);
+    }
+    expect(await store.incrementAndCheck(key, 2)).to.be.true;
+
+    await new Promise((resolve) => setTimeout(resolve, duration + 500));
+
+    expect(await store.incrementAndCheck(key, 2)).to.be.false;
+  });
+
+  it('should count concurrent requests atomically', async () => {
+    const key = uniqueKey();
+    const limit = 10;
+
+    const results = await Promise.all(Array.from({ length: 25 }, () => store.incrementAndCheck(key, limit)));
+
+    expect(results.filter((blocked) => !blocked)).to.have.lengthOf(limit);
+  });
+
+  it('should return the Lua reply as a number, not a string', async () => {
+    const key = uniqueKey();
+
+    const underLimit = await redisClient.eval(RedisRateLimitStore['LUA_SCRIPT'], {
+      keys: [key.toString()],
+      arguments: ['1', '10'],
+    });
+    const overLimit = await redisClient.eval(RedisRateLimitStore['LUA_SCRIPT'], {
+      keys: [key.toString()],
+      arguments: ['1', '10'],
+    });
+
+    expect(underLimit).to.equal(0);
+    expect(overLimit).to.equal(1);
   });
 });
