@@ -1,0 +1,84 @@
+name: Redis Compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      redis_version:
+        description: 'Redis version to test, e.g. 8.10.1 (leave blank for the newest release)'
+        required: false
+        default: ''
+
+run-name: Redis compatibility — ${{ inputs.redis_version || 'latest release' }}
+
+concurrency:
+  group: redis-compat-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  redis-compat:
+    name: Redis ${{ inputs.redis_version || 'latest' }}
+    runs-on: hiero-smart-contracts-linux-medium
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve Redis version
+        id: resolve
+        env:
+          REQUESTED: ${{ inputs.redis_version }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            VERSION="$REQUESTED"
+          else
+            VERSION=$(curl -sSfL https://api.github.com/repos/redis/redis/releases/latest \
+              | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).tag_name.replace(/^v/,'')))")
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Could not resolve a Redis version" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Testing against Redis $VERSION"
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y make gcc g++
+
+      - name: Create .env file
+        run: cp ./tests/relay/test.env .env
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # The Redis binary is built in the next step instead, so a build failure is
+          # reported separately from a test failure.
+          REDISMS_DISABLE_POSTINSTALL: true
+
+      # A failure here is a toolchain problem, not a compatibility problem.
+      - name: Build Redis ${{ steps.resolve.outputs.version }}
+        env:
+          REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
+          # Redis 8+ ships bundled modules that need pkg-config, python3, cmake and Rust.
+          # redis-memory-server keeps only src/redis-server, so build the core alone.
+          BUILD_ARGS: core
+        run: |
+          node -e "require('redis-memory-server/lib/util/RedisBinary').default.getPath({ version: process.env.REDISMS_VERSION })"
+
+      # A failure here means the relay behaves differently on this Redis version.
+      - name: Run Redis tests
+        env:
+          REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
+        run: npm run test:redis
