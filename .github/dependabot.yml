@@ -21,7 +21,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "npm"
-    directories: 
+    directories:
       - "/docs/examples"
       - "/k6"
     schedule:
@@ -48,7 +48,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    
+
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
