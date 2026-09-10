@@ -34,6 +34,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # Redis 8+ ships bundled modules that need pkg-config, python3, cmake and Rust.
+          # redis-memory-server keeps only src/redis-server, so build the core alone.
+          BUILD_ARGS: core
 
       - name: Create .env file
         run: cp ./tests/relay/test.env .env
