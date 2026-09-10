@@ -160,36 +160,36 @@ import { CacheClientFactory } from './cache-client-factory';
 
 chai.use(chaiAsPromised);
 
-describe('MyClass', function() {
+describe('MyClass', function () {
   let cacheClient: ICacheClient;
   let myClass: MyClass;
 
-  beforeEach(function() {
+  beforeEach(function () {
     // Common setup for all tests
     cacheClient = CacheClientFactory.create();
     myClass = new MyClass(cacheClient);
   });
 
-  afterEach(async function() {
+  afterEach(async function () {
     // Do not forget to clean up any changes in the state of the system
     await cacheClient.clear();
   });
 
-  describe('myMethod', function() {
-    describe('given a valid input', function() {
+  describe('myMethod', function () {
+    describe('given a valid input', function () {
       let validInput: string;
 
-      beforeEach(function() {
+      beforeEach(function () {
         // Set up for a valid input
         validInput = 'valid input';
       });
 
-      it('should return the expected result', function() {
+      it('should return the expected result', function () {
         const result = myClass.myMethod(validInput);
         expect(result).to.equal('expected result');
       });
 
-      it('should call the dependency method with correct arguments', async function() {
+      it('should call the dependency method with correct arguments', async function () {
         const expectedArgs = ['expected', 'arguments'];
         const spy = sinon.spy(myClass, 'dependencyMethod');
 
@@ -198,7 +198,7 @@ describe('MyClass', function() {
         expect(spy).to.have.been.calledOnceWith(...expectedArgs);
       });
 
-      it('should change someState after calling myMethod', async function() {
+      it('should change someState after calling myMethod', async function () {
         const expectedArgs = ['expected', 'arguments'];
         const spy = sinon.spy(myClass, 'dependencyMethod');
 
@@ -211,19 +211,19 @@ describe('MyClass', function() {
       });
     });
 
-    describe('given an invalid input', function() {
+    describe('given an invalid input', function () {
       let invalidInput: string;
 
-      beforeEach(function() {
+      beforeEach(function () {
         // Set up for an invalid input
         invalidInput = 'invalid input';
       });
 
-      it('should throw an error', function() {
+      it('should throw an error', function () {
         expect(() => myClass.myMethod(invalidInput)).to.throw('expected error message');
       });
 
-      it('should not call the dependency method', function() {
+      it('should not call the dependency method', function () {
         const spy = sinon.spy(myClass, 'dependencyMethod');
         expect(() => myClass.myMethod(invalidInput)).to.throw;
         expect(spy).not.to.have.been.called;
@@ -279,7 +279,7 @@ describe('MyClass', function() {
 
   // Start an in-memory Redis server on a specific port
   useInMemoryRedisServer(logger, 6379);
-  
+
   // Override environment variables for the duration of the describe block
   overrideEnvsInMochaDescribe({
     MY_ENV_VAR: 'common-value-of-env-applied-to-tests-unless-overridden-in-inner-describe',
@@ -327,6 +327,35 @@ describe('MyClass', function() {
   });
 });
 ```
+
+## Redis-backed Test Suites
+
+Thirteen suites run against a real Redis started by `useInMemoryRedisServer`. Run just those:
+
+```bash
+npm run test:redis
+```
+
+The script discovers them by searching for `useInMemoryRedisServer`, so a new suite is picked up automatically.
+
+### Testing against a different Redis version
+
+The version is pinned in `package.json` under `redisMemoryServer.version`, and `REDISMS_VERSION` overrides it for a single run:
+
+```bash
+REDISMS_VERSION=8.10.1 npm run test:redis       # a specific version
+npm run test:redis                              # the pinned default
+```
+
+The first run of a version downloads the Redis source and compiles it (about a minute); afterwards it is cached under `node_modules/.cache/redis-memory-server`. The version must exist as a source tarball at `download.redis.io/releases/` — real release numbers only, so `8.10.1` works but `8`, `latest` and `stable` do not.
+
+Redis 8 and later bundle modules that need `pkg-config`, `python3`, `cmake` and Rust to build. Those modules are discarded — only `src/redis-server` is kept — so set `BUILD_ARGS=core` to build the server alone and skip the extra toolchain:
+
+```bash
+BUILD_ARGS=core REDISMS_VERSION=8.10.1 npm run test:redis
+```
+
+Do not remove the pin to pick up the newest version automatically: the upstream `redis-stable` tarball no longer exists, so an unpinned install fails outright. To check the relay against a newer Redis before an upgrade, run the **Redis Compatibility** workflow (`.github/workflows/redis-compat.yml`) from the Actions tab, leaving the version blank for the newest release.
 
 ## Conclusion
 
