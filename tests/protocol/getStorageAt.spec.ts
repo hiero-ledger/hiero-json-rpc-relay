@@ -161,7 +161,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           '0x0000000000000000000000000000000000000000000000000000000000000000',
           'latest',
         ])) as string;
-        const blockNumberBeforeChange = `0x${(blockNumber - 1).toString(16)}`;
+        const blockNumberBeforeChange = `0x${(parseInt(blockNumber, 16) - 1).toString(16)}`;
         const storageValBeforeChange = (await client.call(METHOD_NAME, [
           storageContractAddress,
           '0x0000000000000000000000000000000000000000000000000000000000000000',

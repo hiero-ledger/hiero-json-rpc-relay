@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import type Koa from 'koa';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -13,10 +12,11 @@ import { getRequestResult } from '../../../../src/ws-server/controllers/jsonRpcC
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
+import { type WsContext } from '../../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { withOverriddenEnvsInMochaTest } from '../../../../tests/relay/helpers';
 
-function createMockContext(): Koa.Context {
+function createMockContext(): WsContext {
   return {
     websocket: {
       id: 'test-connection-id',
@@ -28,16 +28,16 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as WsContext;
 }
 
 describe('JSON Rpc Controller', function () {
   let mockLogger: any;
-  let stubWsMetricRegistry: WsMetricRegistry;
-  let stubRelay: Relay;
-  let stubConnectionLimiter: ConnectionLimiter;
-  let stubMirrorNodeClient: MirrorNodeClient;
-  let stubSubscriptionService: SubscriptionService;
+  let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
+  let stubRelay: sinon.SinonStubbedInstance<Relay>;
+  let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
+  let stubMirrorNodeClient: sinon.SinonStubbedInstance<MirrorNodeClient>;
+  let stubSubscriptionService: sinon.SinonStubbedInstance<SubscriptionService>;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -69,7 +69,7 @@ describe('JSON Rpc Controller', function () {
   });
 
   describe('getRequestResult', async function () {
-    let defaultRequestParams: any;
+    let defaultRequestParams: Parameters<typeof getRequestResult>;
 
     beforeEach(() => {
       defaultRequestParams = [
@@ -103,7 +103,7 @@ describe('JSON Rpc Controller', function () {
     });
 
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
-      stubConnectionLimiter.shouldRateLimitOnMethod.returns(true);
+      stubConnectionLimiter.shouldRateLimitOnMethod.resolves(true);
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32605);
@@ -152,7 +152,7 @@ describe('JSON Rpc Controller', function () {
 
     it('should be able to execute `eth_chainId` and get a proper response', async function () {
       const chainId = '0x12a';
-      stubRelay.executeRpcMethod.returns(chainId);
+      stubRelay.executeRpcMethod.resolves(chainId);
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.result).to.equal(chainId);

@@ -5,12 +5,13 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
+import { type MirrorNodeClient } from '../../../../src/relay/lib/clients';
+import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type CommonService } from '../../../../src/relay/lib/services';
+import { type AccountService } from '../../../../src/relay/lib/services/ethService/accountService/AccountService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
-import type { ICacheClient } from '../../../../src/relay/services/cache';
-import { type CommonService } from '../../../../src/relay/services/commonService';
-import { type MirrorNodeClient } from '../../../../src/relay/services/mirrorNodeClient';
 import { buildCryptoTransferTransaction, mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_TIMESTAMP,
@@ -59,7 +60,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
   beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
@@ -808,7 +809,10 @@ describe('@ethGetBalance using MirrorNode', async function () {
     const latestBlockTimestampTo = '1651560389.060890949';
 
     const extractBlockNumberAndTimestamp = (blockNumberOrTagOrHash: string) =>
-      ethImpl['accountService'].extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails);
+      (ethImpl['accountService'] as AccountService).extractBlockNumberAndTimestamp(
+        blockNumberOrTagOrHash,
+        requestDetails,
+      );
 
     beforeEach(() => {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));

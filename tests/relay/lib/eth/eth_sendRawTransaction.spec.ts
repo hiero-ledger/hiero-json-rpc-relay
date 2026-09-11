@@ -40,7 +40,7 @@ import {
   MAX_GAS_LIMIT_HEX,
   NO_TRANSACTIONS,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -83,10 +83,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     const txPoolServiceWithMockedStorage = new TransactionPoolService(
       {
@@ -162,7 +162,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       clock = useFakeTimers();
       sinon.restore();
       sdkClientStub = sinon.createStubInstance(SDKClient);
-      sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+      sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
       JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
@@ -621,7 +621,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
-          lockServiceStub.acquireLock.resolves('test-session-key-456');
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-456', acquiredAt: currentTime });
           lockServiceStub.releaseLock.resolves();
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
@@ -950,7 +951,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
         // Lock acquisition returns undefined (lock not acquired)
-        lockServiceStub.acquireLock.resolves(undefined as any);
+        lockServiceStub.acquireLock.resolves(undefined);
         lockServiceStub.releaseLock.resolves();
 
         sdkClientStub.submitEthereumTransaction.resolves({

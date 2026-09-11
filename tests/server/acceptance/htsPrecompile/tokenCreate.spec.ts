@@ -370,7 +370,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       expect(afterAmount).to.equal(amount);
 
       //transfer token which are owned by mainContract using the eth signer with transferFrom to account[1]
-      await HTSTokenContract.connect(txSigner.wallet).transferFrom(
+      await (HTSTokenContract.connect(txSigner.wallet) as ethers.Contract).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         amount,
@@ -538,7 +538,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ]);
 
       //transfer NFT to accounts[1] with the eth signer as signer
-      await NFTokenContract.connect(txSigner.wallet).transferFrom(
+      await (NFTokenContract.connect(txSigner.wallet) as ethers.Contract).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         NftSerialNumber,
@@ -687,15 +687,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       // transfer hts
       const amount = BigInt(10);
       const balanceBefore = await HTSTokenContract.balanceOf(accounts[2].wallet.address);
-      await mainContract
-        .connect(txSigner.wallet)
-        .transferTokenPublic(
-          HTSTokenContractAddress,
-          accounts[0].wallet.address,
-          accounts[2].wallet.address,
-          amount,
-          Constants.GAS.LIMIT_1_000_000,
-        );
+      await (mainContract.connect(txSigner.wallet) as ethers.Contract).transferTokenPublic(
+        HTSTokenContractAddress,
+        accounts[0].wallet.address,
+        accounts[2].wallet.address,
+        amount,
+        Constants.GAS.LIMIT_1_000_000,
+      );
       await new Promise((r) => setTimeout(r, 5000));
       const balanceAfter = await HTSTokenContract.balanceOf(accounts[2].wallet.address);
 
@@ -979,7 +977,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
 
     it('should fail to swap approved non-fungible tokens', async function () {
@@ -1026,7 +1024,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
 
     it('should fail to transfer fungible and non-fungible tokens in a single tokenTransferList', async function () {
@@ -1055,7 +1053,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
   });
 });

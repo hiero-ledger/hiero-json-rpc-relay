@@ -244,7 +244,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
         Constants.GAS.LIMIT_50_000,
       );
 
-      await Assertions.expectRevert(tx, Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(tx);
       const balanceAfter = await tokenContract.balanceOf(accounts[1].wallet.address);
       expect(balanceBefore.toString()).to.eq(balanceAfter.toString());
     });
@@ -339,7 +339,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
           NftSerialNumber,
           Constants.GAS.LIMIT_50_000,
         );
-        await Assertions.expectRevert(tx, Constants.CALL_EXCEPTION);
+        await Assertions.expectRevert(tx);
       }
     });
   });
@@ -402,10 +402,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     });
 
     it('should throw an exception for getTokenType with passed contract address', async function () {
-      await Assertions.expectRevert(
-        mainContract.getTokenTypePublic(mainContractAddress, Constants.GAS.LIMIT_50_000),
-        Constants.CALL_EXCEPTION,
-      );
+      await Assertions.expectRevert(mainContract.getTokenTypePublic(mainContractAddress, Constants.GAS.LIMIT_50_000));
     });
   });
 

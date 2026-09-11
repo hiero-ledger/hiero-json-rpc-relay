@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
+import { assertExists } from '../../../helpers/typeAssertions';
 import type MirrorClient from '../../clients/mirrorClient';
 import type RelayClient from '../../clients/relayClient';
 import type ServicesClient from '../../clients/servicesClient';
@@ -119,24 +120,28 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
     // HTS token with no custom fees
     const htsResult0 = await servicesNode.createHTS(defaultTokenOptions);
+    assertExists(htsResult0.receipt.tokenId);
 
     // HTS token with custom fixed HBAR fee
     const htsResult1 = await servicesNode.createHTS({
       ...defaultTokenOptions,
       customHbarFees: 1,
     });
+    assertExists(htsResult1.receipt.tokenId);
 
     // HTS token with custom fixed token fee
     const htsResult2 = await servicesNode.createHTS({
       ...defaultTokenOptions,
       customTokenFees: 1,
     });
+    assertExists(htsResult2.receipt.tokenId);
 
     // HTS token with custom fixed fractional fee
     const htsResult3 = await servicesNode.createHTS({
       ...defaultTokenOptions,
       customFractionalFees: 1,
     });
+    assertExists(htsResult3.receipt.tokenId);
 
     // HTS token with all custom fees
     const htsResult4 = await servicesNode.createHTS({
@@ -145,15 +150,18 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       customTokenFees: 1,
       customHbarFees: 1,
     });
+    assertExists(htsResult4.receipt.tokenId);
 
     // NFT with no custom fees
     const nftResult0 = await servicesNode.createNFT(defaultNftOptions);
+    assertExists(nftResult0.receipt.tokenId);
 
     // NFT with no custom royalty fees
     const nftResult1 = await servicesNode.createNFT({
       ...defaultNftOptions,
       customRoyaltyFees: 1,
     });
+    assertExists(nftResult1.receipt.tokenId);
 
     const nftTokenId0 = nftResult0.receipt.tokenId.toString();
     const nftTokenId1 = nftResult1.receipt.tokenId.toString();

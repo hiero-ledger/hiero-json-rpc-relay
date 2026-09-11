@@ -6,6 +6,7 @@ import crypto from 'crypto';
 
 import { ConfigService } from '../../../../src/config-service/services';
 import { LoggerService } from '../../../../src/config-service/services/loggerService';
+import { assertExists } from '../../../helpers/typeAssertions';
 
 chai.use(chaiAsPromised);
 
@@ -46,8 +47,12 @@ describe('LoggerService tests', async function () {
     expect(res).to.contain(paymaster0[3]);
     expect(res).to.contain(paymaster1[3]);
 
-    expect(res.match(/\*{10}/g).length).to.equal(2);
-    expect(res.match(/HEX_ECDSA/g).length).to.equal(2);
+    const maskMatches = res.match(/\*{10}/g);
+    const keyTypeMatches = res.match(/HEX_ECDSA/g);
+    assertExists(maskMatches);
+    assertExists(keyTypeMatches);
+    expect(maskMatches.length).to.equal(2);
+    expect(keyTypeMatches.length).to.equal(2);
     expect(res).to.not.contain(paymaster0[2]);
     expect(res).to.not.contain(paymaster1[2]);
   });

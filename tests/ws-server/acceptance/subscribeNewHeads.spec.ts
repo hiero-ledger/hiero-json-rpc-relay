@@ -121,7 +121,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
         const messagePromise = new Promise<void>((resolve, reject) => {
           webSocket.on('message', function incoming(data) {
             try {
-              const response = JSON.parse(data);
+              const response = JSON.parse(data.toString());
               expect(response).to.have.property('error');
               expect(response.error).to.have.property('code');
               expect(response.error.code).to.equal(-32601);
@@ -186,7 +186,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
         Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
         webSocket.on('message', function incoming(data) {
-          const response = JSON.parse(data);
+          const response = JSON.parse(data.toString());
           responseCounter++;
           verifyResponse(response, done, webSocket, true);
           if (responseCounter > 1) {
@@ -219,7 +219,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
-        const response = JSON.parse(data);
+        const response = JSON.parse(data.toString());
 
         responseCounter++;
         verifyResponse(response, done, webSocket, true);
@@ -248,7 +248,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
-        const response = JSON.parse(data);
+        const response = JSON.parse(data.toString());
 
         responseCounter++;
         verifyResponse(response, done, webSocket, false);
@@ -277,7 +277,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
-        const response = JSON.parse(data);
+        const response = JSON.parse(data.toString());
 
         responseCounter++;
         verifyResponse(response, done, webSocket, false);

@@ -399,8 +399,9 @@ describe('RpcMethodDispatcher', () => {
         (dispatcher as any).throwUnregisteredRpcMethods(unknownMethod);
         expect.fail('Should have thrown an error');
       } catch (error) {
-        expect(error.code).to.equal(predefined.METHOD_NOT_FOUND(unknownMethod).code);
-        expect(error.message).to.include(unknownMethod);
+        const thrown = error as JsonRpcError;
+        expect(thrown.code).to.equal(predefined.METHOD_NOT_FOUND(unknownMethod).code);
+        expect(thrown.message).to.include(unknownMethod);
       }
     });
   });

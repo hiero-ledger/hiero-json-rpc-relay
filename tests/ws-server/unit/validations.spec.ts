@@ -6,7 +6,9 @@ import sinon from 'sinon';
 
 import type { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import constants from '../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../src/relay/lib/types';
+import { type IJsonRpcRequest } from '../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
 import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../../../src/ws-server/utils/utils';
 import { validateSubscribeEthLogsParams } from '../../../src/ws-server/utils/validators';
@@ -28,14 +30,14 @@ describe('validations unit test', async function () {
   });
 
   it('Should execute validateJsonRpcRequest() to validate valid JSON RPC request and return true', () => {
-    const VALID_REQEST = {
+    const VALID_REQEST: IJsonRpcRequest = {
       id: 1,
       jsonrpc: '2.0',
       method: 'eth_chainId',
       params: [],
     };
 
-    expect(validateJsonRpcRequest(VALID_REQEST, logger, requestDetails)).to.be.true;
+    expect(validateJsonRpcRequest(VALID_REQEST, logger)).to.be.true;
   });
 
   it('Should execute validateJsonRpcRequest() to validate invalid JSON RPC requests and return false', () => {
@@ -114,7 +116,7 @@ describe('validations unit test', async function () {
   });
 
   describe('validateSubscribeEthLogsParams', async function () {
-    let stubMirrorNodeClient: MirrorNodeClient;
+    let stubMirrorNodeClient: sinon.SinonStubbedInstance<MirrorNodeClient>;
     const requestDetails = new RequestDetails({
       requestId: '3',
       ipAddress: '0.0.0.0',
@@ -130,7 +132,7 @@ describe('validations unit test', async function () {
     });
 
     it('should throw error if passed address as string is non-existing', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(false);
+      stubMirrorNodeClient.resolveEntityType.resolves(null);
 
       await expect(
         validateSubscribeEthLogsParams(
@@ -144,7 +146,7 @@ describe('validations unit test', async function () {
     });
 
     it('should throw error if passed address as array is non-existing', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(false);
+      stubMirrorNodeClient.resolveEntityType.resolves(null);
 
       await expect(
         validateSubscribeEthLogsParams(
@@ -158,7 +160,7 @@ describe('validations unit test', async function () {
     });
 
     it('should be able to pass address as a string', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
       await validateSubscribeEthLogsParams(
         {
@@ -170,7 +172,7 @@ describe('validations unit test', async function () {
     });
 
     it('should be able to pass address as an array', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
       await validateSubscribeEthLogsParams(
         {
@@ -186,7 +188,7 @@ describe('validations unit test', async function () {
       Array.from({ length: count }, (_, i) => `0x${(i + 1).toString(16).padStart(40, '0')}`);
 
     it('should reject an oversized address array before any Mirror Node lookup fires', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
       await expect(
         validateSubscribeEthLogsParams({ address: buildAddresses(5) }, stubMirrorNodeClient, requestDetails),
@@ -196,7 +198,7 @@ describe('validations unit test', async function () {
     });
 
     it('should deduplicate repeated addresses so upstream lookups are not multiplied', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
       await validateSubscribeEthLogsParams(
         { address: [contractAddress1, contractAddress1, contractAddress1] },
@@ -208,7 +210,7 @@ describe('validations unit test', async function () {
     });
 
     it('should validate a single-address subscription with exactly one upstream lookup', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
       await validateSubscribeEthLogsParams({ address: contractAddress1 }, stubMirrorNodeClient, requestDetails);
 
@@ -217,7 +219,7 @@ describe('validations unit test', async function () {
 
     WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_ENABLED: true }, () => {
       it('should allow a within-limit address array when multiple addresses are enabled', async function () {
-        stubMirrorNodeClient.resolveEntityType.returns(true);
+        stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
         await validateSubscribeEthLogsParams(
           { address: [contractAddress1, contractAddress2] },
@@ -230,7 +232,7 @@ describe('validations unit test', async function () {
 
       WsTestHelper.withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 60 }, () => {
         it('should validate every address when the array spans multiple lookup batches', async function () {
-          stubMirrorNodeClient.resolveEntityType.returns(true);
+          stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
           // 30 addresses exceeds SUBSCRIBE_LOGS_ADDRESS_BATCH_SIZE (25), forcing more than one batch.
           await validateSubscribeEthLogsParams({ address: buildAddresses(30) }, stubMirrorNodeClient, requestDetails);
@@ -241,7 +243,7 @@ describe('validations unit test', async function () {
 
       WsTestHelper.withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 3 }, () => {
         it('should validate an address array exactly at MAX_ADDRESSES_PER_REQUEST', async function () {
-          stubMirrorNodeClient.resolveEntityType.returns(true);
+          stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
           await validateSubscribeEthLogsParams({ address: buildAddresses(3) }, stubMirrorNodeClient, requestDetails);
 
@@ -249,7 +251,7 @@ describe('validations unit test', async function () {
         });
 
         it('should reject an array exceeding MAX_ADDRESSES_PER_REQUEST before any Mirror Node lookup fires', async function () {
-          stubMirrorNodeClient.resolveEntityType.returns(true);
+          stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
 
           await expect(
             validateSubscribeEthLogsParams({ address: buildAddresses(4) }, stubMirrorNodeClient, requestDetails),

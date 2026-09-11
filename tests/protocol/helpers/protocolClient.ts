@@ -52,7 +52,8 @@ class HttpProtocolClient implements RpcProtocolClient {
       headers,
       body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
     });
-    return { ...(await resp.json()), status: resp.status };
+    const body = (await resp.json()) as RpcRawResponse;
+    return { ...body, status: resp.status };
   }
 }
 

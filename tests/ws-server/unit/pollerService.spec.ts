@@ -85,7 +85,7 @@ describe('PollerService', async function () {
     };
 
     loggerInfoSpy = sandbox.spy(logger, 'info');
-    pollSpy = sandbox.spy(poller, 'poll');
+    pollSpy = sandbox.spy(poller as unknown as { poll(): void }, 'poll');
   });
 
   afterEach(() => {

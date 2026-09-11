@@ -1,1 +1,1 @@
-tsc --noEmit
+npm run typecheck

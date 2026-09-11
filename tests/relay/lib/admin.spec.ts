@@ -6,7 +6,7 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay/lib/relay';
-import { withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
 let relay: Relay;
@@ -17,8 +17,8 @@ describe('Admin', async function () {
   // we used to initialize the relay by using the constructor, but now we use the init method
   // which checks the operator balance, we want to stub this method, its not part of the test
   before(() => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
   });
 
   after(() => {

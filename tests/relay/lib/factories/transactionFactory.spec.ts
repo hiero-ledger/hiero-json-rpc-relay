@@ -291,7 +291,7 @@ describe('TransactionFactory', () => {
         gas_price: '0x',
         max_priority_fee_per_gas: '0x',
         max_fee_per_gas: '0x',
-        nonce: null,
+        nonce: null as unknown as number,
         r: null,
         s: null,
         transaction_index: null,
@@ -375,8 +375,8 @@ describe('TransactionFactory', () => {
           type: 2,
           v: 1,
           nonce: 2,
-          access_list: input,
-        }) as Transaction1559
+          access_list: input as MirrorNodeContractResult['access_list'],
+        } as unknown as MirrorNodeContractResult) as Transaction1559
       ).accessList || [];
 
     it('returns an empty array for nullish/non-array input', () => {
@@ -709,8 +709,8 @@ describe('TransactionFactory', () => {
           type: 2,
           v: 1,
           nonce: 2,
-          access_list: [{ address, storage_keys: [] }],
-        }) as Transaction1559
+          access_list: [{ address: address as string, storage_keys: [] }],
+        } as unknown as MirrorNodeContractResult) as Transaction1559
       ).accessList![0].address;
 
     it('returns the zero address for non-string input', () => {

@@ -52,7 +52,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
   const TOKEN_NAME = Utils.randomString(10);
   const TOKEN_SYMBOL = Utils.randomString(5);
-  const TOKEN_INIT_SUPPLY = 10000n;
+  const TOKEN_INIT_SUPPLY = BigInt(10000);
   const VALID_ERC20_DATA = [
     {
       sighash: '0x06fdde03',

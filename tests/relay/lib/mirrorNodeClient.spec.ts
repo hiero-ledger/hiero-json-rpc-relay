@@ -313,7 +313,6 @@ describe('MirrorNodeClient', async function () {
           CONTRACT_CALL_ENDPOINT,
           code,
           'POST',
-          requestDetails,
         );
         expect(result).to.equal(null);
       });
@@ -324,14 +323,7 @@ describe('MirrorNodeClient', async function () {
         try {
           const error = new Error('test error');
           error['response'] = 'test error';
-          mirrorNodeInstance.handleError(
-            error,
-            CONTRACT_CALL_ENDPOINT,
-            CONTRACT_CALL_ENDPOINT,
-            code,
-            'POST',
-            requestDetails,
-          );
+          mirrorNodeInstance.handleError(error, CONTRACT_CALL_ENDPOINT, CONTRACT_CALL_ENDPOINT, code, 'POST');
           expect.fail('should have thrown an error');
         } catch (e: any) {
           expect(e.message).to.equal('test error');
@@ -364,14 +356,14 @@ describe('MirrorNodeClient', async function () {
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedAccountId).to.eq(accountId);
   });
 
   it('Can extract the evm address out of an account pagination next link url', async () => {
     const evmAddress = '0x583031d1113ad414f02576bd6afa5bbdf935b7d9';
     const url = `/api/v1/accounts/${evmAddress}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedEvmAddress).to.eq(evmAddress);
   });
 
@@ -394,14 +386,14 @@ describe('MirrorNodeClient', async function () {
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedAccountId).to.eq(accountId);
   });
 
   it('Can extract the evm address out of an account pagination next link url', async () => {
     const evmAddress = '0x583031d1113ad414f02576bd6afa5bbdf935b7d9';
     const url = `/api/v1/accounts/${evmAddress}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedEvmAddress).to.eq(evmAddress);
   });
 

@@ -6,7 +6,21 @@ import WebSocket from 'ws';
 export { RPC_METHODS } from './rpcMethods';
 
 import { ConfigService } from '../../../src/config-service/services';
+import { type IJsonRpcError } from '../../../src/server/koaJsonRpc/lib/RpcError';
+import { type IJsonRpcResponse } from '../../../src/server/koaJsonRpc/lib/RpcResponse';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
+
+export function assertJsonRpcError(
+  response: IJsonRpcResponse,
+): asserts response is IJsonRpcResponse & { error: IJsonRpcError } {
+  expect(response).to.have.property('error');
+}
+
+export function assertJsonRpcResult<Result>(
+  response: IJsonRpcResponse<Result>,
+): asserts response is IJsonRpcResponse<Result> & { result: Result } {
+  expect(response).to.have.property('result');
+}
 
 export class WsTestHelper {
   static async assertFailInvalidParamsEthersWsProvider(

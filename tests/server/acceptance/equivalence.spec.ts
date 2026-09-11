@@ -6,7 +6,7 @@ import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
 
 import { hexToASCII } from '../../../src/relay/formatters';
-import type { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import type MirrorClient from '../clients/mirrorClient';
 import type ServicesClient from '../clients/servicesClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
@@ -56,7 +56,7 @@ async function testRejection(errorMessage, method, checkMessage, thisObj, args?)
 describe('Equivalence tests', async function () {
   const { servicesNode, mirrorNode, relay }: any = global;
   const servicesClient = servicesNode as ServicesClient;
-  const mirrorNodeClient = mirrorNode as MirrorNodeClient;
+  const mirrorNodeClient = mirrorNode as MirrorClient;
 
   const SUCCESS = 'SUCCESS';
   const STATUS_SUCCESS = '0x1';
@@ -485,7 +485,7 @@ describe('Equivalence tests', async function () {
       );
     } catch (e) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
-      assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
+      assert.fail(`${(e as Error).message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
 
     const record = await getResultByEntityIdAndTxTimestamp(
@@ -544,7 +544,7 @@ describe('Equivalence tests', async function () {
       );
     } catch (e) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
-      assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
+      assert.fail(`${(e as Error).message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
 
     const record = await getResultByEntityIdAndTxTimestamp(
@@ -571,7 +571,7 @@ describe('Equivalence tests', async function () {
       );
     } catch (e) {
       const contractActions = await getContractActions(getTransactionIdFromException(e));
-      assert.fail(`${e.message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
+      assert.fail(`${(e as Error).message}\ncontact actions:\n${JSON.stringify(contractActions, null, 2)}`);
     }
 
     const record = await getResultByEntityIdAndTxTimestamp(

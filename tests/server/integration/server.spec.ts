@@ -10,7 +10,7 @@ import { DebugImpl } from '../../../src/relay/lib/debug';
 import { Constants, TYPES } from '../../../src/relay/lib/validators';
 import serverTestConstants from '../helpers/constants';
 const { ERROR_CODE } = serverTestConstants;
-import Axios, { type AxiosInstance } from 'axios';
+import Axios, { type AxiosError, type AxiosInstance } from 'axios';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { type Server } from 'http';
@@ -26,6 +26,7 @@ import { MeasurableCache } from '../../../src/relay/lib/clients/cache/measurable
 import { REWARD_PERCENTILES_ERROR } from '../../../src/relay/lib/validators/constants';
 import { initializeServer } from '../../../src/server/server';
 import {
+  asRelayInternals,
   contractAddress1,
   contractAddress2,
   contractHash1,
@@ -62,10 +63,13 @@ describe('RPC Server', function () {
       CHAIN_ID: '0x12a',
     });
 
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
 
     // Set up spy BEFORE requiring the server module to catch the constructor call
-    populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
+    populatePreconfiguredSpendingPlansSpy = sinon.spy(
+      asRelayInternals(Relay.prototype),
+      'populatePreconfiguredSpendingPlans',
+    );
 
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../../src/server/server')];
@@ -241,7 +245,7 @@ describe('RPC Server', function () {
         await testClient.post('/', { jsonrpc: '2.0', id: 4, method });
         Assertions.expectedError();
       } catch (error) {
-        BaseTest.invalidRequestSpecError(error.response, -32600, `Invalid Request`);
+        BaseTest.invalidRequestSpecError((error as AxiosError).response, -32600, `Invalid Request`);
       }
     });
   });
@@ -2960,6 +2964,8 @@ describe('RPC Server', function () {
         const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
         const syntheticLog = {
           address: contractAddress1,
+          bloom: '0x1111',
+          contract_id: '0.0.1033',
           block_hash:
             '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
           block_number: 668,
