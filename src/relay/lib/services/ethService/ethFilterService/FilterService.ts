@@ -10,6 +10,7 @@ import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { type Log } from '../../../model';
 import { type RequestDetails } from '../../../types';
+import { type MirrorNodeBlock } from '../../../types/mirrorNode';
 import { type INewFilterParams } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
 import { type ICommonService } from '../../index';
@@ -256,7 +257,7 @@ export class FilterService implements IFilterService {
         : await this.common.getLatestBlockNumber(requestDetails),
     );
 
-    const result = blockResponse?.blocks?.map((r) => toHash32(r.hash)) || [];
+    const result = blockResponse?.blocks?.map((block: MirrorNodeBlock) => toHash32(block.hash)) || [];
 
     return { result, latestBlockNumber };
   }

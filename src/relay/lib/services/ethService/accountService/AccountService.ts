@@ -9,7 +9,7 @@ import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import type { RequestDetails } from '../../../types';
-import { type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import { type ITransfer, type LatestBlockNumberTimestamp, type MirrorNodeBlock } from '../../../types/mirrorNode';
 import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
@@ -209,7 +209,11 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails): Promise<never[]> {
+  private async getPagedTransactions(
+    nextPage: string,
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<never[]> {
     let pagedTransactions = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
@@ -230,10 +234,10 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    */
   async getBalanceAtBlockNumber(
-    account,
-    block,
-    latestBlock,
-    requestDetails,
+    account: string,
+    block: MirrorNodeBlock,
+    latestBlock: LatestBlockNumberTimestamp,
+    requestDetails: RequestDetails,
   ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
@@ -375,13 +379,13 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number): any {
+  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: string): any {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;
       })
       .flatMap((transaction) => {
-        return transaction.transfers.filter((transfer) => {
+        return transaction.transfers.filter((transfer: ITransfer) => {
           return transfer.account === account && !transfer.is_approval;
         });
       })
@@ -405,18 +409,22 @@ export class AccountService implements IAccountService {
     blockNumOrHash: number | string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    let getBlock;
     const isParamBlockNum = typeof blockNumOrHash === 'number';
 
     if (isParamBlockNum && (blockNumOrHash as number) < 0) {
       throw predefined.UNKNOWN_BLOCK();
     }
 
-    if (!isParamBlockNum) {
-      getBlock = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
+    let blockNum: number;
+    if (isParamBlockNum) {
+      blockNum = blockNumOrHash;
+    } else {
+      const block = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
+      if (!block) {
+        throw predefined.UNKNOWN_BLOCK();
+      }
+      blockNum = block.number;
     }
-
-    const blockNum = isParamBlockNum ? blockNumOrHash : getBlock.number;
 
     // check if on latest block, if so get latest ethereumNonce from mirror node account API
     const blockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails); // consider caching error responses

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Context } from 'koa';
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
@@ -10,6 +9,7 @@ import constants from '../../relay/lib/constants';
 import { type RequestDetails } from '../../relay/lib/types';
 import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { type IJsonRpcResponse, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
+import type { WsContext } from '../types';
 
 type SubscriptionId = string | undefined;
 type SubscriptionResponse = IJsonRpcResponse<SubscriptionId>;
@@ -25,7 +25,7 @@ import { type ISharedParams } from './jsonRpcController';
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
  * @param {any} filters - The filters object specifying criteria for the subscription.
- * @param {Context} ctx - The context object containing information about the WebSocket connection.
+ * @param {WsContext} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to (e.g., "newHeads").
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
  * @param {Logger} logger - The logger object used for logging subscription information.
@@ -33,7 +33,7 @@ import { type ISharedParams } from './jsonRpcController';
  */
 const subscribeToNewHeads = (
   filters: any,
-  ctx: Context,
+  ctx: WsContext,
   event: string,
   logger: Logger,
   subscriptionService: SubscriptionService,
@@ -58,7 +58,7 @@ const subscribeToNewHeads = (
 const handleEthSubscribeNewHeads = (
   filters: any,
   request: IJsonRpcRequest,
-  ctx: Context,
+  ctx: WsContext,
   event: string,
   logger: Logger,
   requestDetails: RequestDetails,
@@ -81,7 +81,7 @@ const handleEthSubscribeNewHeads = (
  * address limit) and subscribes to the event.
  * @param {any} filters - The filters object specifying criteria for the subscription.
  * @param {IJsonRpcRequest} request - The request object received from the client.
- * @param {Context} ctx - The context object containing information about the WebSocket connection.
+ * @param {WsContext} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to.
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
  * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the MirrorNode API.
@@ -91,7 +91,7 @@ const handleEthSubscribeNewHeads = (
 const handleEthSubscribeLogs = async (
   filters: any,
   request: IJsonRpcRequest,
-  ctx: Context,
+  ctx: WsContext,
   event: string,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
@@ -108,7 +108,7 @@ const handleEthSubscribeLogs = async (
  * Handles subscription requests for on-chain events.
  * Subscribes to the specified event type and returns the response.
  * @param {object} args - An object containing the function parameters as properties.
- * @param {Context} args.ctx - The context object containing information about the WebSocket connection.
+ * @param {WsContext} args.ctx - The context object containing information about the WebSocket connection.
  * @param {any[]} args.params - The parameters of the method request, expecting an event and filters.
  * @param {IJsonRpcRequest} args.request - The request object received from the client.
  * @param {Relay} args.relay - The relay object for interacting with the Hedera network.

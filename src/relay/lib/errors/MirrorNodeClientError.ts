@@ -8,11 +8,11 @@ export class MirrorNodeClientError extends Error {
   public detail?: string;
   private children: { message: string; detail?: string; data?: string }[];
 
-  static ErrorCodes = {
+  static readonly ErrorCodes = {
     ECONNABORTED: 504,
     ECONNREFUSED: 567,
     NOT_SUPPORTED: 501,
-  };
+  } as const;
 
   static statusCodes = {
     NOT_FOUND: 404,

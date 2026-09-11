@@ -105,7 +105,7 @@ export class SDKClient {
    */
   private initPaymastersClients(): void {
     this.paymasterClients = new Map(
-      (ConfigService.get('PAYMASTER_ACCOUNTS') as PaymasterAccount).map(
+      (ConfigService.get('PAYMASTER_ACCOUNTS') as unknown as PaymasterAccount[]).map(
         (acc) =>
           [
             acc[0],

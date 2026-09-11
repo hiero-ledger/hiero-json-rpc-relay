@@ -8,7 +8,7 @@ import constants from './lib/constants';
 
 const EMPTY_HEX = '0x';
 
-const hashNumber = (num): string => {
+const hashNumber = (num: number | BigNumber | bigint): string => {
   return EMPTY_HEX + num.toString(16);
 };
 
@@ -89,7 +89,7 @@ const formatTransactionIdWithoutQueryParams = (transactionId: string): string | 
  *   specified env var is invalid
  * @throws An error if both the env var and constant are invalid
  */
-const parseNumericEnvVar = (envVarName: string, fallbackConstantKey: string): number => {
+const parseNumericEnvVar = (envVarName: string, fallbackConstantKey: keyof typeof constants): number => {
   // @ts-ignore
   let value: number = Number.parseInt(ConfigService.get(envVarName) ?? '', 10);
   if (!isNaN(value)) {

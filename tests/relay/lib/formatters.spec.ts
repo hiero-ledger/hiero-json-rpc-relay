@@ -165,7 +165,7 @@ describe('Formatters', () => {
     it('should throw when env var is any non-parseable value and constant does not exist', () => {
       let value: any = undefined;
       expect(function () {
-        value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_NONNUMERICSTRING', 'FOO_BAR');
+        value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_NONNUMERICSTRING', 'FOO_BAR' as keyof typeof constants);
       }).to.throw(
         Error,
         "Unable to parse numeric env var: 'TEST_ONLY_ENV_VAR_NONNUMERICSTRING', constant: 'FOO_BAR'",
@@ -177,7 +177,7 @@ describe('Formatters', () => {
     it('should throw when fallback constant is also non-parseable', () => {
       let value: any = undefined;
       expect(function () {
-        value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_UNDEFINED', 'INVALID_CONSTANT');
+        value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_UNDEFINED', 'INVALID_CONSTANT' as keyof typeof constants);
       }).to.throw(
         Error,
         "Unable to parse numeric env var: 'TEST_ONLY_ENV_VAR_UNDEFINED', constant: 'INVALID_CONSTANT'",
@@ -716,7 +716,7 @@ describe('Formatters', () => {
     });
 
     it('should handle parseNumericEnvVar with completely invalid constant', () => {
-      expect(() => parseNumericEnvVar('NONEXISTENT_VAR', 'NONEXISTENT_CONSTANT')).to.throw(
+      expect(() => parseNumericEnvVar('NONEXISTENT_VAR', 'NONEXISTENT_CONSTANT' as keyof typeof constants)).to.throw(
         Error,
         "Unable to parse numeric env var: 'NONEXISTENT_VAR', constant: 'NONEXISTENT_CONSTANT'",
       );
@@ -839,10 +839,9 @@ describe('Formatters', () => {
 
     it('should test parseNumericEnvVar with specific constant fallback', () => {
       // Test the specific condition where constants[fallbackConstantKey] is accessed
-      expect(() => parseNumericEnvVar('NONEXISTENT_VAR', 'TOTALLY_INVALID_CONSTANT')).to.throw(
-        Error,
-        "Unable to parse numeric env var: 'NONEXISTENT_VAR', constant: 'TOTALLY_INVALID_CONSTANT'",
-      );
+      expect(() =>
+        parseNumericEnvVar('NONEXISTENT_VAR', 'TOTALLY_INVALID_CONSTANT' as keyof typeof constants),
+      ).to.throw(Error, "Unable to parse numeric env var: 'NONEXISTENT_VAR', constant: 'TOTALLY_INVALID_CONSTANT'");
     });
 
     it('should test formatTransactionId with edge cases', () => {

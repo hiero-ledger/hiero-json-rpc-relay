@@ -45,17 +45,17 @@ export const predefined = {
     code: -32015,
     message: 'Dependent service returned immature records',
   }),
-  GAS_LIMIT_TOO_HIGH: (gasLimit, maxGas): JsonRpcError =>
+  GAS_LIMIT_TOO_HIGH: (gasLimit: string | number | bigint, maxGas: string | number | bigint): JsonRpcError =>
     new JsonRpcError({
       code: -32005,
       message: `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${maxGas}'`,
     }),
-  GAS_LIMIT_TOO_LOW: (gasLimit, requiredGas): JsonRpcError =>
+  GAS_LIMIT_TOO_LOW: (gasLimit: string | number | bigint, requiredGas: string | number | bigint): JsonRpcError =>
     new JsonRpcError({
       code: -32003,
       message: `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required '${requiredGas}'`,
     }),
-  GAS_PRICE_TOO_LOW: (gasPrice, minGasPrice): JsonRpcError =>
+  GAS_PRICE_TOO_LOW: (gasPrice: string | number | bigint, minGasPrice: string | number | bigint): JsonRpcError =>
     new JsonRpcError({
       code: -32009,
       message: `Gas price '${gasPrice}' is below configured minimum gas price '${minGasPrice}'`,
@@ -185,7 +185,7 @@ export const predefined = {
     code: -32602,
     message: "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
   }),
-  INVALID_CONTRACT_ADDRESS: (address): JsonRpcError => {
+  INVALID_CONTRACT_ADDRESS: (address: string | null | undefined): JsonRpcError => {
     let message = `Invalid Contract Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected length of 42 chars but was ${address.length}.`;
@@ -196,7 +196,7 @@ export const predefined = {
       message: message,
     });
   },
-  NON_EXISTING_CONTRACT: (address): JsonRpcError => {
+  NON_EXISTING_CONTRACT: (address: string | null | undefined): JsonRpcError => {
     let message = `Non Existing Contract Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected a Contract or Token Address.`;
@@ -207,7 +207,7 @@ export const predefined = {
       message: message,
     });
   },
-  NON_EXISTING_ACCOUNT: (address): JsonRpcError => {
+  NON_EXISTING_ACCOUNT: (address: string | null | undefined): JsonRpcError => {
     let message = `Non Existing Account Address: ${address}.`;
     if (address && address.length) {
       message = `${message} Expected an Account Address.`;

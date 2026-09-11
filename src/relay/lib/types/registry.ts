@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type DebugImpl } from '../debug';
+import { type ParamTransformFn } from '../decorators';
 import { type EthImpl } from '../eth';
 import { type NetImpl } from '../net';
+import { type IParamValidation } from '../validators';
 import { type Web3Impl } from '../web3';
 
 /**
@@ -31,7 +33,12 @@ export type RpcNamespaceRegistry = {
  * - Methods with RequestDetails (which may not always be the last parameter)
  * - Methods with varying return types
  */
-export type OperationHandler = (...args: any[]) => any;
+export type OperationHandler = ((...args: any[]) => any) & {
+  /** Attached by `@rpcParamValidationRules` (`RPC_PARAM_VALIDATION_RULES_KEY`). */
+  'hedera-rpc-param-validation-rules'?: Record<number, IParamValidation>;
+  /** Attached by `@rpcParamLayoutConfig` (`RPC_PARAM_LAYOUT_KEY`). */
+  'hedera-rpc-param-layout'?: string | ParamTransformFn;
+};
 
 /**
  * Type for the registry mapping of method names to their handler implementations
