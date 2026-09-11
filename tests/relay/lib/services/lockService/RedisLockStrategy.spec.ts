@@ -3,13 +3,16 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { type Logger, pino } from 'pino';
-import { type RedisClientType } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../../../../src/config-service/services';
-import { type LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
+import {
+  type LockMetricsService,
+  LockMetricsService as LockMetricsServiceClass,
+} from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../../src/relay/lib/services/lockService/RedisLockStrategy';
-import { overrideEnvsInMochaDescribe } from '../../../helpers';
+import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 use(chaiAsPromised);
 
@@ -649,6 +652,200 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(result).to.not.be.undefined;
       expect(mockRedisClient.lRange.called).to.be.false;
       expect(mockMetricsService.recordQueueRejoin.called).to.be.false;
+    });
+  });
+});
+
+describe('RedisLockStrategy Real Redis Test Suite', function () {
+  this.timeout(20000);
+
+  const logger = pino({ level: 'silent' });
+  const port = 6387;
+  const maxLockHoldMs = 300;
+
+  let redisClient: RedisClientType;
+  let strategy: RedisLockStrategy;
+  let addressCounter = 0;
+
+  const uniqueAddress = () => `0x${(++addressCounter).toString(16).padStart(40, '0')}`;
+
+  after(() => {
+    redisClient?.destroy();
+  });
+
+  overrideEnvsInMochaDescribe({
+    LOCK_MAX_HOLD_MS: maxLockHoldMs,
+    LOCK_QUEUE_POLL_INTERVAL_MS: 20,
+  });
+
+  useInMemoryRedisServer(logger, port);
+
+  before(async () => {
+    redisClient = createClient({ url: `redis://127.0.0.1:${port}` }) as RedisClientType;
+    await redisClient.connect();
+    strategy = new RedisLockStrategy(
+      redisClient,
+      logger,
+      sinon.createStubInstance(LockMetricsServiceClass) as unknown as LockMetricsService,
+    );
+  });
+
+  describe('mutual exclusion', () => {
+    it('should let a single caller acquire and release', async () => {
+      const address = uniqueAddress();
+
+      const result = await strategy.acquireLock(address);
+      expect(result).to.not.be.undefined;
+      expect(await redisClient.get(`lock:${address}`)).to.equal(result!.sessionKey);
+
+      await strategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
+      expect(await redisClient.exists(`lock:${address}`)).to.equal(0);
+    });
+
+    it('should not let a second caller hold the same lock concurrently', async () => {
+      const address = uniqueAddress();
+
+      const first = await strategy.acquireLock(address);
+      expect(first).to.not.be.undefined;
+
+      const second = await Promise.race([
+        strategy.acquireLock(address),
+        new Promise((resolve) => setTimeout(() => resolve('still-waiting'), 100)),
+      ]);
+      expect(second).to.equal('still-waiting');
+
+      await strategy.releaseLock(address, first!.sessionKey, first!.acquiredAt);
+    });
+
+    it('should hand the lock to the waiter once the holder releases', async () => {
+      const address = uniqueAddress();
+
+      const first = await strategy.acquireLock(address);
+      const waiter = strategy.acquireLock(address);
+
+      await strategy.releaseLock(address, first!.sessionKey, first!.acquiredAt);
+
+      const second = await waiter;
+      expect(second).to.not.be.undefined;
+      expect(second!.sessionKey).to.not.equal(first!.sessionKey);
+      expect(await redisClient.get(`lock:${address}`)).to.equal(second!.sessionKey);
+
+      await strategy.releaseLock(address, second!.sessionKey, second!.acquiredAt);
+    });
+
+    it('should not block a different address', async () => {
+      const held = uniqueAddress();
+      const other = uniqueAddress();
+
+      const first = await strategy.acquireLock(held);
+      const otherResult = await strategy.acquireLock(other);
+
+      expect(otherResult).to.not.be.undefined;
+
+      await strategy.releaseLock(held, first!.sessionKey, first!.acquiredAt);
+      await strategy.releaseLock(other, otherResult!.sessionKey, otherResult!.acquiredAt);
+    });
+
+    it('should treat addresses case-insensitively', async () => {
+      const address = '0xAbCdEf1234567890AbCdEf1234567890AbCdEf12';
+
+      const first = await strategy.acquireLock(address);
+      expect(await redisClient.get(`lock:${address.toLowerCase()}`)).to.equal(first!.sessionKey);
+
+      const second = await Promise.race([
+        strategy.acquireLock(address.toLowerCase()),
+        new Promise((resolve) => setTimeout(() => resolve('still-waiting'), 100)),
+      ]);
+      expect(second).to.equal('still-waiting');
+
+      await strategy.releaseLock(address, first!.sessionKey, first!.acquiredAt);
+    });
+  });
+
+  describe('release ownership', () => {
+    it('should ignore a release from a caller that does not own the lock', async () => {
+      const address = uniqueAddress();
+
+      const owner = await strategy.acquireLock(address);
+      await strategy.releaseLock(address, 'not-the-owner', process.hrtime.bigint());
+
+      expect(await redisClient.get(`lock:${address}`)).to.equal(owner!.sessionKey);
+
+      await strategy.releaseLock(address, owner!.sessionKey, owner!.acquiredAt);
+      expect(await redisClient.exists(`lock:${address}`)).to.equal(0);
+    });
+
+    it('should return the release Lua reply as a number, not a string', async () => {
+      const address = uniqueAddress();
+      const lockKey = `lock:${address}`;
+      const script = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+
+      await redisClient.set(lockKey, 'session-a');
+
+      // releaseLock compares with `result === 1`, so a string reply would break it silently.
+      expect(await redisClient.eval(script, { keys: [lockKey], arguments: ['session-b'] })).to.equal(0);
+      expect(await redisClient.eval(script, { keys: [lockKey], arguments: ['session-a'] })).to.equal(1);
+    });
+  });
+
+  describe('TTL expiry', () => {
+    it('should set a TTL on the lock key', async () => {
+      const address = uniqueAddress();
+
+      const result = await strategy.acquireLock(address);
+      const ttl = await redisClient.pTTL(`lock:${address}`);
+
+      expect(ttl).to.be.greaterThan(0);
+      expect(ttl).to.be.at.most(maxLockHoldMs);
+
+      await strategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
+    });
+
+    it('should free the address once the TTL expires without a release', async () => {
+      const address = uniqueAddress();
+
+      const abandoned = await strategy.acquireLock(address);
+      expect(abandoned).to.not.be.undefined;
+
+      // No release: the lock must expire on its own, otherwise the address is wedged forever.
+      await new Promise((resolve) => setTimeout(resolve, maxLockHoldMs + 100));
+      expect(await redisClient.exists(`lock:${address}`)).to.equal(0);
+
+      const next = await strategy.acquireLock(address);
+      expect(next).to.not.be.undefined;
+
+      await strategy.releaseLock(address, next!.sessionKey, next!.acquiredAt);
+    });
+  });
+
+  describe('queue hygiene', () => {
+    it('should leave no queue entry behind after a successful acquisition', async () => {
+      const address = uniqueAddress();
+
+      const result = await strategy.acquireLock(address);
+      expect(await redisClient.lLen(`lock:queue:${address}`)).to.equal(0);
+
+      await strategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
+    });
+
+    it('should prune a queued session whose heartbeat has expired', async () => {
+      const address = uniqueAddress();
+      const queueKey = `lock:queue:${address}`;
+
+      await redisClient.lPush(queueKey, 'zombie-session');
+
+      const result = await strategy.acquireLock(address);
+
+      expect(result).to.not.be.undefined;
+      expect(await redisClient.lRange(queueKey, 0, -1)).to.not.include('zombie-session');
+
+      await strategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
     });
   });
 });
