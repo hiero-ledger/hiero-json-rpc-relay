@@ -1,0 +1,77 @@
+name: Bump Solo, Consensus Node, and Mirror Node Versions
+
+# Weekly job that checks for newer Solo / consensus-node / mirror-node releases,
+# updates the single source of truth (.github/network-versions.env), and opens a PR so
+# CI runs the full test suite against the new versions.
+#
+# Uses a fixed PR branch: a re-run updates the open PR in place rather than
+# opening duplicates, and creates nothing when everything is already up to date.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Runs every Monday at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bump-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Update pinned versions
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/bump-network-versions.sh
+
+      - name: Import GPG Key
+        if: ${{ steps.bump.outputs.changed == 'true' }}
+        id: gpg_importer
+        uses: step-security/ghaction-import-gpg@c0b4a334b9b72bfaaebec86ef022a78a5b17f828 # v7.0.0
+        with:
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_user_signingkey: true
+          gpg_private_key: ${{ secrets.GPG_KEY_CONTENTS }}
+          passphrase: ${{ secrets.GPG_KEY_PASSPHRASE }}
+
+      - name: Create Pull Request
+        if: ${{ steps.bump.outputs.changed == 'true' }}
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          commit-message: 'chore: bump Solo, consensus node, and mirror node versions'
+          committer: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          author: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          signoff: true
+          title: 'chore: bump Solo, consensus node, and mirror node versions'
+          body: |
+            Automated version bump opened by the weekly bump-network-versions workflow.
+
+            The following pinned versions in `.github/network-versions.env` were updated to the latest published releases:
+
+            ${{ steps.bump.outputs.summary }}
+
+            CI on this PR runs the full suite against the new versions. Review the results before merging.
+          branch: chore/bump-network-versions
+          base: main
+          add-paths: .github/network-versions.env
+          delete-branch: true
+          labels: process
+          assignees: swirlds-automation
