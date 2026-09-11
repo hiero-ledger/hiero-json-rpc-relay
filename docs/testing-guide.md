@@ -355,7 +355,7 @@ Redis 8 and later bundle modules that need `pkg-config`, `python3`, `cmake` and 
 BUILD_ARGS=core REDISMS_VERSION=8.10.1 npm run test:redis
 ```
 
-Do not remove the pin to pick up the newest version automatically: the upstream `redis-stable` tarball no longer exists, so an unpinned install fails outright. To check the relay against a newer Redis before an upgrade, run the **Redis Compatibility** workflow (`.github/workflows/redis-compat.yml`) from the Actions tab, leaving the version blank for the newest release.
+Do not remove the pin to pick up the newest version automatically: the upstream `redis-stable` tarball no longer exists, so an unpinned install fails outright. To check the relay against a newer Redis before an upgrade, run the **Redis Version Tests** workflow (`.github/workflows/redis-version-tests.yml`) from the Actions tab, leaving the version blank for the newest release.
 
 ## Conclusion
 

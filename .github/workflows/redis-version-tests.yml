@@ -1,4 +1,4 @@
-name: Redis Compatibility
+name: Redis Version Tests
 
 on:
   workflow_dispatch:
@@ -8,17 +8,17 @@ on:
         required: false
         default: ''
 
-run-name: Redis compatibility — ${{ inputs.redis_version || 'latest release' }}
+run-name: Redis version tests — ${{ inputs.redis_version || 'latest release' }}
 
 concurrency:
-  group: redis-compat-${{ github.workflow }}-${{ github.ref }}
+  group: redis-version-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  redis-compat:
+  redis-version-tests:
     name: Redis ${{ inputs.redis_version || 'latest' }}
     runs-on: hiero-smart-contracts-linux-medium
     steps:
@@ -63,21 +63,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
         env:
-          # The Redis binary is built in the next step instead, so a build failure is
-          # reported separately from a test failure.
           REDISMS_DISABLE_POSTINSTALL: true
 
-      # A failure here is a toolchain problem, not a compatibility problem.
       - name: Build Redis ${{ steps.resolve.outputs.version }}
         env:
           REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
-          # Redis 8+ ships bundled modules that need pkg-config, python3, cmake and Rust.
-          # redis-memory-server keeps only src/redis-server, so build the core alone.
+          # This builds only the Redis server and not bundled modules which are not used.
           BUILD_ARGS: core
         run: |
           node -e "require('redis-memory-server/lib/util/RedisBinary').default.getPath({ version: process.env.REDISMS_VERSION })"
 
-      # A failure here means the relay behaves differently on this Redis version.
       - name: Run Redis tests
         env:
           REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
