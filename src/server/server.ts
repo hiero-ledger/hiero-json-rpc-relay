@@ -6,11 +6,12 @@ import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Registry } from 'prom-client';
 import { type RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
+import { METRICS, MetricsFactory } from '../metrics';
 import { Relay } from '../relay';
 import { RedisClientManager } from '../relay/lib/clients/redisClientManager';
 import { RegistryFactory } from '../relay/lib/factories/registryFactory';
@@ -69,17 +70,8 @@ export async function initializeServer(
   if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {
     redisClient = await RedisClientManager.getClient(logger);
   }
-  // Initialize rate limit store failure counter
-  const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';
-  if (register.getSingleMetric(storeFailureMetricName)) {
-    register.removeSingleMetric(storeFailureMetricName);
-  }
-  const rateLimitStoreFailureCounter = new Counter({
-    name: storeFailureMetricName,
-    help: 'Rate limit store failure counter',
-    labelNames: ['storeType', 'operation'],
-    registers: [register],
-  });
+  const metricsFactory = new MetricsFactory(register);
+  const rateLimitStoreFailureCounter = metricsFactory.counter(METRICS.rateLimiter.storeFailures);
 
   // Create rate limit store using factory pattern
   const rateLimitStore = RateLimitStoreFactory.create(
@@ -95,16 +87,7 @@ export async function initializeServer(
 
   const app = koaJsonRpc.getKoaApp();
 
-  // clear and create metric in registry
-  const metricHistogramName = 'rpc_relay_method_response';
-  register.removeSingleMetric(metricHistogramName);
-  const methodResponseHistogram = new Histogram({
-    name: metricHistogramName,
-    help: 'JSON RPC method statusCode latency histogram',
-    labelNames: ['method', 'statusCode'],
-    registers: [register],
-    buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000, 40000, 50000, 60000], // ms (milliseconds)
-  });
+  const methodResponseHistogram = metricsFactory.histogram(METRICS.server.methodResponse);
 
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);

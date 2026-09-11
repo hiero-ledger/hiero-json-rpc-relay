@@ -12,6 +12,7 @@ import { type Log } from '../../../model';
 import { type RequestDetails } from '../../../types';
 import { type MirrorNodeBlock } from '../../../types/mirrorNode';
 import { type INewFilterParams } from '../../../types/requestParams';
+import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
 import { type ICommonService } from '../../index';
 import { type IFilterService } from './IFilterService';
 
@@ -134,6 +135,9 @@ export class FilterService implements IFilterService {
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     try {
       FilterService.requireFiltersEnabled();
+
+      // Bound the address count at creation, so a stored filter can never exceed the cap when it is later read.
+      assertAddressCountWithinLimit(params?.address);
 
       const fromBlock = params?.fromBlock === undefined ? constants.BLOCK_LATEST : params?.fromBlock;
       const toBlock = params?.toBlock === undefined ? constants.BLOCK_LATEST : params?.toBlock;

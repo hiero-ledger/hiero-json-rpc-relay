@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type Logger } from 'pino';
-import { Gauge, type Registry } from 'prom-client';
+import { type Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
+import { METRICS, MetricsFactory } from '../../metrics';
 import { type Eth, type Relay } from '../../relay';
 import { RequestDetails } from '../../relay/lib/types';
 import { Utils } from '../../relay/utils';
@@ -35,21 +36,9 @@ export class PollerService {
     this.pollingInterval = ConfigService.get('WS_POLLING_INTERVAL');
     this.newHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
-    const activePollsGaugeName = 'rpc_websocket_active_polls';
-    register.removeSingleMetric(activePollsGaugeName);
-    this.activePollsGauge = new Gauge({
-      name: activePollsGaugeName,
-      help: 'Relay websocket active polls count',
-      registers: [register],
-    });
-
-    const activeNewHeadsPollsGaugeName = 'rpc_websocket_active_newheads_polls';
-    register.removeSingleMetric(activeNewHeadsPollsGaugeName);
-    this.activeNewHeadsPollsGauge = new Gauge({
-      name: activeNewHeadsPollsGaugeName,
-      help: 'Relay websocket active newHeads polls count',
-      registers: [register],
-    });
+    const metricsFactory = new MetricsFactory(register);
+    this.activePollsGauge = metricsFactory.gauge(METRICS.ws.poller.activePolls);
+    this.activeNewHeadsPollsGauge = metricsFactory.gauge(METRICS.ws.poller.activeNewHeadsPolls);
   }
 
   /**

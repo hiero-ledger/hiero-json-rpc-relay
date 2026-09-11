@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Logger } from 'pino';
-import { Counter, Gauge, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
+import { METRICS, MetricsFactory } from '../../metrics';
 import { WebSocketError } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
 import { type IPRateLimiterService } from '../../relay/lib/services';
@@ -26,52 +27,20 @@ export default class ConnectionLimiter {
   private ipConnectionLimitCounter: Counter;
   private connectionLimitCounter: Counter;
   private inactivityTTLCounter: Counter;
-  private register: Registry;
   private rateLimiter: IPRateLimiterService;
 
   constructor(logger: Logger, register: Registry, rateLimiter: IPRateLimiterService) {
     this.logger = logger;
-    this.register = register;
     this.connectedClients = 0;
     this.clientIps = {};
     this.rateLimiter = rateLimiter;
 
-    this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.activeConnectionsMetric.name);
-    this.activeConnectionsGauge = new Gauge({
-      name: WS_CONSTANTS.connLimiter.activeConnectionsMetric.name,
-      help: WS_CONSTANTS.connLimiter.activeConnectionsMetric.help,
-      registers: [register],
-    });
-
-    this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.ipConnectionsMetric.name);
-    this.activeConnectionsGaugeByIP = new Gauge({
-      name: WS_CONSTANTS.connLimiter.ipConnectionsMetric.name,
-      help: WS_CONSTANTS.connLimiter.ipConnectionsMetric.help,
-      labelNames: WS_CONSTANTS.connLimiter.ipConnectionsMetric.labelNames,
-      registers: [register],
-    });
-
-    this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.connectionLimitMetric.name);
-    this.connectionLimitCounter = new Counter({
-      name: WS_CONSTANTS.connLimiter.connectionLimitMetric.name,
-      help: WS_CONSTANTS.connLimiter.connectionLimitMetric.help,
-      registers: [register],
-    });
-
-    this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.ipConnectionLimitMetric.name);
-    this.ipConnectionLimitCounter = new Counter({
-      name: WS_CONSTANTS.connLimiter.ipConnectionLimitMetric.name,
-      help: WS_CONSTANTS.connLimiter.ipConnectionLimitMetric.help,
-      labelNames: WS_CONSTANTS.connLimiter.ipConnectionLimitMetric.labelNames,
-      registers: [register],
-    });
-
-    this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.inactivityTTLLimitMetric.name);
-    this.inactivityTTLCounter = new Counter({
-      name: WS_CONSTANTS.connLimiter.inactivityTTLLimitMetric.name,
-      help: WS_CONSTANTS.connLimiter.inactivityTTLLimitMetric.help,
-      registers: [register],
-    });
+    const metricsFactory = new MetricsFactory(register);
+    this.activeConnectionsGauge = metricsFactory.gauge(METRICS.ws.connLimiter.activeConnections);
+    this.activeConnectionsGaugeByIP = metricsFactory.gauge(METRICS.ws.connLimiter.activeConnectionsByIp);
+    this.connectionLimitCounter = metricsFactory.counter(METRICS.ws.connLimiter.connectionLimitEnforced);
+    this.ipConnectionLimitCounter = metricsFactory.counter(METRICS.ws.connLimiter.ipConnectionLimitEnforced);
+    this.inactivityTTLCounter = metricsFactory.counter(METRICS.ws.connLimiter.inactivityTtlEnforced);
   }
 
   public incrementCounters(ctx: WsContext): void {

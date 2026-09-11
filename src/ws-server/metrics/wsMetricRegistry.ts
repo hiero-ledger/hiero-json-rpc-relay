@@ -1,25 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Histogram, type Registry } from 'prom-client';
 
-import { WS_CONSTANTS } from '../utils/constants';
+import { METRICS, MetricsFactory } from '../../metrics';
 
 type WsMetricCounterTitles =
-  | 'methodsCounter'
-  | 'methodsCounterByIp'
-  | 'totalMessageCounter'
-  | 'totalOpenedConnections'
-  | 'totalClosedConnections';
+  'methodsCounter' | 'methodsCounterByIp' | 'totalMessageCounter' | 'totalOpenedConnections' | 'totalClosedConnections';
 
 type WsMetricHistogramTitles = 'connectionDuration' | 'messageDuration';
-
-/** Shape shared by the metric declarations in `WS_CONSTANTS`; not every metric declares labels or buckets. */
-type WsMetricDefinition = {
-  name: string;
-  help: string;
-  labelNames?: string[];
-  buckets?: number[];
-};
 
 export default class WsMetricRegistry {
   private methodsCounter: Counter; // tracks WebSocket method calls.
@@ -35,49 +23,16 @@ export default class WsMetricRegistry {
    * @param {Registry} register - The Prometheus registry to use.
    */
   constructor(register: Registry) {
-    this.methodsCounter = this.generateCounterMetric(register, 'methodsCounter');
-    this.messageDuration = this.generateHistogramMetric(register, 'messageDuration');
-    this.methodsCounterByIp = this.generateCounterMetric(register, 'methodsCounterByIp');
-    this.totalMessageCounter = this.generateCounterMetric(register, 'totalMessageCounter');
-    this.connectionDuration = this.generateHistogramMetric(register, 'connectionDuration');
-    this.totalOpenedConnections = this.generateCounterMetric(register, 'totalOpenedConnections');
-    this.totalClosedConnections = this.generateCounterMetric(register, 'totalClosedConnections');
+    const metricsFactory = new MetricsFactory(register);
+
+    this.methodsCounter = metricsFactory.counter(METRICS.ws.methodsCounter);
+    this.messageDuration = metricsFactory.histogram(METRICS.ws.messageDuration);
+    this.methodsCounterByIp = metricsFactory.counter(METRICS.ws.methodsCounterByIp);
+    this.totalMessageCounter = metricsFactory.counter(METRICS.ws.totalMessageCounter);
+    this.connectionDuration = metricsFactory.histogram(METRICS.ws.connectionDuration);
+    this.totalOpenedConnections = metricsFactory.counter(METRICS.ws.totalOpenedConnections);
+    this.totalClosedConnections = metricsFactory.counter(METRICS.ws.totalClosedConnections);
   }
-
-  /**
-   * Generates a counter metric based on the provided title and registers it with the given registry.
-   * @param {Registry} register - The registry where the metric will be registered.
-   * @param {WsMetricCounterTitles} metricTitle - The title of the metric to generate.
-   * @returns {Counter} The generated counter metric.
-   */
-  private generateCounterMetric = (register: Registry, metricTitle: WsMetricCounterTitles): Counter => {
-    const metric: WsMetricDefinition = WS_CONSTANTS[metricTitle];
-    register.removeSingleMetric(metric.name);
-    return new Counter({
-      name: metric.name,
-      help: metric.help,
-      labelNames: metric.labelNames || [],
-      registers: [register],
-    });
-  };
-
-  /**
-   * Generates a histogram metric based on the provided title and registers it with the given registry.
-   * @param {Registry} register - The registry where the metric will be registered.
-   * @param {WsMetricHistogramTitles} metricTitle - The title of the metric to generate.
-   * @returns {Histogram} The generated histogram metric.
-   */
-  private generateHistogramMetric = (register: Registry, metricTitle: WsMetricHistogramTitles): Histogram => {
-    const metric: WsMetricDefinition = WS_CONSTANTS[metricTitle];
-    register.removeSingleMetric(metric.name);
-    return new Histogram({
-      name: metric.name,
-      help: metric.help,
-      labelNames: metric.labelNames || [],
-      buckets: metric.buckets || [],
-      registers: [register],
-    });
-  };
 
   /**
    * Get metric counter based on metric title

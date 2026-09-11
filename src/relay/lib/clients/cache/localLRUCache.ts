@@ -2,9 +2,10 @@
 
 import { LRUCache } from 'lru-cache';
 import type { Logger } from 'pino';
-import { Gauge, type Registry } from 'prom-client';
+import { type Gauge, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { Utils } from '../../../utils';
 import type { ICacheClient } from './ICacheClient';
 
@@ -91,12 +92,7 @@ export class LocalLRUCache implements ICacheClient {
       this.cacheKeyGauge.set(this.cache.size);
     };
 
-    const metricCounterName = 'rpc_relay_cache';
-    register.removeSingleMetric(metricCounterName);
-    this.cacheKeyGauge = new Gauge({
-      name: metricCounterName,
-      help: 'Relay LRU cache gauge',
-      registers: [register],
+    this.cacheKeyGauge = new MetricsFactory(register).gauge(METRICS.cache.lruSize, {
       async collect(): Promise<void> {
         cacheSizeCollect();
       },
