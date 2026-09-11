@@ -229,7 +229,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
       )[0].args.responseCode;
       expect(responseCodeGrantKycNft).to.equal(TX_SUCCESS_CODE);
       const amount = 5;
-      await accounts[0].client.transferToken(TokenId.fromSolidityAddress(tokenAddress), accounts[1].accountId, amount);
+      await accounts[0].client.transferToken(TokenId.fromEvmAddress(0, 0, tokenAddress), accounts[1].accountId, amount);
       await new Promise((r) => setTimeout(r, 3000));
     });
 

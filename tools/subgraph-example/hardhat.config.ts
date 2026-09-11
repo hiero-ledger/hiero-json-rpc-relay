@@ -112,7 +112,7 @@ task("deployHTS", "Deploys HTS Fungible Token", async (taskArgs, hre) => {
   const resp = await createTransaction.executeWithSigner(wallet);
 
   const receipt = await resp.getReceiptWithSigner(wallet);
-  const address = `0x${receipt.tokenId?.toSolidityAddress()}`;
+  const address = `0x${receipt.tokenId?.toEvmAddress()}`;
   console.log(`Created HTS with address: ${address}`);
   let mintTransaction = await new TokenMintTransaction()
     .setAmount(1000)
@@ -154,7 +154,7 @@ task(
     const resp = await createTransaction.executeWithSigner(wallet);
 
     const receipt = await resp.getReceiptWithSigner(wallet);
-    const address = `0x${receipt.tokenId?.toSolidityAddress()}`;
+    const address = `0x${receipt.tokenId?.toEvmAddress()}`;
     console.log(`Created HTS NFT with address: ${address}`);
     let mintTransaction = await new TokenMintTransaction()
       .setTokenId(receipt.tokenId!)

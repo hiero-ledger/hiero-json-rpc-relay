@@ -73,7 +73,7 @@ async function main() {
 
     console.log(`Token Details:`);
     console.log(`  Token ID: ${tokenId}`);
-    console.log(`  Ethereum Token Address (use this for token import): 0x${tokenId.toSolidityAddress()}\n`);
+    console.log(`  Ethereum Token Address (use this for token import): 0x${tokenId.toEvmAddress()}\n`);
     console.log("Example complete!");
     client.close();
 }

@@ -153,7 +153,7 @@ describe('Equivalence tests', async function () {
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
     estimatePrecompileContractAddress = estimatePrecompileContractReceipt.contractId.toString();
-    estimatePrecompileSolidityAddress = estimatePrecompileContractReceipt.contractId.toSolidityAddress();
+    estimatePrecompileSolidityAddress = estimatePrecompileContractReceipt.contractId.toEvmAddress();
 
     //Deploying Equivalence contract
     equivalenceContractReceipt = await servicesClient.deployContract(

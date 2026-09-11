@@ -179,7 +179,7 @@ describe('HBAR Rate Limit Service', function () {
     ];
 
     operatorEnvs.forEach((operatorEnv) => {
-      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress());
+      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toEvmAddress());
 
       withOverriddenEnvsInMochaTest(operatorEnv, () => {
         describe('based on evmAddress', async function () {
@@ -797,7 +797,7 @@ describe('HBAR Rate Limit Service', function () {
 
     operatorEnvs.forEach((operatorEnv) => {
       const operatorAddress = operatorEnv.OPERATOR_ID_MAIN
-        ? prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress())
+        ? prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toEvmAddress())
         : zeroAddress();
 
       withOverriddenEnvsInMochaTest(operatorEnv, () => {

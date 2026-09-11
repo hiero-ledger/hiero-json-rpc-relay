@@ -23,7 +23,7 @@ describe('EstimateGasContract tests', function () {
 
     const contractReceipt = await servicesNode.deployContract(EstimateGasContractJson, 500_000);
     contract = new ethers.Contract(
-      Utils.add0xPrefix(contractReceipt.contractId.toSolidityAddress()),
+      Utils.add0xPrefix(contractReceipt.contractId.toEvmAddress()),
       EstimateGasContractJson.abi,
       signers[0].wallet,
     );
