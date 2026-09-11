@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { RLP } from '@ethereumjs/rlp';
+import { type NestedUint8Array, RLP } from '@ethereumjs/rlp';
 import { hexToBytes } from '@ethereumjs/util';
-import { TransferTransaction } from '@hiero-ledger/sdk';
+import { type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
@@ -12,7 +12,7 @@ import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { numberTo0x, prepend0x, strip0x, toHexString } from '../../../src/relay/formatters';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
-import { type ITransactionReceipt } from '../../../src/relay/lib/types';
+import { type CallTracerResult, type ITransactionReceipt, type TraceBlockTxResult } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import type MirrorClient from '../clients/mirrorClient';
@@ -31,6 +31,43 @@ import { Utils } from '../helpers/utils';
 import { type AliasAccount } from '../types/AliasAccount';
 
 chai.use(chaiExclude);
+
+type BlockTrace = Omit<TraceBlockTxResult, 'result'> & { result: CallTracerResult };
+
+interface RawBlockInfo {
+  parentHash: string;
+  stateRoot: string;
+  transactionsRoot: string;
+  receiptsRoot: string;
+  logsBloom: string;
+  difficulty: string;
+  number: string;
+  gasLimit: string;
+  gasUsed: string;
+  timestamp: string;
+  extraData: string;
+  mixHash: string;
+  nonce: string;
+  baseFeePerGas: string;
+  withdrawalsRoot: string;
+  transactions: RawBlockTransaction[];
+}
+
+/** The transaction fields compared against their RLP-decoded counterparts. */
+interface RawBlockTransaction {
+  to: string;
+  input: string;
+  nonce: string;
+  value: string;
+  gas: string;
+  gasPrice: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
+  chainId: string;
+  r: string;
+  s: string;
+  v: string;
+}
 
 describe('@debug API Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
@@ -54,10 +91,10 @@ describe('@debug API Acceptance Tests', function () {
   let deployerContract: ethers.Contract;
   let deployerContractAddress: string;
   let createChildTx: ethers.ContractTransactionResponse;
-  let mirrorContractDetails: any;
+  let mirrorContractDetails: { from: string };
 
   // Shared HTS (synthetic transaction) variables
-  let htsTokenId: any;
+  let htsTokenId: TokenId;
   let htsTransferTxHash: string;
   let htsTransferBlockNumber: number;
   let htsTransferBlockHash: string;
@@ -228,7 +265,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
       Assertions.validateCallTracerResult(
@@ -262,7 +299,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       Assertions.validateCallTracerResult(
         txTrace.result,
         PURE_METHOD_CALL_DATA,
@@ -293,7 +330,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
 
@@ -337,8 +374,8 @@ describe('@debug API Acceptance Tests', function () {
       expect(topCallResult).to.be.an('array');
 
       // Find our transaction in both results
-      const fullTxTrace = fullResult.find((trace) => trace.txHash === receipt.transactionHash);
-      const topCallTxTrace = topCallResult.find((trace) => trace.txHash === receipt.transactionHash);
+      const fullTxTrace = fullResult.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
+      const topCallTxTrace = topCallResult.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
 
       expect(fullTxTrace).to.exist;
       expect(topCallTxTrace).to.exist;
@@ -440,7 +477,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find a CREATE transaction in the result (from contract deployment)
-      const createTxTrace = result.find((trace) => trace.result && trace.result.type === 'CREATE');
+      const createTxTrace = result.find((trace: BlockTrace) => trace.result && trace.result.type === 'CREATE');
       expect(createTxTrace).to.exist;
       expect(createTxTrace.result).to.exist;
 
@@ -483,7 +520,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
       Assertions.validateCallTracerResult(
@@ -517,7 +554,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       Assertions.validateCallTracerResult(
         txTrace.result,
         PURE_METHOD_CALL_DATA,
@@ -548,7 +585,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      const txTrace = result.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
 
@@ -592,8 +629,8 @@ describe('@debug API Acceptance Tests', function () {
       expect(resultByNumber.length).to.equal(resultByHash.length);
 
       // Compare the transaction hashes
-      const txHashesByNumber = resultByNumber.map((r) => r.txHash).sort();
-      const txHashesByHash = resultByHash.map((r) => r.txHash).sort();
+      const txHashesByNumber = resultByNumber.map((r: BlockTrace) => r.txHash).sort();
+      const txHashesByHash = resultByHash.map((r: BlockTrace) => r.txHash).sort();
       expect(txHashesByNumber).to.deep.equal(txHashesByHash);
     });
 
@@ -853,7 +890,7 @@ describe('@debug API Acceptance Tests', function () {
 
         // With enableMemory=true, memory field should be present in struct logs
         if (result.structLogs.length > 0) {
-          const logsWithMemory = result.structLogs.filter((log) => log.memory);
+          const logsWithMemory = result.structLogs.filter((log: { memory?: unknown }) => log.memory);
           expect(logsWithMemory.length).to.be.greaterThan(0);
         }
       });
@@ -869,7 +906,7 @@ describe('@debug API Acceptance Tests', function () {
 
         // With disableStack=true, stack field should not be present in struct logs
         if (result.structLogs.length > 0) {
-          const logsWithStack = result.structLogs.filter((log) => log.stack);
+          const logsWithStack = result.structLogs.filter((log: { stack?: unknown }) => log.stack);
           expect(logsWithStack.length).to.equal(0);
         }
       });
@@ -885,7 +922,7 @@ describe('@debug API Acceptance Tests', function () {
 
         // With disableStorage=true, storage field should not be present in struct logs
         if (result.structLogs.length > 0) {
-          const logsWithStorage = result.structLogs.filter((log) => log.storage);
+          const logsWithStorage = result.structLogs.filter((log: { storage?: unknown }) => log.storage);
           expect(logsWithStorage.length).to.equal(0);
         }
       });
@@ -1082,14 +1119,18 @@ describe('@debug API Acceptance Tests', function () {
       });
     });
 
-    const toHex = (n) => '0x' + n.toString(16);
-    const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
-    const hexToQuantity = (buf) => {
+    const toHex = (n: number | bigint): string => '0x' + n.toString(16);
+    const hexToData = (buf: Uint8Array): string => `0x${Buffer.from(buf).toString('hex')}`;
+    const hexToQuantity = (buf: Uint8Array): string => {
       if (buf.length === 0) return '0x0';
       return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
     };
 
-    const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock, headerOnly = false) => {
+    const assertBlockInfoMatchesGetRawBlockInfo = (
+      blockInfo: RawBlockInfo,
+      decodedRawBlock: Uint8Array[],
+      headerOnly = false,
+    ): void => {
       expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
       expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
       expect(hexToData(decodedRawBlock[2])).to.equal(constants.HEDERA_NODE_REWARD_ACCOUNT_ADDRESS);
@@ -1111,7 +1152,7 @@ describe('@debug API Acceptance Tests', function () {
       if (headerOnly) return;
 
       for (const [i, tx] of blockInfo.transactions.entries()) {
-        const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
+        const decodedTx = ethers.Transaction.from(hexToData((decodedRawBlock[17] as unknown as Uint8Array[])[i]));
 
         expect(decodedTx.to?.toLowerCase()).to.equal(tx.to);
         expect(decodedTx.data).to.equal(tx.input);
@@ -1120,8 +1161,8 @@ describe('@debug API Acceptance Tests', function () {
 
         if (decodedTx.signature) {
           // handle ethereum transaction
-          expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
-          expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
+          expect(toHex(decodedTx.maxPriorityFeePerGas!)).to.equal(tx.maxPriorityFeePerGas);
+          expect(toHex(decodedTx.maxFeePerGas!)).to.equal(tx.maxFeePerGas);
           expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
           expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
           expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
@@ -1129,7 +1170,7 @@ describe('@debug API Acceptance Tests', function () {
         } else {
           // handle synthetic transaction
           expect(toHex(decodedTx.gasLimit)).to.equal(tx.gas);
-          expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
+          expect(toHex(decodedTx.gasPrice!)).to.equal(tx.gasPrice);
         }
       }
 
@@ -1138,13 +1179,17 @@ describe('@debug API Acceptance Tests', function () {
     };
 
     describe('debug_getRawHeader', async () => {
-      let blockInfo;
+      let blockInfo: RawBlockInfo;
 
       before(async () => {
         blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
       });
 
-      const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock, headerOnly = false) => {
+      const assertBlockInfoMatchesGetRawBlockInfo = (
+        blockInfo: RawBlockInfo,
+        decodedRawBlock: Uint8Array[],
+        headerOnly = false,
+      ): void => {
         expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
         expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
         expect(hexToData(decodedRawBlock[2])).to.equal('0x0000000000000000000000000000000000000321');
@@ -1166,7 +1211,7 @@ describe('@debug API Acceptance Tests', function () {
         if (headerOnly) return;
 
         for (const [i, tx] of blockInfo.transactions.entries()) {
-          const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
+          const decodedTx = ethers.Transaction.from(hexToData((decodedRawBlock[17] as unknown as Uint8Array[])[i]));
 
           expect(decodedTx.to?.toLowerCase()).to.equal(tx.to);
           expect(decodedTx.data).to.equal(tx.input);
@@ -1175,8 +1220,8 @@ describe('@debug API Acceptance Tests', function () {
 
           if (decodedTx.signature) {
             // handle ethereum transaction
-            expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
-            expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
+            expect(toHex(decodedTx.maxPriorityFeePerGas!)).to.equal(tx.maxPriorityFeePerGas);
+            expect(toHex(decodedTx.maxFeePerGas!)).to.equal(tx.maxFeePerGas);
             expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
             expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
             expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
@@ -1184,7 +1229,7 @@ describe('@debug API Acceptance Tests', function () {
           } else {
             // handle synthetic transaction
             expect(toHex(decodedTx.gasLimit)).to.equal(tx.gas);
-            expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
+            expect(toHex(decodedTx.gasPrice!)).to.equal(tx.gasPrice);
           }
         }
 
@@ -1213,20 +1258,22 @@ describe('@debug API Acceptance Tests', function () {
       it('should check whether the RLP block header has correct info using block number for debug_getRawHeader parameter', async () => {
         const decodedRawBlock = RLP.decode(
           await relay.call(DEBUG_GET_RAW_HEADER, [numberTo0x(htsTransferBlockNumber)]),
-        );
+        ) as Uint8Array[];
 
         assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock, true);
       });
 
       it('should check whether the RLP block header has correct info using block hash for debug_getRawHeader parameter ', async () => {
-        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_HEADER, [htsTransferBlockHash]));
+        const decodedRawBlock = RLP.decode(
+          await relay.call(DEBUG_GET_RAW_HEADER, [htsTransferBlockHash]),
+        ) as Uint8Array[];
 
         assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock, true);
       });
     });
 
     describe('debug_getRawBlock', async () => {
-      let blockInfo;
+      let blockInfo: RawBlockInfo;
 
       before(async () => {
         blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
@@ -1251,13 +1298,17 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
-        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]));
+        const decodedRawBlock = RLP.decode(
+          await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]),
+        ) as Uint8Array[];
 
         assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
       });
 
       it('should check whether the RLP block has correct info using block hash for debug_getRawBlock parameter ', async () => {
-        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]));
+        const decodedRawBlock = RLP.decode(
+          await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]),
+        ) as Uint8Array[];
 
         assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
       });
@@ -1274,7 +1325,7 @@ describe('@debug API Acceptance Tests', function () {
         expect(result).to.be.an('array').with.lengthOf.at.least(1);
 
         // Verify the EVM transaction is traced
-        const evmTrace = result.find((trace: any) => trace.txHash === evmTxHash);
+        const evmTrace = result.find((trace: BlockTrace) => trace.txHash === evmTxHash);
         expect(evmTrace).to.exist;
         expect(evmTrace.result).to.exist;
         expect(evmTrace.result.type).to.equal('CALL');
@@ -1282,12 +1333,13 @@ describe('@debug API Acceptance Tests', function () {
         // Check if synthetic transactions are also included
         // Synthetic transactions will have gas/gasUsed of 0x0
         const syntheticTraces = result.filter(
-          (trace: any) => trace.result.gas === '0x0' && trace.result.gasUsed === '0x0' && trace.txHash !== evmTxHash,
+          (trace: BlockTrace) =>
+            trace.result.gas === '0x0' && trace.result.gasUsed === '0x0' && trace.txHash !== evmTxHash,
         );
 
         // If synthetic transactions were in the same block, they should be traced
         if (syntheticTraces.length > 0) {
-          syntheticTraces.forEach((trace: any) => {
+          syntheticTraces.forEach((trace: BlockTrace) => {
             expect(trace.result).to.have.property('type', 'CALL');
             expect(trace.result).to.have.property('input', '0x');
             expect(trace.result).to.have.property('output', '0x');
@@ -1305,14 +1357,14 @@ describe('@debug API Acceptance Tests', function () {
         expect(result).to.be.an('array').with.lengthOf.at.least(1);
 
         // Verify the EVM transaction is traced with prestate data
-        const evmTrace = result.find((trace: any) => trace.txHash === evmTxHash);
+        const evmTrace = result.find((trace: BlockTrace) => trace.txHash === evmTxHash);
         expect(evmTrace).to.exist;
         expect(evmTrace.result).to.exist;
         expect(Object.keys(evmTrace.result).length).to.be.at.least(1);
 
         // Synthetic transactions should have empty prestate
-        const syntheticTraces = result.filter((trace: any) => trace.txHash !== evmTxHash);
-        syntheticTraces.forEach((trace: any) => {
+        const syntheticTraces = result.filter((trace: BlockTrace) => trace.txHash !== evmTxHash);
+        syntheticTraces.forEach((trace: BlockTrace) => {
           // Synthetic transactions return empty prestate
           expect(trace.result).to.be.an('object');
         });
@@ -1338,7 +1390,7 @@ describe('@debug API Acceptance Tests', function () {
 
         // All traced transactions should be successful or reverted, not WRONG_NONCE
         // We verify this by checking that all have valid gas/gasUsed values
-        result.forEach((trace: any) => {
+        result.forEach((trace: BlockTrace) => {
           expect(trace.txHash).to.be.a('string');
           expect(trace.result).to.exist;
           // WRONG_NONCE transactions wouldn't have execution data
@@ -1400,12 +1452,12 @@ describe('@debug API Acceptance Tests', function () {
           // The block may contain EVM transactions too, so let's verify synthetic transactions are properly traced
           // Synthetic transactions have gas='0x0' and gasUsed='0x0'
           const syntheticTraces = result.filter(
-            (trace: any) => trace.result.gas === '0x0' && trace.result.gasUsed === '0x0',
+            (trace: BlockTrace) => trace.result.gas === '0x0' && trace.result.gasUsed === '0x0',
           );
 
           // If synthetic transactions are in this block, verify they're properly traced
           if (syntheticTraces.length > 0) {
-            syntheticTraces.forEach((trace: any) => {
+            syntheticTraces.forEach((trace: BlockTrace) => {
               expect(trace.txHash).to.be.a('string');
               expect(trace.result).to.have.property('type', 'CALL');
               expect(trace.result).to.have.property('gas', '0x0');
@@ -1414,7 +1466,7 @@ describe('@debug API Acceptance Tests', function () {
           } else {
             // If no synthetic transactions in this block, at least verify all traces are valid
             expect(result.length).to.be.at.least(0);
-            result.forEach((trace: any) => {
+            result.forEach((trace: BlockTrace) => {
               expect(trace.txHash).to.be.a('string');
               expect(trace.result).to.exist;
             });
@@ -1593,7 +1645,7 @@ describe('@debug API Acceptance Tests', function () {
       // Field 3: logs
       expect(decoded[3]).to.be.an('array').with.lengthOf(expectedReceipt.logs.length);
       expectedReceipt.logs.forEach((log, i) => {
-        const [addr, topics, data] = decoded[3][i];
+        const [addr, topics, data] = (decoded[3] as NestedUint8Array)[i] as NestedUint8Array;
         const decodedAddrHex = prepend0x(toHexString(addr as Uint8Array));
         expect(decodedAddrHex).to.equal(log.address);
         expect(topics).to.be.an('array').with.lengthOf(log.topics.length);

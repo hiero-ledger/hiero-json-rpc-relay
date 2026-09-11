@@ -45,7 +45,7 @@ describe('RedisCacheError', () => {
 
   describe('constructor (masked surface that gets logged)', () => {
     it('redacts credentials from the message', () => {
-      const err: any = new Error('AUTH failed for redis://admin:topsecret@10.0.0.5:6379');
+      const err = new Error('AUTH failed for redis://admin:topsecret@10.0.0.5:6379');
       const wrapped = new RedisCacheError(err);
 
       expect(wrapped.message).to.equal('AUTH failed for redis://***@10.0.0.5:6379');
@@ -53,7 +53,7 @@ describe('RedisCacheError', () => {
     });
 
     it('redacts credentials from the stack without dropping it', () => {
-      const err: any = new Error('AUTH failed for redis://admin:topsecret@10.0.0.5:6379');
+      const err = new Error('AUTH failed for redis://admin:topsecret@10.0.0.5:6379');
       const wrapped = new RedisCacheError(err);
 
       expect(wrapped.stack).to.be.a('string').that.is.not.empty;
@@ -62,11 +62,11 @@ describe('RedisCacheError', () => {
 
     it('does not retain the raw upstream error object', () => {
       const wrapped = new RedisCacheError(new Error('boom'));
-      expect((wrapped as any).fullError).to.be.undefined;
+      expect((wrapped as { fullError?: unknown }).fullError).to.be.undefined;
     });
 
     it('preserves the error type and isSocketClosed()', () => {
-      const err: any = new Error('socket closed');
+      const err: Error & { type?: string } = new Error('socket closed');
       err.type = RedisCacheError.ErrorMessages.SOCKET_CLOSED;
       const wrapped = new RedisCacheError(err);
 

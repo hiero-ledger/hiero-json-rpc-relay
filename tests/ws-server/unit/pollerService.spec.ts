@@ -9,6 +9,7 @@ import sinon from 'sinon';
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
 import { EthImpl } from '../../../src/relay/lib/eth';
+import { type Block } from '../../../src/relay/lib/model';
 import { PollerService } from '../../../src/ws-server/service/pollerService';
 
 const logger = pino({ level: 'trace' });
@@ -20,7 +21,7 @@ describe('PollerService', async function () {
   const logsTag =
     '{"event":"logs","filters":{"address":"0x23f5e49569A835d7bf9AefD30e4f60CdD570f225","topics":["0xc8b501cbd8e69c98c535894661d25839eb035b096adfde2bba416f04cc7ce987"]}}';
   const newHeadsTag = '{"event":"newHeads","filters":{}}';
-  const mockBlock: any = {
+  const mockBlock = {
     number: 1,
     hash: '0x123',
     parentHash: '0x',
@@ -40,7 +41,7 @@ describe('PollerService', async function () {
     timestamp: 12345,
     transactions: [],
     baseFeePerGas: '0x',
-  };
+  } as unknown as Block;
 
   let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
@@ -49,11 +50,11 @@ describe('PollerService', async function () {
   let sandbox: sinon.SinonSandbox;
   let loggerInfoSpy: sinon.SinonSpy;
   let clock: sinon.SinonFakeTimers;
-  let configServiceStub;
+  let configServiceStub: sinon.SinonStub;
   let activePollsGauge: Gauge;
   let activeNewHeadsPollsGauge: Gauge;
-  let activePollsGaugeSpy;
-  let activeNewHeadsPollsGaugeSpy;
+  let activePollsGaugeSpy: { inc: sinon.SinonSpy; dec: sinon.SinonSpy };
+  let activeNewHeadsPollsGaugeSpy: { inc: sinon.SinonSpy; dec: sinon.SinonSpy };
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();

@@ -46,7 +46,7 @@ export class GitHubClient {
    * Gets a list of comments on a pull request.
    * @returns A promise that resolves with the list of comments.
    */
-  async getCommentsOnPullRequest() {
+  async getCommentsOnPullRequest(): Promise<{ data: { id: number; body?: string }[] }> {
     try {
       const context = GitHubClient.getContext();
       return await this.octokit.request(GitHubClient.GET_COMMENTS_ENDPOINT, {

@@ -144,7 +144,7 @@ describe('ConfigService tests', async function () {
   it('Should always convert CHAIN_ID to a hexadecimal string, regardless of input value type.', async () => {
     const originalEnv = process.env;
 
-    const testChainId = (input: string, expected: string) => {
+    const testChainId = (input: string, expected: string): void => {
       process.env = { ...originalEnv, CHAIN_ID: input };
       // Reset the ConfigService singleton instance to force a new initialization
       // This is necessary because ConfigService caches the env values when first instantiated,
@@ -179,28 +179,31 @@ describe('ConfigService tests', async function () {
   });
 
   describe('validatePaymasterAccounts', () => {
-    let initialPaymasterAccounts;
+    const mutableEnvs = (): Record<string, unknown> =>
+      ConfigService['getInstance']()['envs'] as unknown as Record<string, unknown>;
+
+    let initialPaymasterAccounts: unknown;
 
     before(() => {
-      initialPaymasterAccounts = ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'];
+      initialPaymasterAccounts = mutableEnvs()['PAYMASTER_ACCOUNTS'];
     });
 
     after(() => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = initialPaymasterAccounts;
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = initialPaymasterAccounts;
     });
 
     it('should validate a correct config', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should throw on invalid account id format', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         ['0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid account id format, required format is realm.shard.num',
@@ -208,9 +211,9 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid key type', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'RSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: key type must be HEX_ECDSA or HEX_ED25519',
@@ -218,9 +221,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid hex private key', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
-        ['0.0.8031491', 'HEX_ECDSA', '0x1234', '80'],
-      ] as any;
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA', '0x1234', '80']];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
@@ -228,9 +229,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid der private key', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
-        ['0.0.8031491', 'HEX_ECDSA', '30300201003', '80'],
-      ] as any;
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA', '30300201003', '80']];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
@@ -238,43 +237,43 @@ describe('ConfigService tests', async function () {
     });
 
     it('should pass on valid hex private key', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should pass on valid der ecdsa private key', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         [
           '0.0.8031491',
           'HEX_ECDSA',
           '3030020100300706052b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
           '80',
         ],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should pass on valid der ed25519 private key', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         [
           '0.0.8031491',
           'HEX_ECDSA',
           '303002010030072b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
           '80',
         ],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should throw on invalid allowanceInHBAR', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '0'],
-      ] as any;
+      ];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: allowanceInHBAR must be an integer >= 1',
@@ -282,7 +281,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw if payment account array length is incorrect', () => {
-      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA']] as any;
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA']];
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0 must be an array of 4 element',

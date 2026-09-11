@@ -88,14 +88,21 @@ describe('addressLimit', () => {
   });
 
   describe('countBatchAddresses', () => {
-    const getLogs = (addresses: string[] | string | null) => ({
+    interface BatchEntry {
+      id: number;
+      jsonrpc: string;
+      method: string;
+      params: unknown[];
+    }
+
+    const getLogs = (addresses: string[] | string | null): BatchEntry => ({
       id: 1,
       jsonrpc: '2.0',
       method: 'eth_getLogs',
       params: [{ address: addresses, fromBlock: '0x0', toBlock: 'latest' }],
     });
 
-    const subscribe = (addresses: string[] | string | null) => ({
+    const subscribe = (addresses: string[] | string | null): BatchEntry => ({
       id: 1,
       jsonrpc: '2.0',
       method: 'eth_subscribe',

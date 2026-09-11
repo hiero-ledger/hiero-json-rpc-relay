@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
+import { type TransactionReceipt } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -28,25 +29,25 @@ describe('EstimatePrecompileContract tests', function () {
   let contract: ethers.Contract;
 
   let contractReceipt;
-  let EstimatePrecompileContractAddress;
-  let tokenAddress;
-  let nftAddress;
-  let nftSerialNumber;
-  let estimateContractSigner0;
-  let estimateContractSigner1;
-  let estimateContractSigner2;
+  let EstimatePrecompileContractAddress: string;
+  let tokenAddress: string;
+  let nftAddress: string;
+  let nftSerialNumber: number;
+  let estimateContractSigner0: ethers.Contract;
+  let estimateContractSigner1: ethers.Contract;
+  let estimateContractSigner2: ethers.Contract;
   let estimateContractSigner3;
-  let estimateContractSigner4;
-  let nftTokenContract;
-  let tokenContract;
-  let precompileTestContract;
-  let estimateContract;
+  let estimateContractSigner4: ethers.Contract;
+  let nftTokenContract: ethers.Contract;
+  let tokenContract: ethers.Contract;
+  let precompileTestContract: ethers.Contract;
+  let estimateContract: ethers.Contract;
   const lowerPercentBound = 5;
   const upperPercentBound = 30;
-  let ERCcontractReceipt;
-  let estimateContractAc0;
+  let ERCcontractReceipt: TransactionReceipt;
+  let estimateContractAc0: ethers.Contract;
   let PrecompileContractReceipt;
-  let PrecompileContractAddress;
+  let PrecompileContractAddress: string;
 
   const usdFee1 = 1;
   const usdFee2 = 2;
@@ -59,7 +60,7 @@ describe('EstimatePrecompileContract tests', function () {
     relay,
   }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient } = global;
 
-  async function createFungibleToken() {
+  async function createFungibleToken(): Promise<string> {
     estimateContract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
       EstimatePrecompileContractJson.abi,
@@ -71,29 +72,29 @@ describe('EstimatePrecompileContract tests', function () {
     });
 
     const tokenAddress = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args[0];
     return tokenAddress;
   }
 
-  async function createNft() {
+  async function createNft(): Promise<string> {
     const tx = await estimateContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 10_000_000,
     });
     const tokenAddress = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args[0];
 
     return tokenAddress;
   }
 
-  async function mintNFT() {
+  async function mintNFT(): Promise<number> {
     // Mint an NFT
     const tx = await estimateContract.mintTokenExternal(nftAddress, 0, ['0x02'], Constants.GAS.LIMIT_1_000_000);
 
     const serialNumbers = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
     )[0].args[0];
     nftSerialNumber = Number(serialNumbers[0]);
     expect(nftSerialNumber).to.be.greaterThan(0);
@@ -108,7 +109,7 @@ describe('EstimatePrecompileContract tests', function () {
       EstimatePrecompileContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    EstimatePrecompileContractAddress = contractReceipt.contractId.toSolidityAddress();
+    EstimatePrecompileContractAddress = contractReceipt.contractId!.toSolidityAddress();
 
     ERCcontractReceipt = await servicesNode.deployContract(
       ERCTestContractJson,
@@ -119,7 +120,7 @@ describe('EstimatePrecompileContract tests', function () {
       PrecompileTestContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    PrecompileContractAddress = PrecompileContractReceipt.contractId.toSolidityAddress();
+    PrecompileContractAddress = PrecompileContractReceipt.contractId!.toSolidityAddress();
 
     contract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
@@ -247,7 +248,7 @@ describe('EstimatePrecompileContract tests', function () {
     });
   });
 
-  async function getExchangeRates() {
+  async function getExchangeRates(): Promise<{ current_rate: { cent_equivalent: number; hbar_equivalent: number } }> {
     const exchangeRateResult = await mirrorNode.get(`/network/exchangerate`);
     return exchangeRateResult;
   }
@@ -255,7 +256,7 @@ describe('EstimatePrecompileContract tests', function () {
   function calculateCreateTokenFees(
     usdFee: number,
     exchangeRateCentEquivalent: number,
-    exhangeRateHbarEquivalent,
+    exhangeRateHbarEquivalent: number,
   ): number {
     const hbarPriceInCents = exchangeRateCentEquivalent / exhangeRateHbarEquivalent;
     const usdInCents = 100;
@@ -269,7 +270,7 @@ describe('EstimatePrecompileContract tests', function () {
     expectedGasUsed: number,
     lowerPercentBound: number,
     upperPercentBound: number,
-  ) => {
+  ): void => {
     const lowerDeviation = (Number(actualGasUsed) * lowerPercentBound) / 100;
     const upperDeviation = (Number(actualGasUsed) * upperPercentBound) / 100;
     const lowerBound = Number(actualGasUsed) + lowerDeviation;
@@ -281,7 +282,7 @@ describe('EstimatePrecompileContract tests', function () {
     );
   };
 
-  const isEqualWithDeviation = (actualGasUsed: bigint, expectedGasUsed: number, percentDeviation: number) => {
+  const isEqualWithDeviation = (actualGasUsed: bigint, expectedGasUsed: number, percentDeviation: number): void => {
     const deviation = (Number(actualGasUsed) * percentDeviation) / 100;
     const lowerBound = Number(actualGasUsed) - deviation;
     const upperBound = Number(actualGasUsed) + deviation;
@@ -787,7 +788,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with approveERC function without approval for fungible token', async function () {
     const tokenContract = new ethers.Contract(
-      prefix + ERCcontractReceipt.contractId.toSolidityAddress(),
+      prefix + ERCcontractReceipt.contractId!.toSolidityAddress(),
       ERCTestContractJson.abi,
       accounts[1].wallet,
     );
@@ -988,7 +989,7 @@ describe('EstimatePrecompileContract tests', function () {
         },
       ],
     };
-    const tokenTransferList = [];
+    const tokenTransferList: unknown[] = [];
 
     const tx = await estimateContractAc0.cryptoTransferExternal.populateTransaction(cryptoTransfers, tokenTransferList);
     const estimateGasResponse = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [tx]);
@@ -1127,12 +1128,12 @@ describe('EstimatePrecompileContract tests', function () {
     });
     const gasResult = await txs.wait();
 
-    const populate: any = await NewestimateContract.createFungibleTokenPublic.populateTransaction(
+    const populate = (await NewestimateContract.createFungibleTokenPublic.populateTransaction(
       accounts[0].wallet.address,
       {
         value: hexNumber,
       },
-    );
+    )) as unknown as { from?: string; value?: string };
     populate.from = accountLongZero;
     populate.value = hexNumber;
 
@@ -1163,12 +1164,12 @@ describe('EstimatePrecompileContract tests', function () {
     });
     const gasResult = await txs.wait();
 
-    const populate: any = await NewestimateContract.createNonFungibleTokenPublic.populateTransaction(
+    const populate = (await NewestimateContract.createNonFungibleTokenPublic.populateTransaction(
       accounts[0].wallet.address,
       {
         value: hexNumber,
       },
-    );
+    )) as unknown as { from?: string; value?: string };
     populate.from = accountLongZero;
     populate.value = hexNumber;
 
@@ -1197,13 +1198,13 @@ describe('EstimatePrecompileContract tests', function () {
     );
     const gasResult = await txs.wait();
 
-    const populate: any = await estimateContractSigner0.createFungibleTokenWithCustomFeesPublic.populateTransaction(
+    const populate = (await estimateContractSigner0.createFungibleTokenWithCustomFeesPublic.populateTransaction(
       accounts[0].wallet.address,
       tokenAddress,
       {
         value: hexNumber,
       },
-    );
+    )) as unknown as { from?: string; value?: string };
     populate.from = accountLongZero;
     populate.value = hexNumber;
 
@@ -1232,13 +1233,13 @@ describe('EstimatePrecompileContract tests', function () {
     );
     const gasResult = await txs.wait();
 
-    const populate: any = await estimateContractSigner0.createNonFungibleTokenWithCustomFeesPublic.populateTransaction(
+    const populate = (await estimateContractSigner0.createNonFungibleTokenWithCustomFeesPublic.populateTransaction(
       accounts[0].wallet.address,
       tokenAddress,
       {
         value: hexNumber,
       },
-    );
+    )) as unknown as { from?: string; value?: string };
     populate.from = accountLongZero;
     populate.value = hexNumber;
 
@@ -1266,7 +1267,7 @@ describe('EstimatePrecompileContract tests', function () {
     const txs = await contract.wipeTokenAccountExternal(tokenAddress, accounts[3].wallet.address, 0x02);
     const gasResult = await txs.wait();
 
-    const populate: any = await estimateContractSigner0.wipeTokenAccountExternal.populateTransaction(
+    const populate = await estimateContractSigner0.wipeTokenAccountExternal.populateTransaction(
       tokenAddress,
       accounts[3].wallet.address,
       2,
@@ -1293,7 +1294,7 @@ describe('EstimatePrecompileContract tests', function () {
     );
     await transferTx.wait();
 
-    const populate: any = await estimateContractSigner0.wipeTokenAccountExternal.populateTransaction(
+    const populate = await estimateContractSigner0.wipeTokenAccountExternal.populateTransaction(
       tokenAddress,
       accounts[3].wallet.address,
       Constants.AMOUNT.INVALID_AMOUNT,
@@ -1314,7 +1315,7 @@ describe('EstimatePrecompileContract tests', function () {
     );
     await transferTx.wait();
 
-    const populate: any = await contract.wipeTokenAccountNFTExternal.populateTransaction(
+    const populate = await contract.wipeTokenAccountNFTExternal.populateTransaction(
       nftAddress,
       accounts[3].wallet.address,
       serialNumbers,
@@ -1342,7 +1343,7 @@ describe('EstimatePrecompileContract tests', function () {
     );
     await transferTx.wait();
 
-    const populate: any = await contract.wipeTokenAccountNFTExternal.populateTransaction(
+    const populate = await contract.wipeTokenAccountNFTExternal.populateTransaction(
       nftAddress,
       accounts[3].wallet.address,
       invalidSerialNumbers,
@@ -1782,7 +1783,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with ERC totalSupply function for NFT', async function () {
     const ERCTestContract = new ethers.Contract(
-      prefix + ERCcontractReceipt.contractId.toSolidityAddress(),
+      prefix + ERCcontractReceipt.contractId!.toSolidityAddress(),
       ERCTestContractJson.abi,
       accounts[0].wallet,
     );
@@ -2288,32 +2289,46 @@ describe('EstimatePrecompileContract tests', function () {
     isWithinDeviation(gasResult.gasUsed, estimateGasResponse, lowerPercentBound, upperPercentBound);
   });
 
-  async function negativeScenarioVerification(tx, errorMessage: string) {
+  async function negativeScenarioVerification(tx: unknown, errorMessage: string): Promise<unknown> {
     let failed = false;
     let estimateGasResponse;
     try {
       estimateGasResponse = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [tx]);
-    } catch (e: any) {
-      expect(e.code).to.eq(errorMessage);
+    } catch (e) {
+      const thrown = e as { code: string };
+      expect(thrown.code).to.eq(errorMessage);
       failed = true;
     }
     expect(failed).to.be.true;
     return estimateGasResponse;
   }
 
-  async function associateAcc(contractSigner, account, token) {
+  async function associateAcc(
+    contractSigner: ethers.Contract,
+    account: string,
+    token: string,
+  ): Promise<{ gasUsed: bigint }> {
     const txResult = await contractSigner.associateTokenExternal(account, token);
     const gasResult = await txResult.wait();
     return gasResult;
   }
 
-  async function dissociateAcc(contractSigner, account, token) {
+  async function dissociateAcc(
+    contractSigner: ethers.Contract,
+    account: string,
+    token: string,
+  ): Promise<{ gasUsed: bigint }> {
     const txResult = await contractSigner.dissociateTokenExternal(account, token);
     const gasResult = await txResult.wait();
     return gasResult;
   }
 
-  async function approveAcc(contractSigner, token, spender, amount) {
+  async function approveAcc(
+    contractSigner: ethers.Contract,
+    token: string,
+    spender: string,
+    amount: number,
+  ): Promise<{ gasUsed: bigint }> {
     const txResult = await contractSigner.approveExternal(token, spender, amount);
     const gasResult = await txResult.wait();
     return gasResult;

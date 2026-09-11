@@ -225,7 +225,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
           const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
           expect(block).to.have.property('transactions').that.is.an('array');
-          const transactionInBlock = block.transactions.find(({ hash }) => hash === transactionHash);
+          const transactionInBlock = block.transactions.find(({ hash }: { hash: string }) => hash === transactionHash);
           expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
           expect(transactionInBlock.accessList).to.not.be.empty;
           expect(transactionInBlock.accessList).to.deep.equal(tx.accessList);
@@ -379,7 +379,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const GAS_PRICE_REF = '0x123456';
     const MAX_ALLOWANCE = 100;
 
-    let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+    let paymasterEnabledBefore: unknown, paymasterWhitelistBefore: unknown, maxGasAllowanceHbarBefore: unknown;
     before(() => {
       paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
       paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
@@ -393,14 +393,17 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       Utils.reloadPaymasterConfigs();
     });
 
-    const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+    const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number): void => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
       ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
       Utils.reloadPaymasterConfigs();
     };
 
-    const createAndSignTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {
+    const createAndSignTransaction = async (
+      senderAccount: AliasAccount,
+      recipientAddress?: string,
+    ): Promise<string> => {
       const transaction = {
         type: 2,
         chainId: Number(CHAIN_ID),
@@ -415,7 +418,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       return senderAccount.wallet.signTransaction(transaction);
     };
 
-    const verifySuccessfulTransaction = async (txHash: string, signerAddress: string, initialBalance: bigint) => {
+    const verifySuccessfulTransaction = async (
+      txHash: string,
+      signerAddress: string,
+      initialBalance: bigint,
+    ): Promise<void> => {
       await relay.pollForValidTransactionReceipt(txHash);
 
       const info = await mirrorNode.get(`/contracts/results/${txHash}`);
@@ -491,9 +498,13 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   describe('Multiple paymasters', function () {
-    let newPaymasters = [];
+    let newPaymasters: AliasAccount[] = [];
 
-    const createAndSignTransaction = async (senderAccount: AliasAccount, to: string, gasPrice: string = '0x0') => {
+    const createAndSignTransaction = async (
+      senderAccount: AliasAccount,
+      to: string,
+      gasPrice: string = '0x0',
+    ): Promise<string> => {
       return senderAccount.wallet.signTransaction({
         to,
         maxPriorityFeePerGas: gasPrice,
@@ -506,7 +517,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       });
     };
 
-    let paymasterAccounts, paymasterAccountsWhitelists;
+    let paymasterAccounts: unknown, paymasterAccountsWhitelists: unknown;
     before(async () => {
       newPaymasters = await Utils.createMultipleAliasAccounts(mirrorNode, accounts[4], 2, '1500000000');
       await new Promise((r) => setTimeout(r, 2500));
@@ -521,7 +532,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       Utils.reloadPaymasterConfigs();
     });
 
-    const configurePaymaster = (paymasterAccounts: any, paymasterAccountsWhitelists: any) => {
+    const configurePaymaster = (paymasterAccounts: unknown, paymasterAccountsWhitelists: unknown): void => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', paymasterAccounts);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', paymasterAccountsWhitelists);
       Utils.reloadPaymasterConfigs();
@@ -618,7 +629,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       await relay.pollForValidTransactionReceipt(txHash3);
       senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
       receiverBalanceAfter = await relay.getBalance(accounts[0].address, 'latest');
-      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter);
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter as unknown as number);
       expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
 
       const paymaster0BalanceAfter3 = await relay.getBalance(newPaymasters[0].address, 'latest');
@@ -685,7 +696,12 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     this.timeout(240 * 1000);
     overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true, USE_ASYNC_TX_PROCESSING: true });
 
-    const sendTransactionWithoutWaiting = (signer: AliasAccount, nonce: number, numOfTxs: number, gasPrice: number) => {
+    const sendTransactionWithoutWaiting = (
+      signer: AliasAccount,
+      nonce: number,
+      numOfTxs: number,
+      gasPrice: number,
+    ): Promise<string>[] => {
       return Array.from({ length: numOfTxs }, async (_, i) => {
         const tx = {
           ...defaultLondonTransactionData,
@@ -806,7 +822,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         });
         const signedTransactions = await Promise.all(txPromises);
 
-        const trackNonces = async (maxIterations = 20) => {
+        const trackNonces = async (maxIterations = 20): Promise<number[]> => {
           const nonces: number[] = [];
           const txPoolCounts: number[] = [];
           let peakTxPoolCountDetected = false;
@@ -971,14 +987,16 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         };
         const signedSecondTx = await sender.wallet.signTransaction(secondTx);
 
-        const invalidTxPromise = relay.call('eth_sendRawTransaction', [signedInvalidTx]).catch((error: any) => error);
-        const secondTxPromise = relay.sendRawTransaction(signedSecondTx).catch((error: any) => error);
+        const invalidTxPromise = relay
+          .call('eth_sendRawTransaction', [signedInvalidTx])
+          .catch((error: unknown) => error);
+        const secondTxPromise = relay.sendRawTransaction(signedSecondTx).catch((error: unknown) => error);
 
         const [invalidResult, wrongNonceError] = await Promise.all([invalidTxPromise, secondTxPromise]);
         expect(invalidResult).to.be.instanceOf(Error);
         expect(invalidResult.message).to.include('gas price');
         expect(wrongNonceError).to.be.instanceOf(Error);
-        expect(wrongNonceError.message).to.include('nonce');
+        expect((wrongNonceError as Error).message).to.include('nonce');
 
         await Utils.wait(2100);
 
@@ -1076,7 +1094,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const txHash = await relay.sendRawTransaction(signedTx);
       await relay.pollForValidTransactionReceipt(txHash);
 
-      const tx = (await relay.call('eth_getTransactionByHash', [txHash])) as any;
+      const tx = (await relay.call('eth_getTransactionByHash', [txHash])) as {
+        type: string;
+        authorizationList: unknown;
+      };
 
       expect(tx).to.exist;
       expect(tx.type).to.equal('0x4');

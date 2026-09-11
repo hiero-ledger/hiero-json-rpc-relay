@@ -2,6 +2,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import type Koa from 'koa';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -11,6 +12,7 @@ import constants from '../../../../src/relay/lib/constants';
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type ISharedParams } from '../../../../src/ws-server/controllers/jsonRpcController';
 import { handleEthSubscribe } from '../../../../src/ws-server/controllers/subscribeController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
@@ -38,7 +40,7 @@ describe('Subscribe Controller', function () {
   const nonExistingMethod = 'non-existing-method';
   const subscriptionId = '5644';
 
-  let mockLogger: any;
+  let mockLogger: { warn: sinon.SinonStub; info: sinon.SinonStub };
   let stubWsMetricRegistry: WsMetricRegistry;
   let stubRelay: Relay;
   let stubConnectionLimiter: ConnectionLimiter;
@@ -76,7 +78,7 @@ describe('Subscribe Controller', function () {
   });
 
   describe('handleEthSubscribe', async function () {
-    let defaultParams: any;
+    let defaultParams: ISharedParams;
 
     beforeEach(() => {
       defaultParams = {
@@ -84,7 +86,7 @@ describe('Subscribe Controller', function () {
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         params: [constants.SUBSCRIBE_EVENTS.NEW_HEADS, {}],
         relay: stubRelay,
-        logger: mockLogger,
+        logger: mockLogger as unknown as Logger,
         limiter: stubConnectionLimiter,
         mirrorNodeClient: stubMirrorNodeClient,
         ctx: createMockContext(),

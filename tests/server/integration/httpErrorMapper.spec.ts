@@ -7,7 +7,12 @@ import { translateRpcErrorToHttpStatus } from '../../../src/server/koaJsonRpc/li
 
 describe('translateRpcErrorToHttpStatus', () => {
   // Helper function to test error code mappings
-  const testErrorCodeMapping = (code: number, message: string, expectedStatusCode: number, data?: number) => {
+  const testErrorCodeMapping = (
+    code: number,
+    message: string,
+    expectedStatusCode: number,
+    data?: number,
+  ): ReturnType<typeof translateRpcErrorToHttpStatus> => {
     const result = translateRpcErrorToHttpStatus(new JsonRpcError({ code, message, data }));
 
     expect(result.statusErrorCode).to.equal(expectedStatusCode);

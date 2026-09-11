@@ -110,7 +110,8 @@ describe('@ethGasPrice Gas Price spec', async function () {
       });
 
       for (const testCaseName in GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES) {
-        const GAS_PRICE_PERCENTAGE_BUFFER = GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES[testCaseName];
+        const GAS_PRICE_PERCENTAGE_BUFFER =
+          GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES[testCaseName as keyof typeof GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES];
 
         describe(testCaseName, async function () {
           overrideEnvsInMochaDescribe({ GAS_PRICE_PERCENTAGE_BUFFER: GAS_PRICE_PERCENTAGE_BUFFER });

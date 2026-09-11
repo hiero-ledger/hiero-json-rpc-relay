@@ -37,6 +37,10 @@ const logger = pino({ level: 'silent' });
 const limitOrderPostFix = '?order=desc&limit=1';
 const transactionsPostFix = '?transactions=false';
 
+interface PaymasterWhitelistOverride {
+  PAYMASTER_WHITELIST: string[];
+}
+
 describe('Precheck', async function () {
   const requestDetails = new RequestDetails({ requestId: 'precheckTest', ipAddress: '0.0.0.0' });
   const txWithMatchingChainId =
@@ -114,10 +118,11 @@ describe('Precheck', async function () {
       let hasError = false;
       try {
         precheck.value(parsedTxWithValueLessThanOneTinybar);
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32602);
-        expect(e.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32602);
+        expect(thrown.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
         hasError = true;
       }
 
@@ -145,10 +150,11 @@ describe('Precheck', async function () {
 
       try {
         precheck.value(parsedTxWithValueLessThanOneTinybarAndNotEmptyData);
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32602);
-        expect(e.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32602);
+        expect(thrown.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
         hasError = true;
       }
       expect(hasError).to.be.true;
@@ -160,10 +166,11 @@ describe('Precheck', async function () {
       txWithNegativeValue.value = -1;
       try {
         precheck.value(txWithNegativeValue);
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32602);
-        expect(e.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32602);
+        expect(thrown.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
         hasError = true;
       }
 
@@ -176,10 +183,11 @@ describe('Precheck', async function () {
       txWithNegativeValue.value = -100_000_000;
       try {
         precheck.value(txWithNegativeValue);
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32602);
-        expect(e.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32602);
+        expect(thrown.message).to.eq("Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar");
         hasError = true;
       }
 
@@ -191,7 +199,7 @@ describe('Precheck', async function () {
     it('should pass for matching chainId', async function () {
       try {
         precheck.chainId(parsedTxWithMatchingChainId);
-      } catch (e: any) {
+      } catch (e) {
         expect(e).to.not.exist;
       }
     });
@@ -199,7 +207,7 @@ describe('Precheck', async function () {
     it('should pass when chainId=0x0', async function () {
       try {
         precheck.chainId(parsedtxWithChainId0x0);
-      } catch (e: any) {
+      } catch (e) {
         expect(e).to.not.exist;
       }
     });
@@ -208,10 +216,11 @@ describe('Precheck', async function () {
       try {
         precheck.chainId(parsedTxWithNonMatchingChainId);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32000);
-        expect(e.message).to.eq('ChainId (0x171) not supported. The correct chainId is 0x12a');
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32000);
+        expect(thrown.message).to.eq('ChainId (0x171) not supported. The correct chainId is 0x12a');
       }
     });
 
@@ -219,14 +228,14 @@ describe('Precheck', async function () {
       try {
         expect(precheck.isLegacyUnprotectedEtx(parsedtxWithChainId0x0)).to.be.true;
         expect(precheck.isLegacyUnprotectedEtx(parsedTxWithMatchingChainId)).to.be.false;
-      } catch (e: any) {
+      } catch (e) {
         expect(e).to.not.exist;
       }
     });
   });
 
   describe('gasLimit', async function () {
-    function testFailingGasLimitPrecheck(gasLimits, errorCode) {
+    function testFailingGasLimitPrecheck(gasLimits: number[], errorCode: number): void {
       for (const gasLimit of gasLimits) {
         it(`should fail for gasLimit: ${gasLimit}`, async function () {
           const tx = {
@@ -243,16 +252,17 @@ describe('Precheck', async function () {
           try {
             await precheck.gasLimit(parsedTx);
             expectedError();
-          } catch (e: any) {
-            expect(e).to.exist;
-            expect(e.code).to.eq(errorCode);
-            expect(e.message).to.contain(message);
+          } catch (e) {
+            const thrown = e as JsonRpcError;
+            expect(thrown).to.exist;
+            expect(thrown.code).to.eq(errorCode);
+            expect(thrown.message).to.contain(message);
           }
         });
       }
     }
 
-    function testPassingGasLimitPrecheck(gasLimits) {
+    function testPassingGasLimitPrecheck(gasLimits: number[]): void {
       for (const gasLimit of gasLimits) {
         it(`should pass for gasLimit: ${gasLimit}`, async function () {
           const tx = {
@@ -264,7 +274,7 @@ describe('Precheck', async function () {
 
           try {
             precheck.gasLimit(parsedTx);
-          } catch (e: any) {
+          } catch (e) {
             expect(e).to.not.exist;
           }
         });
@@ -298,14 +308,14 @@ describe('Precheck', async function () {
   describe('gas price', async function () {
     overrideEnvsInMochaDescribe({ GAS_PRICE_TINY_BAR_BUFFER: 10000000000 }); // 1 tinybar
 
-    let initialPaymasterWhitelist;
+    let initialPaymasterWhitelist: string[];
 
     before(() => {
       initialPaymasterWhitelist = CommonService.PAYMASTER_WHITELIST;
     });
 
     after(() => {
-      (CommonService as any).PAYMASTER_WHITELIST = initialPaymasterWhitelist;
+      (CommonService as unknown as PaymasterWhitelistOverride).PAYMASTER_WHITELIST = initialPaymasterWhitelist;
     });
 
     it('should pass for gas price gt to required gas price', async function () {
@@ -346,11 +356,12 @@ describe('Precheck', async function () {
       try {
         precheck.gasPrice(parsedTxWithMatchingChainId, minGasPrice);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32009);
-        expect(e.message).to.contains(`Gas price `);
-        expect(e.message).to.contains(` is below configured minimum gas price '${minGasPrice}`);
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32009);
+        expect(thrown.message).to.contains(`Gas price `);
+        expect(thrown.message).to.contains(` is below configured minimum gas price '${minGasPrice}`);
       }
     });
 
@@ -415,7 +426,7 @@ describe('Precheck', async function () {
 
     withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should not pass if gas price is set to 0, PAYMASTER_ENABLED is true but the to address is not whitelisted', async function () {
-        (CommonService as any).PAYMASTER_WHITELIST = [contractAddress1];
+        (CommonService as unknown as PaymasterWhitelistOverride).PAYMASTER_WHITELIST = [contractAddress1];
 
         const tx = {
           ...parsedTxWithMatchingChainId,
@@ -433,7 +444,7 @@ describe('Precheck', async function () {
 
     withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and the to address is whitelisted', async function () {
-        (CommonService as any).PAYMASTER_WHITELIST = [contractAddress1];
+        (CommonService as unknown as PaymasterWhitelistOverride).PAYMASTER_WHITELIST = [contractAddress1];
 
         const tx = {
           ...parsedTxWithMatchingChainId,
@@ -450,7 +461,7 @@ describe('Precheck', async function () {
 
     withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and whitelist is set to wildcard', async function () {
-        (CommonService as any).PAYMASTER_WHITELIST = ['*'];
+        (CommonService as unknown as PaymasterWhitelistOverride).PAYMASTER_WHITELIST = ['*'];
 
         const tx = {
           ...parsedTxWithMatchingChainId,
@@ -483,10 +494,11 @@ describe('Precheck', async function () {
       try {
         precheck.balance(parsedTransaction, account.balance);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32000);
-        expect(e.message).to.eq('Insufficient funds for transfer');
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32000);
+        expect(thrown.message).to.eq('Insufficient funds for transfer');
       }
     });
 
@@ -632,9 +644,10 @@ describe('Precheck', async function () {
       try {
         precheck.nonce(parsedTx, mirrorAccount.ethereum_nonce);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.eql(predefined.NONCE_TOO_LOW(parsedTx.nonce, mirrorAccount.ethereum_nonce));
-        expect(e.code).to.eq(-32000);
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.eql(predefined.NONCE_TOO_LOW(parsedTx.nonce, mirrorAccount.ethereum_nonce));
+        expect(thrown.code).to.eq(-32000);
       }
     });
 
@@ -654,7 +667,7 @@ describe('Precheck', async function () {
 
   describe('verifyAccount', async function () {
     let parsedTx: Transaction;
-    let mirrorAccount: any;
+    let mirrorAccount: { evm_address: string | null; ethereum_nonce: number };
     const defaultNonce: number = 3;
 
     before(async () => {
@@ -672,10 +685,11 @@ describe('Precheck', async function () {
       try {
         await precheck.verifyAccount(parsedTx, requestDetails);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32001);
-        expect(e.message).to.contain(parsedTx.from);
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32001);
+        expect(thrown.message).to.contain(parsedTx.from);
       }
     });
 
@@ -900,7 +914,7 @@ describe('Precheck', async function () {
     };
 
     // Helper function to create a transaction with specified data
-    const createTransaction = async (data: string) => {
+    const createTransaction = async (data: string): Promise<ethers.Transaction> => {
       const wallet = ethers.Wallet.createRandom();
       const txParams = {
         ...defaultTx,
@@ -957,7 +971,7 @@ describe('Precheck', async function () {
   });
 
   describe('initcodeSize', function () {
-    const createContractCreationTx = async (dataSize: number) => {
+    const createContractCreationTx = async (dataSize: number): Promise<ethers.Transaction> => {
       const wallet = ethers.Wallet.createRandom();
       const txParams = {
         value: ONE_TINYBAR_IN_WEI_HEX,
@@ -971,7 +985,7 @@ describe('Precheck', async function () {
       return ethers.Transaction.from(signed);
     };
 
-    const createRegularTx = async (dataSize: number) => {
+    const createRegularTx = async (dataSize: number): Promise<ethers.Transaction> => {
       const wallet = ethers.Wallet.createRandom();
       const txParams = {
         value: ONE_TINYBAR_IN_WEI_HEX,
@@ -1053,7 +1067,7 @@ describe('Precheck', async function () {
     });
 
     it('should reject Cancun transactions', async () => {
-      let error;
+      let error: JsonRpcError | undefined;
       try {
         const signedCancun = await signTransaction({
           ...defaultTx,
@@ -1063,15 +1077,15 @@ describe('Precheck', async function () {
         });
         precheck.transactionType(ethers.Transaction.from(signedCancun));
       } catch (e) {
-        error = e;
+        error = e as JsonRpcError;
       }
       expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
-      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
+      expect(error!.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
+      expect(error!.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
     });
 
     describe('type 4 (EIP-7702) feature flag', async function () {
-      const authEntry = {
+      const authEntry: ethers.AuthorizationLike = {
         chainId: defaultChainId,
         address: contractAddress1,
         nonce: 0,
@@ -1094,15 +1108,15 @@ describe('Precheck', async function () {
 
       it('should reject type 4 transactions when TX_TYPE_4_ENABLED is false (default)', async () => {
         const signed = await signTransaction(type4Tx);
-        let error;
+        let error: JsonRpcError | undefined;
         try {
           precheck.transactionType(ethers.Transaction.from(signed));
         } catch (e) {
-          error = e;
+          error = e as JsonRpcError;
         }
         expect(error).to.be.an.instanceOf(JsonRpcError);
-        expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
-        expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
+        expect(error!.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.message);
+        expect(error!.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_4.code);
       });
 
       withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
@@ -1116,7 +1130,7 @@ describe('Precheck', async function () {
 
   describe('receiverAccount', async function () {
     let parsedTx: Transaction;
-    let mirrorAccountTo: any;
+    let mirrorAccountTo: { receiver_sig_required: boolean };
     const defaultNonce: number = 4;
     const toAddress = ethers.Wallet.createRandom().address;
 
@@ -1142,10 +1156,11 @@ describe('Precheck', async function () {
       try {
         await precheck.receiverAccount(parsedTx, requestDetails);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32000);
-        expect(e).to.eql(predefined.RECEIVER_SIGNATURE_ENABLED);
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.exist;
+        expect(thrown.code).to.eq(-32000);
+        expect(thrown).to.eql(predefined.RECEIVER_SIGNATURE_ENABLED);
       }
     });
 
@@ -1212,10 +1227,10 @@ describe('Precheck', async function () {
     };
 
     // The method only reads tx.type, tx.authorizationList, and tx.to.
-    const makeTx = (overrides: Record<string, unknown> = {}) =>
+    const makeTx = (overrides: Record<string, unknown> = {}): Transaction =>
       ({
         type: 2,
-        authorizationList: undefined as any,
+        authorizationList: undefined,
         to: contractAddress1,
         ...overrides,
       }) as unknown as Transaction;
@@ -1257,10 +1272,11 @@ describe('Precheck', async function () {
       try {
         precheck.authorizationList(tx);
         expectedError();
-      } catch (e: any) {
-        expect(e).to.be.an.instanceOf(JsonRpcError);
-        expect(e.code).to.eq(-32602);
-        expect(e.message).to.contain('exceeds uint64 maximum');
+      } catch (e) {
+        const thrown = e as JsonRpcError;
+        expect(thrown).to.be.an.instanceOf(JsonRpcError);
+        expect(thrown.code).to.eq(-32602);
+        expect(thrown.message).to.contain('exceeds uint64 maximum');
       }
     });
 

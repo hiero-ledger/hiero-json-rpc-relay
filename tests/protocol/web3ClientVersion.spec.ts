@@ -19,7 +19,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-eth-plain web3_clie
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
-      const expectNoHttp500 = (response: { status?: number; error?: { code: number } }) => {
+      const expectNoHttp500 = (response: { status?: number; error?: { code: number } }): void => {
         if (response.status !== undefined) {
           expect(response.status).to.not.equal(500);
         }

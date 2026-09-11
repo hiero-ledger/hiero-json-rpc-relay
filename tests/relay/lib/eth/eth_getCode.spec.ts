@@ -28,7 +28,7 @@ import { generateEthTestEnv } from './eth-helpers';
 use(chaiAsPromised);
 
 function entityIdToEvmAddress(entityId: string): string {
-  const pad = (num: string, n: number) =>
+  const pad = (num: string, n: number): string =>
     Number(num)
       .toString(16)
       .padStart(n * 2, '0');
@@ -170,15 +170,16 @@ describe('@ethGetCode using MirrorNode', async function () {
         try {
           await ethImpl.getCode(constants.HTS_ADDRESS, blockParam, requestDetails);
           expect(true).to.eq(false);
-        } catch (error: any) {
+        } catch (error) {
           const expectedError = predefined.UNKNOWN_BLOCK(
             `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockParam}`,
           );
+          const thrown = error as JsonRpcError;
 
-          expect(error).to.exist;
-          expect(error instanceof JsonRpcError);
-          expect(error.code).to.eq(expectedError.code);
-          expect(error.message).to.eq(expectedError.message);
+          expect(thrown).to.exist;
+          expect(thrown instanceof JsonRpcError);
+          expect(thrown.code).to.eq(expectedError.code);
+          expect(thrown.message).to.eq(expectedError.message);
         }
       });
     });

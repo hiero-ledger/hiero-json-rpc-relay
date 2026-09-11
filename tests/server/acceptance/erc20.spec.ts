@@ -16,7 +16,7 @@ import { Utils } from '../helpers/utils';
 // Local resources
 import { type AliasAccount } from '../types/AliasAccount';
 
-const extractRevertReason = (errorReason: string) => {
+const extractRevertReason = (errorReason: string): string => {
   const pattern = /(?<=reverted: ).*/;
   return errorReason.match(pattern)?.[0] || '';
 };
@@ -29,10 +29,10 @@ describe('@erc20 Acceptance Tests', async function () {
 
   // cached entities
   const accounts: AliasAccount[] = [];
-  let initialHolder;
-  let anotherAccount;
+  let initialHolder: string;
+  let anotherAccount: string;
 
-  const contracts: [any] = [];
+  const contracts: ethers.Contract[] = [];
 
   const name = Utils.randomString(10);
   const symbol = Utils.randomString(5);
@@ -78,7 +78,7 @@ describe('@erc20 Acceptance Tests', async function () {
 
   for (const i in testTitles) {
     describe(testTitles[i].testName, async function () {
-      let contract;
+      let contract: ethers.Contract;
 
       before(async function () {
         contract = contracts[i];
@@ -128,8 +128,8 @@ describe('@erc20 Acceptance Tests', async function () {
         });
 
         describe('transfer from', function () {
-          let spender;
-          let spenderWallet;
+          let spender: string;
+          let spenderWallet: ethers.Wallet;
 
           before(async function () {
             spender = accounts[1].address;
@@ -137,27 +137,27 @@ describe('@erc20 Acceptance Tests', async function () {
           });
 
           describe('when the token owner is not the zero address', function () {
-            let tokenOwner, tokenOwnerWallet;
+            let tokenOwner: string, tokenOwnerWallet: ethers.Wallet;
             before(async function () {
               tokenOwner = accounts[0].address;
               tokenOwnerWallet = accounts[0].wallet;
             });
 
             describe('when the recipient is not the zero address', function () {
-              let to, toWallet;
+              let to: string, toWallet: ethers.Wallet;
               before(async function () {
                 to = accounts[2].address;
                 toWallet = accounts[2].wallet;
               });
 
               describe('when the spender has enough tokens', function () {
-                let amount, tx;
+                let amount: bigint, tx: ethers.ContractTransactionResponse;
                 before(async function () {
                   amount = initialSupply;
                 });
 
                 it('@release contract owner transfers tokens', async function () {
-                  tx = await contract.connect(tokenOwnerWallet).transfer(to, amount);
+                  tx = await (contract.connect(tokenOwnerWallet) as ethers.Contract).transfer(to, amount);
                   // 5 seconds sleep to propagate the changes to mirror node
                   await new Promise((r) => setTimeout(r, 5000));
                   const ownerBalance = await contract.balanceOf(tokenOwner);
@@ -167,7 +167,7 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 it('emits a transfer event', async function () {
-                  const transferEvent = (await tx.wait()).logs.filter(
+                  const transferEvent = ((await tx.wait())!.logs as unknown as ethers.EventLog[]).filter(
                     (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Transfer,
                   )[0].args;
                   expect(transferEvent.from).to.eq(tokenOwnerWallet.address);
@@ -176,7 +176,7 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 it('other account transfers tokens back to owner', async function () {
-                  tx = await contract.connect(toWallet).transfer(tokenOwner, amount);
+                  tx = await (contract.connect(toWallet) as ethers.Contract).transfer(tokenOwner, amount);
                   // 5 seconds sleep to propagate the changes to mirror node
                   await new Promise((r) => setTimeout(r, 5000));
                   const ownerBalance = await contract.balanceOf(tokenOwner);
@@ -187,11 +187,13 @@ describe('@erc20 Acceptance Tests', async function () {
               });
 
               describe('when the spender has enough allowance', function () {
-                let tx;
+                let tx: ethers.ContractTransactionResponse;
                 before(async function () {
-                  tx = await contract
-                    .connect(tokenOwnerWallet)
-                    .approve(spender, initialSupply, await Utils.gasOptions());
+                  tx = await (contract.connect(tokenOwnerWallet) as ethers.Contract).approve(
+                    spender,
+                    initialSupply,
+                    await Utils.gasOptions(),
+                  );
                   await tx.wait();
                   // 5 seconds sleep to propagate the changes to mirror node
                   await new Promise((r) => setTimeout(r, 5000));
@@ -199,7 +201,7 @@ describe('@erc20 Acceptance Tests', async function () {
 
                 it('emits an approval event', async function () {
                   const allowance = await contract.allowance(tokenOwner, spender);
-                  const approvalEvent = (await tx.wait()).logs.filter(
+                  const approvalEvent = ((await tx.wait())!.logs as unknown as ethers.EventLog[]).filter(
                     (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Approval,
                   )[0].args;
                   expect(approvalEvent.owner).to.eq(tokenOwnerWallet.address);
@@ -208,7 +210,7 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 describe('when the token owner has enough balance', function () {
-                  let amount, tx;
+                  let amount: bigint, tx: ethers.ContractTransactionResponse;
                   before(async function () {
                     amount = initialSupply;
                     const ownerBalance = await contract.balanceOf(tokenOwner);
@@ -218,9 +220,12 @@ describe('@erc20 Acceptance Tests', async function () {
                   });
 
                   it('transfers the requested amount', async function () {
-                    tx = await contract
-                      .connect(spenderWallet)
-                      .transferFrom(tokenOwner, to, initialSupply, await Utils.gasOptions());
+                    tx = await (contract.connect(spenderWallet) as ethers.Contract).transferFrom(
+                      tokenOwner,
+                      to,
+                      initialSupply,
+                      await Utils.gasOptions(),
+                    );
                     await tx.wait();
                     // 5 seconds sleep to propagate the changes to mirror node
                     await new Promise((r) => setTimeout(r, 5000));
@@ -236,7 +241,7 @@ describe('@erc20 Acceptance Tests', async function () {
                   });
 
                   it('emits a transfer event', async function () {
-                    const transferEvent = (await tx.wait()).logs.filter(
+                    const transferEvent = ((await tx.wait())!.logs as unknown as ethers.EventLog[]).filter(
                       (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Transfer,
                     )[0].args;
                     expect(transferEvent.from).to.eq(tokenOwnerWallet.address);
@@ -246,14 +251,16 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 describe('when the token owner does not have enough balance', function () {
-                  let amount;
+                  let amount: bigint;
 
                   beforeEach('reducing balance', async function () {
                     amount = initialSupply;
 
-                    const approvalTx = await contract
-                      .connect(tokenOwnerWallet)
-                      .approve(spender, initialSupply, await Utils.gasOptions());
+                    const approvalTx = await (contract.connect(tokenOwnerWallet) as ethers.Contract).approve(
+                      spender,
+                      initialSupply,
+                      await Utils.gasOptions(),
+                    );
                     await approvalTx.wait();
 
                     await contract.transfer(to, 1, await Utils.gasOptions());
@@ -264,7 +271,7 @@ describe('@erc20 Acceptance Tests', async function () {
                   it('reverts', async function () {
                     try {
                       await Assertions.expectRevert(
-                        contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
+                        (contract.connect(spenderWallet) as ethers.Contract).transferFrom(tokenOwner, to, amount),
                         Constants.CALL_EXCEPTION,
                       );
                     } catch (e) {
@@ -278,7 +285,7 @@ describe('@erc20 Acceptance Tests', async function () {
               });
 
               describe('when the spender does not have enough allowance', function () {
-                let allowance;
+                let allowance: bigint;
 
                 before(async function () {
                   allowance = initialSupply - BigInt(1);
@@ -290,7 +297,7 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 describe('when the token owner has enough balance', function () {
-                  let amount;
+                  let amount: bigint;
                   before(async function () {
                     allowance = initialSupply - BigInt(1);
                     amount = initialSupply;
@@ -301,7 +308,7 @@ describe('@erc20 Acceptance Tests', async function () {
                   it('reverts', async function () {
                     try {
                       await Assertions.expectRevert(
-                        contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
+                        (contract.connect(spenderWallet) as ethers.Contract).transferFrom(tokenOwner, to, amount),
                         Constants.CALL_EXCEPTION,
                       );
                     } catch (e) {
@@ -314,7 +321,7 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 describe('when the token owner does not have enough balance', function () {
-                  let amount;
+                  let amount: bigint;
                   before(async function () {
                     amount = allowance;
                   });
@@ -326,7 +333,7 @@ describe('@erc20 Acceptance Tests', async function () {
                   it('reverts', async function () {
                     try {
                       await Assertions.expectRevert(
-                        contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
+                        (contract.connect(spenderWallet) as ethers.Contract).transferFrom(tokenOwner, to, amount),
                         Constants.CALL_EXCEPTION,
                       );
                     } catch (e) {
@@ -341,22 +348,24 @@ describe('@erc20 Acceptance Tests', async function () {
             });
 
             describe('when the recipient is the zero address', function () {
-              let amount, to, tokenOwnerWallet;
+              let amount: bigint, to: string, tokenOwnerWallet: ethers.Wallet;
 
               beforeEach(async function () {
                 amount = initialSupply;
                 to = ethers.ZeroAddress;
                 tokenOwnerWallet = accounts[2].wallet;
-                const approveTx = await contract
-                  .connect(tokenOwnerWallet)
-                  .approve(spender, amount, await Utils.gasOptions());
+                const approveTx = await (contract.connect(tokenOwnerWallet) as ethers.Contract).approve(
+                  spender,
+                  amount,
+                  await Utils.gasOptions(),
+                );
                 await approveTx.wait();
               });
 
               it('reverts', async function () {
                 try {
                   await Assertions.expectRevert(
-                    contract.connect(spenderWallet).transferFrom(tokenOwner, to, amount),
+                    (contract.connect(spenderWallet) as ethers.Contract).transferFrom(tokenOwner, to, amount),
                     Constants.CALL_EXCEPTION,
                   );
                 } catch (e) {

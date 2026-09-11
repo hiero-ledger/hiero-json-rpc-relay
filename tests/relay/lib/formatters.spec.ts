@@ -151,7 +151,7 @@ describe('Formatters', () => {
     });
 
     it('should throw when env var is any non-parseable value and constant is any non-parseable value', () => {
-      let value: any = undefined;
+      let value: number | undefined = undefined;
       expect(function () {
         value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_NONNUMERICSTRING', 'TYPE_ACCOUNT');
       }).to.throw(
@@ -163,7 +163,7 @@ describe('Formatters', () => {
     });
 
     it('should throw when env var is any non-parseable value and constant does not exist', () => {
-      let value: any = undefined;
+      let value: number | undefined = undefined;
       expect(function () {
         value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_NONNUMERICSTRING', 'FOO_BAR');
       }).to.throw(
@@ -175,7 +175,7 @@ describe('Formatters', () => {
     });
 
     it('should throw when fallback constant is also non-parseable', () => {
-      let value: any = undefined;
+      let value: number | undefined = undefined;
       expect(function () {
         value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_UNDEFINED', 'INVALID_CONSTANT');
       }).to.throw(
@@ -395,11 +395,11 @@ describe('Formatters', () => {
 
     it('should return false for an address with an undefined value', () => {
       const address = undefined;
-      expect(isValidEthereumAddress(address as any)).to.equal(false);
+      expect(isValidEthereumAddress(address)).to.equal(false);
     });
     it('should return false for an address with a null value', () => {
       const address = null;
-      expect(isValidEthereumAddress(address as any)).to.equal(false);
+      expect(isValidEthereumAddress(address)).to.equal(false);
     });
 
     it('should return false for an address with a null value', () => {
@@ -408,9 +408,9 @@ describe('Formatters', () => {
     });
 
     it('should return false for falsy address values', () => {
-      expect(isValidEthereumAddress(false as any)).to.equal(false);
-      expect(isValidEthereumAddress(0 as any)).to.equal(false);
-      expect(isValidEthereumAddress(NaN as any)).to.equal(false);
+      expect(isValidEthereumAddress(false as unknown as string)).to.equal(false);
+      expect(isValidEthereumAddress(0 as unknown as string)).to.equal(false);
+      expect(isValidEthereumAddress(NaN as unknown as string)).to.equal(false);
     });
   });
 
@@ -762,28 +762,28 @@ describe('Formatters', () => {
     it('should test mapKeysAndValues with no mapping functions', () => {
       // Test when mapFn.key and mapFn.value are undefined
       const target = { a: '1', b: '2' };
-      const result = mapKeysAndValues(target, {} as any);
+      const result = mapKeysAndValues(target, {});
       expect(result).to.deep.equal({ a: '1', b: '2' });
     });
 
     it('should test mapKeysAndValues with only key mapping', () => {
       // Test when mapFn.value is undefined
       const target = { a: '1', b: '2' };
-      const result = mapKeysAndValues(target, { key: (k) => k.toUpperCase() } as any);
+      const result = mapKeysAndValues(target, { key: (k) => k.toUpperCase() });
       expect(result).to.deep.equal({ A: '1', B: '2' });
     });
 
     it('should test mapKeysAndValues with only value mapping', () => {
       // Test when mapFn.key is undefined
       const target = { a: '1', b: '2' };
-      const result = mapKeysAndValues(target, { value: (v) => parseInt(v) } as any);
+      const result = mapKeysAndValues(target, { value: (v) => parseInt(v) });
       expect(result).to.deep.equal({ a: 1, b: 2 });
     });
 
     it('should test nullableNumberTo0x with null input', () => {
       // Test the specific condition: return input == null ? null : numberTo0x(input);
       expect(nullableNumberTo0x(null)).to.equal(null);
-      expect(nullableNumberTo0x(undefined as any)).to.equal(null);
+      expect(nullableNumberTo0x(undefined as unknown as null)).to.equal(null);
     });
 
     it('should test toNullIfEmptyHex with empty hex', () => {
@@ -834,7 +834,7 @@ describe('Formatters', () => {
     it('should test tinybarsToWeibars with null and undefined', () => {
       // Test the condition: return value == null ? null : value * constants.TINYBAR_TO_WEIBAR_COEF;
       expect(tinybarsToWeibars(null, false)).to.equal(null);
-      expect(tinybarsToWeibars(undefined as any, false)).to.equal(null);
+      expect(tinybarsToWeibars(undefined as unknown as null, false)).to.equal(null);
     });
 
     it('should test parseNumericEnvVar with specific constant fallback', () => {

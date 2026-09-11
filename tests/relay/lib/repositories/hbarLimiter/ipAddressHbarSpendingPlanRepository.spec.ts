@@ -25,7 +25,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
   const ipAddress = '555.555.555.555';
   const nonExistingIpAddress = 'xxx.xxx.xxx.xxx';
 
-  const tests = (isSharedCacheEnabled: boolean) => {
+  const tests = (isSharedCacheEnabled: boolean): void => {
     let cacheService: ICacheClient;
     let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let repository: IPAddressHbarSpendingPlanRepository;

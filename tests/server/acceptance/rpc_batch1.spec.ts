@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { TransferTransaction } from '@hiero-ledger/sdk';
+import { type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -11,6 +11,7 @@ import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
+import { type MirrorNodeBlock } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import type MirrorClient from '../clients/mirrorClient';
@@ -21,14 +22,19 @@ import basicContractJson from '../contracts/Basic.json';
 // Local resources from contracts directory
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
-// Assertions from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { type MirrorTransactionLike } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { type AliasAccount } from '../types/AliasAccount';
 import { MultiLogReceiptFixture } from './fixtures/multiLogReceiptFixture';
 
 const Address = RelayCalls;
+
+interface IndexedBlock {
+  number: string;
+  hash: string;
+  transactions: { hash: string; transactionIndex: string }[];
+}
 
 describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
@@ -45,9 +51,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
   // cached entities
   let parentContractAddress: string;
-  let mirrorContractDetails;
+  let mirrorContractDetails: MirrorTransactionLike;
   let createChildTx: ethers.ContractTransactionResponse;
-  let htsTokenId: any; // Shared HTS token for synthetic transaction tests
+  let htsTokenId: TokenId; // Shared HTS token for synthetic transaction tests
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const requestId = 'rpc_batch1Test';
   const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
@@ -118,7 +124,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
       const defaultGasLimit = numberTo0x(3_000_000);
 
-      const sendTransactions = async (signer = accounts[1], count: number = 2) => {
+      const sendTransactions = async (signer = accounts[1], count: number = 2): Promise<Map<string, string>> => {
         const transactionMap = new Map<string, string>();
         for (let i = 0; i < count; i++) {
           const tx = {
@@ -140,7 +146,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         return transactionMap;
       };
 
-      const sendContractDeploymentTransaction = async (signer = accounts[1]) => {
+      const sendContractDeploymentTransaction = async (signer = accounts[1]): Promise<ethers.Transaction> => {
         const signedTx = await signer.wallet.signTransaction({
           chainId: Number(CHAIN_ID),
           maxPriorityFeePerGas: defaultGasPrice,
@@ -189,7 +195,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('should throw an INVALID_PARAMETER error if a parameter is being passed to txpool_content', async () => {
           expect(relay.call('txpool_content', ['0x9303'])).to.eventually.be.rejected.and.satisfy(
-            (err: any) => err.response.status === 400,
+            (err: { response: { status: number } }) => err.response.status === 400,
           );
         });
 
@@ -212,7 +218,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('should throw an INVALID_PARAMETER error if a parameter is not being passed to txpool_contentFrom', async () => {
           expect(relay.call('txpool_contentFrom', [])).to.eventually.be.rejected.and.satisfy(
-            (err: any) => err.response.status === 400,
+            (err: { response: { status: number } }) => err.response.status === 400,
           );
         });
 
@@ -226,7 +232,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('should throw an INVALID_PARAMETER error if a parameter is being passed to txpool_status', async () => {
           expect(relay.call('txpool_status', ['0x9303'])).to.eventually.be.rejected.and.satisfy(
-            (err: any) => err.response.status === 400,
+            (err: { response: { status: number } }) => err.response.status === 400,
           );
         });
 
@@ -279,7 +285,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     });
 
     describe('Block related RPC calls', () => {
-      let mirrorBlock;
+      let mirrorBlock: MirrorNodeBlock;
 
       before(async () => {
         mirrorBlock = (await mirrorNode.get(`/blocks?block.number=${mirrorContractDetails.block_number}`)).blocks[0];
@@ -328,7 +334,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res[0].logs).to.not.be.empty;
         const blockTimestampFrom = Number(mirrorBlock.timestamp.from.split('.')[0]);
         const blockTimestampTo = Number(mirrorBlock.timestamp.to.split('.')[0]);
-        res[0].logs.map((log) => {
+        res[0].logs.map((log: { blockTimestamp: string }) => {
           const logTimestamp = parseInt(log.blockTimestamp, 16);
           // Transaction timestamp falls within block's time range [from, to]
           expect(logTimestamp).to.be.at.least(blockTimestampFrom);
@@ -390,7 +396,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [deploymentBlock.hash]);
 
-        const deploymentReceiptInBlock = res.find((receipt) => receipt.transactionHash === basicContractTx.hash);
+        const deploymentReceiptInBlock = res.find(
+          (receipt: { transactionHash: string }) => receipt.transactionHash === basicContractTx.hash,
+        );
 
         expect(deploymentReceiptInBlock).to.exist;
         expect(deploymentReceiptInBlock).to.have.property('to');
@@ -409,7 +417,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       describe('HTS crypto transfers', async function () {
-        let htsTransferBlockNumber, htsTransferBlockHash, htsTransferEvmTxHash;
+        let htsTransferBlockNumber: string, htsTransferBlockHash: string, htsTransferEvmTxHash: string;
 
         before(async () => {
           const transaction = new TransferTransaction()
@@ -440,7 +448,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         it('should be able to get hts crypto transfer via eth_getBlockReceipts', async () => {
           const resp = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [htsTransferBlockNumber]);
-          expect(resp.some((tx) => tx.transactionHash === htsTransferEvmTxHash)).to.be.true;
+          expect(resp.some((tx: { transactionHash: string }) => tx.transactionHash === htsTransferEvmTxHash)).to.be
+            .true;
         });
       });
 
@@ -463,7 +472,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const receipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [formattedBlockNumber]);
         expect(receipts).to.not.be.empty;
-        expect(receipts.filter((receipt) => receipt.transactionHash === transactionHash)).to.not.be.empty;
+        expect(receipts.filter((receipt: { transactionHash: string }) => receipt.transactionHash === transactionHash))
+          .to.not.be.empty;
       });
     });
 
@@ -909,14 +919,14 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       describe('transactionIndex', () => {
-        let block: any;
+        let block: IndexedBlock;
         let blockNumberHex: string;
         let parentHashes: Set<string>;
         let childHashes: Set<string>;
 
-        const assertContiguousIndexes = (subject: any, label: string) => {
-          const actual = subject.transactions.map((transaction: any) => transaction.transactionIndex);
-          const expected = subject.transactions.map((_: any, position: number) => numberTo0x(position));
+        const assertContiguousIndexes = (subject: IndexedBlock, label: string): void => {
+          const actual = subject.transactions.map((transaction) => transaction.transactionIndex);
+          const expected = subject.transactions.map((_, position: number) => numberTo0x(position));
 
           expect(actual, `${label}: block ${subject.number} indexes must be 0..n-1 with no gaps`).to.deep.equal(
             expected,
@@ -926,15 +936,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           );
         };
 
-        const assertValidIndex = (value: any, label: string) => {
+        const assertValidIndex = (value: unknown, label: string): void => {
           expect(value, `${label} must report a non-null transactionIndex`).to.be.a('string');
           expect(value, `${label} transactionIndex must be an unpadded hex quantity`).to.match(
             /^0x(0|[1-9a-f][0-9a-f]*)$/,
           );
         };
 
-        const indexByHash = (subject: any): Map<string, string> =>
-          new Map(subject.transactions.map((transaction: any) => [transaction.hash, transaction.transactionIndex]));
+        const indexByHash = (subject: IndexedBlock): Map<string, string> =>
+          new Map(subject.transactions.map((transaction) => [transaction.hash, transaction.transactionIndex]));
 
         before(async () => {
           blockNumberHex = numberTo0x(mirrorContractDetails.block_number);
@@ -949,9 +959,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const parents = (await mirrorNode.get(`/contracts/results?${range}`)).results ?? [];
           const all = (await mirrorNode.get(`/contracts/results?${range}&internal=true`)).results ?? [];
 
-          parentHashes = new Set<string>(parents.map((result: any) => result.hash));
+          parentHashes = new Set<string>(parents.map((result: { hash: string }) => result.hash));
           childHashes = new Set<string>(
-            all.map((result: any) => result.hash).filter((hash: string) => !parentHashes.has(hash)),
+            all.map((result: { hash: string }) => result.hash).filter((hash: string) => !parentHashes.has(hash)),
           );
 
           if (global.logger.isLevelEnabled('debug')) {
@@ -970,8 +980,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const byHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH, [block.hash, true]);
           expect(byHash, `eth_getBlockByHash(${block.hash}) must not be null`).to.not.be.null;
 
-          const project = (subject: any) =>
-            subject.transactions.map((transaction: any) => ({
+          const project = (subject: IndexedBlock): { hash: string; transactionIndex: string }[] =>
+            subject.transactions.map((transaction) => ({
               hash: transaction.hash,
               transactionIndex: transaction.transactionIndex,
             }));
@@ -988,7 +998,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             'the createChild block contains no child transactions, so this assertion would be vacuous',
           ).to.be.greaterThan(0);
 
-          const hashes = block.transactions.map((transaction: any) => transaction.hash);
+          const hashes = block.transactions.map((transaction) => transaction.hash);
           expect(new Set(hashes).size, 'the block must not list a transaction twice').to.equal(hashes.length);
 
           const blockHashes = new Set<string>(hashes);

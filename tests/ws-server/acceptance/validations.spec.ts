@@ -8,7 +8,7 @@ import WebSocket from 'ws';
 import { predefined } from '../../../src/relay';
 import { spec } from '../../../src/server/koaJsonRpc/lib/RpcError';
 import { requestIdRegex } from '../../server/helpers/assertions';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import { type WsJsonRpcResponse, WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@release @web-socket-batch-1 JSON-RPC requests validation', async function () {
   const BLOCK_NUMBER_METHOD_NAME = 'eth_blockNumber';
@@ -57,7 +57,7 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
       it('Should reject the requests because of the invalid JSON-RPC requests', async () => {
         const webSocket = new WebSocket(WsTestConstant.WS_RELAY_URL);
 
-        let response: any;
+        let response: WsJsonRpcResponse | undefined;
 
         webSocket.on('open', () => {
           webSocket.send(JSON.stringify(request));
@@ -71,9 +71,9 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
-        expect(response.error).to.exist;
-        expect(response.error.message).to.match(requestIdRegex(spec.InvalidRequest.message));
-        expect(response.error.code).to.eq(spec.InvalidRequest.code);
+        expect(response!.error).to.exist;
+        expect(response!.error!.message).to.match(requestIdRegex(spec.InvalidRequest.message));
+        expect(response!.error!.code).to.eq(spec.InvalidRequest.code);
 
         webSocket.close();
       });
@@ -84,9 +84,9 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
         const response = await WsTestHelper.sendRequestToStandardWebSocket(method, []);
 
         const methodNotFound = spec.MethodNotFound(method);
-        expect(response.error).to.exist;
-        expect(response.error.message).to.match(requestIdRegex(methodNotFound.message));
-        expect(response.error.code).to.eq(methodNotFound.code);
+        expect(response!.error).to.exist;
+        expect(response!.error!.message).to.match(requestIdRegex(methodNotFound.message));
+        expect(response.error!.code).to.eq(methodNotFound.code);
       });
     }
   });
@@ -110,8 +110,8 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
       const expectedResult = predefined.MISSING_REQUIRED_PARAMETER(0);
       delete expectedResult.data;
       expect(response.error).to.exist;
-      expect(response.error.message).to.contain(expectedResult.message);
-      expect(response.error.code).to.eq(expectedResult.code);
+      expect(response.error!.message).to.contain(expectedResult.message);
+      expect(response.error!.code).to.eq(expectedResult.code);
     });
   });
 

@@ -2,6 +2,7 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { type RedisClientType } from 'redis';
 
 import { LocalPendingTransactionStorage } from '../../../../../src/relay/lib/services/transactionPoolService/LocalPendingTransactionStorage';
 import { PendingTransactionStorageFactory } from '../../../../../src/relay/lib/services/transactionPoolService/PendingTransactionStorageFactory';
@@ -25,7 +26,7 @@ describe('PendingTransactionStorageFactory', () => {
 
     it('should return RedisPendingTransactionStorage when redisClient is provided', () => {
       // Mock Redis client - just needs to be a truthy object for the factory logic
-      const mockRedisClient = {} as any;
+      const mockRedisClient = {} as RedisClientType;
 
       const storage = PendingTransactionStorageFactory.create(mockRedisClient);
 

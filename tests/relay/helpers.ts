@@ -10,22 +10,39 @@ import * as sinon from 'sinon';
 
 import { ConfigService } from '../../src/config-service/services';
 import { type ConfigKey } from '../../src/config-service/services/globalConfig';
+import { type Eth, type JsonRpcError } from '../../src/relay';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
 import { type ICacheClient } from '../../src/relay/lib/clients/cache/ICacheClient';
 import { type MirrorNodeClient } from '../../src/relay/lib/clients/mirrorNodeClient';
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import constants from '../../src/relay/lib/constants';
+import { type Log } from '../../src/relay/lib/model';
+import { type ContractService } from '../../src/relay/lib/services/ethService/contractService/ContractService';
 import { type CommonService } from '../../src/relay/lib/services/ethService/ethCommonService/CommonService';
 import { createWorkerContext } from '../../src/relay/lib/services/workersService/workerContext';
 import handleTask, { type WorkerTask } from '../../src/relay/lib/services/workersService/workers';
 import { WorkersPool } from '../../src/relay/lib/services/workersService/WorkersPool';
+import {
+  type IContractCallRequest,
+  type IGetLogsParams,
+  type ITokenTransfer,
+  type ITransfer,
+  type MirrorNodeContractLog,
+  type RequestDetails,
+} from '../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
 // Randomly generated key
 const defaultPrivateKey = '8841e004c6f47af679c91d9282adc62aeb9fabd19cdff6a9da5a358d0613c30a';
 
-const getQueryParams = (params: object) => {
+export interface RelayInternals {
+  ensureOperatorHasBalance(): Promise<void>;
+  populatePreconfiguredSpendingPlans(): Promise<void>;
+  waitForMirrorNode(): Promise<void>;
+}
+
+const getQueryParams = (params: object): string => {
   if (!Object.keys(params).length) {
     return '';
   }
@@ -37,7 +54,7 @@ const getQueryParams = (params: object) => {
   );
 };
 
-const expectUnsupportedMethod = (result) => {
+const expectUnsupportedMethod = (result: JsonRpcError): void => {
   expect(result).to.have.property('code');
   expect(result.code).to.be.equal(-32601);
   expect(result).to.have.property('name');
@@ -46,7 +63,9 @@ const expectUnsupportedMethod = (result) => {
   expect(result.message).to.be.equal('Unsupported JSON-RPC method');
 };
 
-export const createMockRedisClient = (options: { connectRejects?: boolean; evalRejects?: boolean } = {}) => {
+export const createMockRedisClient = (
+  options: { connectRejects?: boolean; evalRejects?: boolean } = {},
+): { connect: sinon.SinonStub; on: sinon.SinonStub; eval: sinon.SinonStub; quit: sinon.SinonStub } => {
   const { connectRejects = false, evalRejects = false } = options;
 
   const connectStub = connectRejects
@@ -63,47 +82,67 @@ export const createMockRedisClient = (options: { connectRejects?: boolean; evalR
   };
 };
 
-const expectedError = () => {
+const expectedError = (): void => {
   expect(true).to.eq(false);
 };
 
-const signTransaction = async (transaction, key = defaultPrivateKey) => {
+const signTransaction = async (transaction: ethers.TransactionRequest, key = defaultPrivateKey): Promise<string> => {
   const wallet = new ethers.Wallet(key);
   return wallet.signTransaction(transaction);
 };
 
-const random20BytesAddress = (addHexPrefix = true) => {
+const random20BytesAddress = (addHexPrefix = true): string => {
   return (addHexPrefix ? '0x' : '') + crypto.randomBytes(20).toString('hex');
 };
 
-export const toHex = (num) => {
+export const toHex = (num: number | bigint | string): string => {
   return `0x${Number(num).toString(16)}`;
 };
 
-export const ethCallFailing = async (contractService, args, block, requestDetails, assertFunc) => {
+export const ethCallFailing = async <E>(
+  contractService: Pick<ContractService, 'call'>,
+  args: IContractCallRequest,
+  block: string | object | null,
+  requestDetails: RequestDetails,
+  assertFunc: (error: E) => void,
+): Promise<void> => {
   let hasError = false;
   try {
     await contractService.call(args, block, requestDetails);
-  } catch (error: any) {
+  } catch (error) {
     hasError = true;
-    assertFunc(error);
+    assertFunc(error as E);
   }
   expect(hasError).to.eq(true);
 };
 
-export async function ethGetLogsFailing(ethImpl, args, assertFunc) {
+type GetLogsFilter = { [K in keyof IGetLogsParams]: IGetLogsParams[K] | null };
+
+export async function ethGetLogsFailing<E>(
+  ethImpl: Eth,
+  args: [filter: GetLogsFilter, requestDetails: RequestDetails],
+  assertFunc: (error: E) => void,
+): Promise<void> {
   let hasError = false;
   try {
-    await ethImpl.getLogs(...args);
+    await ethImpl.getLogs(...(args as Parameters<Eth['getLogs']>));
     expect(true).to.eq(false);
-  } catch (error: any) {
+  } catch (error) {
     hasError = true;
-    assertFunc(error);
+    assertFunc(error as E);
   }
   expect(hasError).to.eq(true);
 }
 
-export const expectLogData = (res, log, tx) => {
+interface LogTransactionFixture {
+  block_hash: string;
+  block_number: number;
+  hash: string;
+  timestamp: string;
+  transaction_index: number;
+}
+
+export const expectLogData = (res: Log, log: MirrorNodeContractLog, tx: LogTransactionFixture): void => {
   expect(res.address).to.eq(log.address);
   expect(res.blockHash).to.eq(toHash32(tx.block_hash));
   expect(res.blockHash.length).to.eq(66);
@@ -119,19 +158,19 @@ export const expectLogData = (res, log, tx) => {
   expect(res.transactionIndex).to.eq(numberTo0x(tx.transaction_index));
 };
 
-export const expectLogData1 = (res) => {
+export const expectLogData1 = (res: Log): void => {
   expectLogData(res, defaultLogs.logs[0], defaultDetailedContractResults);
 };
 
-export const expectLogData2 = (res) => {
+export const expectLogData2 = (res: Log): void => {
   expectLogData(res, defaultLogs.logs[1], defaultDetailedContractResults);
 };
 
-export const expectLogData3 = (res) => {
+export const expectLogData3 = (res: Log): void => {
   expectLogData(res, defaultLogs.logs[2], defaultDetailedContractResults2);
 };
 
-export const expectLogData4 = (res) => {
+export const expectLogData4 = (res: Log): void => {
   expectLogData(res, defaultLogs.logs[3], defaultDetailedContractResults3);
 };
 
@@ -846,7 +885,33 @@ export const defaultDetailedContractResultByHash = {
   nonce: 1,
 };
 
-export const buildCryptoTransferTransaction = (from, to, amount, args: any = {}) => {
+interface CryptoTransferTransactionFixture {
+  bytes: null;
+  charged_tx_fee: number;
+  consensus_timestamp: string;
+  entity_id: null;
+  max_fee: string;
+  memo_base64: string;
+  name: string;
+  node: string;
+  nonce: number;
+  parent_consensus_timestamp: null;
+  result: string;
+  scheduled: boolean;
+  token_transfers: ITokenTransfer[];
+  transaction_hash: string;
+  transaction_id: string;
+  transfers: ITransfer[];
+  valid_duration_seconds: string;
+  valid_start_timestamp: string;
+}
+
+export const buildCryptoTransferTransaction = (
+  from: string,
+  to: string,
+  amount: number,
+  args: { timestamp?: string; transactionHash?: string; transactionId?: string } = {},
+): CryptoTransferTransactionFixture => {
   return {
     bytes: null,
     charged_tx_fee: 2116872,
@@ -976,13 +1041,13 @@ export const defaultErrorMessageText = 'Set to revert';
 export const defaultErrorMessageHex =
   '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d53657420746f2072657665727400000000000000000000000000000000000000';
 
-export const calculateTxRecordChargeAmount = (exchangeRateIncents: number) => {
+export const calculateTxRecordChargeAmount = (exchangeRateIncents: number): number => {
   const txQueryCostInCents = constants.NETWORK_FEES_IN_CENTS.TRANSACTION_GET_RECORD;
   const hbarToTinybar = Hbar.from(1, HbarUnit.Hbar).toTinybars().toNumber();
   return Math.round((txQueryCostInCents / exchangeRateIncents) * hbarToTinybar);
 };
 
-export const useInMemoryRedisServer = (logger: Logger, port: number) => {
+export const useInMemoryRedisServer = (logger: Logger, port: number): void => {
   overrideEnvsInMochaDescribe({ TEST: false, REDIS_ENABLED: true, REDIS_URL: `redis://127.0.0.1:${port}` });
 
   let redisInMemoryServer: RedisInMemoryServer;
@@ -997,7 +1062,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
   });
 };
 
-export const startRedisInMemoryServer = async (logger: Logger, port: number) => {
+export const startRedisInMemoryServer = async (logger: Logger, port: number): Promise<RedisInMemoryServer> => {
   const redisInMemoryServer = new RedisInMemoryServer(logger.child({ name: 'RedisInMemoryServer' }), port);
   await redisInMemoryServer.start();
   return redisInMemoryServer;
@@ -1024,10 +1089,10 @@ export const stopRedisInMemoryServer = async (redisInMemoryServer: RedisInMemory
  *   expect(ConfigService.get('TEST')).to.equal(true);
  * });
  */
-export const overrideEnvsInMochaDescribe = (envs: NodeJS.Dict<any>) => {
-  const envsToReset: NodeJS.Dict<any> = {};
+export const overrideEnvsInMochaDescribe = (envs: NodeJS.Dict<unknown>): void => {
+  const envsToReset: NodeJS.Dict<unknown> = {};
 
-  const overrideEnv = (key: string, value: any) => {
+  const overrideEnv = (key: string, value: unknown): void => {
     if (value === undefined) {
       ConfigServiceTestHelper.remove(key);
     } else {
@@ -1066,7 +1131,7 @@ export const overrideEnvsInMochaDescribe = (envs: NodeJS.Dict<any>) => {
  *   expect(ConfigService.get('TEST')).to.equal(true);
  * });
  */
-export const withOverriddenEnvsInMochaTest = (envs: NodeJS.Dict<any>, tests: () => void) => {
+export const withOverriddenEnvsInMochaTest = (envs: NodeJS.Dict<unknown>, tests: () => void): void => {
   const overriddenEnvs = Object.entries(envs)
     .map(([key, value]) => `${key}=${value}`)
     .join(', ');
@@ -1140,21 +1205,23 @@ export const mockWorkersPool = async (
   mirrorNodeInstance: MirrorNodeClient,
   commonService: CommonService,
   cacheService: ICacheClient,
-) => {
+): Promise<void> => {
   const ctx = createWorkerContext(mirrorNodeInstance, cacheService, commonService);
 
-  if (!WorkersPool['_innerRun']) WorkersPool['_innerRun'] = WorkersPool['run'];
+  const pool = WorkersPool as typeof WorkersPool & { _innerRun?: typeof WorkersPool.run };
+  if (!pool['_innerRun']) pool['_innerRun'] = WorkersPool['run'];
+
   WorkersPool['run'] = ConfigService.get('WORKERS_POOL_ENABLED')
-    ? WorkersPool['_innerRun']
-    : async (options: WorkerTask) => {
+    ? pool['_innerRun']!
+    : async (options: WorkerTask): Promise<unknown> => {
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
-        const result = await WorkersPool['_innerRun'](options, mirrorNodeInstance);
+        const result = await pool['_innerRun']!(options, mirrorNodeInstance, cacheService);
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
         return result;
       };
 
   WorkersPool['instance'] = {
-    run: async (task: any) => {
+    run: async (task: WorkerTask) => {
       // Simulate the Piscina worker boundary: a real worker runs wrapError(e) with a live
       // parentPort, serialising the error into new Error(JSON.stringify(e)) before Piscina's
       // postMessage transports it back to the main thread. We replicate that here so that
@@ -1167,5 +1234,5 @@ export const mockWorkersPool = async (
         throw new Error(JSON.stringify(e), { cause: e });
       }
     },
-  } as Piscina<any, any>;
+  } as Piscina<WorkerTask, unknown>;
 };

@@ -11,14 +11,28 @@ import { numberTo0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import { Relay } from '../../../src/relay/lib/relay';
 import { TransactionPoolService } from '../../../src/relay/lib/services';
-import { TxPoolImpl, type TxPoolTransaction } from '../../../src/relay/lib/txpool';
+import {
+  TxPoolImpl,
+  type TxPoolTransaction,
+  type TxPoolTransactionsByAddressAndNonce,
+  type TxPoolTransactionsByNonce,
+} from '../../../src/relay/lib/txpool';
+import { type PendingTransactionStorage } from '../../../src/relay/lib/types/transactionPool';
 
 const logger = pino({ level: 'silent' });
+
+interface TxPoolInternals {
+  txPoolService: TransactionPoolService;
+  convertRlpEncodedTxToTransactionPoolTx(rlpTxs: Set<string>): TxPoolTransaction[];
+  groupByAddressAndNonce(txs: TxPoolTransaction[]): TxPoolTransactionsByAddressAndNonce;
+  groupByNonce(txs: TxPoolTransaction[]): TxPoolTransactionsByNonce;
+}
 
 describe('Txpool', async function () {
   let sandbox: sinon.SinonSandbox;
   let txPoolServiceMock: sinon.SinonStubbedInstance<TransactionPoolService>;
   let txPool: TxPoolImpl;
+  let txPoolInternals: TxPoolInternals;
 
   const rlpTx =
     '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
@@ -129,10 +143,11 @@ describe('Txpool', async function () {
     sandbox.stub(ConfigService, 'get').returns(true);
 
     const registry = new Registry();
-    const txPoolService = new TransactionPoolService({} as any, logger, registry);
+    const txPoolService = new TransactionPoolService({} as unknown as PendingTransactionStorage, logger, registry);
     txPool = new TxPoolImpl(txPoolService);
+    txPoolInternals = txPool as unknown as TxPoolInternals;
     txPoolServiceMock = sandbox.createStubInstance(TransactionPoolService);
-    (txPool as any).txPoolService = txPoolServiceMock;
+    txPoolInternals.txPoolService = txPoolServiceMock;
   });
 
   afterEach(() => {
@@ -141,7 +156,7 @@ describe('Txpool', async function () {
 
   describe('private methods', async () => {
     it('convertRlpEncodedTxToTransactionPoolTx', async () => {
-      const result = (txPool as any).convertRlpEncodedTxToTransactionPoolTx(rlpTxs);
+      const result = txPoolInternals.convertRlpEncodedTxToTransactionPoolTx(rlpTxs);
       expect(result).to.have.lengthOf(1);
 
       const tx = result[0];
@@ -163,7 +178,7 @@ describe('Txpool', async function () {
     });
 
     it('groupByAddressAndNonce', async () => {
-      const grouped = (txPool as any).groupByAddressAndNonce(groupByAddressAndNonceTxs);
+      const grouped = txPoolInternals.groupByAddressAndNonce(groupByAddressAndNonceTxs);
       expect(grouped).to.have.keys([
         '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
         '0xf1dc6c33b1d6720Cd24eCb296F4D96150Eb170dc',
@@ -176,7 +191,7 @@ describe('Txpool', async function () {
     });
 
     it('groupByNonce', async () => {
-      const grouped = (txPool as any).groupByNonce(groupByNonceTxs);
+      const grouped = txPoolInternals.groupByNonce(groupByNonceTxs);
       expect(grouped).to.have.keys(['1', '2']);
       expect(grouped[1].hash).to.equal('0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f');
       expect(grouped[2].hash).to.equal('0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18');

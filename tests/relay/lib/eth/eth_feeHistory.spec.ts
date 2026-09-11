@@ -6,7 +6,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
-import { RequestDetails } from '../../../../src/relay/lib/types';
+import { type IFeeHistory, RequestDetails } from '../../../../src/relay/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BASE_FEE_PER_GAS_HEX,
@@ -19,6 +19,8 @@ import {
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 use(chaiAsPromised);
+
+type FeeHistoryResult = { [K in keyof IFeeHistory]-?: NonNullable<IFeeHistory[K]> };
 
 describe('@ethFeeHistory using MirrorNode', async function () {
   this.timeout(10000);
@@ -87,7 +89,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(updatedFees));
-      const feeHistory = await ethImpl.feeHistory(2, 'latest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(2, 'latest', [25, 75], requestDetails)) as FeeHistoryResult;
 
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'].length).to.equal(3);
@@ -104,38 +106,43 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('eth_feeHistory with latest param', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails)) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + BLOCK_NUMBER_3);
     });
 
     it('eth_feeHistory with pending param', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'pending', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'pending', [25, 75], requestDetails)) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + BLOCK_NUMBER_3);
     });
 
     it('eth_feeHistory with finalized param', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'finalized', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'finalized', [25, 75], requestDetails)) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + BLOCK_NUMBER_3);
     });
 
     it('eth_feeHistory with safe param', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'safe', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'safe', [25, 75], requestDetails)) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + BLOCK_NUMBER_3);
     });
 
     it('eth_feeHistory with earliest param', async function () {
       const firstBlockIndex = 0;
-      const feeHistory = await ethImpl.feeHistory(1, 'earliest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'earliest', [25, 75], requestDetails)) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + firstBlockIndex);
     });
 
     it('eth_feeHistory with number param', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, '0x' + BLOCK_NUMBER_3, [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(
+        1,
+        '0x' + BLOCK_NUMBER_3,
+        [25, 75],
+        requestDetails,
+      )) as FeeHistoryResult;
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq('0x' + BLOCK_NUMBER_3);
     });
@@ -154,7 +161,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     const rangeBlocks = Array.from(Array(11).keys()).map((number) => ({ ...DEFAULT_BLOCK, number }));
     restMock.onGet(blockRangeUrl(0, 10)).reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
 
-    const feeHistory = await ethImpl.feeHistory(200, '0x9', [0], requestDetails);
+    const feeHistory = (await ethImpl.feeHistory(200, '0x9', [0], requestDetails)) as FeeHistoryResult;
 
     expect(feeHistory).to.exist;
     expect(feeHistory['oldestBlock']).to.equal(`0x0`);
@@ -174,7 +181,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       .reply(200, JSON.stringify({ blocks: [latestBlock], links: { next: null } }));
     restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(200, JSON.stringify(latestFees));
 
-    const firstFeeHistory = await ethImpl.feeHistory(1, hexBlockNumber, null, requestDetails);
+    const firstFeeHistory = (await ethImpl.feeHistory(1, hexBlockNumber, null, requestDetails)) as FeeHistoryResult;
     const secondFeeHistory = await ethImpl.feeHistory(1, hexBlockNumber, null, requestDetails);
 
     expect(firstFeeHistory).to.exist;
@@ -189,7 +196,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
   describe('eth_feeHistory -> Mirror node returns error', function () {
     const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
 
-    function feeHistoryOnErrorExpect(feeHistory: any) {
+    function feeHistoryOnErrorExpect(feeHistory: FeeHistoryResult): void {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
       expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
@@ -208,7 +215,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('eth_feeHistory on mirror 404', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails)) as FeeHistoryResult;
       feeHistoryOnErrorExpect(feeHistory);
       const rewards = feeHistory['reward'][0];
       expect(rewards[0]).to.equal('0x0');
@@ -216,7 +223,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('eth_feeHistory on mirror 500', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
       feeHistoryOnErrorExpect(feeHistory);
     });
   });
@@ -234,7 +241,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('returns zero fee and zero gasUsedRatio', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
 
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
@@ -243,7 +250,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('returns zero fee and zero gasUsedRatio with reward percentiles', async function () {
-      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails)) as FeeHistoryResult;
 
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
@@ -255,14 +262,14 @@ describe('@ethFeeHistory using MirrorNode', async function () {
   });
 
   describe('eth_feeHistory using fixed fees', function () {
-    function checkCommonFeeHistoryFields(feeHistory: any) {
+    function checkCommonFeeHistoryFields(feeHistory: FeeHistoryResult): void {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.eq(BASE_FEE_PER_GAS_HEX);
       expect(feeHistory['baseFeePerGas'][1]).to.eq(BASE_FEE_PER_GAS_HEX);
       expect(feeHistory['baseFeePerGas'][2]).to.eq(BASE_FEE_PER_GAS_HEX);
     }
 
-    function defineLatestBlockRestMock(latestBlockNumber: number) {
+    function defineLatestBlockRestMock(latestBlockNumber: number): typeof DEFAULT_BLOCK {
       const latestBlock = { ...DEFAULT_BLOCK, number: latestBlockNumber };
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
 
@@ -284,7 +291,12 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 2;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'latest', [25, 75], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(
+        countBlocks,
+        'latest',
+        [25, 75],
+        requestDetails,
+      )) as FeeHistoryResult;
 
       checkCommonFeeHistoryFields(feeHistory);
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -298,7 +310,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 5;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails)) as FeeHistoryResult;
 
       checkCommonFeeHistoryFields(feeHistory);
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -312,7 +324,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 5;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails)) as FeeHistoryResult;
 
       checkCommonFeeHistoryFields(feeHistory);
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -326,7 +338,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 5;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'pending', [], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(countBlocks, 'pending', [], requestDetails)) as FeeHistoryResult;
 
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -340,7 +352,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock.onGet(`blocks/1`).reply(200, JSON.stringify(latestBlock));
       const countBlocks = 1;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'earliest', [], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(countBlocks, 'earliest', [], requestDetails)) as FeeHistoryResult;
 
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(1));
@@ -356,7 +368,12 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 2;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, numberTo0x(latestBlockNumber), [], requestDetails);
+      const feeHistory = (await ethImpl.feeHistory(
+        countBlocks,
+        numberTo0x(latestBlockNumber),
+        [],
+        requestDetails,
+      )) as FeeHistoryResult;
 
       checkCommonFeeHistoryFields(feeHistory);
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -365,12 +382,12 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(404, JSON.stringify({}));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(404, JSON.stringify({}));
 
-      const feeHistoryUsingCache = await ethImpl.feeHistory(
+      const feeHistoryUsingCache = (await ethImpl.feeHistory(
         countBlocks,
         numberTo0x(latestBlockNumber),
         [],
         requestDetails,
-      );
+      )) as FeeHistoryResult;
       checkCommonFeeHistoryFields(feeHistoryUsingCache);
       expect(feeHistoryUsingCache['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
       expect(feeHistoryUsingCache['baseFeePerGas'].length).to.eq(countBlocks + 1);

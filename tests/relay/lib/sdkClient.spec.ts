@@ -11,11 +11,14 @@ import {
   FileCreateTransaction,
   FileDeleteTransaction,
   FileId,
+  type FileInfo,
   FileInfoQuery,
   Hbar,
   Query,
   Status,
   TransactionId,
+  type TransactionReceipt,
+  type TransactionRecord,
   TransactionRecordQuery,
   type TransactionResponse,
 } from '@hiero-ledger/sdk';
@@ -24,11 +27,12 @@ import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
 import { EventEmitter } from 'events';
 import Long from 'long';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
+import { type JsonRpcError } from '../../../src/relay';
 import { formatTransactionId } from '../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
@@ -70,6 +74,18 @@ interface SDKClientTest extends SDKClient {
   calculateTxRecordChargeAmount: SDKClient['calculateTxRecordChargeAmount'];
   getTransferAmountSumForAccount: SDKClient['getTransferAmountSumForAccount'];
   clientMain: SDKClient['clientMain'];
+}
+
+interface MockLogger {
+  child: sinon.SinonStub;
+  info: sinon.SinonStub;
+  warn: sinon.SinonStub;
+}
+
+interface MockedTransfer {
+  accountId: string | undefined;
+  amount: Hbar;
+  is_approval: boolean;
 }
 
 describe('SdkClient', async function () {
@@ -197,8 +213,8 @@ describe('SdkClient', async function () {
         try {
           new HAPIService(logger, registry, hbarLimitService);
           expect.fail(`Expected an error but nothing was thrown`);
-        } catch (e: any) {
-          expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');
+        } catch (e) {
+          expect((e as Error).message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');
         }
       });
     });
@@ -206,7 +222,7 @@ describe('SdkClient', async function () {
 
   describe('SDK Logger Configuration', () => {
     // Simple helper to create standard mock logger
-    const createMockLogger = (additionalProps = {}) => ({
+    const createMockLogger = (additionalProps: Record<string, unknown> = {}): MockLogger => ({
       child: sinon.stub().returns({ name: 'sdk-client' }),
       info: sinon.stub(),
       warn: sinon.stub(),
@@ -214,7 +230,7 @@ describe('SdkClient', async function () {
     });
 
     // Simple helper to create Client stub
-    const createClientStub = () =>
+    const createClientStub = (): sinon.SinonStub =>
       sinon.stub(Client, 'forName').returns({
         setOperator: sinon.stub().returnsThis(),
         setTransportSecurity: sinon.stub().returnsThis(),
@@ -224,10 +240,10 @@ describe('SdkClient', async function () {
         setMaxExecutionTime: sinon.stub().returnsThis(),
         operatorAccountId: null,
         operatorPublicKey: null,
-      } as any);
+      } as unknown as Client);
 
     // Simple helper to restore stubs
-    const cleanupStubs = (...stubs: sinon.SinonStub[]) => {
+    const cleanupStubs = (...stubs: sinon.SinonStub[]): void => {
       stubs.forEach((stub) => stub.restore());
     };
 
@@ -242,7 +258,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
         expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'debug' })).to.be.true;
       } finally {
@@ -262,7 +278,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
         // Verify SDK logger uses SDK_LOG_LEVEL ('info'), not global LOG_LEVEL ('error')
         expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'info' })).to.be.true;
@@ -292,7 +308,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient('testnet', mockGlobalLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockGlobalLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
         // Verify child() was called correctly
         expect(mockGlobalLogger.child.calledWith({ name: 'sdk-client' }, { level: 'warn' })).to.be.true;
@@ -321,7 +337,7 @@ describe('SdkClient', async function () {
 
         try {
           const eventEmitter = new EventEmitter<TypedEvents>();
-          new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+          new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
           // Verify child logger is always created with 'sdk-client' name
           expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level })).to.be.true;
@@ -354,13 +370,13 @@ describe('SdkClient', async function () {
     let clientStub: sinon.SinonStub;
     let mockedClient: MockedClient;
 
-    const createMockLogger = () => ({
+    const createMockLogger = (): MockLogger => ({
       child: sinon.stub().returns({ name: 'sdk-client', warn: sinon.stub() }),
       info: sinon.stub(),
       warn: sinon.stub(),
     });
 
-    const setupMocks = () => {
+    const setupMocks = (): void => {
       mockLogger = createMockLogger();
       mockedClient = {
         setOperator: sinon.stub().returnsThis(),
@@ -375,7 +391,7 @@ describe('SdkClient', async function () {
       clientStub = sinon.stub(Client, 'forName').returns(mockedClient as unknown as Client);
     };
 
-    const cleanupMocks = () => {
+    const cleanupMocks = (): void => {
       clientStub.restore();
     };
 
@@ -387,7 +403,7 @@ describe('SdkClient', async function () {
     const withDeadlineEnvOverrides = (
       envs: { SDK_GRPC_DEADLINE?: number; CONSENSUS_MAX_EXECUTION_TIME?: number },
       testFn: () => void,
-    ) => {
+    ): void => {
       // Save original state
       const originalProcessEnv = {
         SDK_GRPC_DEADLINE: process.env.SDK_GRPC_DEADLINE,
@@ -440,7 +456,12 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient(
+              'testnet',
+              mockLogger as unknown as Logger,
+              new EventEmitter<TypedEvents>(),
+              hbarLimitService,
+            );
 
             expect(mockLogger.warn.calledOnce, 'should log warning about both env vars being set').to.be.true;
             expect(mockLogger.warn.firstCall.args[0]).to.include(
@@ -463,7 +484,12 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient(
+              'testnet',
+              mockLogger as unknown as Logger,
+              new EventEmitter<TypedEvents>(),
+              hbarLimitService,
+            );
 
             expect(mockLogger.warn.calledOnce, 'should log deprecation warning').to.be.true;
             expect(mockLogger.warn.firstCall.args[0]).to.include(
@@ -486,7 +512,12 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient(
+              'testnet',
+              mockLogger as unknown as Logger,
+              new EventEmitter<TypedEvents>(),
+              hbarLimitService,
+            );
 
             expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
             expect(
@@ -504,7 +535,7 @@ describe('SdkClient', async function () {
       withDeadlineEnvOverrides({ SDK_GRPC_DEADLINE: undefined, CONSENSUS_MAX_EXECUTION_TIME: undefined }, () => {
         setupMocks();
         try {
-          new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+          new SDKClient('testnet', mockLogger as unknown as Logger, new EventEmitter<TypedEvents>(), hbarLimitService);
 
           expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
           expect(
@@ -541,7 +572,10 @@ describe('SdkClient', async function () {
     };
 
     let getExchangeRateInCentsSpy: sinon.SinonSpy;
-    const callSubmit = (buffer: Buffer, getExchangeRateFn?: () => Promise<number>) => {
+    const callSubmit = (
+      buffer: Buffer,
+      getExchangeRateFn?: () => Promise<number>,
+    ): ReturnType<SDKClient['submitEthereumTransaction']> => {
       return sdkClient.submitEthereumTransaction(
         buffer,
         mockedCallerName,
@@ -552,7 +586,7 @@ describe('SdkClient', async function () {
       );
     };
 
-    const createTransactionBuffer = async (size: number) => {
+    const createTransactionBuffer = async (size: number): Promise<Buffer> => {
       const tx = {
         ...defaultTx,
         data: '0x' + '00'.repeat(size),
@@ -561,7 +595,7 @@ describe('SdkClient', async function () {
       return Buffer.from(signedTx.substring(2), 'hex');
     };
 
-    const getMockedTransactionResponse = () =>
+    const getMockedTransactionResponse = (): TransactionResponse =>
       ({
         nodeId: accountId,
         transactionHash: Uint8Array.from([1, 2, 3, 4]),
@@ -774,7 +808,7 @@ describe('SdkClient', async function () {
           true,
           randomAccountAddress,
         ),
-      ).to.eventually.be.rejected.and.satisfy((err: any) => {
+      ).to.eventually.be.rejected.and.satisfy((err: SDKClientError) => {
         expect(err?.constructor?.name).to.equal(SDKClientError.constructor.name);
       });
     });
@@ -801,9 +835,12 @@ describe('SdkClient', async function () {
 
     const randomAccountAddress = random20BytesAddress();
 
-    const getMockedTransaction = (transactionType: string, toHbar: boolean) => {
-      let transactionFee: any;
-      let transfers: any;
+    const getMockedTransaction = (
+      transactionType: string | undefined,
+      toHbar: boolean,
+    ): { transactionFee: Hbar | number; transfers: MockedTransfer[] } => {
+      let transactionFee: Hbar | number;
+      let transfers: MockedTransfer[];
       switch (transactionType) {
         case FileCreateTransaction.name:
           transactionFee = toHbar ? new Hbar(fileCreateFee / 10 ** 8) : fileCreateFee;
@@ -864,7 +901,7 @@ describe('SdkClient', async function () {
       return { transactionFee, transfers };
     };
 
-    const getMockedTransactionResponse = (transactionType: string) =>
+    const getMockedTransactionResponse = (transactionType: string): TransactionResponse =>
       ({
         nodeId: accountId,
         transactionHash: Uint8Array.from([1, 2, 3, 4]),
@@ -875,7 +912,7 @@ describe('SdkClient', async function () {
           const transfers = getMockedTransaction(transactionType, false).transfers;
           return Promise.resolve({
             receipt: transactionReceipt,
-            transactionFee: Hbar.fromTinybars(transactionFee),
+            transactionFee: Hbar.fromTinybars(transactionFee as number),
             contractFunctionResult: {
               gasUsed,
             },
@@ -884,17 +921,18 @@ describe('SdkClient', async function () {
         },
       }) as unknown as TransactionResponse;
 
-    const getMockedTransactionRecord: any = (transactionType: string, toHbar: boolean = false) => ({
-      receipt: {
-        status: Status.Success,
-        exchangeRate: { exchangeRateInCents: 12 },
-      },
-      transactionFee: getMockedTransaction(transactionType, true).transactionFee,
-      contractFunctionResult: {
-        gasUsed,
-      },
-      transfers: getMockedTransaction(transactionType, toHbar).transfers,
-    });
+    const getMockedTransactionRecord = (transactionType?: string, toHbar: boolean = false): TransactionRecord =>
+      ({
+        receipt: {
+          status: Status.Success,
+          exchangeRate: { exchangeRateInCents: 12 },
+        },
+        transactionFee: getMockedTransaction(transactionType, true).transactionFee,
+        contractFunctionResult: {
+          gasUsed,
+        },
+        transfers: getMockedTransaction(transactionType, toHbar).transfers,
+      }) as unknown as TransactionRecord;
 
     const fileInfo = {
       fileId,
@@ -976,8 +1014,8 @@ describe('SdkClient', async function () {
             () => Promise.resolve(mockedExchangeRateIncents),
           );
           expect.fail(`Expected an error but nothing was thrown`);
-        } catch (error: any) {
-          expect(error.message).to.equal('HBAR Rate limit exceeded');
+        } catch (error) {
+          expect((error as Error).message).to.equal('HBAR Rate limit exceeded');
         }
 
         expect(transactionStub.called).to.be.false;
@@ -985,7 +1023,7 @@ describe('SdkClient', async function () {
 
       it('should execute submitEthereumTransaction add expenses to limiter for large transaction data', async () => {
         const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(transactionBuffer.length / FILE_APPEND_CHUNK_SIZE));
-        const queryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const queryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as unknown as FileInfo);
 
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
@@ -1045,7 +1083,9 @@ describe('SdkClient', async function () {
         const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
         const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
 
-        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const fileInfoQueryStub = sinon
+          .stub(FileInfoQuery.prototype, 'execute')
+          .resolves(fileInfo as unknown as FileInfo);
         const createFileStub = sinon
           .stub(FileCreateTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
@@ -1144,8 +1184,8 @@ describe('SdkClient', async function () {
             estimatedFileAppendTxFee,
           );
           expect.fail(`Expected an error but nothing was thrown`);
-        } catch (error: any) {
-          expect(error.message).to.equal('HBAR Rate limit exceeded');
+        } catch (error) {
+          expect((error as Error).message).to.equal('HBAR Rate limit exceeded');
         }
 
         expect(appendFileStub.called).to.be.false;
@@ -1157,7 +1197,9 @@ describe('SdkClient', async function () {
         const createFileStub = sinon
           .stub(FileCreateTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
-        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const fileInfoQueryStub = sinon
+          .stub(FileInfoQuery.prototype, 'execute')
+          .resolves(fileInfo as unknown as FileInfo);
         const transactionRecordStub = sinon
           .stub(TransactionRecordQuery.prototype, 'execute')
           .resolves(getMockedTransactionRecord(FileCreateTransaction.name));
@@ -1195,7 +1237,9 @@ describe('SdkClient', async function () {
         const deleteFileStub = sinon
           .stub(FileDeleteTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse(FileDeleteTransaction.name));
-        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const fileInfoQueryStub = sinon
+          .stub(FileInfoQuery.prototype, 'execute')
+          .resolves(fileInfo as unknown as FileInfo);
         const transactionRecordStub = sinon
           .stub(TransactionRecordQuery.prototype, 'execute')
           .resolves(getMockedTransactionRecord(FileDeleteTransaction.name));
@@ -1362,9 +1406,10 @@ describe('SdkClient', async function () {
           accountId.toString(),
         );
         expect.fail('should have thrown an error');
-      } catch (error: any) {
-        expect(error.status).to.eq(expectedError.status);
-        expect(error.message).to.eq(expectedError.message);
+      } catch (error) {
+        const thrown = error as SDKClientError;
+        expect(thrown.status).to.eq(expectedError.status);
+        expect(thrown.message).to.eq(expectedError.message);
       }
     });
 
@@ -1387,7 +1432,7 @@ describe('SdkClient', async function () {
     const transactionReceipt = { fileId, status: Status.Success };
 
     // Mock function to create a transaction response
-    const getMockedTransactionResponse = () =>
+    const getMockedTransactionResponse = (): TransactionResponse =>
       ({
         nodeId: accountId,
         transactionHash: Uint8Array.from([1, 2, 3, 4]),
@@ -1540,9 +1585,10 @@ describe('SdkClient', async function () {
 
       try {
         await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
-      } catch (error: any) {
-        expect(error.code).to.equal(-32010);
-        expect(error.message).to.equal('Request timeout. Please try again.');
+      } catch (error) {
+        const thrown = error as JsonRpcError;
+        expect(thrown.code).to.equal(-32010);
+        expect(thrown.message).to.equal('Request timeout. Please try again.');
       }
     });
   });
@@ -1559,15 +1605,18 @@ describe('SdkClient', async function () {
 
     describe('getTransactionRecordMetrics', () => {
       it('returns correct metrics for a successful record', async () => {
-        const fakeReceipt = { status: Status.Success, exchangeRate: { exchangeRateInCents: 10 } } as any;
-        const fakeRecord: any = {
+        const fakeReceipt = {
+          status: Status.Success,
+          exchangeRate: { exchangeRateInCents: 10 },
+        } as unknown as TransactionReceipt;
+        const fakeRecord = {
           receipt: fakeReceipt,
           contractFunctionResult: { gasUsed: fakeGasUsed },
           transfers: [
             { accountId: operatorAccountId, amount: Hbar.fromTinybars(-100), is_approval: false },
             { accountId: operatorAccountId, amount: Hbar.fromTinybars(-200), is_approval: false },
           ],
-        };
+        } as unknown as TransactionRecord;
         sinon.stub(TransactionRecordQuery.prototype, 'execute').resolves(fakeRecord);
         sinon.stub(sdkClient, 'calculateTxRecordChargeAmount').returns(1234);
         sinon.stub(sdkClient, 'getTransferAmountSumForAccount').returns(300);
@@ -1586,10 +1635,11 @@ describe('SdkClient', async function () {
         try {
           await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId);
           expect.fail('should have thrown');
-        } catch (err: any) {
-          expect(err).to.be.instanceOf(SDKClientError);
-          expect(err.status).to.eql(error.status);
-          expect(err.message).to.eq(error.message);
+        } catch (err) {
+          const thrown = err as SDKClientError;
+          expect(thrown).to.be.instanceOf(SDKClientError);
+          expect(thrown.status).to.eql(error.status);
+          expect(thrown.message).to.eq(error.message);
         }
       });
     });

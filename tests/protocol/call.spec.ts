@@ -39,12 +39,12 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   const ERROR_MESSAGE_PREFIXED_STR =
     'Expected 0x prefixed string representing the hash (32 bytes) in object, 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"';
 
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     ['{}', false, '0x0'],
     ["{ to: '0xabcdef', data: '0x1a2b3c4d' }", 36, ''],
   ];
 
-  const INVALID_TX_INFO: any[][] = [
+  const INVALID_TX_INFO: unknown[][] = [
     [{ to: 123, data: '0x18160ddd' }, 'latest'],
     [{ to: '0x', data: '0x18160ddd' }, 'latest'],
     [{ to: '0xabcdef', data: '0x18160ddd' }, 'latest'],
@@ -83,7 +83,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
     response: { error?: { code: number; message: string; data?: unknown } },
     expectedError: JsonRpcError,
     checkMessage = true,
-  ) {
+  ): void {
     expect(response.error).to.exist;
     expect(response.error!.code).to.eq(expectedError.code);
     if (checkMessage) {
@@ -445,14 +445,14 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
       describe('Caller contract', () => {
         let callerAddress: string;
-        let defaultCallData: any;
+        let defaultCallData: { from: string; to: string; gas: string };
         let activeAccount: AliasAccount;
         let activeAccountAddress: string;
 
         const describes = [
           {
             title: 'With long-zero address',
-            beforeFunc: async function () {
+            beforeFunc: async function (): Promise<void> {
               activeAccount = accounts[0];
               activeAccountAddress = accounts[0].wallet.address.replace('0x', '').toLowerCase();
               const callerContract = await Utils.deployContract(
@@ -474,7 +474,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           },
           {
             title: 'With evm address',
-            beforeFunc: async function () {
+            beforeFunc: async function (): Promise<void> {
               activeAccount = accounts[1];
               activeAccountAddress = accounts[1].wallet.address.replace('0x', '').toLowerCase();
               const callerContract = (await Utils.deployContractWithEthers(
@@ -620,7 +620,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
       });
 
       describe('Get revert details via eth_call for', async () => {
-        async function sendAndRevertCall({ value = 0, data }: { value?: string | number; data: string }) {
+        async function sendAndRevertCall({
+          value = 0,
+          data,
+        }: {
+          value?: string | number;
+          data: string;
+        }): Promise<{ code: number; message: string; data: string }> {
           const signedTx = await accounts[0].wallet.signTransaction({
             value,
             gasLimit: '0x186a0', // 100_000
@@ -711,7 +717,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
           const response = await client.callRaw(METHOD_NAME, [callData, 'latest']);
           expectRpcError(response, predefined.CONTRACT_REVERT(PURE_METHOD_ERROR_MESSAGE, PURE_METHOD_ERROR_DATA));
-          expect((response.error as any).data).to.eq(PURE_METHOD_ERROR_DATA);
+          expect(response.error?.data).to.eq(PURE_METHOD_ERROR_DATA);
         });
 
         it('Returns revert message for view methods', async () => {
@@ -724,7 +730,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
           const response = await client.callRaw(METHOD_NAME, [callData, 'latest']);
           expectRpcError(response, predefined.CONTRACT_REVERT(VIEW_METHOD_ERROR_MESSAGE, VIEW_METHOD_ERROR_DATA));
-          expect((response.error as any).data).to.eq(VIEW_METHOD_ERROR_DATA);
+          expect(response.error?.data).to.eq(VIEW_METHOD_ERROR_DATA);
         });
 
         describe('eth_call for reverted pure contract calls', async function () {
@@ -767,7 +773,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
               const response = await client.callRaw(METHOD_NAME, [callData, 'latest']);
               expectRpcError(response, predefined.CONTRACT_REVERT(element.message, element.errorData));
-              expect((response.error as any).data).to.eq(element.errorData);
+              expect(response.error?.data).to.eq(element.errorData);
             });
           }
         });

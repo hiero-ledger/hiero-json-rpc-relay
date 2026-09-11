@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type MockAdapter from 'axios-mock-adapter';
 import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
@@ -116,7 +117,7 @@ describe('@ethCall Eth Call spec', async function () {
         },
         'latest',
         requestDetails,
-        (error: any) => {
+        (error: JsonRpcError) => {
           expect(error.message).to.equal(
             `Invalid Contract Address: ${constants.ZERO_HEX}. Expected length of 42 chars but was 3.`,
           );
@@ -802,7 +803,7 @@ describe('@ethCall Eth Call spec', async function () {
       statusCode: number,
       result: IContractCallResponse,
       requestDetails: RequestDetails,
-    ) {
+    ): Promise<MockAdapter> {
       const formattedCallData = { ...callData, estimate };
       await contractService['contractCallFormat'](formattedCallData, requestDetails);
       return web3Mock.onPost('contracts/call', formattedCallData).reply(statusCode, JSON.stringify(result));

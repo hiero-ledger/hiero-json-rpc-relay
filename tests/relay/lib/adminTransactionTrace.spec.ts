@@ -9,6 +9,7 @@ chai.use(chaiAsPromised);
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { AdminImpl } from '../../../src/relay/lib/admin';
+import { type ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import { TransactionTracingService, TransactionTracingStorageFactory } from '../../../src/relay/lib/services';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -22,7 +23,7 @@ describe('AdminImpl transaction trace methods', function () {
       ? TransactionTracingStorageFactory.create(logger, ConfigService.get('TX_STATUS_TRACING_TTL_MS'))
       : undefined;
     const tracing = new TransactionTracingService(logger, storage);
-    const admin = new AdminImpl({} as any, tracing);
+    const admin = new AdminImpl({} as unknown as ICacheClient, tracing);
     return { admin, tracing };
   };
 

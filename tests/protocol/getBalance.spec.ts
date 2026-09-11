@@ -24,7 +24,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
   // FAKE_TX_HASH is 20 bytes of zeros (address-shaped) — preserved from the former
   // tests/ws-server/acceptance/getBalance.spec.ts INVALID_PARAMS block.
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     [false],
     [FAKE_TX_HASH],
@@ -47,7 +47,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
   let blockNumAfterCreateChildTx = 0;
   let accounts0StartBalance: bigint;
 
-  const signSendAndConfirmTransaction = async (transaction: any, account: AliasAccount) => {
+  const signSendAndConfirmTransaction = async (
+    transaction: ethers.TransactionRequest,
+    account: AliasAccount,
+  ): Promise<void> => {
     const signedTx = await account.wallet.signTransaction(transaction);
     const txHash = await relay.sendRawTransaction(signedTx);
     await mirrorNode.get(`/contracts/results/${txHash}`);
@@ -71,7 +74,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
     });
     await relay.pollForValidTransactionReceipt(activityFundsTx.hash);
 
-    const createChildTx = await (activityContract as any).createChild(1);
+    const createChildTx = await activityContract.getFunction('createChild')(1);
     const createChildTxReceipt = await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
     const blockNumBeforeCreateChildTx = parseInt(createChildTxReceipt.blockNumber, 16);

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RLP } from '@ethereumjs/rlp';
+import { type NestedUint8Array, RLP } from '@ethereumjs/rlp';
 import { expect } from 'chai';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { BlockFactory } from '../../../../src/relay/lib/factories/blockFactory';
 import { type Block, type Transaction } from '../../../../src/relay/lib/model';
+import { type MirrorNodeBlock } from '../../../../src/relay/lib/types';
 
 const blockInfo = {
   timestamp: '0x698afa66',
@@ -59,7 +60,7 @@ const blockInfo = {
   parentHash: '0xd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa',
 };
 
-const blockResponse: any = {
+const blockResponse = {
   hash: blockInfo.hash,
   timestamp: { from: '1770715750.000000000' },
   gas_used: parseInt(blockInfo.gasUsed, 16),
@@ -68,11 +69,11 @@ const blockResponse: any = {
   previous_hash: blockInfo.parentHash,
   size: parseInt(blockInfo.size, 16),
   hapi_version: '0.68.0',
-};
+} as unknown as MirrorNodeBlock;
 
-const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
+const hexToData = (buf: Uint8Array): string => `0x${Buffer.from(buf).toString('hex')}`;
 
-const hexToQuantity = (buf) => {
+const hexToQuantity = (buf: Uint8Array): string => {
   if (buf.length === 0) return '0x0';
   return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
 };
@@ -122,7 +123,7 @@ describe('BlockFactory', () => {
     });
 
     it('should pad empty signature r and s to canonical zero encoding', () => {
-      const tx: any = {
+      const tx = {
         ...blockInfo.transactions[0],
         r: '0x',
         s: '0x0',
@@ -135,7 +136,7 @@ describe('BlockFactory', () => {
       expect(typeByte).to.equal('02');
 
       const rlpPayload = Buffer.from(hex.slice(2), 'hex');
-      const decoded: any[] = RLP.decode(rlpPayload) as any[];
+      const decoded = RLP.decode(rlpPayload) as Uint8Array[];
 
       const rField: Uint8Array = decoded[decoded.length - 3];
       const sField: Uint8Array = decoded[decoded.length - 2];
@@ -145,7 +146,7 @@ describe('BlockFactory', () => {
     });
 
     it('should encode legacy transaction with gasPrice', () => {
-      const tx: any = {
+      const tx = {
         ...blockInfo.transactions[0],
         type: '0x0',
         gasPrice: '0x1',
@@ -158,7 +159,7 @@ describe('BlockFactory', () => {
     });
 
     it('should encode EIP-2930 with accessList', () => {
-      const tx: any = {
+      const tx = {
         ...blockInfo.transactions[0],
         type: '0x1',
         gasPrice: '0x1',
@@ -170,7 +171,7 @@ describe('BlockFactory', () => {
     });
 
     it('should encode EIP-7702 with authorization list entries', () => {
-      const tx: any = {
+      const tx = {
         ...blockInfo.transactions[0],
         type: '0x4',
         authorizationList: [
@@ -230,7 +231,7 @@ describe('BlockFactory', () => {
 
     it('should RLP encode full block including transactions array', () => {
       const encoded = BlockFactory.rlpEncodeBlock(block);
-      const decoded = RLP.decode(encoded) as any[];
+      const decoded = RLP.decode(encoded) as NestedUint8Array;
 
       // header (17) + txs + ommers + withdrawals
       expect(decoded.length).to.equal(20);
@@ -245,7 +246,7 @@ describe('BlockFactory', () => {
         ...block,
         transactions: [],
       });
-      const decoded = RLP.decode(encoded) as any[];
+      const decoded = RLP.decode(encoded) as NestedUint8Array;
 
       // header (17) + txs + ommers + withdrawals
       expect(decoded.length).to.equal(20);
@@ -256,10 +257,10 @@ describe('BlockFactory', () => {
     });
 
     it('should throw when transactions are only hashes', () => {
-      const invalidBlock: any = {
+      const invalidBlock = {
         ...block,
         transactions: ['0xabc'],
-      };
+      } as unknown as Block;
 
       expect(() => BlockFactory.rlpEncodeBlock(invalidBlock)).to.throw(
         'Block transactions must include full transaction objects for RLP encoding',

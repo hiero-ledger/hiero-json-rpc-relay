@@ -5,11 +5,16 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { formatTransactionId, numberTo0x } from '../../src/relay/formatters';
+import { type MirrorNodeBlock } from '../../src/relay/lib/types';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import type ServicesClient from '../server/clients/servicesClient';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions from '../server/helpers/assertions';
+import Assertions, {
+  type BlockResponseLike,
+  type MirrorTransactionLike,
+  type TransactionResponseLike,
+} from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import RelayCalls from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
@@ -21,7 +26,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_getBlockByNumber';
 
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     ['0x36'],
     ['0x36', '0xhbar'],
@@ -46,9 +51,9 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   } = global;
 
   const accounts: AliasAccount[] = [];
-  let mirrorBlock: any;
-  let mirrorContractDetails: any;
-  const mirrorTransactions: any[] = [];
+  let mirrorBlock: MirrorNodeBlock;
+  let mirrorContractDetails: { block_number: number; contract_id: string; from: string };
+  const mirrorTransactions: MirrorTransactionLike[] = [];
   let expectedGasPrice: string;
 
   before(async () => {
@@ -69,7 +74,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
     });
     await relay.pollForValidTransactionReceipt(fundTx.hash);
 
-    const createChildTx = await (parentContract as any).createChild(1);
+    const createChildTx = await parentContract.getFunction('createChild')(1);
     await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
     mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
@@ -84,7 +89,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
     }
 
     for (const mirrorTx of mirrorTransactions) {
-      const resolvedAddresses = await resolveAccountEvmAddresses(mirrorNode, mirrorTx);
+      const resolvedAddresses = await resolveAccountEvmAddresses(mirrorNode, mirrorTx as { from: string; to: string });
       mirrorTx.from = resolvedAddresses.from;
       mirrorTx.to = resolvedAddresses.to;
     }
@@ -99,10 +104,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('should execute "eth_getBlockByNumber", hydrated transactions = false', async () => {
-        const blockResult: any = await client.call(METHOD_NAME, [numberTo0x(mirrorBlock.number), false]);
+        const blockResult = (await client.call(METHOD_NAME, [
+          numberTo0x(mirrorBlock.number),
+          false,
+        ])) as BlockResponseLike;
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter(
-          (transaction: any) => transaction.value !== '0x1234',
+          (transaction) => (transaction as TransactionResponseLike).value !== '0x1234',
         );
         Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
       });
@@ -140,10 +148,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
       });
 
       it('@release should execute "eth_getBlockByNumber", hydrated transactions = true', async () => {
-        const blockResult: any = await client.call(METHOD_NAME, [numberTo0x(mirrorBlock.number), true]);
+        const blockResult = (await client.call(METHOD_NAME, [
+          numberTo0x(mirrorBlock.number),
+          true,
+        ])) as BlockResponseLike;
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter(
-          (transaction: any) => transaction.value !== '0x1234',
+          (transaction) => (transaction as TransactionResponseLike).value !== '0x1234',
         );
         Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
       });
@@ -169,13 +180,17 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
             500_000,
             -100,
           );
-        } catch (e: any) {
+        } catch (e) {
+          const sdkError = e as { status: { _code: number }; transactionId: { toString(): string } };
           // regarding the docs and HederaResponseCodes.sol the CONTRACT_NEGATIVE_VALUE code equals 96;
-          expect(e.status._code).to.equal(96);
+          expect(sdkError.status._code).to.equal(96);
           hasContractNegativeValueError = true;
-          transactionId = e.transactionId;
+          transactionId = sdkError.transactionId;
         }
         expect(hasContractNegativeValueError).to.be.true;
+        if (!transactionId) {
+          expect.fail('expected the negative-value contract call to produce a transaction id');
+        }
 
         // waiting for at least one block time for data to be populated in the mirror node
         // because on the step above we sent a sdk call
@@ -184,12 +199,12 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
           `/contracts/results/${formatTransactionId(transactionId.toString())}`,
         );
         const txHash = mirrorResult.hash;
-        const blockResult: any = await client.call(METHOD_NAME, [numberTo0x(mirrorResult.block_number), true]);
+        const blockResult = (await client.call(METHOD_NAME, [numberTo0x(mirrorResult.block_number), true])) as {
+          transactions: TransactionResponseLike[];
+        };
         expect(blockResult.transactions).to.not.be.empty;
-        expect(blockResult.transactions.map((tx: any) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx: any) => tx.hash === txHash)[0].value).to.equal(
-          '0xffffff172b5af000',
-        );
+        expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
+        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffff172b5af000');
       });
 
       for (const params of INVALID_PARAMS) {

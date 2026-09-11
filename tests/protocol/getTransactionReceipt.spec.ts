@@ -14,7 +14,13 @@ import type ServicesClient from '../server/clients/servicesClient';
 import basicContractJson from '../server/contracts/Basic.json';
 import ERC20MockJson from '../server/contracts/ERC20Mock.json';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions, { computeExpectedCumulativeGasUsed } from '../server/helpers/assertions';
+import Assertions, {
+  computeExpectedCumulativeGasUsed,
+  type MirrorReceiptLike,
+  type MirrorTransactionLike,
+  type ReceiptResponseLike,
+  type TransactionResponseLike,
+} from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
 import { type AliasAccount } from '../server/types/AliasAccount';
@@ -27,7 +33,18 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
   const gasPriceDeviation = ConfigService.get('TEST_GAS_PRICE_DEVIATION');
 
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  interface TransactionReceiptResponse extends ReceiptResponseLike {
+    contractAddress: string | null;
+  }
+
+  interface MirrorReceiptResult {
+    hash: string;
+    address: string;
+    block_hash: string;
+    transaction_index: number;
+  }
+
+  const INVALID_PARAMS: unknown[][] = [
     [],
     [''],
     [39],
@@ -51,7 +68,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
   const accounts: AliasAccount[] = [];
   let txHash: string;
-  let expectedTxReceipt: any;
+  let expectedTxReceipt: MirrorReceiptResult;
   let parentContractAddress: string;
   let htsAddress: string;
   let accountToAccountTxHash: string;
@@ -151,18 +168,28 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
-      const getTxData = async (hash: string) => {
+      const getTxData = async (
+        hash: string,
+      ): Promise<{
+        txByHash: TransactionResponseLike & { to: string };
+        receipt: ReceiptResponseLike;
+        mirrorResult: MirrorTransactionLike & MirrorReceiptLike;
+      }> => {
         const [txByHash, receipt, mirrorResult] = await Promise.all([
           client.call('eth_getTransactionByHash', [hash]),
           client.call(METHOD_NAME, [hash]),
           mirrorNode.get(`/contracts/results/${hash}`),
         ]);
 
-        return { txByHash: txByHash as any, receipt: receipt as any, mirrorResult };
+        return {
+          txByHash: txByHash as TransactionResponseLike & { to: string },
+          receipt: receipt as ReceiptResponseLike,
+          mirrorResult,
+        };
       };
 
       it('@release Should execute eth_getTransactionReceipt and handle valid requests correctly', async () => {
-        const txReceipt = (await client.call(METHOD_NAME, [txHash])) as any;
+        const txReceipt = (await client.call(METHOD_NAME, [txHash])) as TransactionReceiptResponse;
         expect(txReceipt.to).to.be.eq(accounts[1].address.toLowerCase());
         expect(txReceipt.from).to.be.eq(accounts[0].address.toLowerCase());
         expect(txReceipt.transactionHash).to.be.eq(expectedTxReceipt.hash);
@@ -265,7 +292,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         mirrorResult.from = accounts[2].wallet.address;
         mirrorResult.to = parentContractAddress;
 
-        const res = (await client.call(METHOD_NAME, [legacyTxHash])) as any;
+        const res = (await client.call(METHOD_NAME, [legacyTxHash])) as TransactionReceiptResponse;
         const currentPrice = await relay.gasPrice();
         const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
@@ -288,7 +315,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         mirrorResult.from = accounts[2].wallet.address;
         mirrorResult.to = parentContractAddress;
 
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionReceiptResponse;
         const currentPrice = await relay.gasPrice();
         const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
@@ -325,7 +352,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
         const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionReceiptResponse;
         const currentPrice = await relay.gasPrice();
 
         Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
@@ -349,7 +376,9 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         }
         await relay.pollForValidTransactionReceipt(contractDeploymentTx.hash);
 
-        const contractDeploymentReceipt = (await client.call(METHOD_NAME, [contractDeploymentTx.hash])) as any;
+        const contractDeploymentReceipt = (await client.call(METHOD_NAME, [
+          contractDeploymentTx.hash,
+        ])) as TransactionReceiptResponse;
         expect(contractDeploymentReceipt).to.exist;
         expect(contractDeploymentReceipt.contractAddress).to.not.be.null;
         expect(contractDeploymentReceipt.to).to.be.null;

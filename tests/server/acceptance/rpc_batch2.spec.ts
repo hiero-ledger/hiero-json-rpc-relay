@@ -122,7 +122,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
           const promise = relay.call(endpoint, params);
 
           await expect(promise).to.eventually.be.rejected.and.satisfy(
-            (error) =>
+            (error: Error) =>
               error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter'),
           );
         });

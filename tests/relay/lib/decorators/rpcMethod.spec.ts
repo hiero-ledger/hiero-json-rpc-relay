@@ -11,6 +11,8 @@ import { Web3Impl } from '../../../../src/relay/lib/web3';
 
 chai.use(chaiAsPromised);
 
+type RpcMethodMarked = { [RPC_METHOD_KEY]?: boolean };
+
 describe('rpcMethod decorator integration', () => {
   // Instances of real implementation classes
   let netImpl: NetImpl;
@@ -47,19 +49,19 @@ describe('rpcMethod decorator integration', () => {
       const listeningMethod = netImpl.listening;
 
       // Verify RPC_METHOD_KEY is set
-      expect(listeningMethod[RPC_METHOD_KEY]).to.equal(true);
+      expect((listeningMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
     });
 
     it('should have decorated version method with RPC_METHOD_KEY', () => {
       const versionMethod = netImpl.version;
 
-      expect(versionMethod[RPC_METHOD_KEY]).to.equal(true);
+      expect((versionMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
     });
 
     it('should have decorated peerCount method with RPC_METHOD_KEY', () => {
       const peerCountMethod = netImpl.peerCount;
 
-      expect(peerCountMethod[RPC_METHOD_KEY]).to.equal(true);
+      expect((peerCountMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
     });
 
     it('should keep methods functional after decoration', () => {
@@ -74,13 +76,13 @@ describe('rpcMethod decorator integration', () => {
     it('should have decorated clientVersion method with RPC_METHOD_KEY', () => {
       const clientVersionMethod = web3Impl.clientVersion;
 
-      expect(clientVersionMethod[RPC_METHOD_KEY]).to.equal(true);
+      expect((clientVersionMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
     });
 
     it('should have decorated sha3 method with RPC_METHOD_KEY', () => {
       const sha3Method = web3Impl.sha3;
 
-      expect(sha3Method[RPC_METHOD_KEY]).to.equal(true);
+      expect((sha3Method as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
     });
 
     it('should keep methods functional after decoration', () => {
@@ -103,15 +105,15 @@ describe('rpcMethod decorator integration', () => {
       // Use the actual decorator syntax with TypeScript comment to suppress errors
       // @ts-expect-error: TypeScript doesn't recognize decorators in tests
       @rpcMethod
-      decoratedMethod() {
+      decoratedMethod(): string {
         return 'decorated-result';
       }
 
-      nonDecoratedMethod() {
+      nonDecoratedMethod(): string {
         return 'non-decorated-result';
       }
 
-      getNamespace() {
+      getNamespace(): string {
         return TestRpcClass.namespace;
       }
     }
@@ -123,8 +125,8 @@ describe('rpcMethod decorator integration', () => {
     });
 
     it('should add RPC_METHOD_KEY to decorated methods only', () => {
-      expect(testInstance.decoratedMethod[RPC_METHOD_KEY]).to.equal(true);
-      expect(testInstance.nonDecoratedMethod[RPC_METHOD_KEY]).to.be.undefined;
+      expect((testInstance.decoratedMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.equal(true);
+      expect((testInstance.nonDecoratedMethod as RpcMethodMarked)[RPC_METHOD_KEY]).to.be.undefined;
     });
 
     it('should maintain method functionality', () => {

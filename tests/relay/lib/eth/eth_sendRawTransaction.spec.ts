@@ -16,17 +16,24 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import sinon, { stub, useFakeTimers } from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
-import { type Eth, JsonRpcError, predefined } from '../../../../src/relay';
+import { JsonRpcError, predefined } from '../../../../src/relay';
 import { formatTransactionIdWithoutQueryParams, prepend0x } from '../../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
-import { type IAccountService, LockService, TransactionPoolService } from '../../../../src/relay/lib/services';
+import { type EthImpl } from '../../../../src/relay/lib/eth';
+import { type Precheck } from '../../../../src/relay/lib/precheck';
+import {
+  type IAccountService,
+  LockService,
+  TransactionPoolService,
+  type TransactionService,
+} from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
@@ -58,13 +65,25 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
-    ethImpl: Eth;
+    ethImpl: EthImpl;
     cacheService: ICacheClient;
     // eslint-disable-next-line @typescript-eslint/consistent-type-imports
     registry: import('prom-client').Registry;
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });
+
+  interface TransactionServiceInternals {
+    accountService: IAccountService;
+    lockService: LockService;
+    logger: Logger;
+    mirrorNodeClient: MirrorNodeClient;
+    precheck: Omit<Precheck, 'transactionPoolService'> & { transactionPoolService: TransactionPoolService };
+    sendRawTransactionProcessor: TransactionService['sendRawTransactionProcessor'];
+    transactionPoolService: TransactionPoolService;
+  }
+
+  const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
   let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
@@ -103,8 +122,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       pino({ level: 'silent' }),
       registry,
     );
-    ethImpl['transactionService']['precheck']['transactionPoolService'] = txPoolServiceWithMockedStorage;
-    ethImpl['transactionService']['transactionPoolService'] = txPoolServiceWithMockedStorage;
+    transactionService['precheck']['transactionPoolService'] = txPoolServiceWithMockedStorage;
+    transactionService['transactionPoolService'] = txPoolServiceWithMockedStorage;
   });
 
   this.afterEach(() => {
@@ -113,7 +132,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   });
 
   describe('eth_sendRawTransaction', async function () {
-    let clock: any;
+    let clock: sinon.SinonFakeTimers;
     const accountAddress = '0x9eaee9E66efdb91bfDcF516b034e001cc535EB57';
     const accountEndpoint = `accounts/${accountAddress}${NO_TRANSACTIONS}`;
     const receiverAccountEndpoint = `accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`;
@@ -169,7 +188,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       lockServiceStub = sinon.createStubInstance(LockService);
 
       // Replace the lock service with our stub
-      ethImpl['transactionService']['lockService'] = lockServiceStub;
+      transactionService['lockService'] = lockServiceStub;
       lockServiceStub.acquireLock.resolves();
     });
 
@@ -193,7 +212,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
 
         const FILE_ID = new FileId(0, 0, 5644);
-        const sdkClientInternals = sdkClientStub as unknown as Record<string, any>;
+        const sdkClientInternals = sdkClientStub as unknown as Record<string, unknown>;
         const enableCallThrough = (
           method: 'submitEthereumTransaction' | 'createFile' | 'executeAllTransaction',
         ): void => {
@@ -303,7 +322,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     it('should not send second transaction on error different from timeout', async function () {
-      const repeatedRequestSpy = sinon.spy((ethImpl as any).transactionService.mirrorNodeClient, 'repeatedRequest');
+      const repeatedRequestSpy = sinon.spy(transactionService['mirrorNodeClient'], 'repeatedRequest');
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -352,7 +371,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     withOverriddenEnvsInMochaTest({ TX_TYPE_4_ENABLED: true }, () => {
       it('should parse type 4 raw string and expose ethers-internal authorizationList format mismatch', async function () {
         // The authorizationList entries are provided in ethers AuthorizationLike format (BigNumberish chainId/nonce + SignatureLike).
-        const authEntry = {
+        const authEntry: ethers.AuthorizationLike = {
           chainId: Number(ConfigService.get('CHAIN_ID')),
           address: ACCOUNT_ADDRESS_1,
           nonce: 0,
@@ -410,7 +429,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: true }, () => {
         it('should save and remove transaction from transaction pool on success path', async function () {
           const signed = await signTransaction(transaction);
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
 
           restMock.onGet(`contracts/results/${ethereumHash}?hbar=false`).reply(404);
 
@@ -451,7 +470,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: false }, () => {
         it('should save and remove transaction from transaction pool on success path with nonce ordering disabled', async function () {
           const signed = await signTransaction(transaction);
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -542,7 +561,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       let loggerErrorStub: sinon.SinonStub;
       overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
       beforeEach(() => {
-        loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
+        loggerErrorStub = sinon.stub(transactionService['logger'], 'error');
       });
 
       afterEach(() => {
@@ -639,7 +658,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
 
@@ -689,7 +708,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         it('should not initialize lock when base sync precheck fails and lock service works', async function () {
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
 
           const transaction = {
@@ -760,7 +779,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         it('should be able to add more than 1 transaction into the pending queue', async function () {
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -850,12 +869,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
           restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const txPool = transactionService['transactionPoolService'];
 
           // Just make sure that the accessList is propagated to the tx pool
           const saveSpy = sinon.stub(txPool, 'saveTransaction').callsFake(async (_from: unknown, parsedTx: unknown) => {
             expect(parsedTx).to.have.property('accessList');
-            expect(parsedTx!['accessList']).to.deep.equal(accessList);
+            expect((parsedTx as { accessList: unknown }).accessList).to.deep.equal(accessList);
             return Promise.resolve();
           });
 
@@ -880,8 +899,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
       beforeEach(() => {
         lockServiceStub = sinon.createStubInstance(LockService);
-        ethImpl['transactionService']['lockService'] = lockServiceStub;
-        sendRawTransactionProcessorSpy = sinon.spy(ethImpl['transactionService'], 'sendRawTransactionProcessor');
+        transactionService['lockService'] = lockServiceStub;
+        sendRawTransactionProcessorSpy = sinon.spy(transactionService, 'sendRawTransactionProcessor');
       });
 
       afterEach(() => {
@@ -950,7 +969,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
         // Lock acquisition returns undefined (lock not acquired)
-        lockServiceStub.acquireLock.resolves(undefined as any);
+        lockServiceStub.acquireLock.resolves(undefined);
         lockServiceStub.releaseLock.resolves();
 
         sdkClientStub.submitEthereumTransaction.resolves({
@@ -1029,7 +1048,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join('');
 
-          const statusValue = (Status as any)[pascalCase];
+          const statusValue = (Status as unknown as Record<string, { _code: number } | undefined>)[pascalCase];
           if (!statusValue) {
             throw new Error(`Status.${pascalCase} not found in Hedera SDK Status enum`);
           }
@@ -1429,7 +1448,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           });
 
           it('should NOT run the Mirror Node-dependent prechecks', async function () {
-            const precheck = ethImpl['transactionService']['precheck'];
+            const precheck = transactionService['precheck'];
             const balanceSpy = sinon.spy(precheck, 'balance');
             const verifyAccountSpy = sinon.spy(precheck, 'verifyAccount');
             const receiverAndGasSpy = sinon.spy(precheck, 'validateReceiverAndGasStateful');
@@ -1452,7 +1471,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           });
 
           it('should skip transaction-pool ingress admission', async function () {
-            const ts = ethImpl['transactionService'];
+            const ts = transactionService;
             const saveSpy = sinon.spy(ts['transactionPoolService'], 'saveTransaction');
             const getCountsSpy = sinon.spy(ts['accountService'], 'getTransactionCounts');
             sdkClientStub.submitEthereumTransaction.resolves({
@@ -1473,8 +1492,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           // precheck.gasPrice is intentionally skipped (no MN value to compare against), but
           // precheck.accessList is purely stateless and still rejects unsupported tx shapes.
           it('should still run precheck.accessList but NOT precheck.gasPrice', async function () {
-            const gasPriceSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'gasPrice');
-            const accessListSpy = sinon.spy(ethImpl['transactionService']['precheck'], 'accessList');
+            const gasPriceSpy = sinon.spy(transactionService['precheck'], 'gasPrice');
+            const accessListSpy = sinon.spy(transactionService['precheck'], 'accessList');
             sdkClientStub.submitEthereumTransaction.resolves({
               txResponse: {
                 transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -1499,10 +1518,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false },
         () => {
           it('should still run the stateful prechecks when the flag is off', async function () {
-            const receiverAndGasStub = sinon.stub(
-              ethImpl['transactionService']['precheck'],
-              'validateReceiverAndGasStateful',
-            );
+            const receiverAndGasStub = sinon.stub(transactionService['precheck'], 'validateReceiverAndGasStateful');
             sdkClientStub.submitEthereumTransaction.resolves({
               txResponse: {
                 transactionId: TransactionId.fromString(transactionIdServicesFormat),

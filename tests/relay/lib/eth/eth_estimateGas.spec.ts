@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256, type Transaction } from 'ethers';
@@ -14,12 +15,18 @@ import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { EthImpl } from '../../../../src/relay/lib/eth';
 import { Precheck } from '../../../../src/relay/lib/precheck';
 import {
+  type ContractService,
   LocalPendingTransactionStorage,
   LockService,
   TransactionPoolService,
   TransactionTracingService,
 } from '../../../../src/relay/lib/services';
-import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
+import {
+  type IContractCallRequest,
+  type IContractCallResponse,
+  type LockStrategy,
+  RequestDetails,
+} from '../../../../src/relay/lib/types';
 import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -42,7 +49,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger, registry } =
     generateEthTestEnv();
 
-  const contractService = ethImpl['contractService'];
+  const contractService = ethImpl['contractService'] as ContractService;
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
   async function mockContractCall(
     callData: IContractCallRequest,
@@ -50,13 +57,13 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     statusCode: number,
     result: IContractCallResponse,
     requestDetails: RequestDetails,
-  ) {
+  ): Promise<MockAdapter> {
     const formattedData = { ...callData, estimate };
     await contractService['contractCallFormat'](formattedData, requestDetails);
     return web3Mock.onPost('contracts/call', formattedData).reply(statusCode, JSON.stringify(result));
   }
 
-  function mockGetAccount(idOrAliasOrEvmAddress: string, statusCode: number, result: any) {
+  function mockGetAccount(idOrAliasOrEvmAddress: string, statusCode: number, result: unknown): MockAdapter {
     return restMock
       .onGet(`accounts/${idOrAliasOrEvmAddress}?transactions=false`)
       .reply(statusCode, JSON.stringify(result));
@@ -85,7 +92,10 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     const storage = new LocalPendingTransactionStorage();
-    const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} } as any);
+    const lockService = new LockService({
+      acquireLock: async () => undefined,
+      releaseLock: async () => {},
+    } as unknown as LockStrategy);
     const transactionPoolService = new TransactionPoolService(storage, logger, registry);
     ethImplOverridden = new EthImpl(
       hapiServiceInstance,
@@ -523,7 +533,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
     it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async () => {
       const originalEstimateGas = contractService.estimateGas;
-      contractService.estimateGas = async () => {
+      contractService.estimateGas = async (): Promise<string> => {
         return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
       };
 
@@ -711,7 +721,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
     const originalEstimateGas = contractService.estimateGas;
     // @ts-ignore
-    contractService.estimateGas = async () => {
+    contractService.estimateGas = async (): Promise<JsonRpcError> => {
       return predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import MockAdapter from 'axios-mock-adapter';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import { register, Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../src/config-service/services';
+import { type ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import constants from '../../../../src/relay/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/relay/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -23,6 +24,7 @@ import {
 } from '../../../../src/relay/lib/services';
 import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
+import { type LockStrategy } from '../../../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../../../config-service/configServiceTestHelper';
 
 export function contractResultsByNumberByIndexURL(number: number, index: number): string {
@@ -38,7 +40,22 @@ export function balancesByAccountIdByTimestampURL(id: string, timestamp?: string
   return `balances?account.id=${id}${timestampQuery}`;
 }
 
-export function generateEthTestEnv(fixedFeeHistory = false) {
+interface EthTestEnv {
+  cacheService: ICacheClient;
+  mirrorNodeInstance: MirrorNodeClient;
+  restMock: MockAdapter;
+  web3Mock: MockAdapter;
+  hapiServiceInstance: HAPIService;
+  transactionPoolService: TransactionPoolService;
+  transactionTracingService: TransactionTracingService;
+  lockService: LockService;
+  ethImpl: EthImpl;
+  logger: Logger;
+  registry: Registry;
+  commonService: CommonService;
+}
+
+export function generateEthTestEnv(fixedFeeHistory = false): EthTestEnv {
   ConfigServiceTestHelper.dynamicOverride('ETH_FEE_HISTORY_FIXED', fixedFeeHistory);
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
@@ -76,7 +93,10 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
   const storage = new LocalPendingTransactionStorage();
-  const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} } as any);
+  const lockService = new LockService({
+    acquireLock: async () => undefined,
+    releaseLock: async () => {},
+  } as unknown as LockStrategy);
   const transactionPoolService = new TransactionPoolService(storage, logger, registry);
   const transactionTracingStorage = TransactionTracingService.isEnabled()
     ? TransactionTracingStorageFactory.create(logger, ConfigService.get('TX_STATUS_TRACING_TTL_MS'))

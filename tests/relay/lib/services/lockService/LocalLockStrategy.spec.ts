@@ -8,6 +8,10 @@ import { LocalLockStrategy, type LockState } from '../../../../../src/relay/lib/
 import { type LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
+interface LocalLockStrategyInternals {
+  doRelease(state: LockState): Promise<void>;
+}
+
 describe('LocalLockStrategy', function () {
   this.timeout(10000);
 
@@ -67,7 +71,7 @@ describe('LocalLockStrategy', function () {
     expect(lockEntryAfterAcquisition.sessionKey).to.equal(result!.sessionKey);
 
     const wrongKey = 'fake-session';
-    const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
+    const doReleaseSpy = sinon.spy(lockStrategy as unknown as LocalLockStrategyInternals, 'doRelease');
     await lockStrategy.releaseLock(address, wrongKey, process.hrtime.bigint());
 
     const lockEntryAfterFakeRelease = getStateEntry(address);
@@ -86,7 +90,7 @@ describe('LocalLockStrategy', function () {
     const result1 = await lockStrategy.acquireLock(address);
     let secondAcquired = false;
 
-    const acquire2 = (async () => {
+    const acquire2 = (async (): Promise<void> => {
       const result2 = await lockStrategy.acquireLock(address);
       secondAcquired = true;
       await lockStrategy.releaseLock(address, result2!.sessionKey, result2!.acquiredAt);
@@ -108,7 +112,7 @@ describe('LocalLockStrategy', function () {
     it('should auto-release after max lock time', async () => {
       const address = 'test-auto-release';
 
-      const releaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
+      const releaseSpy = sinon.spy(lockStrategy as unknown as LocalLockStrategyInternals, 'doRelease');
       await lockStrategy.acquireLock(address);
 
       // Wait beyond auto-release timeout
@@ -162,7 +166,7 @@ describe('LocalLockStrategy', function () {
     // Modify session key to simulate ownership change
     state.sessionKey = 'different-key';
 
-    const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
+    const doReleaseSpy = sinon.spy(lockStrategy as unknown as LocalLockStrategyInternals, 'doRelease');
     await lockStrategy['forceReleaseExpiredLock'](address, result!.sessionKey, process.hrtime.bigint());
 
     expect(doReleaseSpy.called).to.be.false;

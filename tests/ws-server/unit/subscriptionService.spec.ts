@@ -6,6 +6,7 @@ import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
+import { type PollerService } from '../../../src/ws-server/service/pollerService';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 
@@ -23,15 +24,20 @@ class MockWsConnection {
     this.limiter = limiter;
   }
 
-  send(msg) {
+  send(msg: string): void {
     console.log(`Mocked ws-connection with id: ${this.id} used method: send(${msg}`);
   }
+}
+
+interface SubscriptionServiceInternals {
+  createHash(data: string): string;
+  pollerService: PollerService;
 }
 
 describe('subscriptionService', async function () {
   this.timeout(20000);
   let subscriptionService: SubscriptionService;
-  let sandbox;
+  let sandbox: sinon.SinonSandbox;
   this.beforeAll(() => {
     // @ts-ignore
     relay = sinon.createStubInstance(Relay);
@@ -51,7 +57,7 @@ describe('subscriptionService', async function () {
   it('Should create sha256 hash out of a data object', async function () {
     const dataToHash = 'This is a Test';
 
-    const hash = (subscriptionService as any).createHash(dataToHash);
+    const hash = (subscriptionService as unknown as SubscriptionServiceInternals).createHash(dataToHash);
 
     expect(hash).to.be.eq(`401b022b962452749726ba96d436921e39d6deb2b0f4a922cc3da5d7e99e6e46`);
   });
@@ -75,7 +81,7 @@ describe('subscriptionService', async function () {
   it('when subscribing should return subId and poller should add(tag)', async function () {
     const connectionId = '1';
     const wsConnection = new MockWsConnection(connectionId);
-    const spy = sandbox.spy((subscriptionService as any).pollerService, 'add');
+    const spy = sandbox.spy((subscriptionService as unknown as SubscriptionServiceInternals).pollerService, 'add');
 
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
 
