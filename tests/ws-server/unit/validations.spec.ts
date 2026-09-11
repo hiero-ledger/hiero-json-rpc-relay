@@ -228,7 +228,7 @@ describe('validations unit test', async function () {
         expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(2);
       });
 
-      WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_LIMIT: 60 }, () => {
+      WsTestHelper.withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 60 }, () => {
         it('should validate every address when the array spans multiple lookup batches', async function () {
           stubMirrorNodeClient.resolveEntityType.returns(true);
 
@@ -239,8 +239,8 @@ describe('validations unit test', async function () {
         });
       });
 
-      WsTestHelper.withOverriddenEnvsInMochaTest({ WS_MULTIPLE_ADDRESSES_LIMIT: 3 }, () => {
-        it('should validate an address array exactly at WS_MULTIPLE_ADDRESSES_LIMIT', async function () {
+      WsTestHelper.withOverriddenEnvsInMochaTest({ MAX_ADDRESSES_PER_REQUEST: 3 }, () => {
+        it('should validate an address array exactly at MAX_ADDRESSES_PER_REQUEST', async function () {
           stubMirrorNodeClient.resolveEntityType.returns(true);
 
           await validateSubscribeEthLogsParams({ address: buildAddresses(3) }, stubMirrorNodeClient, requestDetails);
@@ -248,7 +248,7 @@ describe('validations unit test', async function () {
           expect(stubMirrorNodeClient.resolveEntityType.callCount).to.equal(3);
         });
 
-        it('should reject an array exceeding WS_MULTIPLE_ADDRESSES_LIMIT before any Mirror Node lookup fires', async function () {
+        it('should reject an array exceeding MAX_ADDRESSES_PER_REQUEST before any Mirror Node lookup fires', async function () {
           stubMirrorNodeClient.resolveEntityType.returns(true);
 
           await expect(

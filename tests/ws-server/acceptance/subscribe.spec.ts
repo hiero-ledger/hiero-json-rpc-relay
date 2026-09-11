@@ -907,6 +907,56 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       expect(response.result).to.exist;
       expect(ethers.isHexString(response.result)).to.be.true;
     });
+
+    const distinctAddresses = (count: number, offset = 0): string[] =>
+      Array.from({ length: count }, (_, index) => `0x${(offset + index + 1).toString(16).padStart(40, '0')}`);
+
+    it('Should reject a batch whose combined eth_subscribe address total exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+      const maxAddresses = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+      const total = maxAddresses + 1;
+      const firstEntryCount = Math.ceil(total / 2);
+      const batch = [
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'eth_subscribe',
+          params: ['logs', { address: distinctAddresses(firstEntryCount) }],
+        },
+        {
+          id: 2,
+          jsonrpc: '2.0',
+          method: 'eth_subscribe',
+          params: ['logs', { address: distinctAddresses(total - firstEntryCount, firstEntryCount) }],
+        },
+      ];
+      const expectedError = predefined.WS_BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(total, maxAddresses);
+
+      const response = await WsTestHelper.sendRequestToStandardWebSocket('batch_request', batch, 1000);
+
+      expect(response).to.be.an('array').with.length(1);
+      expect(response[0].error.code).to.equal(expectedError.code);
+      expect(response[0].error.message).to.match(requestIdRegex(expectedError.message));
+    });
+
+    // skip this test if using a remote relay since updating the env vars would not affect it
+    if (global.relayIsLocal) {
+      WsTestHelper.withOverriddenEnvsInMochaTest(
+        { WS_MULTIPLE_ADDRESSES_ENABLED: true, MAX_ADDRESSES_PER_REQUEST: 2 },
+        () => {
+          it('Calling eth_subscribe Logs with more addresses than MAX_ADDRESSES_PER_REQUEST should fail', async function () {
+            const expectedError = predefined.INVALID_PARAMETER(
+              'filters.address',
+              'A maximum of 2 contract addresses are allowed',
+            );
+
+            await Assertions.assertPredefinedRpcError(expectedError, wsProvider.send, true, wsProvider, [
+              'eth_subscribe',
+              ['logs', { address: distinctAddresses(3) }],
+            ]);
+          });
+        },
+      );
+    }
   });
 
   // skip this test if using a remote relay since updating the env vars would not affect it

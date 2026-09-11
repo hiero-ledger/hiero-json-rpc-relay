@@ -3,8 +3,9 @@
 import { zeroAddress } from '@ethereumjs/util';
 import { AccountId, Hbar } from '@hiero-ledger/sdk';
 import type { Logger } from 'pino';
-import { Counter, Gauge, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Registry } from 'prom-client';
 
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { prepend0x } from '../../../formatters';
 import { Utils } from '../../../utils';
 import constants from '../../constants';
@@ -82,7 +83,7 @@ export class HbarLimitService implements IHbarLimitService {
     private readonly evmAddressHbarSpendingPlanRepository: EvmAddressHbarSpendingPlanRepository,
     private readonly ipAddressHbarSpendingPlanRepository: IPAddressHbarSpendingPlanRepository,
     private readonly logger: Logger,
-    private readonly register: Registry,
+    register: Registry,
     private readonly limitDuration: number,
   ) {
     this.reset = this.getResetTimestamp();
@@ -99,43 +100,20 @@ export class HbarLimitService implements IHbarLimitService {
       this.isHBarRateLimiterEnabled = false;
     }
 
-    const metricCounterName = 'rpc_relay_hbar_rate_limit';
-    this.register.removeSingleMetric(metricCounterName);
-    this.hbarLimitCounter = new Counter({
-      name: metricCounterName,
-      help: 'Relay Hbar limit counter',
-      registers: [register],
-      labelNames: ['mode', 'methodName'],
-    });
+    const metricsFactory = new MetricsFactory(register);
+
+    this.hbarLimitCounter = metricsFactory.counter(METRICS.hbarLimiter.limitCounter);
     this.hbarLimitCounter.inc(0);
 
-    const rateLimiterRemainingGaugeName = 'rpc_relay_hbar_rate_remaining';
-    this.register.removeSingleMetric(rateLimiterRemainingGaugeName);
-    this.hbarLimitRemainingGauge = new Gauge({
-      name: rateLimiterRemainingGaugeName,
-      help: 'Relay Hbar rate limit remaining budget',
-      registers: [register],
-    });
+    this.hbarLimitRemainingGauge = metricsFactory.gauge(METRICS.hbarLimiter.remainingBudget);
     this.hbarLimitRemainingGauge.set(totalBudget.toTinybars().toNumber());
 
-    const totalHbarLimitGaugeName = 'rpc_relay_hbar_rate_total_limit';
-    this.register.removeSingleMetric(totalHbarLimitGaugeName);
-    this.totalHbarLimitGauge = new Gauge({
-      name: totalHbarLimitGaugeName,
-      help: 'Total configured HBAR rate limit',
-      registers: [register],
-    });
+    this.totalHbarLimitGauge = metricsFactory.gauge(METRICS.hbarLimiter.totalLimit);
     this.totalHbarLimitGauge.set(totalBudget.toTinybars().toNumber());
 
     this.uniqueSpendingPlansCounter = Object.values(SubscriptionTier).reduce(
       (acc, tier) => {
-        const uniqueSpendingPlansCounterName = `unique_spending_plans_counter_${tier.toLowerCase()}`;
-        this.register.removeSingleMetric(uniqueSpendingPlansCounterName);
-        acc[tier] = new Counter({
-          name: uniqueSpendingPlansCounterName,
-          help: `Tracks the number of unique ${tier} spending plans used during the limit duration`,
-          registers: [register],
-        });
+        acc[tier] = metricsFactory.counter(METRICS.hbarLimiter.uniqueSpendingPlans(tier));
         return acc;
       },
       {} as Record<SubscriptionTier, Counter>,
@@ -143,13 +121,7 @@ export class HbarLimitService implements IHbarLimitService {
 
     this.averageSpendingPlanAmountSpentGauge = Object.values(SubscriptionTier).reduce(
       (acc, tier) => {
-        const averageAmountSpentGaugeName = `average_spending_plan_amount_spent_gauge_${tier.toLowerCase()}`;
-        this.register.removeSingleMetric(averageAmountSpentGaugeName);
-        acc[tier] = new Gauge({
-          name: averageAmountSpentGaugeName,
-          help: `Tracks the average amount of tinybars spent by ${tier} spending plans`,
-          registers: [register],
-        });
+        acc[tier] = metricsFactory.gauge(METRICS.hbarLimiter.averageSpendingPlanAmountSpent(tier));
         return acc;
       },
       {} as Record<SubscriptionTier, Gauge>,

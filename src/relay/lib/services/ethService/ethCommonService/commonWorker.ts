@@ -3,6 +3,7 @@
 import { type Log } from '../../../model';
 import { type IContractLogsResultsParams, type RequestDetails } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
+import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
 import { type IWorkerContext } from '../../workersService/workerContext';
 import { wrapError } from '../../workersService/WorkersErrorUtils';
 
@@ -17,6 +18,9 @@ export async function getLogs(
 ): Promise<Log[]> {
   const { commonService } = ctx;
   try {
+    // Re-check the cap inside the worker: the worker is a second entry point, so it must not trust the caller.
+    assertAddressCountWithinLimit(address);
+
     const EMPTY_RESPONSE = [];
     const params: IContractLogsResultsParams = {};
     const sliceCountWrapper = { value: 1 };

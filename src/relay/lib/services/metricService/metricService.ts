@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Logger } from 'pino';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Histogram, type Registry } from 'prom-client';
 
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import constants from '../../constants';
 import {
   type IExecuteQueryEventPayload,
@@ -64,9 +65,11 @@ export default class MetricService {
   ) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
-    this.consensusNodeClientHistogramCost = this.initCostMetric(register);
-    this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
-    this.ethExecutionsCounter = this.initEthCounter(register);
+
+    const metricsFactory = new MetricsFactory(register);
+    this.consensusNodeClientHistogramCost = metricsFactory.histogram(METRICS.consensusNode.responseCost);
+    this.consensusNodeClientHistogramGasFee = metricsFactory.histogram(METRICS.consensusNode.gasFee);
+    this.ethExecutionsCounter = metricsFactory.counter(METRICS.eth.executions);
   }
 
   /**
@@ -160,49 +163,6 @@ export default class MetricService {
     await this.hbarLimitService.addExpense(cost, originalCallerAddress ?? '', requestDetails);
     this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed);
   };
-
-  /**
-   * Initialize consensus node cost metrics
-   * @param {Registry} register
-   * @returns {Histogram} Consensus node cost metric
-   */
-  private initCostMetric(register: Registry): Histogram {
-    const metricHistogramCost = 'rpc_relay_consensusnode_response';
-    register.removeSingleMetric(metricHistogramCost);
-    return new Histogram({
-      name: metricHistogramCost,
-      help: 'Relay consensusnode mode type status cost histogram',
-      labelNames: ['mode', 'type', 'status'],
-      registers: [register],
-    });
-  }
-
-  /**
-   * Initialize consensus node gas metrics
-   * @param {Registry} register
-   * @returns {Histogram} Consensus node gas metric
-   */
-  private initGasMetric(register: Registry): Histogram {
-    const metricHistogramGasFee = 'rpc_relay_consensusnode_gasfee';
-    register.removeSingleMetric(metricHistogramGasFee);
-    return new Histogram({
-      name: metricHistogramGasFee,
-      help: 'Relay consensusnode mode type status gas fee histogram',
-      labelNames: ['mode', 'type', 'status'],
-      registers: [register],
-    });
-  }
-
-  private initEthCounter(register: Registry): Counter {
-    const metricCounterName = 'rpc_relay_eth_executions';
-    register.removeSingleMetric(metricCounterName);
-    return new Counter({
-      name: metricCounterName,
-      help: `Relay ${metricCounterName} function`,
-      labelNames: ['method'],
-      registers: [register],
-    });
-  }
 
   /**
    * Captures and records metrics for a transaction.

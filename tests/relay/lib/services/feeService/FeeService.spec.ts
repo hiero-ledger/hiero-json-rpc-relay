@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import { type Logger } from 'pino';
 import sinon from 'sinon';
 
+import { ConfigService } from '../../../../../src/config-service/services';
 import { numberTo0x } from '../../../../../src/relay/formatters';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
@@ -13,6 +14,7 @@ import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('FeeService', function () {
   const requestDetails = new RequestDetails({ requestId: 'feeServiceUnitTest', ipAddress: '0.0.0.0' });
+  const feeHistoryPageMax = ConfigService.get('FEE_HISTORY_BLOCK_PAGINATION_MAX');
 
   function minimalMirrorBlock(number: number, gasUsed: number, hapiVersion: string = '0.0.0'): MirrorNodeBlock {
     return {
@@ -79,7 +81,8 @@ describe('FeeService', function () {
         expect(feeHistory.oldestBlock).to.equal(numberTo0x(head));
         expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
         expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(gasPrice), numberTo0x(gasPrice)]);
-        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, head, head)).to.be.true;
+        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, head, head, feeHistoryPageMax)).to.be
+          .true;
         expect(mirrorStub.getBlock.called).to.be.false;
       });
 
@@ -99,7 +102,8 @@ describe('FeeService', function () {
         expect(feeHistory.oldestBlock).to.equal(numberTo0x(oldest));
         expect(feeHistory.gasUsedRatio).to.have.lengthOf(blockCount);
         expect(feeHistory.baseFeePerGas).to.have.lengthOf(blockCount + 1);
-        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, oldest, newest + 1)).to.be.true;
+        expect(mirrorStub.getBlocksByRange.calledOnceWithExactly(requestDetails, oldest, newest + 1, feeHistoryPageMax))
+          .to.be.true;
         expect(mirrorStub.getBlock.called).to.be.false;
       });
 
