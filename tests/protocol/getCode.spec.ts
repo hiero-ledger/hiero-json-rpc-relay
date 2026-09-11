@@ -116,7 +116,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
       it('@release should execute "eth_getCode" for contract with id converted to evm_address', async () => {
         const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${basicContractAddress}`);
         const contractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
-        const res = (await client.call(METHOD_NAME, [`0x${contractId.toSolidityAddress()}`, 'latest'])) as string;
+        const res = (await client.call(METHOD_NAME, [`0x${contractId.toEvmAddress()}`, 'latest'])) as string;
         expect(res).to.eq(basicContractJson.deployedBytecode);
       });
 

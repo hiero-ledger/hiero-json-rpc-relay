@@ -108,7 +108,7 @@ describe('EstimatePrecompileContract tests', function () {
       EstimatePrecompileContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    EstimatePrecompileContractAddress = contractReceipt.contractId.toSolidityAddress();
+    EstimatePrecompileContractAddress = contractReceipt.contractId.toEvmAddress();
 
     ERCcontractReceipt = await servicesNode.deployContract(
       ERCTestContractJson,
@@ -119,7 +119,7 @@ describe('EstimatePrecompileContract tests', function () {
       PrecompileTestContractJson,
       Constants.GAS_AS_NUMBER.LIMIT_5_000_000,
     );
-    PrecompileContractAddress = PrecompileContractReceipt.contractId.toSolidityAddress();
+    PrecompileContractAddress = PrecompileContractReceipt.contractId.toEvmAddress();
 
     contract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
@@ -787,7 +787,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with approveERC function without approval for fungible token', async function () {
     const tokenContract = new ethers.Contract(
-      prefix + ERCcontractReceipt.contractId.toSolidityAddress(),
+      prefix + ERCcontractReceipt.contractId.toEvmAddress(),
       ERCTestContractJson.abi,
       accounts[1].wallet,
     );
@@ -1782,7 +1782,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with ERC totalSupply function for NFT', async function () {
     const ERCTestContract = new ethers.Contract(
-      prefix + ERCcontractReceipt.contractId.toSolidityAddress(),
+      prefix + ERCcontractReceipt.contractId.toEvmAddress(),
       ERCTestContractJson.abi,
       accounts[0].wallet,
     );
