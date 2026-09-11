@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Histogram, type Registry } from 'prom-client';
 
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { type LockStrategyLabel } from '../../types/lock';
 
 /**
@@ -77,83 +78,17 @@ export class LockMetricsService {
   private readonly queueRejoinsCounter: Counter;
 
   constructor(register: Registry) {
-    // Remove existing metrics if they exist (for hot reloading scenarios)
-    const metricNames = [
-      'rpc_relay_lock_wait_time_seconds',
-      'rpc_relay_lock_hold_duration_seconds',
-      'rpc_relay_lock_waiting_txns',
-      'rpc_relay_lock_acquisitions_total',
-      'rpc_relay_lock_timeout_releases_total',
-      'rpc_relay_lock_zombie_cleanups_total',
-      'rpc_relay_lock_active_count',
-      'rpc_relay_lock_redis_errors_total',
-      'rpc_relay_lock_queue_rejoins_total',
-    ];
-    metricNames.forEach((name) => register.removeSingleMetric(name));
+    const metricsFactory = new MetricsFactory(register);
 
-    this.waitTimeHistogram = new Histogram({
-      name: 'rpc_relay_lock_wait_time_seconds',
-      help: 'Time waiting in queue to acquire a lock. High values indicate contention.',
-      labelNames: ['strategy'],
-      buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
-      registers: [register],
-    });
-
-    this.holdDurationHistogram = new Histogram({
-      name: 'rpc_relay_lock_hold_duration_seconds',
-      help: 'Time a lock is held from acquisition to release. Should be well under 30s.',
-      labelNames: ['strategy'],
-      buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
-      registers: [register],
-    });
-
-    this.waitingTxnsGauge = new Gauge({
-      name: 'rpc_relay_lock_waiting_txns',
-      help: 'Current number of transactions waiting in lock queues (sum across all addresses).',
-      labelNames: ['strategy'],
-      registers: [register],
-    });
-
-    this.acquisitionsCounter = new Counter({
-      name: 'rpc_relay_lock_acquisitions_total',
-      help: 'Lock acquisition attempts. Status: success, fail.',
-      labelNames: ['strategy', 'status'],
-      registers: [register],
-    });
-
-    this.timeoutReleasesCounter = new Counter({
-      name: 'rpc_relay_lock_timeout_releases_total',
-      help: 'Locks released due to max hold time (30s). Indicates hung transactions.',
-      labelNames: ['strategy'],
-      registers: [register],
-    });
-
-    this.zombieCleanupsCounter = new Counter({
-      name: 'rpc_relay_lock_zombie_cleanups_total',
-      help: 'Zombie queue entries removed (crashed waiters detected via missing heartbeat). Only applicable to Redis strategy.',
-      registers: [register],
-    });
-
-    this.activeCountGauge = new Gauge({
-      name: 'rpc_relay_lock_active_count',
-      help: 'Currently held locks.',
-      labelNames: ['strategy'],
-      registers: [register],
-    });
-
-    this.redisLockErrors = new Counter({
-      name: 'rpc_relay_lock_redis_errors_total',
-      help: 'Redis Lock Service errors',
-      labelNames: ['operation'],
-      registers: [register],
-    });
-
-    this.queueRejoinsCounter = new Counter({
-      name: 'rpc_relay_lock_queue_rejoins_total',
-      help: 'Times a waiter found itself missing from the lock queue and rejoined. Non-zero indicates Redis resets, failovers, evictions, or event-loop stalls causing zombie cleanup of live waiters.',
-      labelNames: ['strategy'],
-      registers: [register],
-    });
+    this.waitTimeHistogram = metricsFactory.histogram(METRICS.lock.waitTime);
+    this.holdDurationHistogram = metricsFactory.histogram(METRICS.lock.holdDuration);
+    this.waitingTxnsGauge = metricsFactory.gauge(METRICS.lock.waitingTxns);
+    this.acquisitionsCounter = metricsFactory.counter(METRICS.lock.acquisitions);
+    this.timeoutReleasesCounter = metricsFactory.counter(METRICS.lock.timeoutReleases);
+    this.zombieCleanupsCounter = metricsFactory.counter(METRICS.lock.zombieCleanups);
+    this.activeCountGauge = metricsFactory.gauge(METRICS.lock.activeCount);
+    this.redisLockErrors = metricsFactory.counter(METRICS.lock.redisErrors);
+    this.queueRejoinsCounter = metricsFactory.counter(METRICS.lock.queueRejoins);
   }
 
   /**

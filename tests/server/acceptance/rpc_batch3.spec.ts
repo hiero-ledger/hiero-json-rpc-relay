@@ -20,6 +20,7 @@ import type ServicesClient from '../clients/servicesClient';
 import DeployerContractJson from '../contracts/Deployer.json';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
+import LogsContractJson from '../contracts/Logs.json';
 // Contracts and JSON files from local resources
 import reverterContractJson from '../contracts/Reverter.json';
 // Assertions and constants from local resources
@@ -1266,6 +1267,102 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         expect(res.filter((r) => r.id === 2)[0].result).to.be.equal('0x1');
         expect(res.filter((r) => r.id === 3)[0].result.transactionHash).to.be.equal(transactionHash);
       }
+    });
+  });
+
+  describe('Address Limit Test Suite', async function () {
+    const MAX_ADDRESSES = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+    const addressLimitError = predefined.INVALID_PARAMETER(
+      'address',
+      `A maximum of ${MAX_ADDRESSES} addresses are allowed`,
+    );
+
+    const distinctAddresses = (count: number, offset = 0): string[] =>
+      Array.from({ length: count }, (_, index) => `0x${(offset + index + 1).toString(16).padStart(40, '0')}`);
+
+    let logsContractAddress: string;
+    let logBlockNumber: string;
+
+    before(async () => {
+      const logsContract = await Utils.deployContract(
+        LogsContractJson.abi,
+        LogsContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      logsContractAddress = (logsContract.target as string).toLowerCase();
+
+      const tx = await logsContract.log1(1, await Utils.gasOptions());
+      const receipt = await tx.wait();
+      logBlockNumber = numberTo0x(receipt.blockNumber);
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const { logs } = await mirrorNode.get(`/contracts/${logsContractAddress}/results/logs?limit=1`);
+        if (logs?.length) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    });
+
+    it('should reject eth_getLogs when the distinct address count exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+      await relay.callFailing(
+        RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS,
+        [{ address: distinctAddresses(MAX_ADDRESSES + 1), fromBlock: 'latest', toBlock: 'latest' }],
+        addressLimitError,
+      );
+    });
+
+    it('should reject eth_newFilter when the distinct address count exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+      await relay.callFailing(
+        RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER,
+        [{ address: distinctAddresses(MAX_ADDRESSES + 1), fromBlock: 'latest', toBlock: 'latest' }],
+        addressLimitError,
+      );
+    });
+
+    it('should collapse duplicate addresses before applying the cap and return each log once', async function () {
+      const blockRange = { fromBlock: logBlockNumber, toBlock: logBlockNumber };
+
+      const single = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS, [
+        { ...blockRange, address: logsContractAddress },
+      ]);
+      expect(single).to.be.an('array').with.length.greaterThan(0);
+
+      const duplicated = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS, [
+        { ...blockRange, address: new Array(MAX_ADDRESSES + 1).fill(logsContractAddress) },
+      ]);
+
+      expect(duplicated).to.deep.equal(single);
+    });
+
+    it('should reject the whole batch when the address total across entries exceeds MAX_ADDRESSES_PER_REQUEST', async function () {
+      const total = MAX_ADDRESSES + 1;
+      const firstEntryCount = Math.ceil(total / 2);
+      const payload = [
+        {
+          id: 1,
+          method: RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS,
+          params: [{ address: distinctAddresses(firstEntryCount), fromBlock: 'latest', toBlock: 'latest' }],
+        },
+        {
+          id: 2,
+          method: RelayCalls.ETH_ENDPOINTS.ETH_GET_LOGS,
+          params: [
+            {
+              address: distinctAddresses(total - firstEntryCount, firstEntryCount),
+              fromBlock: 'latest',
+              toBlock: 'latest',
+            },
+          ],
+        },
+      ];
+
+      const res = await relay.callBatch(payload);
+      const expectedError = predefined.BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(total, MAX_ADDRESSES);
+
+      expect(res).to.have.length(payload.length);
+      res.forEach((entry: any) => {
+        expect(entry.error.code).to.equal(expectedError.code);
+        expect(entry.error.message).to.match(requestIdRegex(expectedError.message));
+      });
     });
   });
 

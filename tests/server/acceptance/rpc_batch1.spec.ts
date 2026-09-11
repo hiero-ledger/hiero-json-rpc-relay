@@ -332,9 +332,14 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res[0]).to.have.property('transactionHash');
         expect(res[0].transactionHash).to.equal(createChildTx.hash);
         expect(res[0].logs).to.not.be.empty;
-        res[0].logs.map((log) =>
-          expect(log.blockTimestamp).to.equal(numberTo0x(Number(mirrorBlock.timestamp.to.split('.')[0]))),
-        );
+        const blockTimestampFrom = Number(mirrorBlock.timestamp.from.split('.')[0]);
+        const blockTimestampTo = Number(mirrorBlock.timestamp.to.split('.')[0]);
+        res[0].logs.map((log) => {
+          const logTimestamp = parseInt(log.blockTimestamp, 16);
+          // Transaction timestamp falls within block's time range [from, to]
+          expect(logTimestamp).to.be.at.least(blockTimestampFrom);
+          expect(logTimestamp).to.be.at.most(blockTimestampTo);
+        });
       });
 
       it('should execute "eth_getBlockReceipts" with block number successfully', async function () {

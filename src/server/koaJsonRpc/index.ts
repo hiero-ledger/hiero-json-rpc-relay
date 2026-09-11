@@ -3,14 +3,16 @@
 import parse from 'co-body';
 import Koa from 'koa';
 import { type Logger } from 'pino';
-import { Histogram, type Registry } from 'prom-client';
+import { type Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
+import { METRICS, MetricsFactory } from '../../metrics';
 import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
+import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
@@ -25,7 +27,6 @@ import {
 const INVALID_REQUEST = 'INVALID REQUEST';
 const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
-const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 
@@ -34,7 +35,6 @@ export default class KoaJsonRpc {
   private readonly defaultRateLimit: number = getDefaultRateLimit();
   private readonly limit: string;
   private readonly rateLimiter: IPRateLimiterService;
-  private readonly metricsRegistry: Registry;
   private readonly koaApp: Koa<Koa.DefaultState, Koa.DefaultContext>;
   private readonly requestIdIsOptional: boolean = getRequestIdIsOptional(); // default to false
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
@@ -52,18 +52,9 @@ export default class KoaJsonRpc {
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.rateLimiter = new IPRateLimiterService(rateLimitStore, register);
-    this.metricsRegistry = register;
     this.relay = relay;
 
-    // clear and create metric in registry
-    this.metricsRegistry.removeSingleMetric(METRIC_HISTOGRAM_NAME);
-    this.methodResponseHistogram = new Histogram({
-      name: METRIC_HISTOGRAM_NAME,
-      help: 'JSON RPC method statusCode latency histogram',
-      labelNames: ['method', 'statusCode', 'isPartOfBatch'],
-      registers: [this.metricsRegistry],
-      buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000, 40000, 50000, 60000], // ms (milliseconds)
-    });
+    this.methodResponseHistogram = new MetricsFactory(register).histogram(METRICS.server.methodResult);
   }
 
   rpcApp(): (ctx: Koa.ParameterizedContext) => Promise<void> {
@@ -130,6 +121,21 @@ export default class KoaJsonRpc {
       const responseBody = jsonRespError(
         null,
         predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
+        requestId,
+      );
+      ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!
+      ctx.status = 200;
+      ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
+      return;
+    }
+
+    // reject the whole batch when the caller-supplied address total across all entries exceeds the shared cap
+    const maxAddressesPerRequest = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+    const addressTotal = countBatchAddresses(body, HTTP_BATCH_ADDRESS_METHODS);
+    if (addressTotal > maxAddressesPerRequest) {
+      const responseBody = jsonRespError(
+        null,
+        predefined.BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(addressTotal, maxAddressesPerRequest),
         requestId,
       );
       ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!

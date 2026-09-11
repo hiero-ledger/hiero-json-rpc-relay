@@ -20,6 +20,8 @@ import {
   type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
+import { type LogTopic } from '../../../types/requestParams';
+import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -58,6 +60,13 @@ export class CommonService implements ICommonService {
    * public constants
    */
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
+
+  /**
+   * Slice count that disables parallel timestamp slicing, leaving log retrieval to sequential
+   * pagination. This is the behaviour of every multi-block `eth_getLogs` query prior to
+   * {@link CommonService.resolveRangeSliceCount}.
+   */
+  public static readonly SEQUENTIAL_SLICE_COUNT = 1;
 
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
@@ -219,9 +228,91 @@ export class CommonService implements ICommonService {
       if (!isSingleAddress && toBlockNum - fromBlockNum > blockRangeLimit) {
         throw predefined.RANGE_TOO_LARGE(blockRangeLimit);
       }
+
+      if (sliceCountWrapper) {
+        sliceCountWrapper.value = await this.resolveRangeSliceCount(fromBlockNum, toBlockNum, requestDetails);
+      }
     }
 
     return true;
+  }
+
+  /**
+   * Resolves how many timestamp slices a multi-block log query should be split into.
+   *
+   * A range has no `count` field of its own, so the transaction count is summed over every block in
+   * it. That costs one mirror node request per `MIRROR_NODE_LIMIT_PARAM` blocks and scales with the
+   * width of the range rather than with the number of logs in it, so only ranges up to
+   * `MIRROR_NODE_TIMESTAMP_SLICING_ENUMERATION_MAX_BLOCKS` wide are measured. The result is capped at
+   * `MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES`.
+   *
+   * Wider ranges and every failure mode resolve to {@link CommonService.SEQUENTIAL_SLICE_COUNT},
+   * which disables slicing: it is an optimisation, and declining to apply it is always correct.
+   *
+   * @param fromBlockNumber - Inclusive lower bound block number of the range.
+   * @param toBlockNumber - Inclusive upper bound block number of the range.
+   * @param requestDetails - Request metadata used for logging and tracing.
+   * @returns Number of timestamp slices to use, or `SEQUENTIAL_SLICE_COUNT` to disable slicing.
+   * @private
+   */
+  private async resolveRangeSliceCount(
+    fromBlockNumber: number,
+    toBlockNumber: number,
+    requestDetails: RequestDetails,
+  ): Promise<number> {
+    const maxLogsPerSlice = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE');
+    const maxSlices = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES');
+    const enumerationMaxBlocks = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_ENUMERATION_MAX_BLOCKS');
+    const blocksPerPage = ConfigService.get('MIRROR_NODE_LIMIT_PARAM');
+
+    // Any of these at or below zero makes the slice arithmetic meaningless, so decline to slice rather
+    // than divide by zero or clamp the result to nothing.
+    if (maxLogsPerSlice < 1 || maxSlices < 1 || enumerationMaxBlocks < 1 || blocksPerPage < 1) {
+      this.logger.warn(
+        `Timestamp slicing disabled: non-positive slicing configuration (maxLogsPerSlice=%s, maxSlices=%s, enumerationMaxBlocks=%s, blocksPerPage=%s)`,
+        maxLogsPerSlice,
+        maxSlices,
+        enumerationMaxBlocks,
+        blocksPerPage,
+      );
+      return CommonService.SEQUENTIAL_SLICE_COUNT;
+    }
+
+    const blocksInRange = toBlockNumber - fromBlockNumber + 1;
+    if (blocksInRange > enumerationMaxBlocks) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `Timestamp slicing skipped: range of %s blocks exceeds the %s block enumeration limit`,
+          blocksInRange,
+          enumerationMaxBlocks,
+        );
+      }
+      return CommonService.SEQUENTIAL_SLICE_COUNT;
+    }
+
+    // `getPaginatedResults` throws once it reaches its page cap, even when the traversal has already
+    // completed, so the cap has to sit one page beyond what the range actually needs.
+    const pageMax = Math.ceil(blocksInRange / blocksPerPage) + 1;
+
+    let blocks: MirrorNodeBlock[];
+    try {
+      blocks = await this.mirrorNodeClient.getBlocksByRange(requestDetails, fromBlockNumber, toBlockNumber, pageMax);
+    } catch (error) {
+      this.logger.warn(
+        error,
+        `Timestamp slicing skipped: unable to fetch blocks %s-%s to size the slices`,
+        fromBlockNumber,
+        toBlockNumber,
+      );
+      return CommonService.SEQUENTIAL_SLICE_COUNT;
+    }
+
+    const transactionCount = blocks.reduce((total, block) => total + (block.count ?? 0), 0);
+    if (transactionCount <= 0) {
+      return CommonService.SEQUENTIAL_SLICE_COUNT;
+    }
+
+    return Math.min(Math.ceil(transactionCount / maxLogsPerSlice), maxSlices);
   }
 
   public async validateBlockRange(
@@ -411,15 +502,16 @@ export class CommonService implements ICommonService {
    * @param params
    * @param topics
    */
-  public addTopicsToParams(params: any, topics: any[] | null): void {
+  public addTopicsToParams(params: any, topics: LogTopic[] | null): void {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
-        if (!_.isNil(topics[i])) {
-          if (Array.isArray(topics[i])) {
-            if (topics[i].length > 100) {
+        const topic = topics[i];
+        if (!_.isNil(topic)) {
+          if (Array.isArray(topic)) {
+            if (topic.length > 100) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
             }
-            const trimmedTopics = topics[i].map((t: string, j: number) => {
+            const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
               if (trimmed === null) {
                 throw predefined.INVALID_PARAMETER(i, `Topic ${i}[${j}] is not a valid hex string`);
@@ -428,7 +520,7 @@ export class CommonService implements ICommonService {
             });
             params[`topic${i}`] = trimmedTopics;
           } else {
-            const trimmed = trimPrecedingZeros(topics[i]);
+            const trimmed = trimPrecedingZeros(topic);
             if (trimmed === null) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} is not a valid hex string`);
             }
@@ -454,7 +546,9 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<MirrorNodeContractLog[]> {
-    const addresses = Array.isArray(address) ? address : [address];
+    // Dedupe case-insensitively so a repeated address is fetched from the Mirror Node once, and so identical
+    // logs are not returned twice in the flattened response.
+    const addresses = dedupeAddresses(address);
     const logPromises = addresses.map((addr) =>
       this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params),
     );
@@ -500,9 +594,12 @@ export class CommonService implements ICommonService {
     fromBlock: string | 'latest',
     toBlock: string | 'latest',
     address: string | string[] | null,
-    topics: any[] | null,
+    topics: LogTopic[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
+    // Bound the address fan-out before dispatching to the worker, so an oversized array is rejected up front.
+    assertAddressCountWithinLimit(address);
+
     return WorkersPool.run(
       {
         type: 'getLogs',

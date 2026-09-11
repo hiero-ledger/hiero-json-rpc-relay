@@ -2,6 +2,7 @@
 
 import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
+import BigNumber from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
@@ -692,6 +693,8 @@ describe('MirrorNodeClient', async function () {
     expect(firstBlock.number).equal(block.number);
   });
 
+  const DEFAULT_PAGE_MAX = 20; // Page ceiling supplied by getBlocksByRange callers
+
   it('`getBlocksByRange` returns a flat, oldest-to-newest list for a single-page range', async () => {
     const fromBlock = 5;
     const toBlock = 7;
@@ -704,7 +707,7 @@ describe('MirrorNodeClient', async function () {
       .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
       .reply(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
 
-    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     expect(result).to.be.an('array').with.lengthOf(3);
     expect(result.map((b) => b.number)).to.deep.equal([5, 6, 7]);
@@ -736,7 +739,7 @@ describe('MirrorNodeClient', async function () {
       }),
     );
 
-    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    const result = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     expect(result.map((b) => b.number)).to.deep.equal([1, 2, 3, 4]);
   });
@@ -754,13 +757,36 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
     // no mock registered for blocks/10 or blocks/11 — MockAdapter throws on unmatched requests
 
-    await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock);
+    await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
     // Both blocks must now be served from cache; if either hits the network, MockAdapter throws
     const b10 = await mirrorNodeInstance.getBlock(10, requestDetails);
     const b11 = await mirrorNodeInstance.getBlock(11, requestDetails);
     expect(b10.number).to.equal(10);
     expect(b11.number).to.equal(11);
+  });
+
+  it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
+    const fromBlock = 1;
+    const toBlock = 400;
+    const firstPageUrl = `blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const secondPageUrl = `blocks?block.number=gte:101&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const thirdPageUrl = `blocks?block.number=gte:201&block.number=lte:${toBlock}&limit=100&order=asc`;
+    mock
+      .onGet(firstPageUrl)
+      .reply(200, JSON.stringify({ blocks: [{ ...block, number: 1 }], links: { next: `/api/v1/${secondPageUrl}` } }));
+    mock
+      .onGet(secondPageUrl)
+      .reply(200, JSON.stringify({ blocks: [{ ...block, number: 101 }], links: { next: `/api/v1/${thirdPageUrl}` } }));
+    // no mock for the third page — traversal must stop before requesting it
+
+    try {
+      await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, 2);
+      expect.fail('should have thrown an error');
+    } catch (e: any) {
+      expect(e.message).to.equal('Exceeded maximum mirror node pagination count: 2');
+      expect(e.code).to.equal(predefined.PAGINATION_MAX(0).code);
+    }
   });
 
   it('`getContract`', async () => {
@@ -3040,6 +3066,61 @@ describe('MirrorNodeClient', async function () {
           expect(uniqueHashes.size).to.equal(4);
         });
       });
+    });
+  });
+
+  describe('response body parsing', () => {
+    const getNetworkFeesWithBody = async (body: string): Promise<any> => {
+      mock.onGet('network/fees').reply(200, body);
+      return mirrorNodeInstance.getNetworkFees(requestDetails);
+    };
+
+    it('should preserve an integer beyond the safe range as a BigNumber', async () => {
+      const response = await getNetworkFeesWithBody('{"amount":1000000000000000000000}');
+
+      expect(BigNumber.isBigNumber(response.amount)).to.be.true;
+      expect(response.amount.toString()).to.equal('1000000000000000000000');
+    });
+
+    it('should preserve a negative integer beyond the safe range as a BigNumber', async () => {
+      const response = await getNetworkFeesWithBody('{"amount":-1000000000000000000000}');
+
+      expect(BigNumber.isBigNumber(response.amount)).to.be.true;
+      expect(response.amount.toString()).to.equal('-1000000000000000000000');
+    });
+
+    it('should widen at the same literal-length boundary as json-bigint', async () => {
+      const response = await getNetworkFeesWithBody('{"small":999999999999999,"big":1000000000000000}');
+
+      expect(response.small).to.be.a('number');
+      expect(response.small).to.equal(999999999999999);
+      expect(BigNumber.isBigNumber(response.big)).to.be.true;
+      expect(response.big.toString()).to.equal('1000000000000000');
+    });
+
+    it('should leave long digit runs inside strings untouched', async () => {
+      const paddedTopic = `0x${'0'.repeat(64)}`;
+      const response = await getNetworkFeesWithBody(
+        JSON.stringify({ data: paddedTopic, timestamp: '1700000000.123456789', gas: 57 }),
+      );
+
+      expect(response.data).to.equal(paddedTopic);
+      expect(response.timestamp).to.equal('1700000000.123456789');
+      expect(response.gas).to.equal(57);
+    });
+
+    it('should not treat a timestamp filter inside links.next as a widened literal', async () => {
+      const next = '/api/v1/contracts/results/logs?limit=100&order=desc&timestamp=lt:1788415891.548547568';
+      const response = await getNetworkFeesWithBody(JSON.stringify({ logs: [{ index: 3 }], links: { next } }));
+
+      expect(response.links.next).to.equal(next);
+      expect(response.logs[0].index).to.be.a('number').that.equals(3);
+    });
+
+    it('should return the raw body when it cannot be parsed', async () => {
+      const response = await getNetworkFeesWithBody('not a json body');
+
+      expect(response).to.equal('not a json body');
     });
   });
 });
