@@ -298,14 +298,18 @@ describe('RedisRateLimitStore Real Redis Test Suite', function () {
 
   it('should set the expiry on the first request only', async () => {
     const key = uniqueKey();
+    const longWindowStore = new RedisRateLimitStore(redisClient, logger, 5000);
 
-    await store.incrementAndCheck(key, 5);
-    const ttlAfterFirst = await redisClient.ttl(key.toString());
+    await longWindowStore.incrementAndCheck(key, 5);
+    const ttlAfterFirst = await redisClient.pTTL(key.toString());
     expect(ttlAfterFirst).to.be.greaterThan(0);
 
-    await store.incrementAndCheck(key, 5);
-    const ttlAfterSecond = await redisClient.ttl(key.toString());
-    expect(ttlAfterSecond).to.be.at.most(ttlAfterFirst);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    await longWindowStore.incrementAndCheck(key, 5);
+    const ttlAfterSecond = await redisClient.pTTL(key.toString());
+    expect(ttlAfterSecond).to.be.greaterThan(0);
+    expect(ttlAfterSecond).to.be.lessThan(ttlAfterFirst);
   });
 
   it('should allow requests again once the window has elapsed', async () => {
