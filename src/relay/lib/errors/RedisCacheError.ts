@@ -18,7 +18,7 @@ export function redactUrlCredentials(value: string): string {
  * @class
  */
 export class RedisCacheError extends Error {
-  public type: string;
+  public type?: string;
 
   static ErrorMessages = {
     SOCKET_CLOSED: 'SocketClosedUnexpectedlyError',
@@ -27,13 +27,14 @@ export class RedisCacheError extends Error {
   /**
    * Creates a new RedisCacheError instance from the provided error object.
    * @constructor
-   * @param {any} error - The error object representing the Redis cache error.
+   * @param error - The error object representing the Redis cache error.
    */
-  constructor(error: any) {
-    super(redactUrlCredentials(error?.message ?? ''));
+  constructor(error: unknown) {
+    const err = error as { message?: string; type?: string; stack?: string } | undefined;
+    super(redactUrlCredentials(err?.message ?? ''));
     this.name = RedisCacheError.name;
-    this.type = error?.type;
-    this.stack = redactUrlCredentials(error?.stack ?? '');
+    this.type = err?.type;
+    this.stack = redactUrlCredentials(err?.stack ?? '');
   }
 
   public isSocketClosed(): boolean {

@@ -128,7 +128,7 @@ export class Relay {
    * that have been decorated with the @rpcMethod decorator.
    *
    * @public
-   * @type {Map<string, Function>} - The registry containing all available RPC methods.
+   * @type {RpcMethodRegistry} - The registry containing all available RPC methods.
    */
   public rpcMethodRegistry!: RpcMethodRegistry;
 
@@ -163,15 +163,15 @@ export class Relay {
    * to invoke RPC methods on the Relay.
    *
    * @param {string} rpcMethodName - The name of the RPC method to execute
-   * @param {any[]} rpcMethodParams - The params for the RPC method to execute
+   * @param {unknown[] | undefined} rpcMethodParams - The params for the RPC method to execute
    * @param {RequestDetails} requestDetails - Additional request context
-   * @returns {Promise<any>} The result of executing the RPC method
+   * @returns {Promise<unknown>} The result of executing the RPC method
    */
   public async executeRpcMethod(
     rpcMethodName: string,
-    rpcMethodParams: any,
+    rpcMethodParams: unknown[] | undefined,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
   }
 
@@ -215,7 +215,8 @@ export class Relay {
             new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
           );
 
-          const accountBalance = account.balance?.balance;
+          const accountBalance = account!.balance?.balance as unknown as
+            { toNumber?: () => number } | number | undefined;
 
           // Note: In some cases, the account balance returned from the Mirror Node is of type BigNumber.
           // However, the Prometheus client’s set() method only accepts standard JavaScript numbers.
@@ -225,7 +226,7 @@ export class Relay {
               : Number(accountBalance);
 
           this.labels({ accountId }).set(numericBalance);
-        } catch (e: any) {
+        } catch (e) {
           logger.error(e, `Error collecting operator balance. Skipping balance set`);
         }
       },

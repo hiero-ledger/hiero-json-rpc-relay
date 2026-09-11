@@ -85,8 +85,8 @@ const formatTransactionIdWithoutQueryParams = (transactionId: string): string | 
  * If it is not set in `.env` or set as an empty string or other non-numeric
  * value, it uses the default value specified in constants.
  * @param envVarName The name of the env var to read in from the `.env` file
- * @param constantName The name of the constant to use as a fallback when the
- *   specified env var is invalid
+ * @param fallbackConstantKey The name of the constant to use as a fallback when
+ *   the specified env var is invalid
  * @throws An error if both the env var and constant are invalid
  */
 const parseNumericEnvVar = (envVarName: string, fallbackConstantKey: string): number => {
@@ -131,7 +131,7 @@ const weibarHexToTinyBarInt = (value: bigint | boolean | number | string): numbe
  * @param mapFn.value The function to map the values
  * @returns A new object with the mapped keys and values
  */
-const mapKeysAndValues = <OldK extends keyof any, NewK extends keyof any, OldV, NewV>(
+const mapKeysAndValues = <OldK extends PropertyKey, NewK extends PropertyKey, OldV, NewV>(
   target: Record<OldK, OldV>,
   mapFn: { key?: (key: OldK) => NewK; value?: (value: OldV) => NewV },
 ): Record<NewK, NewV> => {

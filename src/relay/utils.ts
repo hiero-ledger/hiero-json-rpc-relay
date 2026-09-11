@@ -108,7 +108,7 @@ export class Utils {
    */
   public static isRejectedDueToHederaSpecificValidation(contractResult: {
     result: string;
-    error_message: any;
+    error_message: string | null;
   }): boolean {
     const statuses = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
     return (
@@ -167,8 +167,12 @@ export class Utils {
    * @param requestDetails - Request context information
    * @returns Array of parameters arranged for the method
    */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
+  public static arrangeRpcParams(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    method: Function,
+    rpcParams: unknown[] = [],
+    requestDetails: RequestDetails,
+  ): unknown[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
 
     // Method only needs requestDetails

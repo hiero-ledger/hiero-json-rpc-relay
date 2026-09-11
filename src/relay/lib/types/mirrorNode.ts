@@ -12,12 +12,16 @@ export interface IAccountInfo {
   /**
    * RFC4648 no-padding base32 encoded string of the account's alias.
    */
-  alias: string;
+  alias: string | null;
   balance?: IAccountBalance;
+  created_timestamp?: string;
   deleted?: boolean;
   ethereum_nonce?: number;
   evm_address?: string;
   memo?: string;
+  receiver_sig_required?: boolean;
+  transactions?: IMirrorNodeTransactionRecord[];
+  links?: IMirrorNodeLinks;
 }
 
 export interface IAccountBalance {
@@ -117,14 +121,14 @@ export interface IMirrorNodeTransactionRecord {
   bytes: string | null;
   charged_tx_fee: number;
   consensus_timestamp: string;
-  entity_id: string;
-  max_fee: number;
+  entity_id: string | null;
+  max_fee: string;
   memo_base64: string | null;
   name: string;
   nft_transfers: INftTransfer[];
   node: string;
   nonce: number;
-  parent_consensus_timestamp: string;
+  parent_consensus_timestamp: string | null;
   result: string;
   scheduled: boolean;
   staking_reward_transfers: IStakingRewardTransfer[];
@@ -132,13 +136,89 @@ export interface IMirrorNodeTransactionRecord {
   transaction_id: string;
   token_transfers: ITokenTransfer[];
   transfers: ITransfer[];
-  valid_duration_seconds: number;
+  valid_duration_seconds: string | null;
   valid_start_timestamp: string;
 }
 
 export interface ITimestamp {
   from: string;
   to: string;
+}
+
+export interface IExchangeRate {
+  cent_equivalent: number;
+  expiration_time: number;
+  hbar_equivalent: number;
+}
+
+export interface INetworkExchangeRate {
+  current_rate: IExchangeRate;
+  next_rate: IExchangeRate;
+  timestamp: string;
+}
+
+export interface INetworkFee {
+  gas: number;
+  transaction_type: string;
+}
+
+export interface INetworkFees {
+  fees: INetworkFee[];
+  timestamp: string;
+}
+
+export interface IMirrorNodeLinks {
+  next: string | null;
+}
+
+export interface MirrorNodeBlocksPage {
+  blocks: MirrorNodeBlock[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IAccountBalancesPage {
+  timestamp: string | null;
+  balances: { account: string; balance: number; tokens?: { token_id: string; balance: number }[] }[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface ITransactionsPage {
+  transactions: IMirrorNodeTransactionRecord[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IContractStateEntry {
+  address: string;
+  contract_id: string;
+  timestamp: string;
+  slot: string;
+  value: string;
+}
+
+export interface IContractStatePage {
+  state: IContractStateEntry[];
+  links?: IMirrorNodeLinks;
+}
+
+export interface IMirrorNodeContract {
+  contract_id: string;
+  evm_address: string;
+  created_timestamp?: string;
+  runtime_bytecode?: string;
+  bytecode?: string;
+  timestamp?: ITimestamp;
+  nonce?: number;
+}
+export interface IMirrorNodeEntity {
+  evm_address?: string;
+  contract_id?: string;
+  created_timestamp?: string;
+  consensus_timestamp?: string;
+  delegation_address?: string;
+  runtime_bytecode?: string;
+  nonce?: number;
+  balance?: IAccountBalance;
+  ethereum_nonce?: number;
 }
 
 export interface LatestBlockNumberTimestamp {
@@ -164,14 +244,14 @@ export class MirrorNodeTransactionRecord {
   public readonly bytes: string | null;
   public readonly charged_tx_fee: number;
   public readonly consensus_timestamp: string;
-  public readonly entity_id: string;
-  public readonly max_fee: number;
+  public readonly entity_id: string | null;
+  public readonly max_fee: string;
   public readonly memo_base64: string | null;
   public readonly name: string;
   public readonly nft_transfers: INftTransfer[];
   public readonly node: string;
   public readonly nonce: number;
-  public readonly parent_consensus_timestamp: string;
+  public readonly parent_consensus_timestamp: string | null;
   public readonly result: string;
   public readonly scheduled: boolean;
   public readonly staking_reward_transfers: IStakingRewardTransfer[];
@@ -179,7 +259,7 @@ export class MirrorNodeTransactionRecord {
   public readonly transaction_id: string;
   public readonly token_transfers: ITokenTransfer[];
   public readonly transfers: ITransfer[];
-  public readonly valid_duration_seconds: number;
+  public readonly valid_duration_seconds: string | null;
   public readonly valid_start_timestamp: string;
 
   constructor(transactionRecord: IMirrorNodeTransactionRecord) {

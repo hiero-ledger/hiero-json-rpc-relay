@@ -70,13 +70,16 @@ export type GetTypeOfConfigKey<K extends string> =
 export interface ConfigProperty {
   type: 'string' | 'number' | 'boolean' | 'strArray' | 'numArray'; // Updated types
   required: boolean; // Whether the property is required
-  defaultValue: string | number | boolean | readonly string[] | readonly number[] | null; // Default value (if any)
+  defaultValue: ConfigValue | null; // Default value (if any)
   /**
    * Optional logic-based check applied to the casted value, with `envs` exposing every casted
    * entry for cross-entry constraints. Returns `true` when accepted, or a rejection message.
    */
-  validation?: (value: any, envs: NodeJS.Dict<any>) => boolean | string;
+  validation?(value: ConfigValue, envs: NodeJS.Dict<ConfigValue>): boolean | string;
 }
+
+/** A configuration value after type casting from its raw environment string. */
+export type ConfigValue = string | number | boolean | readonly string[] | readonly number[];
 
 /**
  * Configuration object defining various properties and their metadata.

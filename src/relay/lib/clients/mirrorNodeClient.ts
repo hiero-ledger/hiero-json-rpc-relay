@@ -39,7 +39,18 @@ import {
 import { type ITransactionTimestampIndex } from '../types/ITransactionTimestampIndex';
 import type {
   ContractAction,
+  IAccountBalancesPage,
+  IAccountInfo,
+  IContractStateEntry,
+  IContractStatePage,
+  IMirrorNodeContract,
+  IMirrorNodeEntity,
+  IMirrorNodeLinks,
+  INetworkExchangeRate,
+  INetworkFees,
+  ITransactionsPage,
   MirrorNodeBlock,
+  MirrorNodeBlocksPage,
   MirrorNodeContractResult,
   MirrorNodeContractResultDetails,
   MirrorNodeContractResultsPage,
@@ -281,8 +292,8 @@ export class MirrorNodeClient {
     });
 
     if (useCacheableDnsLookup) {
-      betterLookupInstall(httpAgent as any);
-      betterLookupInstall(httpsAgent as any);
+      betterLookupInstall(httpAgent as Parameters<typeof betterLookupInstall>[0]);
+      betterLookupInstall(httpsAgent as Parameters<typeof betterLookupInstall>[0]);
     }
 
     const axiosClient: AxiosInstance = Axios.create({
@@ -436,7 +447,7 @@ export class MirrorNodeClient {
    * @param data - The raw response body.
    * @returns The parsed body, or `data` unchanged when it is empty or cannot be parsed.
    */
-  private parseResponseBody(data: any): any {
+  private parseResponseBody(data: unknown): unknown {
     // if the data is not valid, just return it to stick to the current behaviour
     if (!data) {
       return data;
@@ -445,7 +456,7 @@ export class MirrorNodeClient {
     try {
       return typeof data === 'string' && !MirrorNodeClient.WIDENED_NUMBER_LITERAL_REGEX.test(data)
         ? JSON.parse(data)
-        : JSONBigInt.parse(data);
+        : JSONBigInt.parse(data as string);
     } catch (error) {
       this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
     }
@@ -459,7 +470,7 @@ export class MirrorNodeClient {
     pathLabel: string,
     method: REQUEST_METHODS,
     requestDetails: RequestDetails,
-    data?: any,
+    data?: unknown,
     retries?: number,
   ): Promise<T | null> {
     const start = Date.now();
@@ -483,7 +494,7 @@ export class MirrorNodeClient {
         axiosRequestConfig['axios-retry'] = { retries };
       }
 
-      let response: AxiosResponse<T, any>;
+      let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
         if (pathLabel === MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
@@ -492,7 +503,7 @@ export class MirrorNodeClient {
           // is converted to a JS Number type, precision is lost due to rounding.
           // To prevent this, `transformResponse` is used to intercept
           // and process the response before Axios’s default JSON.parse conversion.
-          axiosRequestConfig['transformResponse'] = [(data): any => this.parseResponseBody(data)];
+          axiosRequestConfig['transformResponse'] = [(data: unknown): unknown => this.parseResponseBody(data)];
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {
@@ -514,13 +525,14 @@ export class MirrorNodeClient {
       this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms);
 
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       const ms = Date.now() - start;
+      const axiosError = error as { response?: { status?: number }; code?: string };
 
       // Calculate effective status code
       const effectiveStatusCode =
-        error.response?.status ||
-        MirrorNodeClientError.ErrorCodes[error.code] ||
+        axiosError.response?.status ||
+        MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
@@ -574,7 +586,7 @@ export class MirrorNodeClient {
     );
   }
 
-  async get<T = any>(
+  async get<T = unknown>(
     path: string,
     pathLabel: string,
     requestDetails: RequestDetails,
@@ -583,9 +595,9 @@ export class MirrorNodeClient {
     return this.request<T>(path, pathLabel, 'GET', requestDetails, null, retries);
   }
 
-  async post<T = any>(
+  async post<T = unknown>(
     path: string,
-    data: any,
+    data: unknown,
     pathLabel: string,
     requestDetails: RequestDetails,
     retries?: number,
@@ -598,11 +610,21 @@ export class MirrorNodeClient {
    * @returns null if the error code is in the accepted error responses,
    * @throws MirrorNodeClientError if the error code is not in the accepted error responses.
    */
-  handleError(error: any, path: string, pathLabel: string, effectiveStatusCode: number, method: REQUEST_METHODS): null {
+  handleError(
+    error: unknown,
+    path: string,
+    pathLabel: string,
+    effectiveStatusCode: number,
+    method: REQUEST_METHODS,
+  ): null {
     const mirrorError = new MirrorNodeClientError(error, effectiveStatusCode);
+    const err = error as {
+      message?: string;
+      response?: { statusText?: string; detail?: unknown; data?: unknown };
+    };
     const acceptedErrorResponses = MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.get(pathLabel);
 
-    if (error.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
+    if (err.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
       this.logger.debug(
         `An accepted error occurred while communicating with the mirror node server: method=%s, path=%s, status=%s}`,
         method,
@@ -620,14 +642,14 @@ export class MirrorNodeClient {
           method,
           path,
           effectiveStatusCode,
-          error.response.statusText,
-          JSON.stringify(error.response.detail),
-          JSON.stringify(error.response.data),
+          err.response!.statusText,
+          JSON.stringify(err.response!.detail),
+          JSON.stringify(err.response!.data),
         );
       }
     } else {
       this.logger.error(
-        new Error(error.message),
+        new Error(err.message),
         `Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%s`,
         method,
         path,
@@ -639,7 +661,7 @@ export class MirrorNodeClient {
     throw mirrorError;
   }
 
-  async getPaginatedResults<T = any>(
+  async getPaginatedResults<T = unknown>(
     url: string,
     pathLabel: string,
     resultProperty: string,
@@ -648,7 +670,7 @@ export class MirrorNodeClient {
     page = 1,
     pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
   ): Promise<T[]> {
-    const result = await this.get(url, pathLabel, requestDetails);
+    const result = await this.get<Record<string, T[]> & { links?: IMirrorNodeLinks }>(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
       results = results.concat(result[resultProperty]);
@@ -723,7 +745,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     queryParamObject: IAccountRequestParams & ILimitOrderParams = { transactions: false },
     retries?: number,
-  ): Promise<any> {
+  ): Promise<IAccountInfo | null> {
     const queryParamsFiltered = Object.fromEntries(
       Object.entries(queryParamObject).filter(([key, value]) => {
         if (key === MirrorNodeClient.ACCOUNT_TRANSACTIONS_PROPERTY && value) return false;
@@ -744,7 +766,7 @@ export class MirrorNodeClient {
     timestampTo: string,
     requestDetails: RequestDetails,
     numberOfTransactions: number = 1,
-  ): Promise<any> {
+  ): Promise<IAccountInfo | null> {
     return this.getAccount(idOrAliasOrEvmAddress, requestDetails, {
       transactiontype: MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE,
       timestamp: `lte:${timestampTo}`,
@@ -769,7 +791,7 @@ export class MirrorNodeClient {
     url: string,
     requestDetails: RequestDetails,
     lowerBoundTimestamp: string,
-  ): Promise<any> {
+  ): Promise<IMirrorNodeTransactionRecord[]> {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
@@ -820,7 +842,7 @@ export class MirrorNodeClient {
     timestampFrom: string,
     timestampTo: string,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<IMirrorNodeTransactionRecord[]> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'account.id', accountId);
     this.setQueryParam(queryParamObject, 'timestamp', `gte:${timestampFrom}`);
@@ -839,7 +861,7 @@ export class MirrorNodeClient {
     accountId: string,
     requestDetails: RequestDetails,
     timestamp?: string,
-  ): Promise<any> {
+  ): Promise<IAccountBalancesPage | null> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'account.id', accountId);
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
@@ -853,12 +875,15 @@ export class MirrorNodeClient {
 
   public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
-    const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCK_ENDPOINT);
+    const cachedResponse = await this.cacheService.getAsync<MirrorNodeBlock>(
+      cachedLabel,
+      MirrorNodeClient.GET_BLOCK_ENDPOINT,
+    );
     if (cachedResponse) {
       return cachedResponse;
     }
 
-    const block = await this.get(
+    const block = await this.get<MirrorNodeBlock>(
       `${MirrorNodeClient.GET_BLOCK_ENDPOINT}${hashOrBlockNumber}`,
       MirrorNodeClient.GET_BLOCK_ENDPOINT,
       requestDetails,
@@ -868,7 +893,7 @@ export class MirrorNodeClient {
       await this.cacheService.set(cachedLabel, block, MirrorNodeClient.GET_BLOCK_ENDPOINT);
     }
 
-    return block;
+    return block!;
   }
 
   public async getBlocks(
@@ -876,7 +901,7 @@ export class MirrorNodeClient {
     blockNumber?: number | string[],
     timestamp?: string,
     limitOrderParams?: ILimitOrderParams,
-  ): Promise<any> {
+  ): Promise<MirrorNodeBlocksPage | null> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'block.number', blockNumber);
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
@@ -948,12 +973,12 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     retries?: number,
     timestamp?: string,
-  ): Promise<any> {
+  ): Promise<IMirrorNodeContract | null> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     const queryParams = this.getQueryParams(queryParamObject);
 
-    return this.get(
+    return this.get<IMirrorNodeContract>(
       `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}${queryParams}`,
       MirrorNodeClient.GET_CONTRACT_ENDPOINT,
       requestDetails,
@@ -965,17 +990,17 @@ export class MirrorNodeClient {
     return `${constants.CACHE_KEY.GET_CONTRACT}.valid.${contractIdOrAddress}`;
   }
 
-  public async getIsValidContractCache(contractIdOrAddress: string): Promise<any> {
+  public async getIsValidContractCache(contractIdOrAddress: string): Promise<boolean | null> {
     const cachedLabel = this.getIsValidContractCacheLabel(contractIdOrAddress);
-    return await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
+    return await this.cacheService.getAsync<boolean>(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
   }
 
   public async isValidContract(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
     retries?: number,
-  ): Promise<any> {
-    const cachedResponse: any = await this.getIsValidContractCache(contractIdOrAddress);
+  ): Promise<boolean> {
+    const cachedResponse = await this.getIsValidContractCache(contractIdOrAddress);
     if (cachedResponse != null) {
       return cachedResponse;
     }
@@ -997,14 +1022,17 @@ export class MirrorNodeClient {
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
     retries?: number,
-  ): Promise<any> {
+  ): Promise<string | null> {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
-    const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
+    const cachedResponse = await this.cacheService.getAsync<string>(
+      cachedLabel,
+      MirrorNodeClient.GET_CONTRACT_ENDPOINT,
+    );
     if (cachedResponse != null) {
       return cachedResponse;
     }
 
-    const contract = await this.get(
+    const contract = await this.get<IMirrorNodeContract>(
       `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}`,
       MirrorNodeClient.GET_CONTRACT_ENDPOINT,
       requestDetails,
@@ -1025,14 +1053,17 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
   ): Promise<MirrorNodeContractResultDetails | null> {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
+    const cachedResponse = await this.cacheService.getAsync<MirrorNodeContractResultDetails>(
+      cacheKey,
+      MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT,
+    );
 
     if (cachedResponse) {
       return cachedResponse;
     }
 
     const resourcePath = `${MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT}${transactionIdOrHash}`;
-    const response = await this.get(
+    const response = await this.get<MirrorNodeContractResultDetails>(
       MirrorNodeClient.withHbarDisabled(resourcePath),
       MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT,
       requestDetails,
@@ -1082,9 +1113,9 @@ export class MirrorNodeClient {
    *   caller classify it (see {@link isImmatureContractRecord}) and surface the rejection itself.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry<T = any>(
+  public async getContractResultWithRetry<T = unknown>(
     methodName: string,
-    args: any[],
+    args: unknown[],
     options: { returnImmatureRecords?: boolean } = {},
   ): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
@@ -1507,9 +1538,12 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getEarliestBlock(requestDetails: RequestDetails): Promise<any> {
+  public async getEarliestBlock(requestDetails: RequestDetails): Promise<MirrorNodeBlock | null> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.earliest`;
-    const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCKS_ENDPOINT);
+    const cachedResponse = await this.cacheService.getAsync<MirrorNodeBlock>(
+      cachedLabel,
+      MirrorNodeClient.GET_BLOCKS_ENDPOINT,
+    );
     if (cachedResponse) {
       return cachedResponse;
     }
@@ -1534,7 +1568,7 @@ export class MirrorNodeClient {
     return null;
   }
 
-  public async getLatestBlock(requestDetails: RequestDetails): Promise<any> {
+  public async getLatestBlock(requestDetails: RequestDetails): Promise<MirrorNodeBlocksPage | null> {
     return this.getBlocks(
       requestDetails,
       undefined,
@@ -1547,18 +1581,25 @@ export class MirrorNodeClient {
     return { limit: limit, order: order };
   }
 
-  public async getNetworkExchangeRate(requestDetails: RequestDetails, timestamp?: string): Promise<any> {
+  public async getNetworkExchangeRate(
+    requestDetails: RequestDetails,
+    timestamp?: string,
+  ): Promise<INetworkExchangeRate | null> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     const queryParams = this.getQueryParams(queryParamObject);
-    return this.get(
+    return this.get<INetworkExchangeRate>(
       `${MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT}${queryParams}`,
       MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT,
       requestDetails,
     );
   }
 
-  public async getNetworkFees(requestDetails: RequestDetails, timestamp?: string, order?: string): Promise<any> {
+  public async getNetworkFees(
+    requestDetails: RequestDetails,
+    timestamp?: string,
+    order?: string,
+  ): Promise<INetworkFees | null> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     this.setQueryParam(queryParamObject, 'order', order);
@@ -1605,7 +1646,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getTokenById(tokenId: string, requestDetails: RequestDetails, retries?: number): Promise<any> {
+  public async getTokenById(tokenId: string, requestDetails: RequestDetails, retries?: number): Promise<unknown> {
     return this.get(
       `${MirrorNodeClient.GET_TOKENS_ENDPOINT}/${tokenId}`,
       MirrorNodeClient.GET_TOKENS_ENDPOINT,
@@ -1614,7 +1655,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number): Promise<any> {
+  public async getScheduleById(scheduleId: string, requestDetails: RequestDetails, retries?: number): Promise<unknown> {
     return this.get(
       `${MirrorNodeClient.GET_SCHEDULES_ENDPOINT}/${scheduleId}`,
       MirrorNodeClient.GET_SCHEDULES_ENDPOINT,
@@ -1637,7 +1678,11 @@ export class MirrorNodeClient {
     return this.getContractResultsByAddress(address, requestDetails, contractResultsParams, limitOrderParams);
   }
 
-  public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string): Promise<any> {
+  public async getContractState(
+    address: string,
+    requestDetails: RequestDetails,
+    timestamp?: string,
+  ): Promise<IContractStateEntry[]> {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
       ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
@@ -1665,7 +1710,7 @@ export class MirrorNodeClient {
     slot: string,
     requestDetails: RequestDetails,
     blockEndTimestamp?: string,
-  ): Promise<any> {
+  ): Promise<IContractStatePage | null> {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
       ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
@@ -1703,7 +1748,11 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getTransactionById(transactionId: string, requestDetails: RequestDetails, nonce?: number): Promise<any> {
+  public async getTransactionById(
+    transactionId: string,
+    requestDetails: RequestDetails,
+    nonce?: number,
+  ): Promise<ITransactionsPage | null> {
     const formattedId = formatTransactionId(transactionId);
     if (formattedId == null) {
       return formattedId;
@@ -1729,9 +1778,9 @@ export class MirrorNodeClient {
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    */
   public async getContractRevertReasonFromTransaction(
-    e: any,
+    e: unknown,
     requestDetails: RequestDetails,
-  ): Promise<any | undefined> {
+  ): Promise<string | null | undefined> {
     if (e instanceof SDKClientError && e.isContractRevertExecuted()) {
       const transactionId = e.message.match(constants.TRANSACTION_ID_REGEX);
       if (transactionId) {
@@ -1740,7 +1789,7 @@ export class MirrorNodeClient {
         if (tx === null) {
           this.logger.error(`Transaction failed with null result`);
           return null;
-        } else if (tx.length === 0) {
+        } else if ((tx as { length?: number }).length === 0) {
           this.logger.error(`Transaction failed with empty result`);
           return null;
         } else if (tx?.transactions.length > 1) {
@@ -1879,7 +1928,6 @@ export class MirrorNodeClient {
    *
    * @param fromNanos - Start timestamp in nanoseconds (must be less than toNanos)
    * @param toNanos - End timestamp in nanoseconds (must be greater than fromNanos)
-   * @param durationNanos - Total duration in nanoseconds (must be positive)
    * @param sliceCount - Number of slices to create (must be positive integer)
    * @returns Array of timestamp slice boundaries with Mirror Node API format
    * @throws Error if input validation fails
@@ -2098,14 +2146,14 @@ export class MirrorNodeClient {
     entityIdentifier: string,
     callerName: string,
     requestDetails: RequestDetails,
-    searchableTypes: any[] = [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
+    searchableTypes: string[] = [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
     retries?: number,
     timestamp?: string,
-  ): Promise<{ type: string; entity: any } | null> {
+  ): Promise<{ type: string; entity: IMirrorNodeEntity } | null> {
     const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}${
       timestamp ? `_${timestamp}` : ''
     }`;
-    const cachedResponse: { type: string; entity: any } | undefined = await this.cacheService.getAsync(
+    const cachedResponse = await this.cacheService.getAsync<{ type: string; entity: IMirrorNodeEntity }>(
       cachedLabel,
       callerName,
     );
@@ -2211,8 +2259,8 @@ export class MirrorNodeClient {
     }
 
     const response = {
-      type,
-      entity: data.value,
+      type: type as string,
+      entity: data.value as IMirrorNodeEntity,
     };
 
     // An account's EIP-7702 / HIP-1340 delegation designator (`delegation_address`) is mutable: an EOA can set,
@@ -2247,16 +2295,16 @@ export class MirrorNodeClient {
    * enough time for the expected data to be propagated to the Mirror node.
    * It provides a way to have an extended retry logic only in specific places
    */
-  public async repeatedRequest(methodName: string, args: any[], repeatCount: number): Promise<any> {
+  public async repeatedRequest<T = unknown>(methodName: string, args: unknown[], repeatCount: number): Promise<T> {
     let result;
     for (let i = 0; i < repeatCount; i++) {
       try {
         result = await this[methodName](...args);
-      } catch (e: any) {
+      } catch (e) {
         // note: for some methods, it will throw 404 not found error as the record is not yet recorded in mirror-node
         //       if error is 404, `result` would be assigned as null for it to not break out the loop.
         //       Any other error will be notified in logs
-        if (e.statusCode === 404) {
+        if ((e as { statusCode?: number }).statusCode === 404) {
           result = null;
         } else {
           this.logger.warn(
@@ -2316,7 +2364,7 @@ export class MirrorNodeClient {
       ipAddress: constants.MASKED_IP_ADDRESS,
     });
 
-    const transactionRecords = await this.repeatedRequest(
+    const transactionRecords = await this.repeatedRequest<ITransactionsPage | null>(
       this.getTransactionById.name,
       [transactionId, modifiedRequestDetails, 0],
       this.MIRROR_NODE_REQUEST_RETRY_COUNT,
@@ -2327,9 +2375,9 @@ export class MirrorNodeClient {
       throw new MirrorNodeClientError({ message: notFoundMessage }, MirrorNodeClientError.statusCodes.NOT_FOUND);
     }
 
-    const transactionRecord: IMirrorNodeTransactionRecord = transactionRecords.transactions.find(
-      (tx: any) => tx.transaction_id === formatTransactionId(transactionId),
-    );
+    const transactionRecord = transactionRecords.transactions.find(
+      (tx) => tx.transaction_id === formatTransactionId(transactionId),
+    )!;
 
     const mirrorNodeTxRecord = new MirrorNodeTransactionRecord(transactionRecord);
 

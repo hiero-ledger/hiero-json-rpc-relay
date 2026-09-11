@@ -24,8 +24,8 @@ export const RPC_METHOD_KEY = 'hedera-rpc-method';
  * @param _context - The decorator context
  * @returns The method function with RPC metadata attached
  */
-export function rpcMethod(target: any, _context: ClassMethodDecoratorContext): any {
-  target[RPC_METHOD_KEY] = true;
+export function rpcMethod<T extends object>(target: T, _context: ClassMethodDecoratorContext): T {
+  (target as Record<string, unknown>)[RPC_METHOD_KEY] = true;
 
   return target;
 }

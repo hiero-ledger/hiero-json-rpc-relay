@@ -31,11 +31,11 @@ interface CacheOptions {
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
  * and `skipNamedParams` (for object args).
  *
- * @param cacheService - The caching service used to store and retrieve cache entries.
  * @param options - Optional configuration for caching behavior.
  *   @property skipParams - An array of rules for skipping caching based on specific argument values.
  *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
  *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
+ * @param cacheServiceProp - Name of the property on the decorated class holding the `ICacheClient`.
  *
  * @returns A method decorator function that wraps the original method with caching logic.
  *
@@ -43,14 +43,17 @@ interface CacheOptions {
  *   @cache(ICacheClient, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T = 'cacheService' as keyof T) {
-  return function (target: any, context: ClassMethodDecoratorContext<T>) {
+  return function <A extends unknown[], R>(
+    target: (this: T, ...args: A) => Promise<R>,
+    context: ClassMethodDecoratorContext<T>,
+  ) {
     const methodName = String(context.name);
 
-    return async function (this: T, ...args: unknown[]): Promise<any> {
+    return async function (this: T, ...args: A): Promise<R> {
       const cacheKey = generateCacheKey(methodName, args);
       const cacheService = this[cacheServiceProp] as ICacheClient;
 
-      const cachedResponse = await cacheService.getAsync(cacheKey, methodName);
+      const cachedResponse = await cacheService.getAsync<R>(cacheKey, methodName);
       if (cachedResponse) return cachedResponse;
 
       const result = await target.apply(this, args);

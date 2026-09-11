@@ -48,4 +48,4 @@ export const spec = {
     code: -32007,
     message: `Method ${method} is not permitted as part of batch requests`,
   }),
-} satisfies Record<string, IJsonRpcError | ((...args: any[]) => IJsonRpcError)>;
+} satisfies Record<string, IJsonRpcError | ((...args: never[]) => IJsonRpcError)>;

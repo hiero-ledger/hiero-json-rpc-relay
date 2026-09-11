@@ -5,7 +5,7 @@ import findConfig from 'find-config';
 import pino from 'pino';
 import { isMainThread } from 'worker_threads';
 
-import type { ConfigKey, GetTypeOfConfigKey } from './globalConfig';
+import type { ConfigKey, ConfigValue, GetTypeOfConfigKey } from './globalConfig';
 import { GlobalConfig } from './globalConfig';
 import { LoggerService } from './loggerService';
 import { ValidationService } from './validationService';
@@ -54,7 +54,7 @@ export class ConfigService {
    * Copied envs from process.env
    * @private
    */
-  private readonly envs: NodeJS.ReadOnlyDict<string>;
+  private readonly envs: NodeJS.ReadOnlyDict<ConfigValue>;
 
   /**
    * Fetches all envs from process.env and pushes them into the envs property

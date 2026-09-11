@@ -8,7 +8,7 @@ export const RPC_PARAM_LAYOUT_KEY = 'hedera-rpc-param-layout';
 /**
  * Type for parameter transform function
  */
-type ParamTransformFn = (params: any[]) => any[];
+type ParamTransformFn = (params: unknown[]) => unknown[];
 
 /**
  * Built-in parameter layouts for common RPC method patterns
@@ -24,7 +24,7 @@ export const RPC_LAYOUT = {
    *
    * @param rpcParamRearrangementFn - Function to show custom parameter rearrangement
    */
-  custom: (rpcParamRearrangementFn: (params: any[]) => any[]): ((params: any[]) => any[]) => rpcParamRearrangementFn,
+  custom: (rpcParamRearrangementFn: ParamTransformFn): ParamTransformFn => rpcParamRearrangementFn,
 };
 
 /**
@@ -52,8 +52,8 @@ export const RPC_LAYOUT = {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
-  return function (target: any, _context: ClassMethodDecoratorContext): any {
-    target[RPC_PARAM_LAYOUT_KEY] = layout;
+  return function <T extends object>(target: T, _context: ClassMethodDecoratorContext): T {
+    (target as Record<string, unknown>)[RPC_PARAM_LAYOUT_KEY] = layout;
     return target;
   };
 }

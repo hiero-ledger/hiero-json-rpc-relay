@@ -73,8 +73,8 @@ export class RedisCache implements ICacheClient {
    *
    * @deprecated use `get` instead.
    */
-  public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.get(key, callingMethod);
+  public getAsync<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
+    return this.get<T>(key, callingMethod);
   }
 
   /**
@@ -84,7 +84,7 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod - The name of the calling method.
    * @returns The cached value or null if not found.
    */
-  async get(key: string, callingMethod: string): Promise<any> {
+  async get<T = unknown>(key: string, callingMethod: string): Promise<T | null> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.get(prefixedKey);
     if (result) {
@@ -94,7 +94,7 @@ export class RedisCache implements ICacheClient {
         this.logger.trace(`Returning cached value %s:%s on %s call`, censoredKey, censoredValue, callingMethod);
       }
       // TODO: add metrics
-      return JSON.parse(result);
+      return JSON.parse(result) as T;
     }
     return null;
   }
@@ -108,7 +108,7 @@ export class RedisCache implements ICacheClient {
    * @param ttl - The time-to-live (expiration) of the cache item in milliseconds.
    * @returns A Promise that resolves when the value is cached.
    */
-  async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+  async set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void> {
     const prefixedKey = this.prefixKey(key);
     const serializedValue = JSON.stringify(value);
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
@@ -167,11 +167,11 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The list of elements in the range
    */
-  async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
+  async lRange<T = unknown>(key: string, start: number, end: number, callingMethod: string): Promise<T[]> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.lRange(prefixedKey, start, end);
     this.logger.trace(`retrieving range [%s:%s] from %s on %s call`, start, end, key, callingMethod);
-    return result.map((item) => JSON.parse(item));
+    return result.map((item) => JSON.parse(item) as T);
   }
 
   /**
@@ -182,7 +182,7 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The length of the list after pushing
    */
-  async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+  async rPush(key: string, value: unknown, callingMethod: string): Promise<number> {
     const prefixedKey = this.prefixKey(key);
     const serializedValue = JSON.stringify(value);
     const result = await this.client.rPush(prefixedKey, serializedValue);

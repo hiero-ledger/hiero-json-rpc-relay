@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ConfigKey } from './globalConfig';
+import { type ConfigKey, type ConfigValue } from './globalConfig';
 
 export class LoggerService {
   /**
@@ -34,10 +34,10 @@ export class LoggerService {
    * Hide sensitive configuration values.
    *
    * @param envName - the configuration key
-   * @param envValue - the value, either string or array of arrays of strings
+   * @param envValue - the type-cast configuration value
    * @returns masked string representation of the environment variable
    */
-  static maskUpEnv(envName: string, envValue: string | undefined | string[][]): string {
+  static maskUpEnv(envName: string, envValue: ConfigValue | undefined): string {
     // explicitly listed as sensitive
     const sensitiveInfo = this.SENSITIVE_FIELDS_MAP.get(envName as ConfigKey);
     if (sensitiveInfo === true) {
@@ -46,7 +46,7 @@ export class LoggerService {
 
     // certain positions are sensitive in array values
     if (Array.isArray(sensitiveInfo) && sensitiveInfo.length) {
-      return `${envName} = ${(envValue as string[][]).map(
+      return `${envName} = ${(envValue as unknown as string[][]).map(
         (a) => `[${a.map((v, k) => (sensitiveInfo.includes(k) ? `**********` : v))}]`,
       )}`;
     }
