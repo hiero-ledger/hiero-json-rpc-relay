@@ -3,8 +3,8 @@ import { expect } from 'chai';
 import { Counter, Histogram, Registry } from 'prom-client';
 import sinon from 'sinon';
 
+import { METRICS } from '../../../src/metrics';
 import WsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
-import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 
 describe('WsMetricRegistry', function () {
   let mockRegistry: Registry;
@@ -33,7 +33,7 @@ describe('WsMetricRegistry', function () {
 
     counterMetrics.forEach((metric) => {
       it(`should initialize the ${metric} counter metric`, function () {
-        sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
+        sinon.assert.calledWith(removeSingleMetricStub, METRICS.ws[metric].name);
       });
     });
 
@@ -41,7 +41,7 @@ describe('WsMetricRegistry', function () {
 
     histogramMetrics.forEach((metric) => {
       it(`should initialize the ${metric} histogram metric`, function () {
-        sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
+        sinon.assert.calledWith(removeSingleMetricStub, METRICS.ws[metric].name);
       });
     });
   });
@@ -103,12 +103,12 @@ describe('WsMetricRegistry', function () {
   describe('metric properties', function () {
     type MetricOptions = { name: string; buckets: number[]; labelNames: string[] };
 
-    it('should have correct metric names from WS_CONSTANTS', function () {
+    it('should have correct metric names from the metric catalog', function () {
       const methodsCounter = wsMetricRegistry.getCounter('methodsCounter');
       const connectionDuration = wsMetricRegistry.getHistogram('connectionDuration');
 
-      expect((methodsCounter as unknown as MetricOptions).name).to.equal(WS_CONSTANTS.methodsCounter.name);
-      expect((connectionDuration as unknown as MetricOptions).name).to.equal(WS_CONSTANTS.connectionDuration.name);
+      expect((methodsCounter as unknown as MetricOptions).name).to.equal(METRICS.ws.methodsCounter.name);
+      expect((connectionDuration as unknown as MetricOptions).name).to.equal(METRICS.ws.connectionDuration.name);
     });
 
     it('should have correct buckets for histograms', function () {
@@ -117,9 +117,9 @@ describe('WsMetricRegistry', function () {
 
       // Check that buckets are properly configured
       expect((connectionDuration as unknown as MetricOptions).buckets).to.deep.equal(
-        WS_CONSTANTS.connectionDuration.buckets,
+        METRICS.ws.connectionDuration.buckets,
       );
-      expect((messageDuration as unknown as MetricOptions).buckets).to.deep.equal(WS_CONSTANTS.messageDuration.buckets);
+      expect((messageDuration as unknown as MetricOptions).buckets).to.deep.equal(METRICS.ws.messageDuration.buckets);
     });
 
     it('should have correct label names for metrics with labels', function () {
@@ -127,10 +127,10 @@ describe('WsMetricRegistry', function () {
       const methodsCounterByIp = wsMetricRegistry.getCounter('methodsCounterByIp');
 
       expect((methodsCounter as unknown as MetricOptions).labelNames).to.deep.equal(
-        WS_CONSTANTS.methodsCounter.labelNames,
+        METRICS.ws.methodsCounter.labelNames,
       );
       expect((methodsCounterByIp as unknown as MetricOptions).labelNames).to.deep.equal(
-        WS_CONSTANTS.methodsCounterByIp.labelNames,
+        METRICS.ws.methodsCounterByIp.labelNames,
       );
     });
   });

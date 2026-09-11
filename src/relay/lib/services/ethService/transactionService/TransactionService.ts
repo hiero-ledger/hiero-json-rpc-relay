@@ -3,9 +3,10 @@ import { type FileId } from '@hiero-ledger/sdk';
 import { type Transaction as EthersTransaction } from 'ethers/transaction';
 import type EventEmitter from 'events';
 import { type Logger } from 'pino';
-import { Counter, type Registry } from 'prom-client';
+import { type Counter, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../../../metrics';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -151,14 +152,7 @@ export class TransactionService implements ITransactionService {
     this.transactionTracingService = transactionTracingService;
     this.lockService = lockService;
 
-    const metricName = 'rpc_relay_wrong_nonce_errors_total';
-    registry.removeSingleMetric(metricName);
-    this.wrongNonceMetric = new Counter({
-      name: metricName,
-      help: 'Wrong nonce errors counter',
-      labelNames: ['strategy'],
-      registers: [registry],
-    });
+    this.wrongNonceMetric = new MetricsFactory(registry).counter(METRICS.eth.wrongNonceErrors);
   }
 
   /**

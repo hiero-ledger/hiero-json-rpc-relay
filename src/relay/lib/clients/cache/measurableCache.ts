@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, type Registry } from 'prom-client';
+import { type Counter, type Registry } from 'prom-client';
 
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { WorkersPool } from '../../services/workersService/WorkersPool';
 import type { ICacheClient } from './ICacheClient';
 
@@ -38,14 +39,7 @@ export class MeasurableCache implements ICacheClient {
      *  cacheType - redis/lru
      *  method - The CacheService method being called
      */
-    const metricName = 'rpc_cache_service_methods_counter';
-    register.removeSingleMetric(metricName);
-    this.cacheMethodsCounter = new Counter({
-      name: metricName,
-      help: 'Counter for calls to methods of CacheService separated by CallingMethod and CacheType',
-      registers: [register],
-      labelNames: ['callingMethod', 'cacheType', 'method'],
-    });
+    this.cacheMethodsCounter = new MetricsFactory(register).counter(METRICS.cache.serviceMethods);
     this.cacheType = cacheType;
   }
 

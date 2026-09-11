@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Piscina from 'piscina';
-import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Histogram } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
 import { ConfigService } from '../../../../config-service/services';
+import { METRICS, MetricsFactory } from '../../../../metrics';
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { type ICacheClient } from '../../clients/cache/ICacheClient';
 import { RegistryFactory } from '../../factories/registryFactory';
@@ -151,70 +152,15 @@ export class WorkersPool {
    * Initialize metrics related to worker threads
    */
   static initializeMetrics(): void {
-    const registry: Registry = RegistryFactory.getInstance();
+    const metricsFactory = new MetricsFactory(RegistryFactory.getInstance());
 
-    const workerTaskDurationSecondsName = 'rpc_relay_worker_task_duration_seconds';
-    registry.removeSingleMetric(workerTaskDurationSecondsName);
-    this.workerTaskDurationSecondsHistogram = new Histogram({
-      name: workerTaskDurationSecondsName,
-      help: 'Tracks how long each task takes to execute (in seconds).',
-      labelNames: ['function'],
-      registers: [registry],
-      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 90, 120],
-    });
-
-    const workerTasksCompletedTotalName = 'rpc_relay_worker_tasks_completed_total';
-    registry.removeSingleMetric(workerTasksCompletedTotalName);
-    this.workerTasksCompletedTotalCounter = new Counter({
-      name: workerTasksCompletedTotalName,
-      help: 'Counts total tasks by type.',
-      labelNames: ['function'],
-      registers: [registry],
-    });
-
-    const workerTaskFailuresTotalName = 'rpc_relay_worker_task_failures_total';
-    registry.removeSingleMetric(workerTaskFailuresTotalName);
-    this.workerTaskFailuresCounter = new Counter({
-      name: workerTaskFailuresTotalName,
-      help: 'Counts total failures by task type.',
-      labelNames: ['function', 'error_type'],
-      registers: [registry],
-    });
-
-    const workerQueueWaitTimeName = 'rpc_relay_worker_queue_wait_time_milliseconds';
-    registry.removeSingleMetric(workerQueueWaitTimeName);
-    this.workerQueueWaitTimeHistogram = new Histogram({
-      name: workerQueueWaitTimeName,
-      help: 'Time tasks have spent waiting in queue.',
-      registers: [registry],
-      buckets: [
-        5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 50000, 60000,
-      ],
-    });
-
-    const workerPoolUtilizationName = 'rpc_relay_worker_pool_utilization';
-    registry.removeSingleMetric(workerPoolUtilizationName);
-    this.workerPoolUtilizationGauge = new Gauge({
-      name: workerPoolUtilizationName,
-      help: 'Ratio (0-1) of how busy workers are.',
-      registers: [registry],
-    });
-
-    const workerPoolActiveThreadsName = 'rpc_relay_worker_pool_active_threads';
-    registry.removeSingleMetric(workerPoolActiveThreadsName);
-    this.workerPoolActiveThreadsGauge = new Gauge({
-      name: workerPoolActiveThreadsName,
-      help: 'Current number of worker threads.',
-      registers: [registry],
-    });
-
-    const workerPoolQueueSizeName = 'rpc_relay_worker_pool_queue_size';
-    registry.removeSingleMetric(workerPoolQueueSizeName);
-    this.workerPoolQueueSizeGauge = new Gauge({
-      name: workerPoolQueueSizeName,
-      help: 'The current number of tasks waiting to be assigned.',
-      registers: [registry],
-    });
+    this.workerTaskDurationSecondsHistogram = metricsFactory.histogram(METRICS.workers.taskDuration);
+    this.workerTasksCompletedTotalCounter = metricsFactory.counter(METRICS.workers.tasksCompleted);
+    this.workerTaskFailuresCounter = metricsFactory.counter(METRICS.workers.taskFailures);
+    this.workerQueueWaitTimeHistogram = metricsFactory.histogram(METRICS.workers.queueWaitTime);
+    this.workerPoolUtilizationGauge = metricsFactory.gauge(METRICS.workers.poolUtilization);
+    this.workerPoolActiveThreadsGauge = metricsFactory.gauge(METRICS.workers.poolActiveThreads);
+    this.workerPoolQueueSizeGauge = metricsFactory.gauge(METRICS.workers.poolQueueSize);
   }
 
   /**
