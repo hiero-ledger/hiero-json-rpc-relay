@@ -8,7 +8,7 @@ export const RPC_PARAM_LAYOUT_KEY = 'hedera-rpc-param-layout';
 /**
  * Type for parameter transform function
  */
-type ParamTransformFn = (params: unknown[]) => unknown[];
+export type ParamTransformFn = (params: unknown[]) => unknown[];
 
 /**
  * Built-in parameter layouts for common RPC method patterns

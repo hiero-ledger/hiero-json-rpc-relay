@@ -9,7 +9,12 @@ import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import type { RequestDetails } from '../../../types';
-import { type IMirrorNodeTransactionRecord, type LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import {
+  type IMirrorNodeTransactionRecord,
+  type ITransfer,
+  type LatestBlockNumberTimestamp,
+  type MirrorNodeBlock,
+} from '../../../types/mirrorNode';
 import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
@@ -211,7 +216,7 @@ export class AccountService implements IAccountService {
    */
   private async getPagedTransactions(
     nextPage: string,
-    block,
+    block: MirrorNodeBlock,
     requestDetails: RequestDetails,
   ): Promise<IMirrorNodeTransactionRecord[]> {
     let pagedTransactions: IMirrorNodeTransactionRecord[] = [];
@@ -234,10 +239,10 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    */
   async getBalanceAtBlockNumber(
-    account,
-    block,
-    latestBlock,
-    requestDetails,
+    account: string,
+    block: MirrorNodeBlock,
+    latestBlock: LatestBlockNumberTimestamp,
+    requestDetails: RequestDetails,
   ): Promise<{ balanceFound: boolean; weibars: bigint }> {
     let balanceFound = false;
     let weibars = BigInt(0);
@@ -269,16 +274,16 @@ export class AccountService implements IAccountService {
 
         // The balance in the account is real time, so we simply subtract the transactions to the block.timestamp.to to get a block relevant balance.
         // needs to be updated below.
-        const nextPage: string = mirrorAccount.links.next;
+        const nextPage = mirrorAccount.links?.next;
         if (nextPage) {
-          mirrorAccount.transactions = mirrorAccount.transactions.concat(
+          mirrorAccount.transactions = (mirrorAccount.transactions ?? []).concat(
             await this.getPagedTransactions(nextPage, block, requestDetails),
           );
         }
 
         balanceFromTxs = this.getBalanceAtBlockTimestamp(
           mirrorAccount.account,
-          mirrorAccount.transactions,
+          mirrorAccount.transactions ?? [],
           block.timestamp.to,
         );
 
@@ -389,7 +394,7 @@ export class AccountService implements IAccountService {
         return transaction.consensus_timestamp >= blockTimestamp;
       })
       .flatMap((transaction) => {
-        return transaction.transfers.filter((transfer) => {
+        return transaction.transfers.filter((transfer: ITransfer) => {
           return transfer.account === account && !transfer.is_approval;
         });
       })
@@ -413,18 +418,22 @@ export class AccountService implements IAccountService {
     blockNumOrHash: number | string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    let getBlock;
     const isParamBlockNum = typeof blockNumOrHash === 'number';
 
     if (isParamBlockNum && (blockNumOrHash as number) < 0) {
       throw predefined.UNKNOWN_BLOCK();
     }
 
-    if (!isParamBlockNum) {
-      getBlock = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
+    let blockNum: number;
+    if (isParamBlockNum) {
+      blockNum = blockNumOrHash;
+    } else {
+      const block = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
+      if (!block) {
+        throw predefined.UNKNOWN_BLOCK();
+      }
+      blockNum = block.number;
     }
-
-    const blockNum = isParamBlockNum ? blockNumOrHash : getBlock.number;
 
     // check if on latest block, if so get latest ethereumNonce from mirror node account API
     const blockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails); // consider caching error responses

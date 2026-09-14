@@ -10,7 +10,7 @@ import { ConfigService } from '../config-service/services';
 import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { type RequestDetails } from './lib/types';
+import { type OperationHandler, type RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
@@ -168,8 +168,7 @@ export class Utils {
    * @returns Array of parameters arranged for the method
    */
   public static arrangeRpcParams(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    method: Function,
+    method: OperationHandler,
     rpcParams: unknown[] = [],
     requestDetails: RequestDetails,
   ): unknown[] {

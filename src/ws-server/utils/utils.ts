@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type Koa from 'koa';
 import type { Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
@@ -10,7 +9,8 @@ import type { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcReques
 import { type IJsonRpcResponse, jsonRespError } from '../../server/koaJsonRpc/lib/RpcResponse';
 import type ConnectionLimiter from '../metrics/connectionLimiter';
 import type WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { type SubscriberConnection, type SubscriptionService } from '../service/subscriptionService';
+import { type SubscriptionService } from '../service/subscriptionService';
+import type { RelayWebSocket, WsContext } from '../types';
 import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: object, prop: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(obj, prop);
@@ -20,14 +20,14 @@ const getRequestIdIsOptional = (): boolean => {
 
 /**
  * Handles the closure of a WebSocket connection.
- * @param {Koa.Context} ctx - The context object containing information about the WebSocket connection.
+ * @param {WsContext} ctx - The context object containing information about the WebSocket connection.
  * @param {SubscriptionService} subscriptionService - The service used for handling subscriptions.
  * @param {ConnectionLimiter} limiter - The limiter instance used for managing connection limits.
  * @param {WsMetricRegistry} wsMetricRegistry - The metric registry used for tracking WebSocket metrics.
  * @param {[number, number]} startTime - The start time of the connection represented as a tuple of seconds and nanoseconds.
  */
 export const handleConnectionClose = async (
-  ctx: Koa.Context,
+  ctx: WsContext,
   subscriptionService: SubscriptionService,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
@@ -64,13 +64,13 @@ export const handleConnectionClose = async (
 /**
  * Sends a JSON-RPC response message to the client WebSocket connection.
  * Resets the TTL timer for inactivity on the client connection.
- * @param {SubscriberConnection} connection - The WebSocket connection object to the client.
+ * @param {RelayWebSocket} connection - The WebSocket connection object to the client.
  * @param {IJsonRpcRequest | IJsonRpcRequest[]} request - The request object received from the client.
  * @param {IJsonRpcResponse | IJsonRpcResponse[]} response - The response data to be sent back to the client.
  * @param {Logger} logger - The logger object used for logging messages.
  */
 export const sendToClient = (
-  connection: SubscriberConnection,
+  connection: RelayWebSocket,
   request: IJsonRpcRequest | IJsonRpcRequest[],
   response: IJsonRpcResponse | IJsonRpcResponse[],
   logger: Logger,

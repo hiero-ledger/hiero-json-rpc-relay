@@ -25,7 +25,9 @@ export async function transferHtsFT(receiver: string, hre: any) {
   );
   const account = new ethers.Wallet(receiver);
   const privateKey = PrivateKey.fromStringECDSA(account.privateKey);
-  const tokenId = TokenId.fromSolidityAddress(
+  const tokenId = TokenId.fromEvmAddress(
+    0,
+    0,
     networks.default.local.ExampleHTSFT.address,
   );
   const accountId = AccountId.fromString("0.0.1003");

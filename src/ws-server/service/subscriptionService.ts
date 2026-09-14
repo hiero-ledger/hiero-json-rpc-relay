@@ -9,17 +9,11 @@ import { ConfigService } from '../../config-service/services';
 import { METRICS, MetricsFactory } from '../../metrics';
 import { generateRandomHex } from '../../relay/formatters';
 import { type Relay } from '../../relay/lib/relay';
-import type ConnectionLimiter from '../metrics/connectionLimiter';
+import type { RelayWebSocket } from '../types';
 import { PollerService } from './pollerService';
 
-export type SubscriberConnection = {
-  id: string;
-  send: (data: string) => void;
-  limiter: ConnectionLimiter;
-};
-
 export interface Subscriber {
-  connection: SubscriberConnection;
+  connection: RelayWebSocket;
   subscriptionId: string;
   endTimer: () => void;
 }
@@ -56,7 +50,7 @@ export class SubscriptionService {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  public subscribe(connection, event: string, filters?: {}): string {
+  public subscribe(connection: RelayWebSocket, event: string, filters?: {}): string {
     const tagObject: { event: string; filters?: typeof filters } = { event };
     if (filters && Object.keys(filters).length) {
       tagObject.filters = filters;
@@ -92,7 +86,7 @@ export class SubscriptionService {
     return subId;
   }
 
-  public unsubscribe(connection, subId?: string): number {
+  public unsubscribe(connection: RelayWebSocket, subId?: string): number {
     const { id } = connection;
 
     if (subId) {
@@ -129,7 +123,7 @@ export class SubscriptionService {
     return subCount;
   }
 
-  public notifySubscribers(tag, data): void {
+  public notifySubscribers(tag: string, data: unknown): void {
     if (this.subscriptions[tag] && this.subscriptions[tag].length) {
       this.subscriptions[tag].forEach((sub) => {
         const subscriptionData = {
