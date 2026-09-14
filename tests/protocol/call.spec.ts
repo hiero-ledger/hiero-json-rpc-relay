@@ -463,7 +463,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
               const callerMirror = await mirrorNode.get(`/contracts/${callerContract.target}`);
 
               const callerContractId = ContractId.fromString(callerMirror.contract_id);
-              callerAddress = `0x${callerContractId.toSolidityAddress()}`;
+              callerAddress = `0x${callerContractId.toEvmAddress()}`;
 
               defaultCallData = {
                 from: activeAccount.address,
