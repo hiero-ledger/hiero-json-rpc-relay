@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@octokit/core": "^6.1.6",
+    "@octokit/core": "^7.0.8",
     "@open-rpc/schema-utils-js": "^2.2.1",
     "@types/chai": "^5.2.3",
     "@types/chai-as-promised": "^8.0.2",
