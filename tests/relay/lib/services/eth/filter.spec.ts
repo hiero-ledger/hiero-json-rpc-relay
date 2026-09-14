@@ -55,13 +55,16 @@ describe('Filter API Test Suite', async function () {
 
   const validateFilterCache = async (filterId: string, expectedFilterType: string, expectedParams = {}) => {
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
-    const cachedFilter = await cacheService.getAsync(cacheKey, 'validateFilterCache');
+    const cachedFilter = await cacheService.getAsync<{ type: string; params: object; lastQueried: number | null }>(
+      cacheKey,
+      'validateFilterCache',
+    );
     expect(cachedFilter).to.exist;
-    expect(cachedFilter.type).to.exist;
-    expect(cachedFilter.type).to.eq(expectedFilterType);
-    expect(cachedFilter.params).to.exist;
-    expect(cachedFilter.params).to.deep.eq(expectedParams);
-    expect(cachedFilter.lastQueried).to.be.null;
+    expect(cachedFilter!.type).to.exist;
+    expect(cachedFilter!.type).to.eq(expectedFilterType);
+    expect(cachedFilter!.params).to.exist;
+    expect(cachedFilter!.params).to.deep.eq(expectedParams);
+    expect(cachedFilter!.lastQueried).to.be.null;
   };
 
   this.beforeAll(async () => {

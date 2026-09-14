@@ -368,7 +368,9 @@ describe('webSocketServer websocket handling', () => {
     });
 
     try {
-      expect((testApp.ws.server as any).options.maxPayload).to.equal(0);
+      // `initializeWsServer` declares `app: Koa`, but it returns the `websockify`-wrapped app.
+      const wsApp = testApp as unknown as { ws: { server: { options: { maxPayload: number } } } };
+      expect(wsApp.ws.server.options.maxPayload).to.equal(0);
     } finally {
       await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }

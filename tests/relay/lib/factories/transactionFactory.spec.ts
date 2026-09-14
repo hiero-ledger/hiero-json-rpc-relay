@@ -55,7 +55,7 @@ describe('TransactionFactory', () => {
       const tx = TransactionFactory.createTransactionByType(1, {
         ...baseFields,
         type: '0x1',
-        accessList: ['should be ignored'],
+        accessList: ['should be ignored'] as unknown as AccessListEntry[],
       });
 
       expect(tx).to.not.equal(null);
@@ -68,8 +68,8 @@ describe('TransactionFactory', () => {
       const tx = TransactionFactory.createTransactionByType(2, {
         ...baseFields,
         type: '0x2',
-        accessList: ['should be ignored'],
-        maxPriorityFeePerGas: null,
+        accessList: ['should be ignored'] as unknown as AccessListEntry[],
+        maxPriorityFeePerGas: null as unknown as string,
         maxFeePerGas: '0x00000059',
       });
 

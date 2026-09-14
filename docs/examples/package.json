@@ -6,7 +6,7 @@
         "node": ">=10.17.0"
     },
     "dependencies": {
-        "@hiero-ledger/sdk": "^2.83.0",
+        "@hiero-ledger/sdk": "^2.88.0",
         "dotenv": "^17.2.1"
     }
 }

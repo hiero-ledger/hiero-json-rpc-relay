@@ -343,6 +343,18 @@ describe('HbarSpendingPlanRepository', function () {
         expect(activePlans).to.deep.equal([activePlan]);
       });
 
+      it('skips keys that no longer resolve to a plan', async () => {
+        const subscriptionTier = SubscriptionTier.BASIC;
+        const activePlan = await repository.create(subscriptionTier, ttl);
+        const expiredPlan = await repository.create(subscriptionTier, ttl);
+
+        const key = `${HbarSpendingPlanRepository.collectionKey}:${expiredPlan.id}`;
+        await cacheService.set(key, null, 'test');
+
+        const activePlans = await repository.findAllActiveBySubscriptionTier([subscriptionTier]);
+        expect(activePlans.map((plan) => plan.id)).to.deep.equal([activePlan.id]);
+      });
+
       it('returns only active plans for the specified subscription tier', async () => {
         const basicPlan = await repository.create(SubscriptionTier.BASIC, ttl);
         const extendedPlan = await repository.create(SubscriptionTier.EXTENDED, ttl);

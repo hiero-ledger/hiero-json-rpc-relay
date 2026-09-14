@@ -250,7 +250,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const tx =
         '0x02f881820128048459682f0086014fa0186f00901714801554cbe52dd95512bedddf68e09405fba803be258049a27b820088bab1cad205887185174876e80080c080a0cab3f53602000c9989be5787d0db637512acdd2ad187ce15ba83d10d9eae2571a07802515717a5a1c7d6fa7616183eb78307b4657d7462dbb9e9deca820dd28f62';
       await RelayAssertions.assertRejection(
-        predefined.GAS_LIMIT_TOO_HIGH(null, null),
+        predefined.GAS_LIMIT_TOO_HIGH(0, 0),
         ethImpl.sendRawTransaction,
         false,
         ethImpl,

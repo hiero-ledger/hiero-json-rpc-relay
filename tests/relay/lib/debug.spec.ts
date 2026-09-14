@@ -22,7 +22,13 @@ import { type Block } from '../../../src/relay/lib/model';
 import { CommonService } from '../../../src/relay/lib/services';
 import HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
-import { RequestDetails } from '../../../src/relay/lib/types';
+import {
+  type CallTracerResult,
+  type IAccountBalancesPage,
+  type IContractStateEntry,
+  type IMirrorNodeEntity,
+  RequestDetails,
+} from '../../../src/relay/lib/types';
 import { assertExists } from '../../helpers/typeAssertions';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -803,11 +809,11 @@ describe('Debug API Test Suite', async function () {
           };
           restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(rejectedContractResult));
 
-          const result = await debugService.traceTransaction(
+          const result = (await debugService.traceTransaction(
             transactionHash,
             tracerObjectCallTracerFalse,
             requestDetails,
-          );
+          )) as CallTracerResult;
 
           // Should not go through synthetic/logs; should return an "empty" call trace
           expect(result.type).to.equal('CALL'); // to is non-null so type must be CALL
@@ -832,11 +838,11 @@ describe('Debug API Test Suite', async function () {
             }),
           );
 
-          const result = await debugService.traceTransaction(
+          const result = (await debugService.traceTransaction(
             transactionHash,
             tracerObjectCallTracerTrue,
             requestDetails,
-          );
+          )) as CallTracerResult;
 
           expect(result).to.have.property('error', 'WRONG_NONCE');
           expect(result.revertReason).to.equal('WRONG_NONCE');
@@ -846,11 +852,11 @@ describe('Debug API Test Suite', async function () {
           restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
           restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
 
-          const result = await debugService.traceTransaction(
+          const result = (await debugService.traceTransaction(
             transactionHash,
             tracerObjectCallTracerFalse,
             requestDetails,
-          );
+          )) as CallTracerResult;
 
           expect(result.type).to.equal('CALL');
           expect(result.calls).to.deep.equal([]);
@@ -872,11 +878,11 @@ describe('Debug API Test Suite', async function () {
           };
           restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(deployContractResult));
 
-          const result = await debugService.traceTransaction(
+          const result = (await debugService.traceTransaction(
             transactionHash,
             tracerObjectCallTracerFalse,
             requestDetails,
-          );
+          )) as CallTracerResult;
 
           expect(result.type).to.equal('CREATE');
           expect(result.to).to.be.null;
@@ -901,11 +907,11 @@ describe('Debug API Test Suite', async function () {
           };
           restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(directPrecompileCallActions));
 
-          const result = await debugService.traceTransaction(
+          const result = (await debugService.traceTransaction(
             transactionHash,
             tracerObjectCallTracerFalse,
             requestDetails,
-          );
+          )) as CallTracerResult;
 
           expect(result.type).to.equal('CALL');
         });
@@ -952,11 +958,11 @@ describe('Debug API Test Suite', async function () {
             // Mock address resolution for log.address
             restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
 
-            const result = await debugService.traceTransaction(
+            const result = (await debugService.traceTransaction(
               syntheticTxHash,
               tracerObjectCallTracerFalse,
               requestDetails,
-            );
+            )) as CallTracerResult;
 
             expect(result.from).to.equal(contractResult.evm_address);
             expect(result.to).to.equal(contractResult.evm_address);
@@ -988,11 +994,11 @@ describe('Debug API Test Suite', async function () {
               restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(200, JSON.stringify(contractsResultsByHashResult));
               restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
               restMock.onGet(ACCOUNT_BY_ADDRESS).reply(200, JSON.stringify({ evm_address: accountAddress }));
-              const { type } = await debugService.traceTransaction(
+              const { type } = (await debugService.traceTransaction(
                 syntheticTxHash,
                 tracerObjectCallTracerFalse,
                 requestDetails,
-              );
+              )) as CallTracerResult;
               expect(type).to.equal('CALL');
             });
           });
@@ -1031,11 +1037,11 @@ describe('Debug API Test Suite', async function () {
 
               restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithAmount));
 
-              const result = await debugService.traceTransaction(
+              const result = (await debugService.traceTransaction(
                 transactionHash,
                 tracerObjectCallTracerFalse,
                 requestDetails,
-              );
+              )) as CallTracerResult;
 
               expect(result.value).to.equal(expectedValue);
             });
@@ -2763,7 +2769,7 @@ describe('Debug API Test Suite', async function () {
         runtime_bytecode: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
         nonce: 1,
       },
-    };
+    } as unknown as { type: string; entity: IMirrorNodeEntity };
 
     const accountEntityMock = {
       type: constants.TYPE_ACCOUNT,
@@ -2774,7 +2780,7 @@ describe('Debug API Test Suite', async function () {
           balance: '100000000',
         },
       },
-    };
+    } as unknown as { type: string; entity: IMirrorNodeEntity };
 
     const contractBalanceMock = {
       balances: [
@@ -2783,7 +2789,7 @@ describe('Debug API Test Suite', async function () {
           balance: '200000000',
         },
       ],
-    };
+    } as unknown as IAccountBalancesPage;
 
     const contractStateMock = [
       {
@@ -2796,7 +2802,7 @@ describe('Debug API Test Suite', async function () {
         slot: '0x1',
         value: '0x2',
       },
-    ];
+    ] as unknown as IContractStateEntry[];
 
     const expectedResult = {
       [contractEvmAddress]: {
@@ -3066,7 +3072,14 @@ describe('Debug API Test Suite', async function () {
 
         sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
-            return { ...contractEntityMock, entity: { ...contractEntityMock.entity, evm_address: null } };
+            // `IMirrorNodeEntity` models a missing EVM address as `undefined`; the payload uses `null`.
+            return {
+              ...contractEntityMock,
+              entity: { ...contractEntityMock.entity, evm_address: null },
+            } as unknown as {
+              type: string;
+              entity: IMirrorNodeEntity;
+            };
           } else if (address === accountAddress) {
             return accountEntityMock;
           }

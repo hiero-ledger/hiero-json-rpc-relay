@@ -5,6 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import crypto from 'crypto';
 
 import { ConfigService } from '../../../../src/config-service/services';
+import type { ConfigValue } from '../../../../src/config-service/services/globalConfig';
 import { LoggerService } from '../../../../src/config-service/services/loggerService';
 import { assertExists } from '../../../helpers/typeAssertions';
 
@@ -40,7 +41,9 @@ describe('LoggerService tests', async function () {
       '0x2222222222222222222222222222222222222222222222222222222222222222',
       '200',
     ];
-    const res = LoggerService.maskUpEnv('PAYMASTER_ACCOUNTS', [paymaster0, paymaster1]);
+    // `ConfigValue` has no nested-array member even though `PAYMASTER_ACCOUNTS` arrives as `string[][]`;
+    // `maskUpEnv` casts it back to `string[][]` internally.
+    const res = LoggerService.maskUpEnv('PAYMASTER_ACCOUNTS', [paymaster0, paymaster1] as unknown as ConfigValue);
 
     expect(res).to.contain(paymaster0[0]);
     expect(res).to.contain(paymaster1[0]);

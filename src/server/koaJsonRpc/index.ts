@@ -198,7 +198,8 @@ export default class KoaJsonRpc {
 
   isValidJsonRpcRequest(body: Pick<IJsonRpcRequest, 'id'>): body is IJsonRpcRequest {
     // validate it has the correct jsonrpc version, method, and id
-    return body['jsonrpc'] === '2.0' && typeof body['method'] === 'string';
+    const candidate = body as Partial<IJsonRpcRequest>;
+    return candidate.jsonrpc === '2.0' && typeof candidate.method === 'string';
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {
@@ -212,7 +213,7 @@ export default class KoaJsonRpc {
 
     if (this.requestIdIsOptional) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
-      body['id'] = '0';
+      (body as Pick<IJsonRpcRequest, 'id'>).id = '0';
       return true;
     }
     return false;

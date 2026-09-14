@@ -64,7 +64,7 @@ export async function initializeWsServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
   redisClient?: RedisClientType,
-): Promise<{ app: any; httpApp: any }> {
+): Promise<{ app: Koa; httpApp: Koa }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger, register));
   if (!redisClient && !sharedRelay) {
@@ -106,6 +106,7 @@ export async function initializeWsServer(
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);
 
+  // `koa-websocket` hands over a bare socket; these middlewares seed the state `WsContext` describes.
   app.ws.use((koaCtx: Koa.Context, next: Koa.Next) => {
     const ctx = koaCtx as WsContext;
     const connectionId = subscriptionService.generateId();
@@ -130,7 +131,7 @@ export async function initializeWsServer(
     // https://nodejs.org/api/async_context.html#troubleshooting-context-loss
     ctx.websocket.on(
       'close',
-      AsyncResource.bind(async (code, message) => {
+      AsyncResource.bind(async (code: number, message: Buffer) => {
         logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
         await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
       }),
@@ -143,7 +144,7 @@ export async function initializeWsServer(
     limiter.applyLimits(ctx);
 
     // listen on message event
-    ctx.websocket.on('message', async (msg) => {
+    ctx.websocket.on('message', async (msg: Buffer) => {
       const requestId = uuid();
       ctx.websocket.requestId = requestId;
 
@@ -225,7 +226,7 @@ export async function initializeWsServer(
           }
 
           // process requests
-          const requestPromises = request.map((item: any) => {
+          const requestPromises = request.map((item) => {
             if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
               return jsonRespError(
                 item.id,

@@ -90,7 +90,7 @@ export class HbarLimitService implements IHbarLimitService {
 
     const operator = Utils.getOperator(logger);
     if (operator) {
-      this.operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
+      this.operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toEvmAddress());
     } else {
       this.operatorAddress = zeroAddress();
     }

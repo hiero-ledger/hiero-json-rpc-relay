@@ -58,7 +58,7 @@ describe('Admin', async function () {
           const tempRelay = await Relay.init(logger, new Registry());
           const res = await tempRelay.admin().config();
           const regex = /^\d+\.\d+\.\d+.*$/;
-          expect(res.upstreamDependencies[0].version.match(regex)).to.have.length.greaterThan(0);
+          expect(res.upstreamDependencies[0].version!.match(regex)).to.have.length.greaterThan(0);
         });
       },
     );

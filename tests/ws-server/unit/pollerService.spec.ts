@@ -124,6 +124,20 @@ describe('PollerService', async function () {
       await clock.tickAsync(2000);
       expect(activeNewHeadsPollsGaugeSpy.inc.calledOnce).to.be.true;
       expect(ethImplStub.getBlockByNumber.calledWith('latest', false)).to.be.true;
+      expect(callback.calledWith({ ...mockBlock, jsonrpc: '2.0' })).to.be.true;
+    });
+
+    it('should skip the newHeads notification when no block is returned', async () => {
+      const callback = sinon.stub();
+      const loggerWarnSpy = sandbox.spy(logger, 'warn');
+      ethImplStub.getBlockByNumber.resolves(null);
+
+      poller.add(newHeadsTag, callback);
+      await clock.tickAsync(2000);
+
+      expect(callback.notCalled).to.be.true;
+      expect(loggerWarnSpy.calledWith(`Poller: No block returned for tag: ${newHeadsTag}, skipping notification`)).to.be
+        .true;
     });
 
     it('should not add a poll if it already exists', () => {

@@ -19,6 +19,12 @@ import sinon from 'sinon';
 import { GCProfiler } from 'v8';
 
 import { CommonService } from '../../../src/relay/lib/services';
+import type {
+  IAccountInfo,
+  IMirrorNodeContract,
+  MirrorNodeBlock,
+  MirrorNodeBlocksPage,
+} from '../../../src/relay/lib/types';
 
 chai.use(chaiAsPromised);
 
@@ -2619,8 +2625,12 @@ describe('RPC Server', function () {
       let getContractOpcodes: sinon.SinonStub;
 
       beforeEach(() => {
-        getAccount = sinon.stub(MirrorNodeClient.prototype, 'getAccount').resolves({ balance: 1000 });
-        getContract = sinon.stub(MirrorNodeClient.prototype, 'getContract').resolves({ address: contractAddress1 });
+        getAccount = sinon
+          .stub(MirrorNodeClient.prototype, 'getAccount')
+          .resolves({ balance: 1000 } as unknown as IAccountInfo);
+        getContract = sinon
+          .stub(MirrorNodeClient.prototype, 'getContract')
+          .resolves({ address: contractAddress1 } as unknown as IMirrorNodeContract);
         getContractResults = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResult);
@@ -3113,7 +3123,7 @@ describe('RPC Server', function () {
       beforeEach(() => {
         getHistoricalBlockResponse = sinon
           .stub(CommonService.prototype, 'getHistoricalBlockResponse')
-          .resolves(blockResponse);
+          .resolves(blockResponse as unknown as MirrorNodeBlock);
         getContractResultWithRetry = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResults);
@@ -3137,7 +3147,7 @@ describe('RPC Server', function () {
               },
             },
           ],
-        });
+        } as unknown as MirrorNodeBlocksPage);
         getBlock = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves({
           count: 1,
           hapi_version: '0.44.0',

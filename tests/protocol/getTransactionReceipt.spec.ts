@@ -207,7 +207,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
       xit('from/to Addresses in transaction to a contract (deployed through HAPI tx) are in evm and long-zero format', async function () {
         const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`);
         const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
-        const parentContractLongZeroAddress = `0x${parentContractId.toSolidityAddress()}`;
+        const parentContractLongZeroAddress = `0x${parentContractId.toEvmAddress()}`;
 
         const tx = await accounts[0].wallet.sendTransaction({
           to: parentContractLongZeroAddress,
