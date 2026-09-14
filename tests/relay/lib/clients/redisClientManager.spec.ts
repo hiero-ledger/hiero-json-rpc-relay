@@ -15,7 +15,7 @@ describe('RedisClientManager Test Suite', async function () {
   const logger = pino({ level: 'silent' });
 
   // Use a dedicated port to avoid conflicts with other suites
-  useInMemoryRedisServer(logger, 6380);
+  useInMemoryRedisServer(logger, 6385);
 
   this.beforeAll(async () => {
     await RedisClientManager.getClient(logger);

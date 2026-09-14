@@ -5,7 +5,7 @@
     "hiero-relay": "./bin/hiero-relay.js"
   },
   "redisMemoryServer": {
-    "version": "7.2.15"
+    "version": "8.10.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -110,6 +110,7 @@
     "test:client-libraries": "ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE=200 TX_STATUS_TRACING=true READ_ONLY=true REDIS_ENABLED=false RATE_LIMIT_DISABLED=true ts-mocha --recursive './tests/client-libraries/**/*.spec.ts' --exit",
     "test:bin": "c8 ts-mocha --recursive './tests/bin/*.spec.ts' --exit",
     "test:relay": "c8 ts-mocha --recursive './tests/relay/**/*.spec.ts' --exit",
+    "test:redis": "ts-mocha $(grep -rl useInMemoryRedisServer tests --include='*.spec.ts' | sort) --exit",
     "test:server": "c8 ts-mocha --recursive './tests/server/integration/**/*.spec.ts' --exit",
     "test:ws-server": "c8 ts-mocha --recursive './tests/ws-server/unit/**/*.spec.ts' --exit",
     "typecheck": "tsc --noEmit -p tsconfig.eslint.json",
