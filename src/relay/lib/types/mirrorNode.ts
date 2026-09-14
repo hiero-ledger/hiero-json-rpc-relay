@@ -26,6 +26,12 @@ export interface IAccountBalance {
   tokens?: { token_id: string; balance: number }[];
 }
 
+/** A single mirror node query parameter value; arrays are serialized as repeated `key=value` pairs. */
+export type QueryParamValue = string | number | boolean | string[] | null | undefined;
+
+/** Mutable bag of mirror node query parameters, serialized by `MirrorNodeClient.getQueryParams`. */
+export type QueryParamObject = Record<string, QueryParamValue>;
+
 export interface ILimitOrderParams {
   limit?: number;
   order?: string;

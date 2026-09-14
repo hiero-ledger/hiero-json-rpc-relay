@@ -7,7 +7,9 @@ import { ConfigService } from '../../../src/config-service/services';
 import { WebSocketError } from '../../../src/relay';
 import * as methodConfigModule from '../../../src/relay/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '../../../src/relay/lib/services';
+import { type RequestDetails } from '../../../src/relay/lib/types';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
+import type { RelayWebSocket, WsContext } from '../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 
 function createMockContext({
@@ -177,7 +179,7 @@ describe('Connection Limiter', function () {
     it('should return false for eth_subscribe method', async function () {
       const ip = '127.0.0.1';
       const methodName = WS_CONSTANTS.METHODS.ETH_SUBSCRIBE;
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
 
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
@@ -188,7 +190,7 @@ describe('Connection Limiter', function () {
     it('should return false for eth_unsubscribe method', async function () {
       const ip = '127.0.0.1';
       const methodName = WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE;
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
 
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
@@ -199,7 +201,7 @@ describe('Connection Limiter', function () {
     it('should call shouldRateLimit for other methods', async function () {
       const ip = '127.0.0.1';
       const methodName = 'eth_call';
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
       const expectedLimit = 100;
 
       rateLimiterStub.resolves(false);
@@ -213,7 +215,7 @@ describe('Connection Limiter', function () {
     it('should return true when rate limit is exceeded', async function () {
       const ip = '127.0.0.1';
       const methodName = 'eth_getBalance';
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
       const expectedLimit = 50;
       // eslint-disable-next-line no-import-assign
       methodConfigModule.methodConfiguration = {
@@ -231,7 +233,7 @@ describe('Connection Limiter', function () {
     it('should use correct method limit from methodConfiguration', async function () {
       const ip = '127.0.0.1';
       const methodName = 'eth_getLogs';
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
       const expectedLimit = 25;
       // eslint-disable-next-line no-import-assign
       methodConfigModule.methodConfiguration = {
@@ -248,7 +250,7 @@ describe('Connection Limiter', function () {
     it('should handle methods not in methodConfiguration', async function () {
       const ip = '127.0.0.1';
       const methodName = 'unknown_method';
-      const requestDetails = { requestId: 'test-request' };
+      const requestDetails = { requestId: 'test-request' } as RequestDetails;
 
       rateLimiterStub.resolves(false);
 
@@ -267,7 +269,7 @@ describe('Connection Limiter', function () {
       const mockWebsocket = {
         id: 'test-connection-id',
         inactivityTTL: timeoutId,
-      };
+      } as unknown as RelayWebSocket;
 
       const clearTimeoutSpy = sinon.spy(global, 'clearTimeout');
       const startInactivityTTLTimerSpy = sinon.spy(connectionLimiter, 'startInactivityTTLTimer');
@@ -338,7 +340,7 @@ describe('Connection Limiter', function () {
 
       const mockContext = {
         websocket: mockWebsocket,
-      };
+      } as unknown as WsContext;
 
       connectionLimiter.incrementSubs(mockContext);
 

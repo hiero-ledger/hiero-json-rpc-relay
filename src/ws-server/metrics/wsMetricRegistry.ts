@@ -5,11 +5,7 @@ import { type Counter, type Histogram, type Registry } from 'prom-client';
 import { METRICS, MetricsFactory } from '../../metrics';
 
 type WsMetricCounterTitles =
-  | 'methodsCounter'
-  | 'methodsCounterByIp'
-  | 'totalMessageCounter'
-  | 'totalOpenedConnections'
-  | 'totalClosedConnections';
+  'methodsCounter' | 'methodsCounterByIp' | 'totalMessageCounter' | 'totalOpenedConnections' | 'totalClosedConnections';
 
 type WsMetricHistogramTitles = 'connectionDuration' | 'messageDuration';
 

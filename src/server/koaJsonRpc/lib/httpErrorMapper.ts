@@ -26,7 +26,7 @@ const ERROR_CODE_MAP: Record<number, number> = {
 // - MN 429 -> Relay HTTP 429
 // - MN 501 -> Relay HTTP 501
 // - Any other error codes from the Mirror Node will be mapped to Relay HTTP 500 by default
-const MIRROR_NODE_ERROR_MAP = {
+const MIRROR_NODE_ERROR_MAP: Record<number, number> = {
   404: HTTP_STATUS.BAD_REQUEST,
   429: HTTP_STATUS.TOO_MANY_REQUESTS,
   501: HTTP_STATUS.NOT_IMPLEMENTED,

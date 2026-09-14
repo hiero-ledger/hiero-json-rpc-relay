@@ -130,7 +130,7 @@ export class CommonService implements ICommonService {
     return tag === constants.BLOCK_LATEST || tag === constants.BLOCK_PENDING;
   }
 
-  public blockTagIsLatestOrPending = (tag): boolean => {
+  public blockTagIsLatestOrPending = (tag: string | null | undefined): boolean => {
     return (
       tag == null ||
       tag === constants.BLOCK_LATEST ||
@@ -568,7 +568,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<Log[]> {
-    const EMPTY_RESPONSE = [];
+    const EMPTY_RESPONSE: Log[] = [];
 
     let logResults: MirrorNodeContractLog[];
     if (address) {
@@ -657,7 +657,7 @@ export class CommonService implements ICommonService {
 
     if (networkFees && Array.isArray(networkFees.fees)) {
       const ethereumTransactionTypeFee = networkFees.fees.find(
-        ({ transaction_type }) => transaction_type === 'EthereumTransaction',
+        ({ transaction_type }: { transaction_type: string }) => transaction_type === 'EthereumTransaction',
       );
 
       if (ethereumTransactionTypeFee?.gas) {

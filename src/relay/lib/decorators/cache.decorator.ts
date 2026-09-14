@@ -83,13 +83,13 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
 const shouldSkipCachingForSingleParams = (args: unknown[], params: CacheSingleParam[] = []): boolean => {
   for (const item of params) {
     const values = item.value.split('|');
-    if (values.indexOf(args[item.index]) > -1) {
+    if (values.some((value) => value === args[Number(item.index)])) {
       return true;
     }
 
     // do not cache when a parameter is missing or undefined
     // this handles cases where optional parameters are not provided
-    if (!Object.prototype.hasOwnProperty.call(args, item.index) || args[item.index] === undefined) {
+    if (!Object.prototype.hasOwnProperty.call(args, item.index) || args[Number(item.index)] === undefined) {
       return true;
     }
   }
@@ -119,7 +119,8 @@ const shouldSkipCachingForSingleParams = (args: unknown[], params: CacheSinglePa
  */
 const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedParams[] = []): boolean => {
   for (const { index, fields } of params) {
-    const input = args[index];
+    // the named-params variant only ever targets an object argument (e.g. the `eth_getLogs` filter)
+    const input = args[Number(index)] as Record<string, unknown>;
 
     // build a map from field names to their match values
     const skipList: Record<string, string> = Object.fromEntries(fields.map(({ name, value }) => [name, value]));
@@ -132,7 +133,7 @@ const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedPara
       const actualValue = input[key];
 
       // if the actual value is one of the values that should skip caching, return true
-      if (allowedValues.includes(actualValue)) {
+      if (allowedValues.some((allowedValue) => allowedValue === actualValue)) {
         return true;
       }
     }

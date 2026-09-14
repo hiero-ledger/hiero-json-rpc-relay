@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type Koa from 'koa';
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
@@ -13,6 +12,7 @@ import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from '../../serv
 import type ConnectionLimiter from '../metrics/connectionLimiter';
 import type WsMetricRegistry from '../metrics/wsMetricRegistry';
 import { type SubscriptionService } from '../service/subscriptionService';
+import type { WsContext } from '../types';
 import { WS_CONSTANTS } from '../utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './subscribeController';
@@ -26,7 +26,7 @@ export type ISharedParams = {
   logger: Logger;
   limiter: ConnectionLimiter;
   mirrorNodeClient: MirrorNodeClient;
-  ctx: Koa.Context;
+  ctx: WsContext;
   requestDetails: RequestDetails;
   subscriptionService: SubscriptionService;
 };
@@ -85,7 +85,7 @@ const handleSendingRequestsToRelay = async ({
  * @returns {Promise<any>} A promise that resolves to the response of the request.
  */
 export const getRequestResult = async (
-  ctx: Koa.Context,
+  ctx: WsContext,
   relay: Relay,
   logger: Logger,
   request: IJsonRpcRequest,

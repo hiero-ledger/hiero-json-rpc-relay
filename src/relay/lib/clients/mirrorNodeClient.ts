@@ -43,6 +43,8 @@ import type {
   MirrorNodeContractResult,
   MirrorNodeContractResultDetails,
   MirrorNodeContractResultsPage,
+  QueryParamObject,
+  QueryParamValue,
 } from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
@@ -187,8 +189,8 @@ export class MirrorNodeClient {
   /**
    * Metrics related vars
    */
-  public static ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM: string = 'addLabelToMirrorResponseHistogram';
-  public static ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER: string = 'addLabelToMirrorErrorCodeCounter';
+  public static readonly ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM = 'addLabelToMirrorResponseHistogram';
+  public static readonly ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER = 'addLabelToMirrorErrorCodeCounter';
 
   /**
    * The logger used for logging all output from this class.
@@ -520,7 +522,7 @@ export class MirrorNodeClient {
       // Calculate effective status code
       const effectiveStatusCode =
         error.response?.status ||
-        MirrorNodeClientError.ErrorCodes[error.code] ||
+        MirrorNodeClientError.ErrorCodes[error.code as keyof typeof MirrorNodeClientError.ErrorCodes] ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
@@ -713,7 +715,8 @@ export class MirrorNodeClient {
       // No HTTP response, meaning request never completed (ECONNREFUSED, ECONNABORTED, etc.).
       // Map the axios error code to an internal pseudo-code and always throw.
       const statusCode =
-        MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
+        MirrorNodeClientError.ErrorCodes[axiosError.code as keyof typeof MirrorNodeClientError.ErrorCodes] ??
+        MirrorNodeClient.unknownServerErrorHttpStatusCode;
       throw new MirrorNodeClientError(axiosError, statusCode);
     }
   }
@@ -1090,7 +1093,7 @@ export class MirrorNodeClient {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
-    let contractResult = await this[methodName](...args);
+    let contractResult = await Reflect.get(this as MirrorNodeClient, methodName).apply(this, args);
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
       const isLastAttempt = i === mirrorNodeRequestRetryCount - 1;
@@ -1151,7 +1154,7 @@ export class MirrorNodeClient {
 
         // if immature record found, wait and retry and update contractResult
         await new Promise((r) => setTimeout(r, mirrorNodeRetryDelay));
-        contractResult = await this[methodName](...args);
+        contractResult = await Reflect.get(this as MirrorNodeClient, methodName).apply(this, args);
       } else {
         break;
       }
@@ -1766,7 +1769,7 @@ export class MirrorNodeClient {
     return paramString;
   }
 
-  setContractResultsParams(queryParamObject, contractResultsParams?: IContractResultsParams): void {
+  setContractResultsParams(queryParamObject: QueryParamObject, contractResultsParams?: IContractResultsParams): void {
     if (contractResultsParams) {
       this.setQueryParam(queryParamObject, 'block.hash', contractResultsParams.blockHash);
       this.setQueryParam(queryParamObject, 'block.number', contractResultsParams.blockNumber);
@@ -1777,7 +1780,7 @@ export class MirrorNodeClient {
     }
   }
 
-  setLimitOrderParams(queryParamObject, limitOrderParams?: ILimitOrderParams): void {
+  setLimitOrderParams(queryParamObject: QueryParamObject, limitOrderParams?: ILimitOrderParams): void {
     if (limitOrderParams) {
       this.setQueryParam(queryParamObject, 'limit', limitOrderParams.limit);
       this.setQueryParam(queryParamObject, 'order', limitOrderParams.order);
@@ -1787,7 +1790,7 @@ export class MirrorNodeClient {
     }
   }
 
-  setQueryParam(queryParamObject, key, value): void {
+  setQueryParam(queryParamObject: QueryParamObject, key: string, value: QueryParamValue): void {
     if (key && value != null && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
@@ -2121,7 +2124,7 @@ export class MirrorNodeClient {
       }
     }
 
-    const buildPromise = (fn): Promise<unknown> =>
+    const buildPromise = (fn: Promise<unknown>): Promise<unknown> =>
       new Promise((resolve, reject) =>
         fn.then((values) => {
           if (values == null) reject();
@@ -2208,6 +2211,9 @@ export class MirrorNodeClient {
         type = constants.TYPE_SCHEDULE;
         break;
       }
+      default: {
+        throw new Error(`Unexpected resolved entity index: ${data.index}`);
+      }
     }
 
     const response = {
@@ -2251,7 +2257,7 @@ export class MirrorNodeClient {
     let result;
     for (let i = 0; i < repeatCount; i++) {
       try {
-        result = await this[methodName](...args);
+        result = await Reflect.get(this as MirrorNodeClient, methodName).apply(this, args);
       } catch (e: any) {
         // note: for some methods, it will throw 404 not found error as the record is not yet recorded in mirror-node
         //       if error is 404, `result` would be assigned as null for it to not break out the loop.

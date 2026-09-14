@@ -5,9 +5,11 @@ import { type IObjectSchema } from './objectTypes';
 import { TYPES } from './types';
 
 export function validateObject<T extends object = any>(object: T, filters: IObjectSchema): boolean {
+  const properties = object as Record<string, unknown>;
+
   for (const property of Object.keys(filters.properties)) {
     const validation = filters.properties[property];
-    const param = object[property];
+    const param = properties[property];
 
     if (requiredIsMissing(param, validation.required)) {
       throw predefined.MISSING_REQUIRED_PARAMETER(`'${property}' for ${filters.name}`);
@@ -38,11 +40,11 @@ export function validateObject<T extends object = any>(object: T, filters: IObje
     }
   }
 
-  const paramsMatchingFilters = Object.keys(filters.properties).filter((key) => object[key] !== undefined);
+  const paramsMatchingFilters = Object.keys(filters.properties).filter((key) => properties[key] !== undefined);
   return !filters.failOnEmpty || paramsMatchingFilters.length > 0;
 }
 
-export function validateArray(array: any[], innerType?: string): boolean {
+export function validateArray(array: any[], innerType?: keyof typeof TYPES): boolean {
   if (!innerType) return true;
 
   const isInnerType = (element: any): boolean => TYPES[innerType].test(element);
