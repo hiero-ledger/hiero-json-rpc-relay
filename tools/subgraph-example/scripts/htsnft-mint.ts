@@ -18,7 +18,9 @@ export async function mintHtsNft(receiver: string, hre: any) {
       client: Client.forNetwork(JSON.parse(process.env.HEDERA_NETWORK!)),
     }),
   );
-  const tokenId = TokenId.fromSolidityAddress(
+  const tokenId = TokenId.fromEvmAddress(
+    0,
+    0,
     networks.default.local.ExampleHTSNFT.address,
   );
 
