@@ -4,7 +4,7 @@ import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { type IObjectSchema } from './objectTypes';
 import { TYPES } from './types';
 
-export function validateObject<T extends object = any>(object: T, filters: IObjectSchema): boolean {
+export function validateObject<T extends object>(object: T, filters: IObjectSchema): boolean {
   const properties = object as Record<string, unknown>;
 
   for (const property of Object.keys(filters.properties)) {
@@ -26,7 +26,7 @@ export function validateObject<T extends object = any>(object: T, filters: IObje
             `${TYPES[validation.type].error}, value: ${paramString}`,
           );
         }
-      } catch (error: any) {
+      } catch (error) {
         if (error instanceof JsonRpcError) {
           const paramString = typeof param === 'object' ? JSON.stringify(param) : param;
           throw predefined.INVALID_PARAMETER(
@@ -44,18 +44,18 @@ export function validateObject<T extends object = any>(object: T, filters: IObje
   return !filters.failOnEmpty || paramsMatchingFilters.length > 0;
 }
 
-export function validateArray(array: any[], innerType?: keyof typeof TYPES): boolean {
+export function validateArray(array: unknown[], innerType?: string): boolean {
   if (!innerType) return true;
 
-  const isInnerType = (element: any): boolean => TYPES[innerType].test(element);
+  const isInnerType = (element: unknown): boolean => TYPES[innerType as keyof typeof TYPES].test(element);
 
   return array.every(isInnerType);
 }
 
-export function requiredIsMissing(param: any, required: boolean | undefined): boolean {
+export function requiredIsMissing(param: unknown, required: boolean | undefined): boolean {
   return required === true && param === undefined;
 }
 
-export function isValidAndNonNullableParam(param: any, nullable: boolean): boolean {
+export function isValidAndNonNullableParam(param: unknown, nullable: boolean): boolean {
   return param !== undefined && (param !== null || !nullable);
 }

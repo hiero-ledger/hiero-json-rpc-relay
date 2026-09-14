@@ -53,7 +53,7 @@ export async function getBalance(
       const mirrorAccount = await mirrorNodeClient.getAccount(account, requestDetails);
       if (mirrorAccount != null) {
         balanceFound = true;
-        weibars = BigInt(mirrorAccount.balance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+        weibars = BigInt(mirrorAccount.balance!.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
       }
     }
 

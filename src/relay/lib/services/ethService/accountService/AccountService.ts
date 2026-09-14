@@ -9,7 +9,12 @@ import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import type { RequestDetails } from '../../../types';
-import { type ITransfer, type LatestBlockNumberTimestamp, type MirrorNodeBlock } from '../../../types/mirrorNode';
+import {
+  type IMirrorNodeTransactionRecord,
+  type ITransfer,
+  type LatestBlockNumberTimestamp,
+  type MirrorNodeBlock,
+} from '../../../types/mirrorNode';
 import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
@@ -191,7 +196,7 @@ export class AccountService implements IAccountService {
    */
   private async getLatestBlockFromCacheOrMirror(requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-    const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
+    const blockNumberCached = await this.cacheService.getAsync<string>(cacheKey, constants.ETH_GET_BALANCE);
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
@@ -213,8 +218,8 @@ export class AccountService implements IAccountService {
     nextPage: string,
     block: MirrorNodeBlock,
     requestDetails: RequestDetails,
-  ): Promise<never[]> {
-    let pagedTransactions = [];
+  ): Promise<IMirrorNodeTransactionRecord[]> {
+    let pagedTransactions: IMirrorNodeTransactionRecord[] = [];
     // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
     const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
     const nextPageTimeMarker = nextPageParams.get('timestamp');
@@ -269,16 +274,16 @@ export class AccountService implements IAccountService {
 
         // The balance in the account is real time, so we simply subtract the transactions to the block.timestamp.to to get a block relevant balance.
         // needs to be updated below.
-        const nextPage: string = mirrorAccount.links.next;
+        const nextPage = mirrorAccount.links?.next;
         if (nextPage) {
-          mirrorAccount.transactions = mirrorAccount.transactions.concat(
+          mirrorAccount.transactions = (mirrorAccount.transactions ?? []).concat(
             await this.getPagedTransactions(nextPage, block, requestDetails),
           );
         }
 
         balanceFromTxs = this.getBalanceAtBlockTimestamp(
           mirrorAccount.account,
-          mirrorAccount.transactions,
+          mirrorAccount.transactions ?? [],
           block.timestamp.to,
         );
 
@@ -379,7 +384,11 @@ export class AccountService implements IAccountService {
    * @param blockTimestamp
    * @private
    */
-  private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: string): any {
+  private getBalanceAtBlockTimestamp(
+    account: string,
+    transactions: IMirrorNodeTransactionRecord[],
+    blockTimestamp: string,
+  ): number {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;
@@ -444,7 +453,7 @@ export class AccountService implements IAccountService {
     const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
     if (accountData) {
       // with HIP 729 ethereum_nonce should always be 0+ and null. Historical contracts may have a null value as the nonce was not tracked, return default EVM compliant 0x1 in this case
-      return accountData.ethereum_nonce !== null ? numberTo0x(accountData.ethereum_nonce) : constants.ONE_HEX;
+      return accountData.ethereum_nonce != null ? numberTo0x(accountData.ethereum_nonce) : constants.ONE_HEX;
     }
 
     return constants.ZERO_HEX;
@@ -477,30 +486,30 @@ export class AccountService implements IAccountService {
       requestDetails,
       2,
     );
-    if (ethereumTransactions == null || ethereumTransactions.transactions.length === 0) {
+    if (ethereumTransactions == null || ethereumTransactions.transactions!.length === 0) {
       return constants.ZERO_HEX;
     }
 
     // if only 1 transaction is returned when asking for 2, then the account has only sent 1 transaction
     // minor optimization to save a call to getContractResult as many accounts serve a single use
-    if (ethereumTransactions.transactions.length === 1) {
+    if (ethereumTransactions.transactions!.length === 1) {
       return constants.ONE_HEX;
     }
 
     // get the transaction result for the latest transaction
     const transactionResult = await this.mirrorNodeClient.getContractResult(
-      ethereumTransactions.transactions[0].transaction_id,
+      ethereumTransactions.transactions![0].transaction_id,
       requestDetails,
     );
     if (transactionResult == null) {
       throw predefined.RESOURCE_NOT_FOUND(
-        `Failed to retrieve contract results for transaction ${ethereumTransactions.transactions[0].transaction_id}`,
+        `Failed to retrieve contract results for transaction ${ethereumTransactions.transactions![0].transaction_id}`,
       );
     }
 
     const accountResult = await this.mirrorNodeClient.getAccount(transactionResult.from, requestDetails);
 
-    if (accountResult.evm_address !== address.toLowerCase()) {
+    if (accountResult!.evm_address !== address.toLowerCase()) {
       this.logger.warn(
         `eth_transactionCount for a historical block was requested where address: %s was not sender: %s, returning latest value as best effort.`,
         address,

@@ -2,6 +2,18 @@
 
 import { Status } from '@hiero-ledger/sdk';
 
+interface MirrorNodeErrorDetail {
+  message: string;
+  detail?: string;
+  data?: string;
+}
+
+/** Shape read off the raw error passed to the constructor. */
+interface MirrorNodeErrorLike {
+  message?: string;
+  response?: { data?: { _status?: { messages?: MirrorNodeErrorDetail[] } } };
+}
+
 export class MirrorNodeClientError extends Error {
   public statusCode: number;
   public data?: string;
@@ -28,10 +40,11 @@ export class MirrorNodeClientError extends Error {
     CONTRACT_REVERT_EXECUTED: Status.ContractRevertExecuted.toString(),
   };
 
-  constructor(error: any, statusCode: number) {
+  constructor(error: unknown, statusCode: number) {
+    const err = error as MirrorNodeErrorLike;
     // mirror node web3 module sends errors in this format, this is why we need a check to distinguish
-    if (error.response?.data?._status?.messages?.length) {
-      const [msg, ...children] = error.response.data._status.messages;
+    if (err.response?.data?._status?.messages?.length) {
+      const [msg, ...children] = err.response.data._status.messages;
       const { message, detail, data } = msg;
       super(message);
 
@@ -39,7 +52,7 @@ export class MirrorNodeClientError extends Error {
       this.data = data;
       this.children = children || [];
     } else {
-      super(error.message);
+      super(err.message);
 
       this.children = [];
     }

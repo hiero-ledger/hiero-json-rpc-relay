@@ -33,7 +33,7 @@ export type RpcNamespaceRegistry = {
  * - Methods with RequestDetails (which may not always be the last parameter)
  * - Methods with varying return types
  */
-export type OperationHandler = ((...args: any[]) => any) & {
+export type OperationHandler = ((...args: unknown[]) => unknown) & {
   /** Attached by `@rpcParamValidationRules` (`RPC_PARAM_VALIDATION_RULES_KEY`). */
   'hedera-rpc-param-validation-rules'?: Record<number, IParamValidation>;
   /** Attached by `@rpcParamLayoutConfig` (`RPC_PARAM_LAYOUT_KEY`). */

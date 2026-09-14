@@ -108,7 +108,7 @@ export class Utils {
    */
   public static isRejectedDueToHederaSpecificValidation(contractResult: {
     result: string;
-    error_message: any;
+    error_message: string | null;
   }): boolean {
     const statuses = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
     return (
@@ -169,9 +169,9 @@ export class Utils {
    */
   public static arrangeRpcParams(
     method: OperationHandler,
-    rpcParams: any[] = [],
+    rpcParams: unknown[] = [],
     requestDetails: RequestDetails,
-  ): any[] {
+  ): unknown[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
 
     // Method only needs requestDetails

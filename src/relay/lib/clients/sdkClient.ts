@@ -266,7 +266,7 @@ export class SDKClient {
     originalCallerAddress?: string,
   ): Promise<T> {
     const queryConstructorName = query.constructor.name;
-    let queryResponse: any;
+    let queryResponse: T;
     let queryCost: number | undefined;
     let status!: string;
 
@@ -283,8 +283,8 @@ export class SDKClient {
         queryCost,
       );
       return queryResponse;
-    } catch (e: any) {
-      const sdkClientError = new SDKClientError(e, e.message);
+    } catch (e) {
+      const sdkClientError = new SDKClientError(e, (e as Error).message);
 
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = sdkClientError.status.toString();
@@ -379,21 +379,27 @@ export class SDKClient {
         transactionReceipt.status._code,
       );
       return transactionResponse;
-    } catch (e: any) {
+    } catch (e) {
+      const err = e as { message?: string; nodeAccountId?: string };
       this.logger.warn(
         e,
         `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s%s`,
         transaction.transactionId,
         callerName,
         txConstructorName,
-        e.nodeAccountId ? `, nodeAccountId=${e.nodeAccountId}` : '',
+        err.nodeAccountId ? `, nodeAccountId=${err.nodeAccountId}` : '',
       );
 
       if (e instanceof JsonRpcError) {
         throw e;
       }
 
-      throw new SDKClientError(e, e.message, transactionId || transaction.transactionId?.toString(), e.nodeAccountId);
+      throw new SDKClientError(
+        e,
+        err.message,
+        transactionId || transaction.transactionId?.toString(),
+        err.nodeAccountId,
+      );
     } finally {
       if (transactionId?.length) {
         const transactionHash = transactionResponse?.transactionHash
@@ -462,8 +468,9 @@ export class SDKClient {
         Status.Success,
         Status.Success._code,
       );
-    } catch (e: any) {
-      const sdkClientError = new SDKClientError(e, e.message, undefined, e.nodeAccountId);
+    } catch (e) {
+      const err = e as { message?: string; nodeAccountId?: string };
+      const sdkClientError = new SDKClientError(e, err.message, undefined, err.nodeAccountId);
       this.logger.warn(
         `Fail to executeAll for %s transaction: transactionId=%s, callerName=%s, transactionType=%s, status=%s(%s)`,
         txConstructorName,
@@ -614,8 +621,8 @@ export class SDKClient {
       } else {
         this.logger.warn(`Fail to delete file with fileId: %s`, fileId);
       }
-    } catch (error: any) {
-      this.logger.warn(`%s`, error['message']);
+    } catch (error) {
+      this.logger.warn(`%s`, (error as Error)['message']);
     }
   }
 
@@ -657,8 +664,8 @@ export class SDKClient {
       gasUsed = transactionRecord.contractFunctionResult?.gasUsed.toNumber() ?? 0;
 
       return { transactionFee, txRecordChargeAmount, gasUsed, status };
-    } catch (e: any) {
-      const sdkClientError = new SDKClientError(e, e.message);
+    } catch (e) {
+      const sdkClientError = new SDKClientError(e, (e as Error).message);
       this.logger.warn(
         e,
         `Error raised during TransactionRecordQuery: transactionId=%s, txConstructorName=%s, recordStatus=%s (%s), cost=%s, gasUsed=%s`,

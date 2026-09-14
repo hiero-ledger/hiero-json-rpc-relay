@@ -13,7 +13,7 @@ import type { RelayWebSocket } from '../types';
 import { PollerService } from './pollerService';
 
 export interface Subscriber {
-  connection: any;
+  connection: RelayWebSocket;
   subscriptionId: string;
   endTimer: () => void;
 }
@@ -51,12 +51,12 @@ export class SubscriptionService {
 
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   public subscribe(connection: RelayWebSocket, event: string, filters?: {}): string {
-    let tag: any = { event };
+    const tagObject: { event: string; filters?: typeof filters } = { event };
     if (filters && Object.keys(filters).length) {
-      tag.filters = filters;
+      tagObject.filters = filters;
     }
 
-    tag = JSON.stringify(tag);
+    const tag = JSON.stringify(tagObject);
 
     if (!this.subscriptions[tag]) {
       this.subscriptions[tag] = [];

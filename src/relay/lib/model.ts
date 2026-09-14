@@ -87,7 +87,7 @@ export class Block {
    *
    * @param args Optional block-like object to hydrate this model from.
    */
-  constructor(args?: any) {
+  constructor(args?: Omit<Block, 'getNum' | 'withdrawals' | 'withdrawalsRoot'>) {
     if (args) {
       this.timestamp = args.timestamp;
       this.number = args.number;
@@ -224,7 +224,7 @@ export class Transaction {
   /**
    * @param args Transaction-like object used to populate fields
    */
-  constructor(args: any) {
+  constructor(args: Transaction) {
     this.blockHash = args.blockHash;
     this.blockNumber = args.blockNumber;
     this.chainId = args.chainId;
@@ -254,7 +254,7 @@ export class Transaction2930 extends Transaction {
   /** Y parity of signature */
   public readonly yParity!: string | null;
 
-  constructor(args: any) {
+  constructor(args: Transaction & Pick<Transaction2930, 'accessList'>) {
     super(args);
     this.yParity = args.v;
     this.accessList = args.accessList;
@@ -271,7 +271,7 @@ export class Transaction1559 extends Transaction2930 {
   /** Max fee per gas */
   public readonly maxFeePerGas!: string;
 
-  constructor(args: any) {
+  constructor(args: Transaction & Pick<Transaction1559, 'accessList' | 'maxPriorityFeePerGas' | 'maxFeePerGas'>) {
     super(args);
     this.maxPriorityFeePerGas = args.maxPriorityFeePerGas;
     this.maxFeePerGas = args.maxFeePerGas;
@@ -294,7 +294,10 @@ export class Transaction7702 extends Transaction {
   /** Authorization list entries (EIP-7702 specific field) */
   public readonly authorizationList!: AuthorizationListEntry[] | null;
 
-  constructor(args: any) {
+  constructor(
+    args: Transaction &
+      Pick<Transaction7702, 'accessList' | 'maxPriorityFeePerGas' | 'maxFeePerGas' | 'authorizationList'>,
+  ) {
     super(args);
 
     this.yParity = args.v;
@@ -375,7 +378,7 @@ export class Log {
   /**
    * @param args Log-like object used to populate fields
    */
-  constructor(args: any) {
+  constructor(args: Log) {
     this.address = args.address;
     this.blockHash = args.blockHash;
     this.blockNumber = args.blockNumber;
