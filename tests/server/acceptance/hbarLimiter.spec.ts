@@ -123,7 +123,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     // multi-file scenario may need longer than the default before the spending plan reflects the full
     // amount. Callers asserting an exact amountSpent should pass a larger timeout.
     timeoutMs: number = 6000,
-  ) => {
+  ): Promise<number> => {
     let amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
     let isTimeOut = false;
     const startTime = Date.now();
@@ -160,7 +160,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
   // The following tests exhaust the hbar limit, so they should only be run against a local relay
   if (relayIsLocal) {
-    const deployContract = async (contractJson: any, wallet: ethers.Wallet): Promise<ethers.Contract> => {
+    const deployContract = async (
+      contractJson: { abi: ethers.InterfaceAbi; bytecode: string },
+      wallet: ethers.Wallet,
+    ): Promise<ethers.Contract> => {
       const contract = await Utils.deployContract(contractJson.abi, contractJson.bytecode, wallet);
       expect(contract).to.be.instanceOf(BaseContract);
       await contract.waitForDeployment();
@@ -170,7 +173,11 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     };
     const transactionReecordCostTolerance = ConfigService.get('TEST_TRANSACTION_RECORD_COST_TOLERANCE');
 
-    const verifyRemainingLimit = (expectedCost: number, remainingHbarsBefore: number, remainingHbarsAfter: number) => {
+    const verifyRemainingLimit = (
+      expectedCost: number,
+      remainingHbarsBefore: number,
+      remainingHbarsAfter: number,
+    ): void => {
       const tolerance = ConfigService.get('TEST_TRANSACTION_RECORD_COST_TOLERANCE');
       const delta = tolerance * expectedCost;
       if (global.logger.isLevelEnabled('debug')) {
@@ -182,7 +189,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       expect(remainingHbarsAfter).to.be.approximately(remainingHbarsBefore - expectedCost, delta);
     };
 
-    const sumAccountTransfers = (transfers: ITransfer[], account?: string) => {
+    const sumAccountTransfers = (transfers: ITransfer[], account?: string): number => {
       return Math.abs(
         transfers
           .filter((transfer) => transfer.account === account)
@@ -190,7 +197,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       );
     };
 
-    const getExpectedCostOfFileCreateTx = async () => {
+    const getExpectedCostOfFileCreateTx = async (): Promise<{
+      fileCreateTxFee: number;
+      fileCreateTimestamp: string;
+    }> => {
       const fileCreateTx = (
         await mirrorNode.get(
           `/transactions?transactiontype=FILECREATE&order=desc&account.id=${operatorAccount}&limit=1`,
@@ -202,7 +212,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       return { fileCreateTxFee, fileCreateTimestamp };
     };
 
-    const getExpectedCostOfFileAppendTx = async (timeStamp: string, txData: string) => {
+    const getExpectedCostOfFileAppendTx = async (timeStamp: string, txData: string): Promise<number> => {
       const fileAppendTxs = (
         await mirrorNode.get(
           `/transactions?order=desc&transactiontype=FILEAPPEND&account.id=${operatorAccount}&timestamp=gt:${timeStamp}`,
@@ -220,7 +230,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       return fileAppendTxFee;
     };
 
-    const getExpectedCostOfLastLargeTx = async (txData: string) => {
+    const getExpectedCostOfLastLargeTx = async (txData: string): Promise<number> => {
       const ethereumTransaction = (
         await mirrorNode.get(
           `/transactions?transactiontype=ETHEREUMTRANSACTION&order=desc&account.id=${operatorAccount}&limit=1`,
@@ -241,7 +251,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       return ethereumTxFee + fileCreateTxFee + fileAppendTxFee + fileDeleteTxFee;
     };
 
-    const getExpectedCostOfLastSmallTx = async () => {
+    const getExpectedCostOfLastSmallTx = async (): Promise<number> => {
       const ethereumTransaction = (
         await mirrorNode.get(
           `/transactions?transactiontype=ETHEREUMTRANSACTION&order=desc&account.id=${operatorAccount}&limit=1`,
@@ -297,7 +307,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       });
 
       describe('@hbarlimiter-batch1 Total HBAR Limit', () => {
-        const pollForProperRemainingHbar = async (initialRemainingHbars: number, expectedTxCost: number) => {
+        const pollForProperRemainingHbar = async (
+          initialRemainingHbars: number,
+          expectedTxCost: number,
+        ): Promise<number> => {
           let updatedRemainingHbars = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
 
           // Note: expectedTxCost may be retrieved from mirror node which doesn't include the getRecord transaction fee.
@@ -445,7 +458,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         const createAliasAndAssociateSpendingPlan = async (
           subscriptionTier: SubscriptionTier,
           accountCounts: number = 1,
-        ) => {
+        ): Promise<{ aliasAccounts: AliasAccount[]; hbarSpendingPlan: IDetailedHbarSpendingPlan }> => {
           const aliasAccounts: AliasAccount[] = [];
           const hbarSpendingPlan = await hbarSpendingPlanRepository.create(subscriptionTier, mockTTL);
 
@@ -591,9 +604,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 }
               }
               expect.fail(`Expected an error but nothing was thrown`);
-            } catch (e: any) {
-              logger.error(e.message);
-              expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
+            } catch (e) {
+              const thrown = e as { message: string };
+              logger.error(thrown.message);
+              expect(thrown.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
 
               if (!hbarSpendingPlan) {
                 const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
@@ -618,7 +632,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         });
 
         describe('@hbarlimiter-batch2 Preconfigured Tiers', () => {
-          const reusableTestsForNonBasicTiers = (subscriptionTier: SubscriptionTier, maxSpendingLimit: number) => {
+          const reusableTestsForNonBasicTiers = (
+            subscriptionTier: SubscriptionTier,
+            maxSpendingLimit: number,
+          ): void => {
             let aliasAccounts: AliasAccount[];
             let hbarSpendingPlan: IDetailedHbarSpendingPlan;
 
@@ -681,9 +698,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                   }
                 }
                 expect.fail(`Expected an error but nothing was thrown`);
-              } catch (e: any) {
-                logger.error(e.message);
-                expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
+              } catch (e) {
+                const thrown = e as { message: string };
+                logger.error(thrown.message);
+                expect(thrown.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
 
                 const amountSpent = await pollForProperAmountSpent(hbarSpendingPlan, deploymentCounts, expectedTxCost);
                 const remainingHbarsAfter = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
@@ -774,7 +792,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
           const createMultipleAliasAccountsWithSpendingPlans = async (
             accountPlanRequirements: Record<NonOperatorTier, number>,
-          ) => {
+          ): Promise<Record<NonOperatorTier, AliasAccountPlan[]>> => {
             const accountPlanObject: Record<NonOperatorTier, AliasAccountPlan[]> = {
               BASIC: [],
               EXTENDED: [],
@@ -786,7 +804,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 const accountCreatedResult = await createAliasAndAssociateSpendingPlan(
                   subscriptionTier as SubscriptionTier,
                 );
-                accountPlanObject[subscriptionTier].push(accountCreatedResult);
+                accountPlanObject[subscriptionTier as NonOperatorTier].push(accountCreatedResult);
               }
             }
 

@@ -12,8 +12,9 @@ const web3Impl = new Web3Impl();
 
 describe('Web3', function () {
   before(async () => {
-    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
-    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
+    const relayInternals = asRelayInternals(Relay.prototype);
+    sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
   });
 
   after(() => {

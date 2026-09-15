@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
+import { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
@@ -7,10 +8,27 @@ import { ConfigService } from '../../../src/config-service/services';
 import { WebSocketError } from '../../../src/relay';
 import * as methodConfigModule from '../../../src/relay/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '../../../src/relay/lib/services';
-import { type RequestDetails } from '../../../src/relay/lib/types';
+import { type RateLimitStore, type RequestDetails } from '../../../src/relay/lib/types';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import type { RelayWebSocket, WsContext } from '../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
+
+interface MockContext {
+  websocket: {
+    id: string;
+    send: sinon.SinonStub;
+    close: sinon.SinonStub;
+    inactivityTTL: NodeJS.Timeout | undefined;
+    ipCounted: boolean;
+    subscriptions: number;
+  };
+  request: { ip: string };
+  app: { server: { _connections: number } };
+}
+
+interface ConnectionLimiterInternals {
+  startInactivityTTLTimer(websocket: MockContext['websocket']): void;
+}
 
 function createMockContext({
   connections = 0,
@@ -22,12 +40,12 @@ function createMockContext({
   ip?: string;
   ipCounted?: boolean;
   subscriptions?: number;
-} = {}): any {
-  const websocket: any = {
+} = {}): MockContext & WsContext {
+  const websocket = {
     id: 'test-connection-id',
     send: sinon.stub(),
     close: sinon.stub(),
-    inactivityTTL: undefined,
+    inactivityTTL: undefined as NodeJS.Timeout | undefined,
     ipCounted,
     subscriptions,
   };
@@ -35,13 +53,13 @@ function createMockContext({
     websocket,
     request: { ip },
     app: { server: { _connections: connections } },
-  };
+  } as unknown as MockContext & WsContext;
 }
 
 describe('Connection Limiter', function () {
   let configServiceStub: sinon.SinonStub;
   let connectionLimiter: ConnectionLimiter;
-  let mockLogger: any;
+  let mockLogger: Record<'info' | 'debug' | 'error' | 'isLevelEnabled' | 'child', sinon.SinonStub>;
   let mockRegistry: Registry;
   let rateLimiterStub: sinon.SinonStub;
 
@@ -72,10 +90,10 @@ describe('Connection Limiter', function () {
     const mockStore = {
       incrementAndCheck: sinon.stub().resolves(false),
     };
-    const rateLimiter = new IPRateLimiterService(mockStore as any, mockRegistry);
+    const rateLimiter = new IPRateLimiterService(mockStore as unknown as RateLimitStore, mockRegistry);
 
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
-    connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);
+    connectionLimiter = new ConnectionLimiter(mockLogger as unknown as Logger, mockRegistry, rateLimiter);
   });
 
   afterEach(() => {
@@ -165,7 +183,10 @@ describe('Connection Limiter', function () {
       connectionLimiter['connectedClients'] = 50;
       connectionLimiter['clientIps']['127.0.0.1'] = 5; // Within per-IP limit
 
-      const startInactivityTTLTimerSpy = sinon.spy(connectionLimiter, 'startInactivityTTLTimer' as any);
+      const startInactivityTTLTimerSpy = sinon.spy(
+        connectionLimiter as unknown as ConnectionLimiterInternals,
+        'startInactivityTTLTimer',
+      );
 
       connectionLimiter.applyLimits(ctx);
 

@@ -81,7 +81,7 @@ const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwri
 //
 //         expect(isResFormatInvalid).to.be.false;
 //         expect(isErrorStatusExpected).to.be.false;
-//       } catch (e: any) {
+//       } catch (e) {
 //         expect(isErrorStatusExpected).to.be.true;
 //         expect(e?.response?.status).to.equal(testCases[testName].status);
 //       }
@@ -101,9 +101,9 @@ const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwri
  * While these contracts will receive different addresses than those in the original tests,
  * their behavior will remain consistent with the expectations.
  */
-const initGenesisData = async function () {
+const initGenesisData = async function (): Promise<void> {
   for (const data of genesisData) {
-    const options = { maxPriorityFeePerGas: gasPrice, maxFeePerGas: gasPrice, gasLimit: gasLimit };
+    const options: Record<string, unknown> = { maxPriorityFeePerGas: gasPrice, maxFeePerGas: gasPrice, gasLimit };
     options['to'] = data.account ? data.account : null;
     if (data.balance) options['value'] = `0x${data.balance.toString(16)}`;
     if (data.bytecode) options['data'] = data.bytecode;
@@ -134,9 +134,9 @@ describe('@api-conformity', async function () {
       const tokenId = await servicesNode.createToken(1000);
       try {
         await hapiTestAccount.client.associateToken(tokenId);
-      } catch (e: any) {
+      } catch (e) {
         // Ignore if already associated
-        if (!e.message?.includes('TOKEN_ALREADY_ASSOCIATED_TO_ACCOUNT')) {
+        if (!(e as { message?: string }).message?.includes('TOKEN_ALREADY_ASSOCIATED_TO_ACCOUNT')) {
           throw e;
         }
       }
@@ -164,7 +164,8 @@ describe('@api-conformity', async function () {
     directories = directories.filter((directory) => relaySupportedMethodNames.includes(directory));
     for (const directory of directories) {
       //Lists all files (tests) in a directory (method). Returns an empty array for a non-existing directory.
-      const ls = (dir: string) => (fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? fs.readdirSync(dir) : []);
+      const ls = (dir: string): string[] =>
+        fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? fs.readdirSync(dir) : [];
       const files = [
         ...new Set([...ls(path.join(directoryPath, directory)), ...ls(path.join(overwritesDirectoryPath, directory))]),
       ];

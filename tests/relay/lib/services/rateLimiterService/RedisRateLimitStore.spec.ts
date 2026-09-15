@@ -34,7 +34,7 @@ describe('RedisRateLimitStore Test Suite', function () {
     // Create a mock Redis client (pre-connected, as expected by the new pattern)
     mockRedisClient = {
       eval: sinon.stub(),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<RedisClientType>;
   });
 
   afterEach(() => {

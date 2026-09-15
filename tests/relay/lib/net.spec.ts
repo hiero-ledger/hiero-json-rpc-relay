@@ -13,8 +13,9 @@ const logger = pino({ level: 'silent' });
 
 describe('Net', async function () {
   before(() => {
-    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
-    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
+    const relayInternals = asRelayInternals(Relay.prototype);
+    sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
   });
 
   after(() => {

@@ -12,7 +12,7 @@ export interface RpcRawResponse {
   jsonrpc?: string;
   method?: string;
   result?: unknown;
-  error?: { code: number; message: string; name?: string };
+  error?: { code: number; message: string; name?: string; data?: unknown };
   status?: number;
 }
 

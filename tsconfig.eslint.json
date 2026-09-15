@@ -2,9 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "noEmit": true,
-    // TODO: temporarily disabled until #5192 phase 3 makes `tests` `noImplicitAny`-clean; `src` stays enforced through `tsconfig.json`.
-    "noImplicitAny": false
+    "noEmit": true
   },
   "include": ["src", "tests"]
 }

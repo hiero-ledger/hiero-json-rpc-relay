@@ -144,7 +144,7 @@ describe('ConfigService tests', async function () {
   it('Should always convert CHAIN_ID to a hexadecimal string, regardless of input value type.', async () => {
     const originalEnv = process.env;
 
-    const testChainId = (input: string, expected: string) => {
+    const testChainId = (input: string, expected: string): void => {
       process.env = { ...originalEnv, CHAIN_ID: input };
       // Reset the ConfigService singleton instance to force a new initialization
       // This is necessary because ConfigService caches the env values when first instantiated,
@@ -179,13 +179,17 @@ describe('ConfigService tests', async function () {
   });
 
   describe('validatePaymasterAccounts', () => {
+    const mutableEnvs = (): Record<string, unknown> =>
+      ConfigService['getInstance']()['envs'] as unknown as Record<string, unknown>;
+
     const setPaymasterAccounts = (value: unknown): void => {
-      (ConfigService['getInstance']()['envs'] as Record<string, unknown>)['PAYMASTER_ACCOUNTS'] = value;
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = value;
     };
-    let initialPaymasterAccounts;
+
+    let initialPaymasterAccounts: unknown;
 
     before(() => {
-      initialPaymasterAccounts = ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'];
+      initialPaymasterAccounts = mutableEnvs()['PAYMASTER_ACCOUNTS'];
     });
 
     after(() => {

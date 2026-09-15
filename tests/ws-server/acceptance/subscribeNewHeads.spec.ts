@@ -17,8 +17,19 @@ import { WsTestHelper } from '../helper';
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
 const evmAddressRegex = /^0x[a-fA-F0-9]*$/;
 
-// eslint-disable-next-line no-undef
-function verifyResponse(response: any, done: Mocha.Done, webSocket: any, includeTransactions: boolean) {
+interface NewHeadsNotification {
+  jsonrpc: string;
+  method: string;
+  params: { subscription: string; result: Record<string, unknown> & { transactions: unknown[] } };
+}
+
+function verifyResponse(
+  response: NewHeadsNotification,
+  // eslint-disable-next-line no-undef
+  done: Mocha.Done,
+  webSocket: WebSocket,
+  includeTransactions: boolean,
+): void {
   if (response?.params?.result?.transactions?.length > 0) {
     try {
       expect(response).to.have.property('jsonrpc', '2.0');
@@ -82,13 +93,13 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
 
-  let mirrorNodeServer, rpcServer;
+  let mirrorNodeServer: MirrorClient;
+  let rpcServer: RelayClient;
 
-  let wsProvider;
+  let wsProvider: ethers.WebSocketProvider;
 
   before(async () => {
-    // @ts-ignore
-    const { mirrorNode, relay }: { socketServer: any; mirrorNode: MirrorClient; relay: RelayClient } = global;
+    const { mirrorNode, relay } = global;
     mirrorNodeServer = mirrorNode;
     rpcServer = relay;
 

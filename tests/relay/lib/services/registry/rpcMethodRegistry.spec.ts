@@ -22,12 +22,12 @@ class MockWeb3Impl {
   // Method decorated with @rpcMethod
   // @ts-ignore: Decorator error in test environment
   @rpcMethod
-  clientVersion() {
+  clientVersion(): string {
     return 'mock-version';
   }
 
   // Method without @rpcMethod
-  nonRpcMethod() {
+  nonRpcMethod(): string {
     return 'not-exposed';
   }
 
@@ -47,14 +47,14 @@ class MockNetImpl {
   // Method decorated with @rpcMethod
   // @ts-ignore: Decorator error in test environment
   @rpcMethod
-  listening() {
+  listening(): boolean {
     return false;
   }
 
   // Method decorated with @rpcMethod
   // @ts-ignore: Decorator error in test environment
   @rpcMethod
-  version() {
+  version(): string {
     return this.chainId;
   }
 
@@ -72,7 +72,7 @@ class MockDebugImpl {
   // Method decorated with @rpcMethod
   // @ts-ignore: Decorator error in test environment
   @rpcMethod
-  async traceTransaction(transactionId: string) {
+  async traceTransaction(transactionId: string): Promise<{ transaction: string }> {
     return { transaction: transactionId };
   }
 
@@ -179,7 +179,7 @@ describe('RpcMethodRegistryService', () => {
       // Create a MockNetImpl with internal state
       const netWithState = new MockNetImpl();
       // Add a property using private access pattern
-      (netWithState as any).chainId = '456';
+      (netWithState as unknown as { chainId: string }).chainId = '456';
 
       registry = registerRpcMethods([
         {
@@ -212,7 +212,7 @@ describe('RpcMethodRegistryService', () => {
     it('should verify that bound methods without name preservation would have different names', () => {
       // Create a simple function to test binding behavior without our custom name preservation
       const obj = {
-        operationName() {
+        operationName(): string {
           return 'test';
         },
       };

@@ -6,13 +6,13 @@ import BigNumber from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 import proxyquire from 'proxyquire';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { MirrorNodeClientError, predefined } from '../../../src/relay';
+import { type JsonRpcError, MirrorNodeClientError, predefined } from '../../../src/relay';
 import { isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
@@ -25,6 +25,7 @@ import {
 import {
   type IAccountInfo,
   type IMirrorNodeLinks,
+  type MirrorNodeBlock,
   type MirrorNodeContractLog,
   type MirrorNodeContractResultDetails,
   type MirrorNodeTransactionRecord,
@@ -77,7 +78,12 @@ describe('MirrorNodeClient', async function () {
       }).MirrorNodeClient;
     }
 
-    const buildLocalClientDeps = () => {
+    const buildLocalClientDeps = (): {
+      localRegistry: Registry;
+      localLogger: Logger;
+      localInstance: AxiosInstance;
+      localCache: ICacheClient;
+    } => {
       const localRegistry = new Registry();
       const localLogger = pino({ level: 'silent' });
       const localInstance = axios.create({
@@ -307,7 +313,7 @@ describe('MirrorNodeClient', async function () {
 
     for (const code of nullResponseCodes) {
       it(`returns null when ${code} is returned`, async () => {
-        const error = new Error('test error');
+        const error = new Error('test error') as Error & { response: string };
         error['response'] = 'test error';
 
         const result = mirrorNodeInstance.handleError(
@@ -324,12 +330,13 @@ describe('MirrorNodeClient', async function () {
     for (const code of errorRepsonseCodes) {
       it(`throws an error when ${code} is returned`, async () => {
         try {
-          const error = new Error('test error');
+          const error = new Error('test error') as Error & { response: string };
           error['response'] = 'test error';
           mirrorNodeInstance.handleError(error, CONTRACT_CALL_ENDPOINT, CONTRACT_CALL_ENDPOINT, code, 'POST');
           expect.fail('should have thrown an error');
-        } catch (e: any) {
-          expect(e.message).to.equal('test error');
+        } catch (e) {
+          const thrown = e as Error;
+          expect(thrown.message).to.equal('test error');
         }
       });
     }
@@ -551,11 +558,11 @@ describe('MirrorNodeClient', async function () {
     expect(result!.links.next).to.exist;
     expect(result!.accounts).to.exist;
     expect(result!.accounts.length).to.gt(0);
-    result!.accounts.forEach((acc: any) => {
+    result!.accounts.forEach((acc) => {
       expect(acc.account).to.exist;
       expect(acc.balance).to.exist;
-      expect(acc.balance.balance).to.exist;
-      expect(acc.balance.timestamp).to.exist;
+      expect(acc.balance!.balance).to.exist;
+      expect(acc.balance!.timestamp).to.exist;
     });
   });
 
@@ -579,8 +586,9 @@ describe('MirrorNodeClient', async function () {
   it('call to non-existing REST route returns 404', async () => {
     try {
       expect(await mirrorNodeInstance.get('non-existing-route', 'non-existing-route', requestDetails)).to.throw;
-    } catch (err: any) {
-      expect(err.statusCode).to.eq(404);
+    } catch (err) {
+      const thrown = err as MirrorNodeClientError;
+      expect(thrown.statusCode).to.eq(404);
     }
   });
 
@@ -795,9 +803,10 @@ describe('MirrorNodeClient', async function () {
     try {
       await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, 2);
       expect.fail('should have thrown an error');
-    } catch (e: any) {
-      expect(e.message).to.equal('Exceeded maximum mirror node pagination count: 2');
-      expect(e.code).to.equal(predefined.PAGINATION_MAX(0).code);
+    } catch (e) {
+      const thrown = e as JsonRpcError;
+      expect(thrown.message).to.equal('Exceeded maximum mirror node pagination count: 2');
+      expect(thrown.code).to.equal(predefined.PAGINATION_MAX(0).code);
     }
   });
 
@@ -836,9 +845,10 @@ describe('MirrorNodeClient', async function () {
     let errorRaised = false;
     try {
       await mirrorNodeInstance.getAccount(evmAddress, requestDetails);
-    } catch (error: any) {
+    } catch (error) {
+      const thrown = error as Error;
       errorRaised = true;
-      expect(error.message).to.equal(`Request failed with status code 500`);
+      expect(thrown.message).to.equal(`Request failed with status code 500`);
     }
     expect(errorRaised).to.be.true;
   });
@@ -849,9 +859,10 @@ describe('MirrorNodeClient', async function () {
     let errorRaised = false;
     try {
       await mirrorNodeInstance.getAccount(invalidAddress, requestDetails);
-    } catch (error: any) {
+    } catch (error) {
+      const thrown = error as Error;
       errorRaised = true;
-      expect(error.message).to.equal(`Request failed with status code 400`);
+      expect(thrown.message).to.equal(`Request failed with status code 400`);
     }
     expect(errorRaised).to.be.true;
   });
@@ -1257,7 +1268,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultForBlock` returns the most recent contract result for a block', async () => {
     const block = {
       timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
-    } as any;
+    } as unknown as MirrorNodeBlock;
     mock
       .onGet(
         `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
@@ -1274,7 +1285,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultForBlock` returns null when the block has no contract results', async () => {
     const block = {
       timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
-    } as any;
+    } as unknown as MirrorNodeBlock;
     mock
       .onGet(
         `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
@@ -1694,7 +1705,7 @@ describe('MirrorNodeClient', async function () {
     const incorrectAddress = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ed';
     try {
       expect(await mirrorNodeInstance.getContractResultsLogsByAddress(incorrectAddress, requestDetails)).to.throw;
-    } catch (err: any) {
+    } catch (err) {
       expect(err).to.exist;
     }
   });
@@ -2100,8 +2111,8 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('getPaginatedResults', async () => {
-    const mockPages = (pages) => {
-      let mockedResults: any[] = [];
+    const mockPages = (pages: number): { foo: string }[] => {
+      let mockedResults: { foo: string }[] = [];
       for (let i = 0; i < pages; i++) {
         const results = [{ foo: `bar${i}` }];
         mockedResults = mockedResults.concat(results);
@@ -2176,12 +2187,13 @@ describe('MirrorNodeClient', async function () {
           requestDetails,
         );
         expect.fail('should have thrown an error');
-      } catch (e: any) {
+      } catch (e) {
+        const thrown = e as JsonRpcError;
         const errorRef = predefined.PAGINATION_MAX(0); // reference error for all properties except message
-        expect(e.message).to.equal(
+        expect(thrown.message).to.equal(
           `Exceeded maximum mirror node pagination count: ${ConfigService.get('MIRROR_NODE_PAGINATION_MAX')}`,
         );
-        expect(e.code).to.equal(errorRef.code);
+        expect(thrown.code).to.equal(errorRef.code);
       }
     });
   });
@@ -2375,7 +2387,7 @@ describe('MirrorNodeClient', async function () {
   describe('getAccountLatestEthereumTransactionsByTimestamp', async () => {
     const evmAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
     const timestamp = '1686019921.957394003';
-    const transactionPath = (addresss, num) =>
+    const transactionPath = (addresss: string, num: number): string =>
       `accounts/${addresss}?transactiontype=ETHEREUMTRANSACTION&timestamp=lte:${timestamp}&limit=${num}&order=desc`;
     const defaultTransaction = {
       transactions: [
@@ -2474,9 +2486,10 @@ describe('MirrorNodeClient', async function () {
       let errorRaised = false;
       try {
         await mirrorNodeInstance.getAccountLatestEthereumTransactionsByTimestamp(address, timestamp, requestDetails);
-      } catch (error: any) {
+      } catch (error) {
+        const thrown = error as Error;
         errorRaised = true;
-        expect(error.message).to.equal(`Request failed with status code 500`);
+        expect(thrown.message).to.equal(`Request failed with status code 500`);
       }
       expect(errorRaised).to.be.true;
     });
@@ -2491,9 +2504,10 @@ describe('MirrorNodeClient', async function () {
           timestamp,
           requestDetails,
         );
-      } catch (error: any) {
+      } catch (error) {
+        const thrown = error as Error;
         errorRaised = true;
-        expect(error.message).to.equal(`Request failed with status code 400`);
+        expect(thrown.message).to.equal(`Request failed with status code 400`);
       }
       expect(errorRaised).to.be.true;
     });
@@ -3091,27 +3105,31 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('response body parsing', () => {
-    const getNetworkFeesWithBody = async (body: string): Promise<any> => {
+    // `getNetworkFees` is only the vehicle for exercising the response-body parser, so the
+    // bodies below are arbitrary JSON rather than real `INetworkFees` payloads.
+    const getNetworkFeesWithBody = async <T>(body: string): Promise<T> => {
       mock.onGet('network/fees').reply(200, body);
-      return mirrorNodeInstance.getNetworkFees(requestDetails);
+      return (await mirrorNodeInstance.getNetworkFees(requestDetails)) as unknown as T;
     };
 
     it('should preserve an integer beyond the safe range as a BigNumber', async () => {
-      const response = await getNetworkFeesWithBody('{"amount":1000000000000000000000}');
+      const response = await getNetworkFeesWithBody<{ amount: BigNumber }>('{"amount":1000000000000000000000}');
 
       expect(BigNumber.isBigNumber(response.amount)).to.be.true;
       expect(response.amount.toString()).to.equal('1000000000000000000000');
     });
 
     it('should preserve a negative integer beyond the safe range as a BigNumber', async () => {
-      const response = await getNetworkFeesWithBody('{"amount":-1000000000000000000000}');
+      const response = await getNetworkFeesWithBody<{ amount: BigNumber }>('{"amount":-1000000000000000000000}');
 
       expect(BigNumber.isBigNumber(response.amount)).to.be.true;
       expect(response.amount.toString()).to.equal('-1000000000000000000000');
     });
 
     it('should widen at the same literal-length boundary as json-bigint', async () => {
-      const response = await getNetworkFeesWithBody('{"small":999999999999999,"big":1000000000000000}');
+      const response = await getNetworkFeesWithBody<{ small: number; big: BigNumber }>(
+        '{"small":999999999999999,"big":1000000000000000}',
+      );
 
       expect(response.small).to.be.a('number');
       expect(response.small).to.equal(999999999999999);
@@ -3121,7 +3139,7 @@ describe('MirrorNodeClient', async function () {
 
     it('should leave long digit runs inside strings untouched', async () => {
       const paddedTopic = `0x${'0'.repeat(64)}`;
-      const response = await getNetworkFeesWithBody(
+      const response = await getNetworkFeesWithBody<{ data: string; timestamp: string; gas: number }>(
         JSON.stringify({ data: paddedTopic, timestamp: '1700000000.123456789', gas: 57 }),
       );
 
@@ -3132,14 +3150,16 @@ describe('MirrorNodeClient', async function () {
 
     it('should not treat a timestamp filter inside links.next as a widened literal', async () => {
       const next = '/api/v1/contracts/results/logs?limit=100&order=desc&timestamp=lt:1788415891.548547568';
-      const response = await getNetworkFeesWithBody(JSON.stringify({ logs: [{ index: 3 }], links: { next } }));
+      const response = await getNetworkFeesWithBody<{ links: { next: string }; logs: { index: number }[] }>(
+        JSON.stringify({ logs: [{ index: 3 }], links: { next } }),
+      );
 
       expect(response.links.next).to.equal(next);
       expect(response.logs[0].index).to.be.a('number').that.equals(3);
     });
 
     it('should return the raw body when it cannot be parsed', async () => {
-      const response = await getNetworkFeesWithBody('not a json body');
+      const response = await getNetworkFeesWithBody<string>('not a json body');
 
       expect(response).to.equal('not a json body');
     });

@@ -13,15 +13,15 @@ import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes
 import { isValidAndNonNullableParam, validateObject } from '../../../../src/relay/lib/validators/utils';
 
 describe('Validator', async () => {
-  function expectInvalidParam(index: number | string, message: string, paramValue?: string) {
+  function expectInvalidParam(index: number | string, message: string, paramValue?: string): string {
     return `Invalid parameter ${index}: ${message}${paramValue ? `, value: ${paramValue}` : ''}`;
   }
 
-  function expectUnknownParam(index: number | string, object: string, message: string) {
+  function expectUnknownParam(index: number | string, object: string, message: string): string {
     return `Invalid parameter '${index}' for ${object}: ${message}`;
   }
 
-  function expectInvalidObject(index: number | string, message: string, object: string, paramValue: string) {
+  function expectInvalidObject(index: number | string, message: string, object: string, paramValue: string): string {
     return `Invalid parameter '${index}' for ${object}: ${message}, value: ${paramValue}`;
   }
 
@@ -1327,8 +1327,8 @@ describe('Validator', async () => {
 
   function describeTests(
     type: IParamValidation['type'],
-    tests: { validCases: any[]; invalidCases: { input: any; error: any }[] },
-  ) {
+    tests: { validCases: unknown[]; invalidCases: { input: unknown; error: string }[] },
+  ): void {
     describe(`validates ${type} correctly`, async () => {
       const validation: Record<number, IParamValidation> = { 0: { type, required: true } };
 

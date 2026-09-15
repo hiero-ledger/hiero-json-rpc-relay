@@ -46,7 +46,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
   }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
     generateEthTestEnv();
   const requestDetails = new RequestDetails({ requestId: 'eth_getStorageAtTest', ipAddress: '0.0.0.0' });
-  function confirmResult(result: string) {
+  function confirmResult(result: string): void {
     expect(result).to.exist;
     expect(result).to.not.be.null;
     expect(result).equal(DEFAULT_CURRENT_CONTRACT_STATE.state[0].value);

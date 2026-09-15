@@ -24,12 +24,13 @@ describe('Relay', () => {
 
   const logger = pino({ level: 'silent' });
   const register = new Registry();
+  const relayInternals = asRelayInternals(Relay.prototype);
   let relay: Relay;
 
   beforeEach(async () => {
-    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
+    sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
     // Prevent waitForMirrorNode from making real HTTP requests during non-connectivity tests
-    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
+    sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
     relay = await Relay.init(logger, register);
   });
 
@@ -87,10 +88,7 @@ describe('Relay', () => {
 
     beforeEach(() => {
       loggerSpy = sinon.spy(logger);
-      populatePreconfiguredSpendingPlansSpy = sinon.spy(
-        asRelayInternals(Relay.prototype),
-        'populatePreconfiguredSpendingPlans',
-      );
+      populatePreconfiguredSpendingPlansSpy = sinon.spy(relayInternals, 'populatePreconfiguredSpendingPlans');
     });
 
     afterEach(() => {
@@ -264,7 +262,7 @@ describe('Relay', () => {
     beforeEach(() => {
       sinon.restore();
       // Re-stub ensureOperatorHasBalance so these tests only exercise waitForMirrorNode
-      sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
+      sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
       checkServerReadinessStub = sinon.stub(MirrorNodeClient.prototype, 'checkServerReadiness').resolves();
     });
 

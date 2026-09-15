@@ -39,7 +39,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 
-function verifyAggregatedInfo(result: Transaction | null) {
+function verifyAggregatedInfo(result: Transaction | null): void {
   // verify aggregated info
   if (result) {
     expect(result.blockHash).equal(BLOCK_HASH_TRIMMED);

@@ -12,7 +12,13 @@ import type { ITransactionReceipt, MirrorNodeContractResultReceipt } from '../..
 export type DecodedLog = [Uint8Array, Uint8Array[], Uint8Array];
 export type DecodedReceipt = [Uint8Array, Uint8Array, Uint8Array, DecodedLog[]];
 
-function decodeEncodedReceipt(encoded: string) {
+function decodeEncodedReceipt(encoded: string): {
+  txType: number;
+  rootOrStatus: Uint8Array;
+  cumulativeGasUsed: Uint8Array;
+  logsBloom: Uint8Array;
+  logs: DecodedLog[];
+} {
   const bytes = hexToBytes(encoded as `0x${string}`);
 
   const isTyped = bytes.length > 0 && (bytes[0] === 0x01 || bytes[0] === 0x02);

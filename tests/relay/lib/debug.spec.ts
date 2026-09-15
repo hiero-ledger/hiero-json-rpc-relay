@@ -23,16 +23,25 @@ import { CommonService } from '../../../src/relay/lib/services';
 import HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import {
+  type BlockTracerConfig,
   type CallTracerResult,
+  type ContractAction,
+  type EntityTraceStateMap,
   type IAccountBalancesPage,
   type IContractStateEntry,
   type IMirrorNodeEntity,
+  type MirrorNodeContractResult,
   RequestDetails,
 } from '../../../src/relay/lib/types';
 import { assertExists } from '../../helpers/typeAssertions';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
 import { generateEthTestEnv } from './eth/eth-helpers';
+
+type SyntheticContractResult = Omit<MirrorNodeContractResult, 'gas_consumed' | 'nonce'> & {
+  gas_consumed: null;
+  nonce: null;
+};
 
 chai.use(chaiAsPromised);
 
@@ -120,7 +129,7 @@ describe('Debug API Test Suite', async function () {
 
   // Contract result of a synthetic transaction, as returned by /contracts/results since mirror node
   // v0.157.0: built from the synthetic contract logs, so it holds no EVM execution data
-  const toSyntheticContractResult = (log: typeof syntheticLog) => ({
+  const toSyntheticContractResult = (log: typeof syntheticLog): SyntheticContractResult => ({
     address: log.address,
     amount: null,
     bloom: '0x',
@@ -181,26 +190,27 @@ describe('Debug API Test Suite', async function () {
   };
 
   // Helper to reduce repetition when creating CREATE actions for tests
-  const makeCreateAction = (overrides: Partial<any> = {}) => ({
-    call_depth: 0,
-    call_operation_type: 'CREATE',
-    call_type: 'CREATE',
-    caller: '0.0.1016',
-    caller_type: 'ACCOUNT',
-    from: senderAddress,
-    gas: 247000,
-    gas_used: 77324,
-    index: 0,
-    input: '0x',
-    recipient: '0.0.1033',
-    recipient_type: 'CONTRACT',
-    result_data: '0x',
-    result_data_type: 'OUTPUT',
-    timestamp: '1696438011.462526383',
-    to: contractAddress,
-    value: 0,
-    ...overrides,
-  });
+  const makeCreateAction = (overrides: Record<string, unknown> = {}): ContractAction =>
+    ({
+      call_depth: 0,
+      call_operation_type: 'CREATE',
+      call_type: 'CREATE',
+      caller: '0.0.1016',
+      caller_type: 'ACCOUNT',
+      from: senderAddress,
+      gas: 247000,
+      gas_used: 77324,
+      index: 0,
+      input: '0x',
+      recipient: '0.0.1033',
+      recipient_type: 'CONTRACT',
+      result_data: '0x',
+      result_data_type: 'OUTPUT',
+      timestamp: '1696438011.462526383',
+      to: contractAddress,
+      value: 0,
+      ...overrides,
+    }) as ContractAction;
 
   const opcodeLoggerConfigs = [
     {
@@ -1064,13 +1074,19 @@ describe('Debug API Test Suite', async function () {
 
         for (const config of opcodeLoggerConfigs) {
           const opcodeLoggerParams = Object.keys(config)
-            .map((key) => `${key}=${config[key]}`)
+            .map((key) => `${key}=${config[key as keyof typeof config]}`)
             .join(', ');
 
           describe(`When opcode logger is called with ${opcodeLoggerParams}`, async function () {
             const emptyFields = Object.keys(config)
-              .filter((key) => (key.startsWith('disable') && config[key]) || (key.startsWith('enable') && !config[key]))
-              .map((key) => (config[key] ? key.replace('disable', '') : key.replace('enable', '')))
+              .filter(
+                (key) =>
+                  (key.startsWith('disable') && config[key as keyof typeof config]) ||
+                  (key.startsWith('enable') && !config[key as keyof typeof config]),
+              )
+              .map((key) =>
+                config[key as keyof typeof config] ? key.replace('disable', '') : key.replace('enable', ''),
+              )
               .map((key) => key.toLowerCase());
 
             it(`Then ${
@@ -1177,11 +1193,12 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.be.an('object');
           expect(Object.keys(result)).to.have.lengthOf(2);
 
-          for (const address of Object.keys(result)) {
-            expect(result[address]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
-            expect(result[address].nonce).to.be.a('number');
-            expect(result[address].code).to.exist;
-            expect(result[address].storage).to.be.an('object');
+          const prestateResult = result as EntityTraceStateMap;
+          for (const address of Object.keys(prestateResult)) {
+            expect(prestateResult[address]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
+            expect(prestateResult[address].nonce).to.be.a('number');
+            expect(prestateResult[address].code).to.exist;
+            expect(prestateResult[address].storage).to.be.an('object');
           }
         });
 
@@ -1727,7 +1744,11 @@ describe('Debug API Test Suite', async function () {
           // Pass undefined with type assertion for the second parameter
           // In the implementation, undefined tracerObject triggers default behavior (using CallTracer)
           // TypeScript requires type assertion since the parameter is normally required
-          const result = await debugService.traceBlockByNumber(blockNumber, undefined as any, requestDetails);
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            undefined as unknown as BlockTracerConfig,
+            requestDetails,
+          );
 
           expect(result).to.be.an('array').with.lengthOf(1);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
@@ -2343,7 +2364,11 @@ describe('Debug API Test Suite', async function () {
           sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
           sinon.stub(debugService, 'callTracer').resolves(callTracerResult1);
 
-          const result = await debugService.traceBlockByHash(blockHash, undefined as any, requestDetails);
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            undefined as unknown as BlockTracerConfig,
+            requestDetails,
+          );
 
           expect(result).to.be.an('array').with.lengthOf(1);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });

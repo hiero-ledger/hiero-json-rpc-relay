@@ -23,6 +23,7 @@ import {
   HbarSpendingPlanNotFoundError,
   IPAddressHbarSpendingPlanNotFoundError,
 } from '../../../../src/relay/lib/db/types/hbarLimiter/errors';
+import { type IDetailedHbarSpendingPlan } from '../../../../src/relay/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../../src/relay/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../../src/relay/lib/factories/cacheClientFactory';
 import { type SpendingPlanConfig } from '../../../../src/relay/lib/types/spendingPlanConfig';
@@ -35,6 +36,12 @@ import {
 } from '../../helpers';
 
 chai.use(chaiAsPromised);
+
+interface HbarSpendingPlanConfigServiceInternals {
+  loadSpendingPlansConfig(logger: Logger): unknown[];
+}
+
+const configServiceInternals = HbarSpendingPlanConfigService as unknown as HbarSpendingPlanConfigServiceInternals;
 
 describe('HbarSpendingPlanConfigService', function () {
   const logger = pino({
@@ -113,7 +120,7 @@ describe('HbarSpendingPlanConfigService', function () {
         subscriptionTier: SubscriptionTier.BASIC,
         createdAt: new Date(),
         active: true,
-      } as any; // Use 'as any' to test runtime behavior when properties are undefined
+      } as unknown as IDetailedHbarSpendingPlan; // exercises runtime behaviour when properties are undefined
 
       const plan = new HbarSpendingPlan(planData);
 
@@ -130,7 +137,7 @@ describe('HbarSpendingPlanConfigService', function () {
         amountSpent: null,
         createdAt: new Date(),
         active: true,
-      } as any; // Use 'as any' to test runtime behavior when properties are null
+      } as unknown as IDetailedHbarSpendingPlan; // exercises runtime behaviour when properties are null
 
       const plan = new HbarSpendingPlan(planData);
 
@@ -140,7 +147,7 @@ describe('HbarSpendingPlanConfigService', function () {
     });
   });
 
-  const tests = (hbarSpendingPlansConfigEnv: string) => {
+  const tests = (hbarSpendingPlansConfigEnv: string): void => {
     let cacheService: ICacheClient;
     let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
     let evmAddressHbarSpendingPlanRepository: EvmAddressHbarSpendingPlanRepository;
@@ -172,7 +179,7 @@ describe('HbarSpendingPlanConfigService', function () {
         logger.child({ name: 'cache-service' }),
         registry,
         reservedKeys,
-        redisClient as any,
+        redisClient,
       );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
@@ -240,9 +247,7 @@ describe('HbarSpendingPlanConfigService', function () {
             subscriptionTier: SubscriptionTier.EXTENDED,
             evmAddresses: ['0x123'],
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -255,9 +260,7 @@ describe('HbarSpendingPlanConfigService', function () {
             subscriptionTier: SubscriptionTier.EXTENDED,
             evmAddresses: ['0x123'],
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -270,9 +273,7 @@ describe('HbarSpendingPlanConfigService', function () {
             name: 'Plan without tier',
             evmAddresses: ['0x123'],
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -286,9 +287,7 @@ describe('HbarSpendingPlanConfigService', function () {
             subscriptionTier: 'INVALID_TIER',
             evmAddresses: ['0x123'],
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -301,9 +300,7 @@ describe('HbarSpendingPlanConfigService', function () {
             name: 'Plan without addresses',
             subscriptionTier: SubscriptionTier.EXTENDED,
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -318,9 +315,7 @@ describe('HbarSpendingPlanConfigService', function () {
             evmAddresses: [],
             ipAddresses: [],
           };
-          sinon
-            .stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any)
-            .returns([...spendingPlansConfig, invalidPlan]);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns([...spendingPlansConfig, invalidPlan]);
 
           await expect(
             hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans(),
@@ -330,7 +325,7 @@ describe('HbarSpendingPlanConfigService', function () {
 
       describe('positive scenarios', function () {
         // Helper function to save spending plans and their associations from the configurations
-        const saveSpendingPlans = async (spendingPlansConfig: SpendingPlanConfig[]) => {
+        const saveSpendingPlans = async (spendingPlansConfig: SpendingPlanConfig[]): Promise<void> => {
           for (const plan of spendingPlansConfig) {
             await hbarSpendingPlanRepository.create(plan.subscriptionTier, neverExpireTtl, plan.id);
             for (const evmAddress of plan.evmAddresses || []) {
@@ -350,7 +345,7 @@ describe('HbarSpendingPlanConfigService', function () {
           oldConfig: SpendingPlanConfig[],
           newConfig: SpendingPlanConfig[],
           fieldName: 'evmAddresses' | 'ipAddresses',
-        ) => {
+        ): { address: string; oldPlanId: string; newPlanId?: string }[] => {
           const obsoleteAssociations: { address: string; oldPlanId: string; newPlanId?: string }[] = [];
 
           oldConfig.forEach((oldPlan) => {
@@ -375,7 +370,10 @@ describe('HbarSpendingPlanConfigService', function () {
         };
 
         // Helper function to verify spending plans based on the changes in configuration file
-        const verifySpendingPlans = async (oldConfig: SpendingPlanConfig[], newConfig?: SpendingPlanConfig[]) => {
+        const verifySpendingPlans = async (
+          oldConfig: SpendingPlanConfig[],
+          newConfig?: SpendingPlanConfig[],
+        ): Promise<void> => {
           const spendingPlans = newConfig || oldConfig;
 
           // Validate existence of the configured spending plans and their associations to eth and ip addresses
@@ -576,7 +574,7 @@ describe('HbarSpendingPlanConfigService', function () {
             evmAddresses: [toHex(index)].concat(plan.evmAddresses ? plan.evmAddresses : []),
             ipAddresses: plan.ipAddresses,
           }));
-          sinon.stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any).returns(newSpendingPlansConfig);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns(newSpendingPlansConfig);
           await saveSpendingPlans(spendingPlansConfig);
 
           await hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans();
@@ -610,7 +608,7 @@ describe('HbarSpendingPlanConfigService', function () {
             evmAddresses: plan.evmAddresses,
             ipAddresses: [`255.0.0.${index}`].concat(plan.ipAddresses ? plan.ipAddresses : []),
           }));
-          sinon.stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any).returns(newSpendingPlansConfig);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns(newSpendingPlansConfig);
           await saveSpendingPlans(spendingPlansConfig);
 
           await hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans();
@@ -642,7 +640,7 @@ describe('HbarSpendingPlanConfigService', function () {
             evmAddresses: plan.evmAddresses ? [plan.evmAddresses[0]] : [],
             ipAddresses: plan.ipAddresses,
           }));
-          sinon.stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any).returns(newSpendingPlansConfig);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns(newSpendingPlansConfig);
           await saveSpendingPlans(spendingPlansConfig);
 
           await hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans();
@@ -674,7 +672,7 @@ describe('HbarSpendingPlanConfigService', function () {
             evmAddresses: plan.evmAddresses,
             ipAddresses: plan.ipAddresses ? [plan.ipAddresses[0]] : [],
           }));
-          sinon.stub(HbarSpendingPlanConfigService, 'loadSpendingPlansConfig' as any).returns(newSpendingPlansConfig);
+          sinon.stub(configServiceInternals, 'loadSpendingPlansConfig').returns(newSpendingPlansConfig);
           await saveSpendingPlans(spendingPlansConfig);
 
           await hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans();

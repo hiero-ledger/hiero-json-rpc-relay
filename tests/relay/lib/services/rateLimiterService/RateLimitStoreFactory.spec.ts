@@ -4,6 +4,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { type Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
+import { type RedisClientType } from 'redis';
 
 import { LruRateLimitStore } from '../../../../../src/relay/lib/services/rateLimiterService/LruRateLimitStore';
 import { RateLimitStoreFactory } from '../../../../../src/relay/lib/services/rateLimiterService/RateLimitStoreFactory';
@@ -16,7 +17,7 @@ describe('RateLimitStoreFactory', () => {
   let registry: Registry;
   let rateLimitStoreFailureCounter: Counter;
   const testDuration = 5000;
-  const mockRedisClient = { eval: () => {} } as any;
+  const mockRedisClient = { eval: (): void => {} } as unknown as RedisClientType;
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });

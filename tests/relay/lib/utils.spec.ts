@@ -181,7 +181,7 @@ describe('Utils', () => {
     });
 
     it('should return only requestDetails for REQUEST_DETAILS_ONLY layout', () => {
-      const mockMethod = function () {};
+      const mockMethod = function (): void {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = RPC_LAYOUT.REQUEST_DETAILS_ONLY;
 
       const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
@@ -189,8 +189,8 @@ describe('Utils', () => {
     });
 
     it('should apply custom parameter layout function', () => {
-      const customLayout = (params) => [params[0], params[1]];
-      const mockMethod = function () {};
+      const customLayout = (params: unknown[]): unknown[] => [params[0], params[1]];
+      const mockMethod = function (): void {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = customLayout;
 
       const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
@@ -198,21 +198,21 @@ describe('Utils', () => {
     });
 
     it('should use default behavior when no layout is specified', () => {
-      const mockMethod = function () {};
+      const mockMethod = function (): void {};
 
       const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
       expect(result).to.deep.equal(['param1', 'param2', requestDetails]);
     });
 
     it('should handle empty params with default behavior', () => {
-      const mockMethod = function () {};
+      const mockMethod = function (): void {};
 
       const result = Utils.arrangeRpcParams(mockMethod, [], requestDetails);
       expect(result).to.deep.equal([requestDetails]);
     });
 
     describe('special case for traceTransaction', () => {
-      const traceTransactionMethod = function traceTransaction() {};
+      const traceTransactionMethod = function traceTransaction(): void {};
       const transactionHash = '0x123456789abcdef';
       const tracerConfig = { enableMemory: true };
 

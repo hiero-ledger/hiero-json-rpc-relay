@@ -7,6 +7,7 @@ import { createSandbox } from 'sinon';
 
 import { JsonRpcError } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
+import { type Block } from '../../../../src/relay/lib/model';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
@@ -121,11 +122,11 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     root: undefined,
   };
 
-  const stubBlockAndFeesFunc = (sandbox: sinon.SinonSandbox) => {
+  const stubBlockAndFeesFunc = (sandbox: sinon.SinonSandbox): void => {
     const gasPrice = 12500000000000000000;
-    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
-    sandbox.stub(ethImpl, <any>'getBlockByHash').resolves(DEFAULT_BLOCK);
-    sandbox.stub(ethImpl['common'], <any>'getGasPriceInWeibars').resolves(gasPrice);
+    sandbox.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sandbox.stub(ethImpl, 'getBlockByHash').resolves(DEFAULT_BLOCK as unknown as Block);
+    sandbox.stub(ethImpl['common'], 'getGasPriceInWeibars').resolves(gasPrice);
   };
 
   this.afterEach(async () => {
@@ -165,7 +166,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     restMock
       .onGet(`contracts/results/logs?transaction.hash=${txHash}&limit=100&order=asc`)
       .reply(200, JSON.stringify({ logs: DEFAULT_LOGS_3 }));
-    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sandbox.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
 
     const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
 
@@ -467,7 +468,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       nonce: 3019,
     };
 
-    const collapseImmatureRecordPolling = () => {
+    const collapseImmatureRecordPolling = (): void => {
       sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRequestRetryCount').returns(1);
       sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRetryDelay').returns(0);
     };

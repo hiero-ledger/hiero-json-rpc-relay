@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -17,6 +18,12 @@ import { SubscriptionService } from '../../../../src/ws-server/service/subscript
 import { type WsContext } from '../../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { withOverriddenEnvsInMochaTest } from '../../../../tests/relay/helpers';
+
+interface MockLogger {
+  warn: sinon.SinonStub;
+  trace: sinon.SinonStub;
+  isLevelEnabled?: sinon.SinonStub;
+}
 
 // `IJsonRpcResponse` is a `{ result } | { error }` union; each test exercises one branch.
 type JsonRpcErrorResponse = Extract<IJsonRpcResponse, { error: IJsonRpcError }>;
@@ -38,7 +45,7 @@ function createMockContext(): WsContext {
 }
 
 describe('JSON Rpc Controller', function () {
-  let mockLogger: any;
+  let mockLogger: MockLogger;
   let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
   let stubRelay: sinon.SinonStubbedInstance<Relay>;
   let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
@@ -81,7 +88,7 @@ describe('JSON Rpc Controller', function () {
       defaultRequestParams = [
         createMockContext(),
         stubRelay,
-        mockLogger,
+        mockLogger as unknown as Logger,
         { id: '2', method: 'eth_chainId', jsonrpc: '2.0' } as IJsonRpcRequest,
         stubConnectionLimiter,
         stubMirrorNodeClient,

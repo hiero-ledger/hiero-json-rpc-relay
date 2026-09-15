@@ -7,7 +7,7 @@ import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type ServicesClient from '../server/clients/servicesClient';
-import Assertions from '../server/helpers/assertions';
+import Assertions, { type FeeHistoryResponseLike } from '../server/helpers/assertions';
 import constants from '../server/helpers/constants';
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
@@ -34,7 +34,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('should call eth_feeHistory', async () => {
-        const result = (await client.call(METHOD_NAME, ['0x1', 'latest'])) as any;
+        const result = (await client.call(METHOD_NAME, ['0x1', 'latest'])) as FeeHistoryResponseLike;
 
         expect(result.baseFeePerGas).to.exist.and.be.an('Array');
         expect(result.baseFeePerGas.length).to.be.gt(0);
@@ -46,7 +46,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
 
       it('should return fee history with correct structure for a single block', async () => {
         const blockCount = 1;
-        const result = (await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', []])) as any;
+        const result = (await client.call(METHOD_NAME, [
+          `0x${blockCount.toString(16)}`,
+          'latest',
+          [],
+        ])) as FeeHistoryResponseLike;
 
         expect(result.baseFeePerGas, 'baseFeePerGas should be an Array').to.be.an('Array');
         expect(result.gasUsedRatio, 'gasUsedRatio should be an Array').to.be.an('Array');
@@ -57,24 +61,28 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
       });
 
       it('should return no reward field when rewardPercentiles is empty', async () => {
-        const result = (await client.call(METHOD_NAME, ['0x1', 'latest', []])) as any;
+        const result = (await client.call(METHOD_NAME, ['0x1', 'latest', []])) as FeeHistoryResponseLike;
 
         expect(result.reward).to.not.exist;
       });
 
       it('should call eth_feeHistory with valid rewardPercentiles whose size is less than 100', async () => {
-        const result = (await client.call(METHOD_NAME, ['0x1', 'latest', [25, 75]])) as any;
+        const result = (await client.call(METHOD_NAME, ['0x1', 'latest', [25, 75]])) as FeeHistoryResponseLike;
 
         expect(result.reward).to.exist.and.be.an('Array');
-        expect(result.reward.length).to.be.gt(0);
+        expect(result.reward?.length).to.be.gt(0);
       });
 
       it('should return reward field when rewardPercentiles are provided', async () => {
         const blockCount = 2;
-        const result = (await client.call(METHOD_NAME, [`0x${blockCount.toString(16)}`, 'latest', [25, 75]])) as any;
+        const result = (await client.call(METHOD_NAME, [
+          `0x${blockCount.toString(16)}`,
+          'latest',
+          [25, 75],
+        ])) as FeeHistoryResponseLike;
 
         expect(result.reward, 'reward should be an Array').to.be.an('Array');
-        expect(result.reward.length).to.equal(blockCount);
+        expect(result.reward?.length).to.equal(blockCount);
       });
 
       it('should fail to call eth_feeHistory with invalid rewardPercentiles whose size is greater than 100', async () => {
@@ -132,7 +140,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
             const newestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number);
             const oldestBlockNumberHex = ethers.toQuantity(lastBlockAfterUpdate.number - blockCountNumber + 1);
 
-            const result = (await client.call(METHOD_NAME, [blockCountHex, newestBlockNumberHex, [0]])) as any;
+            const result = (await client.call(METHOD_NAME, [
+              blockCountHex,
+              newestBlockNumberHex,
+              [0],
+            ])) as FeeHistoryResponseLike;
 
             Assertions.feeHistory(result, {
               resultCount: blockCountNumber,
@@ -161,7 +173,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-fee-service eth_fee
           });
 
           it('should call eth_feeHistory with zero block count', async function () {
-            const result = (await client.call(METHOD_NAME, ['0x0', 'latest', null] as unknown[])) as any;
+            const result = (await client.call(METHOD_NAME, [
+              '0x0',
+              'latest',
+              null,
+            ] as unknown[])) as FeeHistoryResponseLike;
 
             expect(result.reward).to.not.exist;
             expect(result.baseFeePerGas).to.not.exist;

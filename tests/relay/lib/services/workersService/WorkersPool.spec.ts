@@ -4,12 +4,23 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 
 import { JsonRpcError, MirrorNodeClientError, predefined } from '../../../../../src/relay';
+import { type ICacheClient } from '../../../../../src/relay/lib/clients/cache/ICacheClient';
+import { type MirrorNodeClient } from '../../../../../src/relay/lib/clients/mirrorNodeClient';
 import { resetWorkerContext } from '../../../../../src/relay/lib/services/workersService/workerContext';
 import { WorkersPool } from '../../../../../src/relay/lib/services/workersService/WorkersPool';
+import { type RequestDetails } from '../../../../../src/relay/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../../helpers';
 
 /** Minimal Piscina-shaped stub sufficient to exercise WorkersPool.run() without spawning threads. */
-function makePiscinaStub(resolveWith?: unknown, rejectWith?: Error) {
+interface PiscinaStub {
+  run: sinon.SinonStub;
+  histogram: { waitTime: { average: number } };
+  utilization: number;
+  threads: object[];
+  queueSize: number;
+}
+
+function makePiscinaStub(resolveWith?: unknown, rejectWith?: Error): PiscinaStub {
   return {
     run: rejectWith ? sinon.stub().rejects(rejectWith) : sinon.stub().resolves(resolveWith),
     histogram: { waitTime: { average: 0.05 } },
@@ -19,14 +30,25 @@ function makePiscinaStub(resolveWith?: unknown, rejectWith?: Error) {
   };
 }
 
+interface WorkersPoolInternals {
+  instance: PiscinaStub | undefined;
+  mirrorNodeClient: MirrorNodeClient | undefined;
+  cacheService: ICacheClient | undefined;
+}
+
+const pool = WorkersPool as unknown as WorkersPoolInternals;
+
+const noMirrorNodeClient = null as unknown as MirrorNodeClient;
+const noCacheService = null as unknown as ICacheClient;
+
 describe('WorkersPool Test Suite', () => {
   beforeEach(() => {
     // Reset all static state before each test to prevent cross-test contamination.
     WorkersPool['handleTaskFn'] = null;
     resetWorkerContext();
-    WorkersPool['instance'] = undefined as any;
-    (WorkersPool as any)['mirrorNodeClient'] = undefined;
-    (WorkersPool as any)['cacheService'] = undefined;
+    pool.instance = undefined;
+    pool.mirrorNodeClient = undefined;
+    pool.cacheService = undefined;
   });
 
   // ---------------------------------------------------------------------------
@@ -44,11 +66,11 @@ describe('WorkersPool Test Suite', () => {
         type: 'getBlock' as const,
         blockHashOrNumber: '0x1',
         showDetails: false,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
         chain: '0x127',
       };
 
-      const result = await WorkersPool.run(task, null as any, null as any);
+      const result = await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
 
       expect(handleTaskStub.calledOnce).to.be.true;
       expect(handleTaskStub.calledWith(task, sinon.match.any)).to.be.true;
@@ -67,12 +89,12 @@ describe('WorkersPool Test Suite', () => {
         toBlock: 'latest',
         address: null,
         topics: null,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
       };
 
       let thrown: unknown;
       try {
-        await WorkersPool.run(task, null as any, null as any);
+        await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
       } catch (e) {
         thrown = e;
       }
@@ -89,12 +111,12 @@ describe('WorkersPool Test Suite', () => {
         type: 'getBlock' as const,
         blockHashOrNumber: '0x2',
         showDetails: true,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
         chain: '0x127',
       };
 
-      await WorkersPool.run(task, null as any, null as any);
-      await WorkersPool.run(task, null as any, null as any);
+      await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
+      await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
 
       expect(WorkersPool['handleTaskFn']).to.equal(handleTaskStub);
       expect(handleTaskStub.callCount).to.equal(2);
@@ -106,27 +128,31 @@ describe('WorkersPool Test Suite', () => {
       const task = {
         type: 'getRawReceipts' as const,
         blockHashOrBlockNumber: '0x1',
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
       };
-      const fakeClient = { label: 'mc' } as any;
-      const fakeCacheService = { label: 'cs' } as any;
+      const fakeClient = { label: 'mc' } as unknown as MirrorNodeClient;
+      const fakeCacheService = { label: 'cs' } as unknown as ICacheClient;
 
       await WorkersPool.run(task, fakeClient, fakeCacheService);
 
       // In local mode the static client/cache fields must remain untouched — the
       // passed client/cache are reused to build the
       // local worker context instead.
-      expect((WorkersPool as any)['mirrorNodeClient']).to.be.undefined;
-      expect((WorkersPool as any)['cacheService']).to.be.undefined;
+      expect(pool.mirrorNodeClient).to.be.undefined;
+      expect(pool.cacheService).to.be.undefined;
     });
 
     it('should reuse the relay-provided client and services with no duplicate instances', async () => {
       const handleTaskStub = sinon.stub().resolves(null);
       WorkersPool['handleTaskFn'] = handleTaskStub;
 
-      const fakeClient = { label: 'relay-client' } as any;
-      const fakeCacheService = { label: 'relay-cache' } as any;
-      const task = { type: 'getRawReceipts' as const, blockHashOrBlockNumber: '0x1', requestDetails: {} as any };
+      const fakeClient = { label: 'relay-client' } as unknown as MirrorNodeClient;
+      const fakeCacheService = { label: 'relay-cache' } as unknown as ICacheClient;
+      const task = {
+        type: 'getRawReceipts' as const,
+        blockHashOrBlockNumber: '0x1',
+        requestDetails: {} as RequestDetails,
+      };
 
       await WorkersPool.run(task, fakeClient, fakeCacheService);
 
@@ -146,7 +172,7 @@ describe('WorkersPool Test Suite', () => {
 
     it('should dispatch the task to the Piscina pool and return its result', async () => {
       const expectedResult = { logs: [] };
-      WorkersPool['instance'] = makePiscinaStub(expectedResult) as any;
+      pool.instance = makePiscinaStub(expectedResult);
 
       const task = {
         type: 'getLogs' as const,
@@ -155,47 +181,47 @@ describe('WorkersPool Test Suite', () => {
         toBlock: 'latest',
         address: null,
         topics: null,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
       };
 
-      const result = await WorkersPool.run(task, null as any, null as any);
+      const result = await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
 
-      expect((WorkersPool['instance'] as any).run.calledOnce).to.be.true;
-      expect((WorkersPool['instance'] as any).run.calledWith(task)).to.be.true;
+      expect(pool.instance!.run.calledOnce).to.be.true;
+      expect(pool.instance!.run.calledWith(task)).to.be.true;
       expect(result).to.equal(expectedResult);
     });
 
     it('should store mirrorNodeClient and cacheService for inter-thread metric forwarding', async () => {
-      WorkersPool['instance'] = makePiscinaStub(null) as any;
+      pool.instance = makePiscinaStub(null);
 
-      const fakeClient = { label: 'mirrorNode' } as any;
-      const fakeCacheService = { label: 'cache' } as any;
+      const fakeClient = { label: 'mirrorNode' } as unknown as MirrorNodeClient;
+      const fakeCacheService = { label: 'cache' } as unknown as ICacheClient;
 
       await WorkersPool.run(
-        { type: 'getRawReceipts' as const, blockHashOrBlockNumber: '0x1', requestDetails: {} as any },
+        { type: 'getRawReceipts' as const, blockHashOrBlockNumber: '0x1', requestDetails: {} as RequestDetails },
         fakeClient,
         fakeCacheService,
       );
 
-      expect((WorkersPool as any)['mirrorNodeClient']).to.equal(fakeClient);
-      expect((WorkersPool as any)['cacheService']).to.equal(fakeCacheService);
+      expect(pool.mirrorNodeClient).to.equal(fakeClient);
+      expect(pool.cacheService).to.equal(fakeCacheService);
     });
 
     it('should unwrap and rethrow a serialised JsonRpcError propagated from a Piscina worker', async () => {
       const envelope = { name: 'JsonRpcError', code: -32603, message: 'internal error', data: 'context' };
-      WorkersPool['instance'] = makePiscinaStub(undefined, new Error(JSON.stringify(envelope))) as any;
+      pool.instance = makePiscinaStub(undefined, new Error(JSON.stringify(envelope)));
 
       const task = {
         type: 'getBlock' as const,
         blockHashOrNumber: '0x1',
         showDetails: false,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
         chain: '0x127',
       };
 
       let thrown: unknown;
       try {
-        await WorkersPool.run(task, null as any, null as any);
+        await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
       } catch (e) {
         thrown = e;
       }
@@ -207,17 +233,17 @@ describe('WorkersPool Test Suite', () => {
 
     it('should unwrap and rethrow a serialised MirrorNodeClientError propagated from a Piscina worker', async () => {
       const envelope = { name: 'MirrorNodeClientError', statusCode: 404, message: 'not found', data: 'detail' };
-      WorkersPool['instance'] = makePiscinaStub(undefined, new Error(JSON.stringify(envelope))) as any;
+      pool.instance = makePiscinaStub(undefined, new Error(JSON.stringify(envelope)));
 
       const task = {
         type: 'getBlockReceipts' as const,
         blockHashOrBlockNumber: '0x1',
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
       };
 
       let thrown: unknown;
       try {
-        await WorkersPool.run(task, null as any, null as any);
+        await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
       } catch (e) {
         thrown = e;
       }
@@ -228,7 +254,7 @@ describe('WorkersPool Test Suite', () => {
 
     it('should rethrow INTERNAL_ERROR for an unrecognised error from a Piscina worker', async () => {
       const envelope = { name: 'SomeOtherError', message: 'unexpected' };
-      WorkersPool['instance'] = makePiscinaStub(undefined, new Error(JSON.stringify(envelope))) as any;
+      pool.instance = makePiscinaStub(undefined, new Error(JSON.stringify(envelope)));
 
       const task = {
         type: 'getLogs' as const,
@@ -237,12 +263,12 @@ describe('WorkersPool Test Suite', () => {
         toBlock: 'latest',
         address: null,
         topics: null,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
       };
 
       let thrown: unknown;
       try {
-        await WorkersPool.run(task, null as any, null as any);
+        await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
       } catch (e) {
         thrown = e;
       }
@@ -254,17 +280,17 @@ describe('WorkersPool Test Suite', () => {
 
     it('should not initialise a new Piscina instance when one is already set', async () => {
       const stub = makePiscinaStub({ result: 'ok' });
-      WorkersPool['instance'] = stub as any;
+      pool.instance = stub;
 
       const task = {
         type: 'getBlock' as const,
         blockHashOrNumber: '0x3',
         showDetails: false,
-        requestDetails: {} as any,
+        requestDetails: {} as RequestDetails,
         chain: '0x127',
       };
 
-      await WorkersPool.run(task, null as any, null as any);
+      await WorkersPool.run(task, noMirrorNodeClient, noCacheService);
 
       // getInstance() must return the pre-set stub, not create a new Piscina pool.
       expect(WorkersPool['instance']).to.equal(stub);

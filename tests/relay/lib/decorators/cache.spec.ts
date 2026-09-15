@@ -20,23 +20,26 @@ describe('cache decorator', () => {
     cacheService = {
       getAsync: sandbox.stub(),
       set: sandbox.stub(),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<ICacheClient>;
   });
 
   afterEach(() => {
     sandbox.restore();
   });
 
-  const getComputedResult = (it1, it2, it3) => {
-    return it1 + it2 + it3;
-  };
+  const getComputedResult = (it1: unknown, it2: unknown, it3: unknown): string => `${it1}${it2}${it3}`;
 
-  const createDecoratedMethod = (options = {}) => {
+  interface CacheDecoratedInstance {
+    _cacheService: ICacheClient;
+    testMethod(arg1: unknown, arg2: unknown, requestDetails: RequestDetails): Promise<string>;
+  }
+
+  const createDecoratedMethod = (options = {}): CacheDecoratedInstance => {
     class TestClass {
       public _cacheService: ICacheClient = cacheService;
 
       @cache(options, '_cacheService')
-      async testMethod(arg1: any, arg2: any, requestDetails: RequestDetails) {
+      async testMethod(arg1: unknown, arg2: unknown, requestDetails: RequestDetails): Promise<string> {
         return getComputedResult(arg1, arg2, requestDetails);
       }
     }
@@ -210,7 +213,7 @@ describe('cache decorator', () => {
 
   describe('generateCacheKey', () => {
     it('should return only the method name when args are empty', () => {
-      const args = [];
+      const args: unknown[] = [];
 
       const result = __test__.__private.generateCacheKey('eth_getBalance', args);
       expect(result).to.equal('eth_getBalance');

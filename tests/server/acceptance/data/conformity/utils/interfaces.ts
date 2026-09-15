@@ -25,17 +25,17 @@ export interface JsonRpcRequest {
   jsonrpc: '2.0';
   id: number | string;
   method: string;
-  params: any[];
+  params: unknown[];
 }
 
 export interface JsonRpcResponse {
   id: number | string;
   jsonrpc: string;
-  result: any;
+  result: unknown;
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
 }
 

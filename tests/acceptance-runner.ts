@@ -83,7 +83,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     global.logger = logger;
     global.initialBalance = INITIAL_BALANCE;
 
-    global.restartLocalRelay = async () => {
+    global.restartLocalRelay = async (): Promise<void> => {
       if (global.relayIsLocal) {
         stopRelay();
         await new Promise((r) => setTimeout(r, 5000)); // wait for server to shutdown
@@ -237,7 +237,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
           undefined,
           redisClient,
         );
-        global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT });
+        global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT }) as typeof global.socketServer;
       }
     }
   });
