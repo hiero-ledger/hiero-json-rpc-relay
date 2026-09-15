@@ -9,6 +9,7 @@ import * as sinon from 'sinon';
 import { ConfigService } from '../../../../../src/config-service/services';
 import { type LockMetricsService } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../../src/relay/lib/services/lockService/RedisLockStrategy';
+import { assertExists } from '../../../../helpers/typeAssertions';
 import { overrideEnvsInMochaDescribe } from '../../../helpers';
 
 use(chaiAsPromised);
@@ -359,8 +360,10 @@ describe('RedisLockStrategy Test Suite', function () {
 
       // Each heartbeat SET should have PX (TTL in ms)
       heartbeatCalls.forEach((call) => {
-        expect(call.args[2]).to.have.property('PX');
-        expect(call.args[2].PX).to.be.a('number');
+        const options = call.args[2];
+        assertExists(options);
+        expect(options).to.have.property('PX');
+        expect(options.PX).to.be.a('number');
       });
     });
 
@@ -387,6 +390,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // Verify each heartbeat SET has TTL (PX option)
       heartbeatSetCalls.forEach((call) => {
         const options = call.args[2];
+        assertExists(options);
         expect(options).to.have.property('PX');
         // TTL should be pollIntervalMs * LOCK_HEARTBEAT_MISSED_COUNT
         const expectedTtl =

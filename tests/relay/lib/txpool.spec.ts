@@ -12,6 +12,8 @@ import constants from '../../../src/relay/lib/constants';
 import { Relay } from '../../../src/relay/lib/relay';
 import { TransactionPoolService } from '../../../src/relay/lib/services';
 import { TxPoolImpl, type TxPoolTransaction } from '../../../src/relay/lib/txpool';
+import { assertExists } from '../../helpers/typeAssertions';
+import { asRelayInternals } from '../helpers';
 
 const logger = pino({ level: 'silent' });
 
@@ -117,7 +119,7 @@ describe('Txpool', async function () {
   ];
 
   before(() => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
   });
 
   after(() => {
@@ -143,6 +145,10 @@ describe('Txpool', async function () {
     it('convertRlpEncodedTxToTransactionPoolTx', async () => {
       const result = (txPool as any).convertRlpEncodedTxToTransactionPoolTx(rlpTxs);
       expect(result).to.have.lengthOf(1);
+
+      assertExists(parsedTx.type);
+      assertExists(parsedTx.gasPrice);
+      assertExists(parsedTx.signature);
 
       const tx = result[0];
       expect(tx.blockHash).to.equal(constants.ZERO_HEX_32_BYTE);
@@ -187,6 +193,8 @@ describe('Txpool', async function () {
     it('should return grouped pending transactions', async () => {
       txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
 
+      assertExists(parsedTx.from);
+
       const res = await txPool.content();
       expect(res).to.have.keys(['pending', 'queued']);
       expect(res.pending).to.have.property(parsedTx.from);
@@ -197,6 +205,8 @@ describe('Txpool', async function () {
   describe('contentFrom', async () => {
     it('should return grouped transactions by nonce for a specific address', async () => {
       txPoolServiceMock.getTransactions.resolves(rlpTxs);
+
+      assertExists(parsedTx.from);
 
       const res = await txPool.contentFrom(parsedTx.from);
       expect(res).to.have.keys(['pending', 'queued']);

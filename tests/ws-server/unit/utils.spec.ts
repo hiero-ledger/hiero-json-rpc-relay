@@ -11,6 +11,7 @@ import { EthImpl } from '../../../src/relay/lib/eth';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
+import type { WsContext } from '../../../src/ws-server/types';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -224,7 +225,13 @@ describe('Utilities unit tests', async function () {
           },
         };
 
-        await handleConnectionClose(ctxWithPing, subscriptionService, limiterStub, wsMetricRegistryStub, startTime);
+        await handleConnectionClose(
+          ctxWithPing as unknown as WsContext,
+          subscriptionService,
+          limiterStub,
+          wsMetricRegistryStub,
+          startTime,
+        );
 
         expect(clearIntervalSpy.calledWith(intervalId)).to.be.true;
         expect(ctxWithPing.websocket.terminate.calledOnce).to.be.true;
@@ -241,7 +248,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithInactivityTTL,
+          ctxWithInactivityTTL as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,
@@ -265,7 +272,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithBothTimers,
+          ctxWithBothTimers as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,
@@ -286,7 +293,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithoutTimers,
+          ctxWithoutTimers as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,

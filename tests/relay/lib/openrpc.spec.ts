@@ -2,7 +2,6 @@
 
 import { inspect } from 'node:util';
 
-import type { ContentDescriptorObject, JSONSchema, MethodObject, OpenrpcDocument } from '@open-rpc/meta-schema';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
@@ -12,7 +11,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { LocalPendingTransactionStorage } from '../../../dist/relay/lib/services';
 import openRpcSchema from '../../../docs/openrpc.json';
 import { ConfigService } from '../../../src/config-service/services';
 import { type Eth, type JsonRpcError, type Net, type TxPool, type Web3 } from '../../../src/relay';
@@ -26,7 +24,12 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../src/relay/lib/db/r
 import { EthImpl } from '../../../src/relay/lib/eth';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { NetImpl } from '../../../src/relay/lib/net';
-import { TransactionPoolService, TransactionTracingService } from '../../../src/relay/lib/services';
+import {
+  type CommonService,
+  LocalPendingTransactionStorage,
+  TransactionPoolService,
+  TransactionTracingService,
+} from '../../../src/relay/lib/services';
 import ClientService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import { LockService } from '../../../src/relay/lib/services/lockService/LockService';
@@ -63,6 +66,15 @@ import {
   signedTransactionHash,
 } from '../helpers';
 import { CONTRACT_RESULT_MOCK, NOT_FOUND_RES } from './eth/eth-config';
+import { asSdkClientProvider } from './eth/eth-helpers';
+
+// `@open-rpc/schema-utils-js` exports these types only from its internal `build/types`,
+// so derive them from the public `parseOpenRPCDocument` signature instead.
+type OpenrpcDocument = Awaited<ReturnType<typeof parseOpenRPCDocument>>;
+type MethodOrReference = OpenrpcDocument['methods'][number];
+type MethodObject = Extract<MethodOrReference, { name: string }>;
+type ContentDescriptorObject = Extract<NonNullable<MethodObject['result']>, { schema: unknown }>;
+type JSONSchema = ContentDescriptorObject['schema'];
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
@@ -87,8 +99,9 @@ describe('Open RPC Specification', function () {
 
   before(async () => {
     openRpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
-    methodsResponseSchema = openRpcDocument.methods
-      .filter((method) => 'name' in method)
+    const documentMethods: MethodOrReference[] = openRpcDocument.methods;
+    methodsResponseSchema = documentMethods
+      .filter((method): method is MethodObject => 'name' in method)
       .filter((method) => method.result !== undefined)
       .reduce(
         (res, method) => ({
@@ -133,10 +146,9 @@ describe('Open RPC Specification', function () {
 
     clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    sinon.stub(asSdkClientProvider(clientServiceInstance), 'getSDKClient').returns(sdkClientStub);
     const lockServiceStub = sinon.createStubInstance(LockService);
     lockServiceStub.acquireLock.resolves(undefined);
-    ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
     const storageStub = sinon.createStubInstance(LocalPendingTransactionStorage);
     const rlpTx =
       '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
@@ -267,7 +279,7 @@ describe('Open RPC Specification', function () {
     mock.onGet(`tokens/${defaultContractResults.results[0].contract_id}`).reply(200);
     mock.onGet(`tokens/${defaultContractResults.results[1].contract_id}`).reply(200);
 
-    await mockWorkersPool(mirrorNodeInstance, ethImpl['common'], cacheService);
+    await mockWorkersPool(mirrorNodeInstance, ethImpl['common'] as CommonService, cacheService);
   });
 
   const validateResponseSchema = (schema: JSONSchema, response: unknown) => {
@@ -557,8 +569,9 @@ describe('Open RPC Specification', function () {
     let methodsSchema: { [method: string]: MethodObject };
 
     before(function () {
-      methodsSchema = openRpcDocument.methods
-        .filter((method) => 'name' in method)
+      const documentMethods: MethodOrReference[] = openRpcDocument.methods;
+      methodsSchema = documentMethods
+        .filter((method): method is MethodObject => 'name' in method)
         .reduce((res, method) => ({ ...res, [method.name]: method }), {} as { [method: string]: MethodObject });
     });
 

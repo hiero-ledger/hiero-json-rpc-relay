@@ -6,14 +6,14 @@ import sinon from 'sinon';
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
 import { Web3Impl } from '../../../src/relay/lib/web3';
-import { withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
 
 const web3Impl = new Web3Impl();
 
 describe('Web3', function () {
   before(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
   });
 
   after(() => {

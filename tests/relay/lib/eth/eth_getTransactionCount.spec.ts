@@ -21,7 +21,7 @@ import {
   overrideEnvsInMochaDescribe,
 } from '../../helpers';
 import { DEFAULT_NETWORK_FEES, NO_TRANSACTIONS } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -88,13 +88,13 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     getSdkClientStub.restore();
     restMock.resetHandlers();
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
   });
 
   this.beforeAll(async () => {
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
   });
 
   it('should return 0x0 nonce for latest block with not found account', async () => {

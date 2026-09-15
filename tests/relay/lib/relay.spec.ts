@@ -12,7 +12,7 @@ import { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients/mirrorNodeClient';
 import { MirrorNodeClientError } from '../../../src/relay/lib/errors/MirrorNodeClientError';
 import { TransactionTracingStorageFactory } from '../../../src/relay/lib/services';
-import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
 
@@ -27,9 +27,9 @@ describe('Relay', () => {
   let relay: Relay;
 
   beforeEach(async () => {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
     // Prevent waitForMirrorNode from making real HTTP requests during non-connectivity tests
-    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
     relay = await Relay.init(logger, register);
   });
 
@@ -87,7 +87,10 @@ describe('Relay', () => {
 
     beforeEach(() => {
       loggerSpy = sinon.spy(logger);
-      populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
+      populatePreconfiguredSpendingPlansSpy = sinon.spy(
+        asRelayInternals(Relay.prototype),
+        'populatePreconfiguredSpendingPlans',
+      );
     });
 
     afterEach(() => {
@@ -261,7 +264,7 @@ describe('Relay', () => {
     beforeEach(() => {
       sinon.restore();
       // Re-stub ensureOperatorHasBalance so these tests only exercise waitForMirrorNode
-      sinon.stub(Relay.prototype, <any>'ensureOperatorHasBalance').resolves();
+      sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
       checkServerReadinessStub = sinon.stub(MirrorNodeClient.prototype, 'checkServerReadiness').resolves();
     });
 

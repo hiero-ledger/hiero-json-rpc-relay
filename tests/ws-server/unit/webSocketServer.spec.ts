@@ -368,9 +368,11 @@ describe('webSocketServer websocket handling', () => {
     });
 
     try {
-      expect((testApp.ws.server as any).options.maxPayload).to.equal(0);
+      // `initializeWsServer` declares `app: Koa`, but it returns the `websockify`-wrapped app.
+      const wsApp = testApp as unknown as { ws: { server: { options: { maxPayload: number } } } };
+      expect(wsApp.ws.server.options.maxPayload).to.equal(0);
     } finally {
-      await new Promise<void>((resolve) => testServer.close(resolve));
+      await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }
   });
 
@@ -394,7 +396,7 @@ describe('webSocketServer websocket handling', () => {
     ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }));
     const closeCode = await Promise.race([closed, new Promise<null>((r) => setTimeout(() => r(null), 100))]);
 
-    await new Promise<void>((resolve) => testServer.close(resolve));
+    await new Promise<void>((resolve) => testServer.close(() => resolve()));
 
     expect(closeCode).to.not.equal(1009);
   });

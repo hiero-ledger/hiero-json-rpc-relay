@@ -7,13 +7,14 @@ import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined, WebSocketError } from '../../../src/relay';
+import { type IJsonRpcResponse } from '../../../src/server/koaJsonRpc/lib/RpcResponse';
 import LogContractJson from '../../server/contracts/Logs.json';
 import IERC20Json from '../../server/contracts/openzeppelin/IERC20.json';
 import Assertions, { requestIdRegex } from '../../server/helpers/assertions';
 import Constants from '../../server/helpers/constants';
 import { Utils } from '../../server/helpers/utils';
 import type { AliasAccount } from '../../server/types/AliasAccount';
-import { WsTestHelper } from '../helper';
+import { assertJsonRpcError, WsTestHelper } from '../helper';
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
 
@@ -198,15 +199,17 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('When JSON is invalid, expect INVALID_REQUEST Error message', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response = {} as IJsonRpcResponse;
       webSocket.on('message', function incoming(data) {
-        response = JSON.parse(data);
+        response = JSON.parse(data.toString());
       });
       webSocket.on('open', function open() {
         // send invalid JSON, missing closing bracket
         webSocket.send('{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1');
       });
       await new Promise((resolve) => setTimeout(resolve, 200));
+
+      assertJsonRpcError(response);
 
       expect(response.error.code).to.be.equal(predefined.INVALID_REQUEST.code);
       expect(response.error.message).to.match(requestIdRegex(predefined.INVALID_REQUEST.message));
@@ -228,7 +231,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
           let latestEventFromSubscription;
           webSocket.on('message', function incoming(data) {
-            const parsed = JSON.parse(data);
+            const parsed = JSON.parse(data.toString());
             if (parsed.id !== null || parsed.method) {
               // eslint-disable-next-line eqeqeq
               if (subscriptionId == '') {
@@ -259,20 +262,20 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect('1: ' + latestEventFromSubscription.params.subscription).to.be.eq('1: ' + subscriptionId);
 
           // create event on contract 2
-          const tx2 = await logContractSigner2.log1(200, gasOptions);
+          const tx2 = await (logContractSigner2 as ethers.Contract).log1(200, gasOptions);
           await tx2.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
           expect('2: ' + latestEventFromSubscription.params.result.address).to.be.eq(
-            '2: ' + logContractSigner2.target.toLowerCase(),
+            '2: ' + logContractSigner2.target.toString().toLowerCase(),
           );
           expect('2: ' + latestEventFromSubscription.params.subscription).to.be.eq('2: ' + subscriptionId);
 
           // create event on contract 3
-          const tx3 = await logContractSigner3.log1(300, gasOptions);
+          const tx3 = await (logContractSigner3 as ethers.Contract).log1(300, gasOptions);
           await tx3.wait();
           await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for event to be received
           expect('3: ' + latestEventFromSubscription.params.result.address).to.be.eq(
-            '3: ' + logContractSigner3.target.toLowerCase(),
+            '3: ' + logContractSigner3.target.toString().toLowerCase(),
           );
           expect('3: ' + latestEventFromSubscription.params.subscription).to.be.eq('3: ' + subscriptionId);
 
@@ -299,12 +302,13 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
         });
         let response;
         webSocket.on('message', function incoming(data) {
-          response = JSON.parse(data);
+          response = JSON.parse(data.toString());
         });
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         expect(response.id).to.be.eq(requestId);
+        assertJsonRpcError(response);
         expect(response.error.code).to.be.eq(-32602);
         expect(response.error.message).to.match(
           requestIdRegex(`Invalid parameter filters.address: Only one contract address is allowed`),
@@ -329,6 +333,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
+          assertJsonRpcError(response);
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
           expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
@@ -342,6 +347,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
+          assertJsonRpcError(response);
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
           expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
@@ -350,9 +356,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('Expect Unsupported Method Error message when subscribing for newPendingTransactions method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response = {} as IJsonRpcResponse;
       webSocket.on('message', function incoming(data) {
-        response = JSON.parse(data);
+        response = JSON.parse(data.toString());
       });
       webSocket.on('open', function open() {
         webSocket.send('{"jsonrpc":"2.0","method":"eth_subscribe","params":["newPendingTransactions"],"id":1}');
@@ -360,6 +366,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       // wait 500ms to expect the message
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      assertJsonRpcError(response);
 
       expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
       expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
@@ -370,9 +378,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('@release Expect Unsupported Method Error message when subscribing for "other" method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {};
+      let response = {} as IJsonRpcResponse;
       webSocket.on('message', function incoming(data) {
-        response = JSON.parse(data);
+        response = JSON.parse(data.toString());
       });
       webSocket.on('open', function open() {
         webSocket.send('{"jsonrpc":"2.0","method":"eth_subscribe","params":["other"],"id":1}');
@@ -380,6 +388,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       // wait 500ms to expect the message
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      assertJsonRpcError(response);
 
       expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
       expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
@@ -723,10 +733,10 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
   describe('Subscribes to hts tokens and listens for synthetic log events', async function () {
     // eslint-disable-next-line prefer-const
-    let htsAccounts = [];
+    let htsAccounts: AliasAccount[] = [];
     let htsToken,
       wsHtsProvider,
-      htsEventsReceived = [];
+      htsEventsReceived: ethers.Log[] = [];
 
     before(async function () {
       htsAccounts[0] = await servicesNode.createAliasAccount(400, relay.provider, requestId);
@@ -984,7 +994,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
           let closeEventHandled = false;
 
-          provider.websocket.on('close', (code, message) => {
+          (provider.websocket as WebSocket).on('close', (code, message) => {
             closeEventHandled = true;
             expect(code).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.code);
             expect(message.toString('utf8')).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.message);

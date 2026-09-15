@@ -92,7 +92,7 @@ describe('RpcMethodDispatcher', () => {
       // Spy on error handler to verify it's called
       const errorHandlerSpy = sinon.spy(dispatcher as any, 'handleRpcMethodError');
 
-      const result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      const result = (await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS)) as JsonRpcError;
 
       // Verify error handling flow
       expect(errorHandlerSpy.calledOnce).to.be.true;
@@ -399,8 +399,9 @@ describe('RpcMethodDispatcher', () => {
         (dispatcher as any).throwUnregisteredRpcMethods(unknownMethod);
         expect.fail('Should have thrown an error');
       } catch (error) {
-        expect(error.code).to.equal(predefined.METHOD_NOT_FOUND(unknownMethod).code);
-        expect(error.message).to.include(unknownMethod);
+        const thrown = error as JsonRpcError;
+        expect(thrown.code).to.equal(predefined.METHOD_NOT_FOUND(unknownMethod).code);
+        expect(thrown.message).to.include(unknownMethod);
       }
     });
   });
@@ -410,7 +411,11 @@ describe('RpcMethodDispatcher', () => {
       validateParamsStub.throws(predefined.INVALID_PARAMETERS);
       operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = { 0: { type: 'boolean' } };
 
-      const result = await dispatcher.dispatch(TEST_METHOD_NAME, ['false', null], TEST_REQUEST_DETAILS);
+      const result = (await dispatcher.dispatch(
+        TEST_METHOD_NAME,
+        ['false', null],
+        TEST_REQUEST_DETAILS,
+      )) as JsonRpcError;
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.INVALID_PARAMETERS.code);
     });
@@ -433,17 +438,17 @@ describe('RpcMethodDispatcher', () => {
 
     it('should handle unregistered methods with appropriate error responses', async () => {
       // Engine namespace
-      const engineResult = await dispatcher.dispatch('engine_test', [], TEST_REQUEST_DETAILS);
+      const engineResult = (await dispatcher.dispatch('engine_test', [], TEST_REQUEST_DETAILS)) as JsonRpcError;
       expect(engineResult).to.be.instanceOf(JsonRpcError);
       expect(engineResult.code).to.equal(predefined.UNSUPPORTED_METHOD.code);
 
       // Debug namespace
-      const debugResult = await dispatcher.dispatch('debug_test', [], TEST_REQUEST_DETAILS);
+      const debugResult = (await dispatcher.dispatch('debug_test', [], TEST_REQUEST_DETAILS)) as JsonRpcError;
       expect(debugResult).to.be.instanceOf(JsonRpcError);
       expect(debugResult.code).to.equal(predefined.NOT_YET_IMPLEMENTED.code);
 
       // Unknown method
-      const unknownResult = await dispatcher.dispatch('unknown_test', [], TEST_REQUEST_DETAILS);
+      const unknownResult = (await dispatcher.dispatch('unknown_test', [], TEST_REQUEST_DETAILS)) as JsonRpcError;
       expect(unknownResult).to.be.instanceOf(JsonRpcError);
       expect(unknownResult.code).to.equal(predefined.METHOD_NOT_FOUND('unknown_test').code);
     });
@@ -454,7 +459,7 @@ describe('RpcMethodDispatcher', () => {
       const validationRules = { 0: { type: 'string', required: true } };
       operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
-      let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      let result = (await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS)) as JsonRpcError;
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.INVALID_PARAMETERS.code);
 
@@ -463,7 +468,7 @@ describe('RpcMethodDispatcher', () => {
       delete operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY];
       operationHandler.rejects(new Error('Execution failed'));
 
-      result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      result = (await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS)) as JsonRpcError;
       const expected = new JsonRpcError({
         code: predefined.INTERNAL_ERROR('Execution failed').code,
         message: predefined.INTERNAL_ERROR('Execution failed').message,

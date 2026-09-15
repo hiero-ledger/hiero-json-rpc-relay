@@ -71,6 +71,10 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     const CHAIN_ID = ConfigService.get('CHAIN_ID');
     const INITIAL_BALANCE = ConfigService.get('INITIAL_BALANCE');
 
+    if (!OPERATOR_ID || !OPERATOR_KEY) {
+      throw new Error('OPERATOR_ID_MAIN and OPERATOR_KEY_MAIN must be set to run acceptance tests');
+    }
+
     global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL;
     global.servicesNode = new ServicesClient(NETWORK, OPERATOR_ID, OPERATOR_KEY);
     global.mirrorNode = new MirrorClient(MIRROR_NODE_URL);
@@ -157,12 +161,12 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
           const gasEstimation = await account.wallet.provider?.estimateGas(tx);
 
           // we multiply by 10 to add tolerance
-          const cost = (gasEstimation ?? 0n) * (feeData?.gasPrice ?? 0n) * 10n;
+          const cost = (gasEstimation ?? BigInt(0)) * (feeData?.gasPrice ?? BigInt(0)) * BigInt(10);
 
           await account.wallet.sendTransaction({
             to: operatorAddress,
             gasLimit: gasEstimation,
-            value: (balance ?? 0n) - cost,
+            value: (balance ?? BigInt(0)) - cost,
           });
           logger.info(`Account ${account.address} refunded back to operator ${balance} th.`);
         } catch (error) {

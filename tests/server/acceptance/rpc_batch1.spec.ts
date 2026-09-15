@@ -11,7 +11,9 @@ import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
-import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
+import { type TxPoolTransactionsByNonce } from '../../../src/relay/lib/txpool';
+import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
+import { assertExists } from '../../helpers/typeAssertions';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import type MirrorClient from '../clients/mirrorClient';
 import type RelayClient from '../clients/relayClient';
@@ -170,10 +172,12 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           txs.forEach((rlpTx) => {
             const parsedTx = ethers.Transaction.from(rlpTx);
+            assertExists(parsedTx.from);
             expect(res.pending[parsedTx.from]).to.not.be.empty;
 
-            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash === parsedTx.hash);
-            expect(txPoolTx).to.not.be.null;
+            const pending: TxPoolTransactionsByNonce = res.pending[parsedTx.from];
+            const txPoolTx = Object.values(pending).find((tx) => tx.hash === parsedTx.hash);
+            assertExists(txPoolTx);
 
             expect(txPoolTx.blockHash).to.equal(Constants.ZERO_HEX_32_BYTE);
             expect(txPoolTx.blockNumber).to.be.null;
@@ -198,7 +202,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const res = await relay.call('txpool_contentFrom', [accounts[1].address]);
 
           expect(res.pending).to.not.be.empty;
-          Object.values(res.pending).forEach((tx) => {
+          const pending: TxPoolTransactionsByNonce = res.pending;
+          Object.values(pending).forEach((tx) => {
             expect(tx.from).to.equal(accounts[1].address);
           });
         });
@@ -235,6 +240,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const res = await relay.call('txpool_content', []);
           expect(res.pending).to.not.be.empty;
 
+          assertExists(expectedTx.from);
           const tx = res.pending[expectedTx.from][Number(expectedTx.nonce)];
           expect(tx).to.not.be.null;
           expect(tx.hash).to.equal(expectedTx.hash);
@@ -419,7 +425,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const resp = await transaction.execute(servicesNode.client);
           await servicesNode.getRecordResponseDetails(resp);
 
-          htsTransferEvmTxHash = `0x${resp.transactionHash.toString('hex').slice(0, 64)}`;
+          htsTransferEvmTxHash = `0x${Buffer.from(resp.transactionHash).toString('hex').slice(0, 64)}`;
           const receipt = await relay.pollForValidTransactionReceipt(htsTransferEvmTxHash);
           htsTransferBlockNumber = receipt.blockNumber;
           htsTransferBlockHash = receipt.blockHash;
@@ -744,7 +750,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           it('should fail with WRONG_NONCE when multiple transactions have been sent simultaneously', async () => {
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
 
-            const txs = [];
+            const txs: Promise<string>[] = [];
             for (let i = 0; i < 10; i++) {
               txs.push(
                 relay.sendRawTransaction(

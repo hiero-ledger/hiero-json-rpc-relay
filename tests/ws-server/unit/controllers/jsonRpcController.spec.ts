@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import type Koa from 'koa';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -9,14 +8,21 @@ import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type IJsonRpcError } from '../../../../src/server/koaJsonRpc/lib/RpcError';
+import { type IJsonRpcResponse } from '../../../../src/server/koaJsonRpc/lib/RpcResponse';
 import { getRequestResult } from '../../../../src/ws-server/controllers/jsonRpcController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
+import { type WsContext } from '../../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { withOverriddenEnvsInMochaTest } from '../../../../tests/relay/helpers';
 
-function createMockContext(): Koa.Context {
+// `IJsonRpcResponse` is a `{ result } | { error }` union; each test exercises one branch.
+type JsonRpcErrorResponse = Extract<IJsonRpcResponse, { error: IJsonRpcError }>;
+type JsonRpcResultResponse = Extract<IJsonRpcResponse, { result: unknown }>;
+
+function createMockContext(): WsContext {
   return {
     websocket: {
       id: 'test-connection-id',
@@ -28,16 +34,16 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as WsContext;
 }
 
 describe('JSON Rpc Controller', function () {
   let mockLogger: any;
-  let stubWsMetricRegistry: WsMetricRegistry;
-  let stubRelay: Relay;
-  let stubConnectionLimiter: ConnectionLimiter;
-  let stubMirrorNodeClient: MirrorNodeClient;
-  let stubSubscriptionService: SubscriptionService;
+  let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
+  let stubRelay: sinon.SinonStubbedInstance<Relay>;
+  let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
+  let stubMirrorNodeClient: sinon.SinonStubbedInstance<MirrorNodeClient>;
+  let stubSubscriptionService: sinon.SinonStubbedInstance<SubscriptionService>;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -69,7 +75,7 @@ describe('JSON Rpc Controller', function () {
   });
 
   describe('getRequestResult', async function () {
-    let defaultRequestParams: any;
+    let defaultRequestParams: Parameters<typeof getRequestResult>;
 
     beforeEach(() => {
       defaultRequestParams = [
@@ -87,7 +93,7 @@ describe('JSON Rpc Controller', function () {
 
     it('should throw invalid request if id is missing from request body', async function () {
       defaultRequestParams[3] = { method: 'eth_chainId', jsonrpc: '2.0' } as IJsonRpcRequest;
-      const resp = await getRequestResult(...defaultRequestParams);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32600);
       expect(resp.error.message).to.include('Invalid Request');
@@ -96,15 +102,15 @@ describe('JSON Rpc Controller', function () {
     it('should throw method not found if passed method is not existing', async function () {
       const nonExistingMethod = 'eth_non-existing-method';
       defaultRequestParams[3] = { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest;
-      const resp = await getRequestResult(...defaultRequestParams);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32601);
       expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
     });
 
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
-      stubConnectionLimiter.shouldRateLimitOnMethod.returns(true);
-      const resp = await getRequestResult(...defaultRequestParams);
+      stubConnectionLimiter.shouldRateLimitOnMethod.resolves(true);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32605);
       expect(resp.error.message).to.include('IP Rate limit exceeded');
@@ -117,7 +123,7 @@ describe('JSON Rpc Controller', function () {
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         jsonrpc: '2.0',
       } as IJsonRpcRequest;
-      const resp = await getRequestResult(...defaultRequestParams);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32608);
       expect(resp.error.message).to.include('Exceeded maximum allowed subscriptions');
@@ -130,7 +136,7 @@ describe('JSON Rpc Controller', function () {
           method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
           jsonrpc: '2.0',
         } as IJsonRpcRequest;
-        const resp = await getRequestResult(...defaultRequestParams);
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
         expect(resp.error.code).to.equal(-32207);
         expect(resp.error.message).to.include('WS Subscriptions are disabled');
@@ -143,7 +149,7 @@ describe('JSON Rpc Controller', function () {
           method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
           jsonrpc: '2.0',
         } as IJsonRpcRequest;
-        const resp = await getRequestResult(...defaultRequestParams);
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
         expect(resp.error.code).to.equal(-32207);
         expect(resp.error.message).to.include('WS Subscriptions are disabled');
@@ -152,15 +158,15 @@ describe('JSON Rpc Controller', function () {
 
     it('should be able to execute `eth_chainId` and get a proper response', async function () {
       const chainId = '0x12a';
-      stubRelay.executeRpcMethod.returns(chainId);
-      const resp = await getRequestResult(...defaultRequestParams);
+      stubRelay.executeRpcMethod.resolves(chainId);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcResultResponse;
 
       expect(resp.result).to.equal(chainId);
     });
 
     it('should be able to handle the error as JsonRpcError if an internal error is thrown within the relay execution', async function () {
       stubRelay.executeRpcMethod.throws(predefined.INTERNAL_ERROR);
-      const resp = await getRequestResult(...defaultRequestParams);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32603);
       expect(resp.error.message).to.include('Unknown error invoking RPC');
@@ -170,7 +176,7 @@ describe('JSON Rpc Controller', function () {
       delete mockLogger.isLevelEnabled;
 
       stubRelay.executeRpcMethod.throws(new Error('custom error'));
-      const resp = await getRequestResult(...defaultRequestParams);
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32603);
     });

@@ -9,7 +9,6 @@ import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import type { ContractService } from '../../../../src/relay/lib/services';
-import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
 import {
@@ -40,14 +39,9 @@ import {
   ONE_TINYBAR_IN_WEI_HEX,
   WRONG_CONTRACT_ADDRESS,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv, type SdkClientProvider } from './eth-helpers';
 
 use(chaiAsPromised);
-
-// @ts-expect-error: Interface 'HAPIServiceTest' incorrectly extends interface 'HAPIService'.
-interface HAPIServiceTest extends HAPIService {
-  getSDKClient(): SDKClient;
-}
 
 // @ts-expect-error: Interface 'ContractServiceTest' incorrectly extends interface 'ContractService'.
 interface ContractServiceTest extends ContractService {
@@ -55,7 +49,7 @@ interface ContractServiceTest extends ContractService {
 }
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
+let getSdkClientStub: sinon.SinonStubbedMember<SdkClientProvider['getSDKClient']>;
 
 const BLOCKHASH = '0x378e5993d3756648e1ef0141e646d6290af5a652181055516a1a69e76e04b5db';
 
@@ -74,9 +68,7 @@ describe('@ethCall Eth Call spec', async function () {
     await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon
-      .stub(hapiServiceInstance as unknown as HAPIServiceTest, 'getSDKClient')
-      .returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`).reply(
       200,

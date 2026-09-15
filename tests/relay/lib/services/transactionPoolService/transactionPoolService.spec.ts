@@ -31,9 +31,9 @@ describe('TransactionPoolService Test Suite', function () {
     data: '0x',
     to: testAddress,
     from: testAddress,
-    value: 0n,
-    gasLimit: 21000n,
-    gasPrice: 1000000000n,
+    value: BigInt(0),
+    gasLimit: BigInt(21000),
+    gasPrice: BigInt(1000000000),
     nonce: 1,
   } as Transaction;
 
@@ -102,7 +102,8 @@ describe('TransactionPoolService Test Suite', function () {
 
     it('should increment error count on save reject', async () => {
       mockStorage.addToListAndSetConfirmedCount.rejects(new Error('Storage error'));
-      await expect(transactionPoolService.saveTransaction(testAddress, testTransaction)).to.be.rejected;
+      await expect(transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce)).to.be
+        .rejected;
 
       const metric = await register.getSingleMetric('rpc_relay_txpool_storage_errors_total');
       if (!metric) throw new Error('Expected metric to be registered');

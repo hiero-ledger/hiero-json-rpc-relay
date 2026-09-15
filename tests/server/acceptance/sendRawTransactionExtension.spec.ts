@@ -28,6 +28,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   const accounts: AliasAccount[] = [];
 
+  const expectBigIntGreaterThan = (actual: bigint, expected: bigint): void => {
+    expect(actual > expected, `expected ${actual} to be greater than ${expected}`).to.be.true;
+  };
+
   // @ts-ignore
   const {
     mirrorNode,
@@ -491,9 +495,13 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   describe('Multiple paymasters', function () {
-    let newPaymasters = [];
+    let newPaymasters: AliasAccount[] = [];
 
-    const createAndSignTransaction = async (senderAccount: AliasAccount, to: string, gasPrice: string = '0x0') => {
+    const createAndSignTransaction = async (
+      senderAccount: AliasAccount,
+      to: string,
+      gasPrice: string | number = '0x0',
+    ) => {
       return senderAccount.wallet.signTransaction({
         to,
         maxPriorityFeePerGas: gasPrice,
@@ -553,7 +561,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
       expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
-      expect(paymasterBalanceBefore).to.be.greaterThan(paymasterBalanceAfter);
+      expectBigIntGreaterThan(paymasterBalanceBefore, paymasterBalanceAfter);
     });
 
     it('should cover tx fees only if they are whitelisted by paymasters', async () => {
@@ -626,10 +634,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       // first tx must be covered by paymaster[1]
       expect(paymaster0BalanceStart).to.equal(paymaster0BalanceAfter1);
-      expect(paymaster1BalanceStart).to.be.greaterThan(paymaster1BalanceAfter1);
+      expectBigIntGreaterThan(paymaster1BalanceStart, paymaster1BalanceAfter1);
 
       // second tx must be covered by paymaster[0]
-      expect(paymaster0BalanceAfter1).to.be.greaterThan(paymaster0BalanceAfter2);
+      expectBigIntGreaterThan(paymaster0BalanceAfter1, paymaster0BalanceAfter2);
       expect(paymaster1BalanceAfter1).to.equal(paymaster1BalanceAfter2);
 
       // third tx must not be covered by any paymaster
@@ -677,7 +685,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
       expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
       expect(paymaster0BalanceBefore).to.equal(paymaster0BalanceAfter);
-      expect(paymaster1BalanceBefore).to.be.greaterThan(paymaster1BalanceAfter);
+      expectBigIntGreaterThan(paymaster1BalanceBefore, paymaster1BalanceAfter);
     });
   });
 
@@ -1040,7 +1048,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       expect(gas).to.be.a('string');
       expect(gas.startsWith('0x')).to.be.true;
-      expect(BigInt(gas)).to.be.greaterThan(BigInt(0));
+      expectBigIntGreaterThan(BigInt(gas), BigInt(0));
     });
   });
 

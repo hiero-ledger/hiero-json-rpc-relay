@@ -36,7 +36,7 @@ export async function computeExpectedCumulativeGasUsed(
     }
 
     // Stop early if the last result on this page is already past our target
-    const lastIndex = results.at(-1)?.transaction_index;
+    const lastIndex = results[results.length - 1]?.transaction_index;
     if (lastIndex != null && lastIndex >= mirrorResult.transaction_index) return sum;
 
     path = page.links?.next ?? null;

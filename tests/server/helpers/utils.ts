@@ -9,6 +9,7 @@ import { type GCProfiler, setFlagsFromString, writeHeapSnapshot } from 'v8';
 import { runInNewContext } from 'vm';
 
 import { ConfigService } from '../../../src/config-service/services';
+import type { Relay } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { CommonService, type PaymasterAccount } from '../../../src/relay/lib/services';
 import { GitHubClient } from '../clients/githubClient';
@@ -692,7 +693,7 @@ export class Utils {
    * restarting the application.
    */
   public static reloadPaymasterConfigs() {
-    const { relayImpl } = global;
+    const { relayImpl } = global as typeof global & { relayImpl: Relay };
 
     // @ts-ignore
     CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());

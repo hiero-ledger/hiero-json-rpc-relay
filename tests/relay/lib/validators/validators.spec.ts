@@ -2,7 +2,12 @@
 import { expect } from 'chai';
 
 import mainConstants from '../../../../src/relay/lib/constants';
-import { OBJECTS_VALIDATIONS, TYPES, validateParams } from '../../../../src/relay/lib/validators';
+import {
+  type IParamValidation,
+  OBJECTS_VALIDATIONS,
+  TYPES,
+  validateParams,
+} from '../../../../src/relay/lib/validators';
 import * as Constants from '../../../../src/relay/lib/validators/constants';
 import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes';
 import { isValidAndNonNullableParam, validateObject } from '../../../../src/relay/lib/validators/utils';
@@ -21,7 +26,7 @@ describe('Validator', async () => {
   }
 
   describe('validates Address type correctly', async () => {
-    const validation = { 0: { type: 'address' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: false } };
 
     it('throws an error if address hash is smaller than 20bytes', async () => {
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
@@ -64,7 +69,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Array type correctly', async () => {
-    const validation = { 0: { type: 'array' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'array', required: false } };
     const error = TYPES['array'].error;
 
     it('throws an error if the param is not an array', async () => {
@@ -82,7 +87,7 @@ describe('Validator', async () => {
   });
 
   describe('validates rewardPercentiles type correctly', async () => {
-    const validation = { 0: { type: 'rewardPercentiles' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'rewardPercentiles', required: false } };
     const error = Constants.REWARD_PERCENTILES_ERROR;
 
     it('throws an error if the param is not an array', async () => {
@@ -127,7 +132,7 @@ describe('Validator', async () => {
   });
 
   describe('validates blockHash type correctly', async () => {
-    const validation = { 0: { type: 'blockHash' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'blockHash', required: false } };
 
     it('throws an error if block hash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xdec54931fcfe'], validation)).to.throw(
@@ -178,7 +183,7 @@ describe('Validator', async () => {
   });
 
   describe('validates blockNumber type correctly', async () => {
-    const validation = { 0: { type: 'blockNumber' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'blockNumber', required: false } };
 
     it('throws error if block number is decimal', async () => {
       expect(() => validateParams([123], validation)).to.throw(
@@ -233,7 +238,7 @@ describe('Validator', async () => {
     });
 
     it('does not throw error when block number is valid tag', async () => {
-      const validation = { 0: { type: 'blockNumber' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'blockNumber', required: false } };
 
       expect(validateParams(['earliest'], validation)).to.eq(undefined);
       expect(validateParams(['pending'], validation)).to.eq(undefined);
@@ -242,7 +247,7 @@ describe('Validator', async () => {
   });
 
   describe('validates boolean type correctly', async () => {
-    const validation = { 0: { type: 'boolean', required: true } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'boolean', required: true } };
     const error = TYPES['boolean'].error;
 
     it('throws an error if param is string', async () => {
@@ -264,7 +269,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Filter Object type correctly', async () => {
-    const validation = { 0: { type: 'filter', required: true } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'filter', required: true } };
     const error = TYPES['filter'].error;
     const name = 'FilterObject';
 
@@ -348,7 +353,7 @@ describe('Validator', async () => {
   });
 
   describe('validates topics type correctly', async () => {
-    const validation = { 0: { type: 'topics' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'topics', required: false } };
     const topicsError = TYPES['topics'].error;
     it('throws an error if topics contains hash smaller than 32bytes', async () => {
       expect(() =>
@@ -479,7 +484,7 @@ describe('Validator', async () => {
   });
 
   describe('validates topicHash type correctly', async () => {
-    const validation = { 0: { type: 'topicHash' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'topicHash', required: false } };
 
     it('throws an error if topic hash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xddf252ad1be2c89'], validation)).to.throw(
@@ -530,7 +535,7 @@ describe('Validator', async () => {
   });
 
   describe('validates Transaction Object type correctly', async () => {
-    const validation = { 0: { type: 'transaction', required: true } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'transaction', required: true } };
     const error = TYPES['transaction'].error;
     const name = 'TransactionObject';
 
@@ -573,7 +578,7 @@ describe('Validator', async () => {
   });
 
   describe('validates transactionHash type correctly', async () => {
-    const validation = { 0: { type: 'transactionHash' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'transactionHash', required: false } };
 
     it('throws an error if transactionHash is smaller than 32bytes', async () => {
       expect(() => validateParams(['0xdec54931fcfe'], validation)).to.throw(
@@ -628,7 +633,7 @@ describe('Validator', async () => {
   });
 
   describe('validates hex64 type correctly', async () => {
-    const validation = { 0: { type: 'hex64' as const } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'hex64', required: false } };
 
     it('accepts a full 32-byte (64 hex char) value', async () => {
       const valid = `0x${'a'.repeat(64)}`;
@@ -661,7 +666,7 @@ describe('Validator', async () => {
   });
 
   describe('validates yParityHex type correctly', async () => {
-    const validation = { 0: { type: 'yParityHex' as const } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'yParityHex', required: false } };
     const yParityError = TYPES.yParityHex.error;
 
     it('accepts 0x0 (even parity)', async () => {
@@ -875,7 +880,7 @@ describe('Validator', async () => {
   });
 
   describe('tracerConfigWrapper accepts unknown top-level params', async () => {
-    const validation = { 0: { type: 'tracerConfigWrapper', required: true } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'tracerConfigWrapper', required: true } };
 
     it('does not throw when Geth-style top-level timeout is provided with tracer', async () => {
       expect(() =>
@@ -901,7 +906,7 @@ describe('Validator', async () => {
 
   describe('Other error cases', async () => {
     it('throws an error if validation type is wrong', async () => {
-      const validation = { 0: { type: 'wrongType' } };
+      const validation = { 0: { type: 'wrongType' } } as unknown as Record<number, IParamValidation>;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'wrongType'",
@@ -909,7 +914,7 @@ describe('Validator', async () => {
     });
 
     it('throws an error if validation type is missing', async () => {
-      const validation = { 0: { type: undefined as unknown as string } };
+      const validation = { 0: { type: undefined } } as unknown as Record<number, IParamValidation>;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'undefined'",
@@ -917,13 +922,13 @@ describe('Validator', async () => {
     });
 
     it('throws an error if passed params are more than defined validations', async () => {
-      const validation = { 0: { type: 'boolean' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'boolean', required: false } };
 
       expect(() => validateParams(['true', null], validation)).to.throw('Invalid params');
     });
 
     it('throws an error if validation type is unknown', async () => {
-      const validation = { 0: { type: 'unknownType' } };
+      const validation = { 0: { type: 'unknownType' } } as unknown as Record<number, IParamValidation>;
 
       expect(() => validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'unknownType'",
@@ -931,7 +936,7 @@ describe('Validator', async () => {
     });
 
     it('throws an error if Filter Object param contains unexpected param', async () => {
-      const validation = { 0: { type: 'filter' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'filter', required: false } };
 
       expect(() => validateParams([{ formBlock: '0x1' }], validation)).to.throw(
         expectUnknownParam('formBlock', 'FilterObject', 'Unknown parameter'),
@@ -939,14 +944,14 @@ describe('Validator', async () => {
     });
 
     it('does NOT throw an error if Transaction Object param contains unexpected param', async () => {
-      const validation = { 0: { type: 'transaction' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'transaction', required: false } };
 
       expect(() => validateParams([{ form: '0x1' }], validation)).to.not.throw;
     });
 
     it('deletes unknown properties of Transaction Object param', async () => {
       const transactionParam = { form: '0x1' };
-      const validation = { 0: { type: 'transaction' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'transaction', required: false } };
 
       validateParams([transactionParam], validation);
       expect(transactionParam).not.to.haveOwnProperty('form');
@@ -965,7 +970,7 @@ describe('Validator', async () => {
         to: '0x0000000000000000000000000000000000000167',
         authorizationList: [authEntry],
       };
-      const validation = { 0: { type: 'transaction' } };
+      const validation: Record<number, IParamValidation> = { 0: { type: 'transaction', required: false } };
 
       validateParams([transactionParam], validation);
 
@@ -976,7 +981,7 @@ describe('Validator', async () => {
   });
 
   describe('validates authorizationList in Transaction Object', async () => {
-    const validation = { 0: { type: 'transaction' as const, required: false } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'transaction', required: false } };
     const arrayError = TYPES.array.error;
     const name = 'TransactionObject';
 
@@ -1310,16 +1315,22 @@ describe('Validator', async () => {
     });
 
     it('returns false for non-object values', () => {
-      expect(TYPES.tracerConfig.test(null)).to.be.false;
-      expect(TYPES.tracerConfig.test(undefined)).to.be.false;
-      expect(TYPES.tracerConfig.test(123)).to.be.false;
-      expect(TYPES.tracerConfig.test('string')).to.be.false;
+      const testNonObject = (param: unknown): boolean =>
+        TYPES.tracerConfig.test(param as Parameters<typeof TYPES.tracerConfig.test>[0]);
+
+      expect(testNonObject(null)).to.be.false;
+      expect(testNonObject(undefined)).to.be.false;
+      expect(testNonObject(123)).to.be.false;
+      expect(testNonObject('string')).to.be.false;
     });
   });
 
-  function describeTests(type: string, tests: { validCases: any[]; invalidCases: { input: any; error: any }[] }) {
+  function describeTests(
+    type: IParamValidation['type'],
+    tests: { validCases: any[]; invalidCases: { input: any; error: any }[] },
+  ) {
     describe(`validates ${type} correctly`, async () => {
-      const validation = { 0: { type, required: true } };
+      const validation: Record<number, IParamValidation> = { 0: { type, required: true } };
 
       tests.invalidCases.forEach(({ input, error }) => {
         it(`throws an error for input: ${JSON.stringify(input)}`, async () => {
@@ -1336,7 +1347,7 @@ describe('Validator', async () => {
   }
 
   describe('validates blockParams type correctly', async () => {
-    const validation = { 0: { type: 'blockParams' } };
+    const validation: Record<number, IParamValidation> = { 0: { type: 'blockParams', required: false } };
 
     it('throws an error for an invalid block tag', async () => {
       expect(() => validateParams(['newest'], validation)).to.throw(

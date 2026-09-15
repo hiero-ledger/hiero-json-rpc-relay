@@ -55,13 +55,16 @@ describe('Filter API Test Suite', async function () {
 
   const validateFilterCache = async (filterId: string, expectedFilterType: string, expectedParams = {}) => {
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
-    const cachedFilter = await cacheService.getAsync(cacheKey, 'validateFilterCache');
+    const cachedFilter = await cacheService.getAsync<{ type: string; params: object; lastQueried: number | null }>(
+      cacheKey,
+      'validateFilterCache',
+    );
     expect(cachedFilter).to.exist;
-    expect(cachedFilter.type).to.exist;
-    expect(cachedFilter.type).to.eq(expectedFilterType);
-    expect(cachedFilter.params).to.exist;
-    expect(cachedFilter.params).to.deep.eq(expectedParams);
-    expect(cachedFilter.lastQueried).to.be.null;
+    expect(cachedFilter!.type).to.exist;
+    expect(cachedFilter!.type).to.eq(expectedFilterType);
+    expect(cachedFilter!.params).to.exist;
+    expect(cachedFilter!.params).to.deep.eq(expectedParams);
+    expect(cachedFilter!.lastQueried).to.be.null;
   };
 
   this.beforeAll(async () => {
@@ -154,7 +157,7 @@ describe('Filter API Test Suite', async function () {
       });
 
       it(`should call uninstallFilter`, async function () {
-        const isFilterUninstalled = await filterService.uninstallFilter(filterId, requestDetails);
+        const isFilterUninstalled = await filterService.uninstallFilter(filterId);
         expect(isFilterUninstalled).to.eq(true, 'executes correctly');
       });
     });
@@ -382,7 +385,7 @@ describe('Filter API Test Suite', async function () {
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
       await cacheService.set(cacheKey, filterObject, filterService.ethUninstallFilter, constants.FILTER.TTL);
 
-      const result = await filterService.uninstallFilter(existingFilterId, requestDetails);
+      const result = await filterService.uninstallFilter(existingFilterId);
 
       const isDeleted = !(await cacheService.getAsync(cacheKey, filterService.ethUninstallFilter));
       expect(result).to.eq(true);
@@ -390,7 +393,7 @@ describe('Filter API Test Suite', async function () {
     });
 
     it('should return false if filter does not exist, therefore is not deleted', async function () {
-      const result = await filterService.uninstallFilter(nonExistingFilterId, requestDetails);
+      const result = await filterService.uninstallFilter(nonExistingFilterId);
       expect(result).to.eq(false);
     });
   });
@@ -414,11 +417,7 @@ describe('Filter API Test Suite', async function () {
 
   describe('eth_getFilterLogs', async function () {
     it('should throw FILTER_NOT_FOUND for type=newBlock', async function () {
-      const filterIdBlockType = await filterService.createFilter(
-        constants.FILTER.TYPE.NEW_BLOCK,
-        filterObject,
-        requestDetails,
-      );
+      const filterIdBlockType = await filterService.createFilter(constants.FILTER.TYPE.NEW_BLOCK, filterObject);
       await RelayAssertions.assertRejection(
         predefined.FILTER_NOT_FOUND,
         filterService.getFilterLogs,
@@ -432,7 +431,6 @@ describe('Filter API Test Suite', async function () {
       const filterIdBlockType = await filterService.createFilter(
         constants.FILTER.TYPE.PENDING_TRANSACTION,
         filterObject,
-        requestDetails,
       );
       await RelayAssertions.assertRejection(
         predefined.FILTER_NOT_FOUND,

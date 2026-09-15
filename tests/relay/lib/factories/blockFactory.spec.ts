@@ -244,7 +244,7 @@ describe('BlockFactory', () => {
       const encoded = BlockFactory.rlpEncodeBlock({
         ...block,
         transactions: [],
-      });
+      } as unknown as Block);
       const decoded = RLP.decode(encoded) as any[];
 
       // header (17) + txs + ommers + withdrawals

@@ -28,7 +28,7 @@ import {
   ONE_TINYBAR_IN_WEI_HEX,
   RECEIVER_ADDRESS,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -82,8 +82,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     web3Mock.reset();
     sdkClientStub = createStubInstance(SDKClient);
 
-    // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
-    getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     const storage = new LocalPendingTransactionStorage();
     const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} } as any);
     const transactionPoolService = new TransactionPoolService(storage, logger, registry);
