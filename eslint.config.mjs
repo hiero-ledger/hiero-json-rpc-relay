@@ -29,8 +29,17 @@ export default defineConfig([
   // Global ignores
   {
     ignores: [
-      '**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', 'tools/**',
-      'dapp-example/**', 'k6/**', 'scripts/**', '.github/**', 'docs/**'],
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+      'tools/**',
+      'dapp-example/**',
+      'k6/**',
+      'scripts/**',
+      '.github/**',
+      'docs/**',
+    ],
   },
 
   // Main configuration for all TS files
@@ -72,7 +81,7 @@ export default defineConfig([
       'no-trailing-spaces': 'error',
       'no-useless-escape': 'warn',
       'prefer-const': 'error',
-      'eqeqeq': ["error", "always", { "null": "ignore" }],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-console': 'warn',
       'comma-dangle': [
         'error',
@@ -91,9 +100,10 @@ export default defineConfig([
   },
 
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
 

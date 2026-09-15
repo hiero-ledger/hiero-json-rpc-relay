@@ -254,7 +254,7 @@ describe('ValidationService tests', async function () {
 
     it('should expose every casted entry so a rule can constrain against another entry', async () => {
       const entries = {
-        MIN: entry((value: number, envs) => value <= envs.MAX || 'MIN must not exceed MAX'),
+        MIN: entry((value: number, envs) => value <= (envs.MAX as number) || 'MIN must not exceed MAX'),
       };
 
       expect(() => ValidationService.validate({ MIN: 10, MAX: 4 }, entries)).to.throw(

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
@@ -11,13 +12,23 @@ import { generateEthTestEnv } from './eth-helpers';
 
 chai.use(chaiAsPromised);
 
+interface RejectedTransactionError extends JsonRpcError {
+  data: {
+    txHash: string;
+    detail?: string;
+    hederaStatus?: string;
+    transactionId?: string;
+    provisional?: boolean;
+  };
+}
+
 describe('eth_getTransactionReceipt transaction tracing fallback', function () {
   this.timeout(20000);
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionReceiptTracing', ipAddress: '0.0.0.0' });
   const TX_HASH = '0x' + 'd'.repeat(64);
 
-  const mockMirrorNodeNotFound = (restMock: any): void => {
+  const mockMirrorNodeNotFound = (restMock: MockAdapter): void => {
     restMock.onGet(`contracts/results/${TX_HASH}?hbar=false`).reply(
       404,
       JSON.stringify({
@@ -29,7 +40,7 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
       .reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
   };
 
-  const mockImmatureRecord = (restMock: any, overrides: Record<string, unknown> = {}): void => {
+  const mockImmatureRecord = (restMock: MockAdapter, overrides: Record<string, unknown> = {}): void => {
     restMock.onGet(`contracts/results/${TX_HASH}?hbar=false`).reply(
       200,
       JSON.stringify({
@@ -53,7 +64,9 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
 
       await transactionTracingService.recordRejected(TX_HASH, { error: 'boom', hederaStatus: 'WRONG_NONCE' });
 
-      const error = await ethImpl.getTransactionReceipt(TX_HASH, requestDetails).catch((e: any) => e);
+      const error = (await ethImpl
+        .getTransactionReceipt(TX_HASH, requestDetails)
+        .catch((e: unknown) => e)) as RejectedTransactionError;
       expect(error).to.be.instanceOf(JsonRpcError);
       expect(error.code).to.equal(-32003);
       expect(error.data.txHash).to.equal(TX_HASH);
@@ -66,7 +79,9 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
 
       await transactionTracingService.recordTimedout(TX_HASH, { error: 'slow' });
 
-      const error = await ethImpl.getTransactionReceipt(TX_HASH, requestDetails).catch((e: any) => e);
+      const error = (await ethImpl
+        .getTransactionReceipt(TX_HASH, requestDetails)
+        .catch((e: unknown) => e)) as RejectedTransactionError;
       expect(error).to.be.instanceOf(JsonRpcError);
       expect(error.code).to.equal(-32003);
       expect(error.data.provisional).to.be.true;
@@ -83,7 +98,9 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
         transactionId: '0.0.1234-1700000000-000000000',
       });
 
-      const error = await ethImpl.getTransactionReceipt(TX_HASH, requestDetails).catch((e: any) => e);
+      const error = (await ethImpl
+        .getTransactionReceipt(TX_HASH, requestDetails)
+        .catch((e: unknown) => e)) as RejectedTransactionError;
       expect(error).to.be.instanceOf(JsonRpcError);
       expect(error.code).to.equal(-32003);
       expect(error.message).to.equal('Transaction rejected: WRONG_NONCE');
@@ -133,7 +150,9 @@ describe('eth_getTransactionReceipt transaction tracing fallback', function () {
         result: 'INSUFFICIENT_PAYER_BALANCE',
       });
 
-      const error = await ethImpl.getTransactionReceipt(TX_HASH, requestDetails).catch((e: any) => e);
+      const error = (await ethImpl
+        .getTransactionReceipt(TX_HASH, requestDetails)
+        .catch((e: unknown) => e)) as RejectedTransactionError;
       expect(error).to.be.instanceOf(JsonRpcError);
       expect(error.code).to.equal(-32003);
       expect(error.message).to.equal('Transaction rejected: INSUFFICIENT_PAYER_BALANCE');

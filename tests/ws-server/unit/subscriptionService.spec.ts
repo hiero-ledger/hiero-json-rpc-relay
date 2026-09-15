@@ -5,14 +5,17 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
+import { IPRateLimiterService } from '../../../src/relay/lib/services';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
+import { type PollerService } from '../../../src/ws-server/service/pollerService';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
+import type { RelayWebSocket } from '../../../src/ws-server/types';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
-const limiter = new ConnectionLimiter(logger, register);
-let relay: Relay;
+const limiter = new ConnectionLimiter(logger, register, sinon.createStubInstance(IPRateLimiterService));
+let relay: sinon.SinonStubbedInstance<Relay>;
 
 class MockWsConnection {
   id: string;
@@ -23,15 +26,23 @@ class MockWsConnection {
     this.limiter = limiter;
   }
 
-  send(msg) {
+  send(msg: string): void {
     console.log(`Mocked ws-connection with id: ${this.id} used method: send(${msg}`);
   }
+}
+
+// The service only reads `id`, `limiter` and `send` off a connection, so the minimal stand-in above is enough.
+const mockWsConnection = (id: string): RelayWebSocket => new MockWsConnection(id) as unknown as RelayWebSocket;
+
+interface SubscriptionServiceInternals {
+  createHash(data: string): string;
+  pollerService: PollerService;
 }
 
 describe('subscriptionService', async function () {
   this.timeout(20000);
   let subscriptionService: SubscriptionService;
-  let sandbox;
+  let sandbox: sinon.SinonSandbox;
   this.beforeAll(() => {
     // @ts-ignore
     relay = sinon.createStubInstance(Relay);
@@ -51,7 +62,7 @@ describe('subscriptionService', async function () {
   it('Should create sha256 hash out of a data object', async function () {
     const dataToHash = 'This is a Test';
 
-    const hash = (subscriptionService as any).createHash(dataToHash);
+    const hash = (subscriptionService as unknown as SubscriptionServiceInternals).createHash(dataToHash);
 
     expect(hash).to.be.eq(`401b022b962452749726ba96d436921e39d6deb2b0f4a922cc3da5d7e99e6e46`);
   });
@@ -74,8 +85,8 @@ describe('subscriptionService', async function () {
 
   it('when subscribing should return subId and poller should add(tag)', async function () {
     const connectionId = '1';
-    const wsConnection = new MockWsConnection(connectionId);
-    const spy = sandbox.spy((subscriptionService as any).pollerService, 'add');
+    const wsConnection = mockWsConnection(connectionId);
+    const spy = sandbox.spy((subscriptionService as unknown as SubscriptionServiceInternals).pollerService, 'add');
 
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
 
@@ -87,7 +98,7 @@ describe('subscriptionService', async function () {
 
   it('notifySubscribers should notify subscribers with data', async function () {
     const connectionId = '2';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
     const spy = sandbox.spy(wsConnection, 'send');
     const testData = 'test example data';
@@ -104,10 +115,10 @@ describe('subscriptionService', async function () {
   it('notifySubscribers should notify multiple subscribers with data', async function () {
     const connectionId1 = '12';
     const connectionId2 = '13';
-    const wsConnection1 = new MockWsConnection(connectionId1);
+    const wsConnection1 = mockWsConnection(connectionId1);
     const subId1 = subscriptionService.subscribe(wsConnection1, 'logs');
     const spy1 = sandbox.spy(wsConnection1, 'send');
-    const wsConnection2 = new MockWsConnection(connectionId2);
+    const wsConnection2 = mockWsConnection(connectionId2);
     const subId2 = subscriptionService.subscribe(wsConnection2, 'logs');
     const spy2 = sandbox.spy(wsConnection2, 'send');
     const testData = 'test example data';
@@ -126,7 +137,7 @@ describe('subscriptionService', async function () {
 
   it('notifySubscribers should use cache to not send the data again', async function () {
     const connectionId = '4';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
     const spy = sandbox.spy(wsConnection, 'send');
     const testData = 'test example data cached';
@@ -144,7 +155,7 @@ describe('subscriptionService', async function () {
 
   it('notifySubscribers using a Tag that has no subscribers should not send anything to connection', async function () {
     const connectionId = '5';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
     const spy = sandbox.spy(wsConnection, 'send');
     const testData = 'test example data cached';
@@ -160,7 +171,7 @@ describe('subscriptionService', async function () {
 
   it('Unsubscribing all subscriptions from same connection', async function () {
     const connectionId = '6';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const tag1 = { event: 'logs' };
     const tag2 = {
       event: 'logs',
@@ -197,7 +208,7 @@ describe('subscriptionService', async function () {
 
   it('Unsubscribing single subscriptions from connection', async function () {
     const connectionId = '7';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const tag1 = { event: 'logs' };
     const tag2 = {
       event: 'logs',
@@ -211,7 +222,7 @@ describe('subscriptionService', async function () {
     const count = subscriptionService.unsubscribe(wsConnection, subId2);
 
     expect(count).to.be.eq(1);
-    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`), wsConnection.id, subId2).to.be.eq(true);
+    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`, wsConnection.id, subId2)).to.be.eq(true);
     expect(
       loggerDebugSpy.calledWith(
         `Connection %s. Unsubscribing subId: %s; tag: %s`,
@@ -224,7 +235,7 @@ describe('subscriptionService', async function () {
 
   it('Unsubscribing without a valid subscription or ws conn should return true', async function () {
     const connectionId = '6';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const notRealSubId = '0x123456';
 
     const count = subscriptionService.unsubscribe(wsConnection, notRealSubId);
@@ -234,7 +245,7 @@ describe('subscriptionService', async function () {
 
   it('Subscribing to the same event and filters should return the same subscription id', async function () {
     const connectionId = '7';
-    const wsConnection = new MockWsConnection(connectionId);
+    const wsConnection = mockWsConnection(connectionId);
     const tag1 = {
       event: 'logs',
       filters: { topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'] },
@@ -259,7 +270,7 @@ describe('subscriptionService', async function () {
 
     it('Subscribing to the same event and filters should return different subscription id', async function () {
       const connectionId = '7';
-      const wsConnection = new MockWsConnection(connectionId);
+      const wsConnection = mockWsConnection(connectionId);
       const tag1 = {
         event: 'logs',
         filters: { topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'] },

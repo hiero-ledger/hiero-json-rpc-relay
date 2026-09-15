@@ -8,6 +8,7 @@ import sinon from 'sinon';
 
 import { MirrorNodeClient } from '../../../../../src/relay/lib/clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
+import { type Block } from '../../../../../src/relay/lib/model';
 import { type ICommonService } from '../../../../../src/relay/lib/services';
 import { BlockService } from '../../../../../src/relay/lib/services/ethService/blockService/BlockService';
 import { TransactionTimestampIndexFactory } from '../../../../../src/relay/lib/services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
@@ -23,6 +24,8 @@ const HASH_B = '0xcd7a40ee08d9b86c732d2980cd50361a81f9502fe61dd8e8aebed3a1dccf8e
 const TS_A = '1786958468.715212954';
 const TS_B = '1786958469.000000001';
 
+const pool = WorkersPool as unknown as { instance: { run: (task: unknown) => Promise<unknown> } };
+
 describe('BlockService records synthetic consensus timestamps', function () {
   this.timeout(10000);
 
@@ -36,7 +39,7 @@ describe('BlockService records synthetic consensus timestamps', function () {
 
   const workerResponse = (): IGetBlockWorkerResponse =>
     ({
-      block: { number: '0x1', hash: '0x' + 'b'.repeat(64) } as any,
+      block: { number: '0x1', hash: '0x' + 'b'.repeat(64) } as unknown as Block,
       syntheticTimestampEntries: [
         [HASH_A, TS_A],
         [HASH_B, TS_B],
@@ -75,7 +78,9 @@ describe('BlockService records synthetic consensus timestamps', function () {
   });
 
   it('records nothing when the block has no synthetic transactions', async () => {
-    sinon.stub(WorkersPool, 'run').resolves({ block: { number: '0x1' } as any, syntheticTimestampEntries: [] });
+    sinon
+      .stub(WorkersPool, 'run')
+      .resolves({ block: { number: '0x1' } as unknown as Block, syntheticTimestampEntries: [] });
 
     await blockService.getBlockByNumber('0x1', true, requestDetails);
 
@@ -105,8 +110,8 @@ describe('BlockService records synthetic consensus timestamps', function () {
     it('records the entries on this thread after they cross the pool boundary', async () => {
       const response = workerResponse();
       // Stand in for Piscina: the task goes out, only serialisable data comes back.
-      const previousInstance = (WorkersPool as any)['instance'];
-      (WorkersPool as any)['instance'] = { run: async () => JSON.parse(JSON.stringify(response)) };
+      const previousInstance = pool.instance;
+      pool.instance = { run: async (): Promise<unknown> => JSON.parse(JSON.stringify(response)) };
 
       try {
         const block = await blockService.getBlockByNumber('0x1', true, requestDetails);
@@ -115,7 +120,7 @@ describe('BlockService records synthetic consensus timestamps', function () {
         expect(await mirrorNodeClient.transactionTimestampIndex.get(HASH_A)).to.equal(TS_A);
         expect(await mirrorNodeClient.transactionTimestampIndex.get(HASH_B)).to.equal(TS_B);
       } finally {
-        (WorkersPool as any)['instance'] = previousInstance;
+        pool.instance = previousInstance;
       }
     });
   });

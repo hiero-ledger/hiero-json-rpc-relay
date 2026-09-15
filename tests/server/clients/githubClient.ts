@@ -5,6 +5,10 @@ import { Octokit } from '@octokit/core';
 import { ConfigService } from '../../../src/config-service/services';
 import { type GitHubContext } from '../types/GitHubContext';
 
+interface PullRequestComments {
+  data: Array<{ id: number; body?: string | null }>;
+}
+
 /**
  * Client for interacting with GitHub, providing methods to perform operations such as adding comments to pull requests.
  */
@@ -46,7 +50,7 @@ export class GitHubClient {
    * Gets a list of comments on a pull request.
    * @returns A promise that resolves with the list of comments.
    */
-  async getCommentsOnPullRequest() {
+  async getCommentsOnPullRequest(): Promise<PullRequestComments> {
     try {
       const context = GitHubClient.getContext();
       return await this.octokit.request(GitHubClient.GET_COMMENTS_ENDPOINT, {

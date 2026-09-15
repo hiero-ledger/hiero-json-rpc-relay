@@ -32,14 +32,14 @@ import {
   SYNTHETIC_LOG,
   SYNTHETIC_TX_HASH,
 } from './eth-config';
-import { contractResultsByNumberByIndexURL, generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, contractResultsByNumberByIndexURL, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 
-function verifyAggregatedInfo(result: Transaction | null) {
+function verifyAggregatedInfo(result: Transaction | null): void {
   // verify aggregated info
   expect(result).to.exist;
   expect(result).to.not.be.null;
@@ -68,10 +68,10 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
@@ -151,7 +151,7 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
 
   it('eth_getTransactionByBlockNumberAndIndex should throw for internal error', async function () {
     const defaultContractResultsWithNullableFrom = _.cloneDeep(defaultContractResults);
-    defaultContractResultsWithNullableFrom.results[0].from = null;
+    (defaultContractResultsWithNullableFrom.results[0] as { from: string | null }).from = null;
     const randomBlock = {
       number: 5644,
       count: 33,
@@ -277,7 +277,7 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
   it('eth_getTransactionByBlockNumberAndIndex returns 7702 transaction for type 4', async function () {
     const resultWith7702Transaction = structuredClone(defaultContractResults);
     resultWith7702Transaction.results[0].type = 4;
-    resultWith7702Transaction.results[0]['authorization_list'] = DEFAULT_AUTHORIZATION_LIST;
+    Object.assign(resultWith7702Transaction.results[0], { authorization_list: DEFAULT_AUTHORIZATION_LIST });
     restMock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
     restMock
       .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))

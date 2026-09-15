@@ -25,7 +25,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     await redisClient.connect();
     // Ignore benign shutdown noise when the in-memory Redis server closes
     // its socket during global teardown. We still surface any other errors.
-    redisClient.on('error', (err: any) => {
+    redisClient.on('error', (err: Error) => {
       const message: string = err?.message ?? '';
       if (message.includes('Socket closed') || message.includes('The client is closed')) {
         return;

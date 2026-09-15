@@ -12,7 +12,7 @@ export interface RpcRawResponse {
   jsonrpc?: string;
   method?: string;
   result?: unknown;
-  error?: { code: number; message: string; name?: string };
+  error?: { code: number; message: string; name?: string; data?: unknown };
   status?: number;
 }
 
@@ -52,7 +52,8 @@ class HttpProtocolClient implements RpcProtocolClient {
       headers,
       body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
     });
-    return { ...(await resp.json()), status: resp.status };
+    const body = (await resp.json()) as RpcRawResponse;
+    return { ...body, status: resp.status };
   }
 }
 

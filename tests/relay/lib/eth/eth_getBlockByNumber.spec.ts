@@ -12,7 +12,7 @@ import { type MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clie
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { type EthImpl } from '../../../../src/relay/lib/eth';
-import { type Block, type Transaction } from '../../../../src/relay/lib/model';
+import { type Block, type Transaction, type Transaction1559 } from '../../../../src/relay/lib/model';
 import { type CommonService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../../src/relay/lib/types';
@@ -68,7 +68,7 @@ import {
   NO_SUCH_BLOCK_EXISTS_RES,
   NOT_FOUND_RES,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -97,17 +97,18 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockByNumberTest', ipAddress: '0.0.0.0' });
 
-  const veriftAggregatedInfo = (result) => {
+  const veriftAggregatedInfo = (result: Block | null): void => {
     // verify aggregated info
     expect(result).to.exist;
     expect(result).to.not.be.null;
+    if (result == null) return;
     expect(result.hash).equal(BLOCK_HASH_TRIMMED);
     expect(result.number).equal(BLOCK_NUMBER_HEX);
     expect(result.parentHash).equal(BLOCK_HASH_PREV_TRIMMED);
     expect(result.timestamp).equal(BLOCK_TIMESTAMP_HEX);
   };
 
-  function verifyTransactions(transactions: Array<Transaction>) {
+  function verifyTransactions(transactions: Array<Transaction>): void {
     expect(transactions.length).equal(2);
     expect(transactions[0].hash).equal(CONTRACT_HASH_1);
     expect(transactions[0].gas).equal(MAX_GAS_LIMIT_HEX);
@@ -121,12 +122,12 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     restMock.resetHandlers();
 
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
     modifiedNetworkFees.fees[2].gas *= 100;
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
@@ -402,7 +403,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
-      result.transactions.forEach((tx) => {
+      (result.transactions as Transaction1559[]).forEach((tx) => {
         expect(tx.maxFeePerGas).to.not.exist;
         expect(tx.maxPriorityFeePerGas).to.not.exist;
         expect(tx.type).to.be.eq(constants.ZERO_HEX);
@@ -461,7 +462,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
   describe('eth_getBlockByNumber with tag', async function () {
     const TOTAL_GET_CALLS_EXECUTED = 3;
-    function confirmResult(result: Block | null) {
+    function confirmResult(result: Block | null): void {
       expect(result).to.exist;
       expect(result).to.not.be.null;
 
@@ -652,8 +653,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       } catch (error) {
         expect(error).to.exist;
         const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
-        expect(error.code).to.equal(predefinedError.code);
-        expect(error.message).to.equal(predefinedError.message);
+        const thrown = error as typeof predefinedError;
+        expect(thrown.code).to.equal(predefinedError.code);
+        expect(thrown.message).to.equal(predefinedError.message);
       }
     }
   });

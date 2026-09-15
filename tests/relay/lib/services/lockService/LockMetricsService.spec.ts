@@ -30,7 +30,7 @@ describe('LockMetricsService', function () {
     if (!metric || !metric.values) {
       return 0;
     }
-    const value = metric.values.find((v: any) => {
+    const value = metric.values.find((v) => {
       return Object.entries(labels).every(([key, val]) => v.labels[key] === val);
     });
 
@@ -50,8 +50,9 @@ describe('LockMetricsService', function () {
 
     // Find the _sum value matching labels
     const sumValue = metric.values.find(
-      (v: any) =>
-        v.metricName === `${metricName}_sum` && Object.entries(labels).every(([key, val]) => v.labels[key] === val),
+      (v) =>
+        (v as { metricName?: string }).metricName === `${metricName}_sum` &&
+        Object.entries(labels).every(([key, val]) => v.labels[key] === val),
     );
 
     return sumValue?.value ?? 0;
@@ -70,8 +71,9 @@ describe('LockMetricsService', function () {
 
     // Find the _count value matching labels
     const countValue = metric.values.find(
-      (v: any) =>
-        v.metricName === `${metricName}_count` && Object.entries(labels).every(([key, val]) => v.labels[key] === val),
+      (v) =>
+        (v as { metricName?: string }).metricName === `${metricName}_count` &&
+        Object.entries(labels).every(([key, val]) => v.labels[key] === val),
     );
 
     return countValue?.value ?? 0;

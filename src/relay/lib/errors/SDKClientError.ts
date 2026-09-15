@@ -7,11 +7,12 @@ export class SDKClientError extends Error {
   public nodeAccountId: string | undefined;
   private failedTransactionId: string | undefined;
 
-  constructor(e: any, message?: string, transactionId?: string, nodeId?: string | undefined) {
-    super(e?.status?._code ? e.message : message);
+  constructor(e: unknown, message?: string, transactionId?: string, nodeId?: string | undefined) {
+    const error = e as { message?: string; status?: Status } | undefined;
+    super(error?.status?._code ? error.message : message);
 
-    if (e?.status?._code) {
-      this.status = e.status;
+    if (error?.status?._code) {
+      this.status = error.status;
     }
     this.failedTransactionId = transactionId || '';
     this.nodeAccountId = nodeId;

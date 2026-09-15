@@ -14,13 +14,13 @@ import { rpcParamValidationRules } from './validators';
 
 interface IAdminRelayConfig {
   version: string;
-  config: { [k: string]: any };
+  config: { [k: string]: unknown };
 }
 
 interface IAdminUpstreamDependency {
   service: string;
   version?: string;
-  config: { [k: string]: any };
+  config: { [k: string]: unknown };
 }
 
 export interface IAdminConfig {
@@ -58,8 +58,10 @@ export class AdminImpl implements Admin {
   private async getConsensusNodeVersion(): Promise<string> {
     try {
       const targetNetwork: string = Utils.getNetworkNameByChainId();
-      const response: any = await axios.get('https://status.hedera.com/api/v2/summary.json');
-      const networkInfo: any = response.data.components.filter(
+      const response = await axios.get<{ components: { name: string }[] }>(
+        'https://status.hedera.com/api/v2/summary.json',
+      );
+      const networkInfo = response.data.components.filter(
         (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
       );
 
@@ -76,7 +78,7 @@ export class AdminImpl implements Admin {
   public async config(): Promise<IAdminConfig> {
     const cacheKey = `${constants.CACHE_KEY.ADMIN_CONFIG}`;
 
-    let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config);
+    let info: IAdminConfig | null = await this.cacheService.getAsync(cacheKey, AdminImpl.config);
     if (!info) {
       const maskedEnvs = ConfigService.getAllMasked();
       info = {

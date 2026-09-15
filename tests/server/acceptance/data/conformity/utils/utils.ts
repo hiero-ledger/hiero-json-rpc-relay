@@ -5,7 +5,7 @@ import { signTransaction } from '../../../../../relay/helpers';
 import { localNodeAccountPrivateKey, sendAccountAddress } from './constants';
 import { type JsonRpcRequest, type JsonRpcResponse, type Transaction, type TransactionResponse } from './interfaces';
 
-export async function getTransactionCount(relayUrl: string) {
+export async function getTransactionCount(relayUrl: string): Promise<string> {
   const request = {
     jsonrpc: '2.0',
     id: 1,
@@ -15,10 +15,10 @@ export async function getTransactionCount(relayUrl: string) {
 
   const response = await sendRequestToRelay(relayUrl, request as JsonRpcRequest, false);
 
-  return response.result;
+  return response.result as string;
 }
 
-export async function getLatestBlockHash(relayUrl: string) {
+export async function getLatestBlockHash(relayUrl: string): Promise<string> {
   const request = {
     jsonrpc: '2.0',
     method: 'eth_getBlockByNumber',
@@ -28,7 +28,7 @@ export async function getLatestBlockHash(relayUrl: string) {
 
   const response = await sendRequestToRelay(relayUrl, request as JsonRpcRequest, false);
 
-  return response.result.hash;
+  return (response.result as { hash: string }).hash;
 }
 
 export async function sendRequestToRelay(
@@ -84,11 +84,12 @@ export async function signAndSendRawTransaction(
     params: [response.result],
   };
   const transactionReceipt = await sendRequestToRelay(relayUrl, requestTransactionReceipt as JsonRpcRequest, false);
+  const receipt = transactionReceipt.result as Omit<TransactionResponse, 'transactionHash'>;
   return {
-    transactionHash: response.result,
-    blockHash: transactionReceipt.result.blockHash,
-    transactionIndex: transactionReceipt.result.transactionIndex,
-    blockNumber: transactionReceipt.result.blockNumber,
-    contractAddress: transactionReceipt.result.contractAddress,
+    transactionHash: response.result as string,
+    blockHash: receipt.blockHash,
+    transactionIndex: receipt.transactionIndex,
+    blockNumber: receipt.blockNumber,
+    contractAddress: receipt.contractAddress,
   };
 }

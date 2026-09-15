@@ -150,7 +150,7 @@ describe('Errors', () => {
         expect(error.message).to.eq(`Non Existing Contract Address: ${address}. Expected a Contract or Token Address.`);
       });
 
-      const invalidAddresses: any[] = [
+      const invalidAddresses: Array<{ address: string | null | undefined; description: string }> = [
         { address: '', description: 'empty string' },
         { address: null, description: 'null' },
         { address: undefined, description: 'undefined' },

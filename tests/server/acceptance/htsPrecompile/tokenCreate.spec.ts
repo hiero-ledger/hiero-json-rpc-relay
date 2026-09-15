@@ -36,7 +36,7 @@ import { type AliasAccount } from '../../types/AliasAccount';
  */
 describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async function () {
   this.timeout(240 * 1000); // 240 seconds
-  const { servicesNode, mirrorNode, relay }: any = global;
+  const { servicesNode, mirrorNode, relay } = global;
 
   const TX_SUCCESS_CODE = BigInt(22);
   const TOKEN_NAME = 'tokenName';
@@ -57,10 +57,8 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   let mainContractReceiverWalletFirst: ethers.Contract;
   let mainContractReceiverWalletSecond: ethers.Contract;
   let HTSTokenWithCustomFeesContractAddress: string;
-  let requestId: string;
 
   before(async () => {
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '10000000000'; //100 Hbar
 
@@ -68,26 +66,15 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, contractDeployer.wallet);
     mainContractAddress = mainContract.target as string;
-    const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`, requestId);
+    const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`);
 
     accounts[0] = await servicesNode.createAccountWithContractIdKey(
       mainContractMirror.contract_id,
       200,
       relay.provider,
-      requestId,
     );
-    accounts[1] = await servicesNode.createAccountWithContractIdKey(
-      mainContractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
-    accounts[2] = await servicesNode.createAccountWithContractIdKey(
-      mainContractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[1] = await servicesNode.createAccountWithContractIdKey(mainContractMirror.contract_id, 30, relay.provider);
+    accounts[2] = await servicesNode.createAccountWithContractIdKey(mainContractMirror.contract_id, 30, relay.provider);
 
     // wait for mirror node to catch up continuing running tests
     await new Promise((r) => setTimeout(r, 5000));
@@ -108,11 +95,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     await new Promise((r) => setTimeout(r, 5000));
   });
 
-  this.beforeEach(async () => {
-    requestId = Utils.generateRequestId();
-  });
-
-  async function createHTSToken() {
+  async function createHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
@@ -120,13 +103,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ...gasOptions,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
-  async function createNftHTSToken() {
+  async function createNftHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
@@ -134,13 +117,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ...gasOptions,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
-  async function createHTSTokenWithCustomFees() {
+  async function createHTSTokenWithCustomFees(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, txSigner.wallet);
     const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenWithCustomFeesPublic(
@@ -153,7 +136,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     );
     const txReceipt = await tx.wait();
     const { tokenAddress } = txReceipt.logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
@@ -166,8 +149,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWF = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -176,8 +160,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWS = await mainContractReceiverWalletSecond.associateTokenPublic(
@@ -186,8 +171,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
@@ -198,8 +184,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWF = await mainContractReceiverWalletFirst.associateTokenPublic(
@@ -208,8 +195,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWS = await mainContractReceiverWalletSecond.associateTokenPublic(
@@ -218,8 +206,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
@@ -231,8 +220,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const mainContractReceiverWalletFirst = new ethers.Contract(
@@ -246,8 +236,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const mainContractReceiverWalletSecond = new ethers.Contract(
@@ -261,8 +252,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_10_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
@@ -280,12 +272,12 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       Constants.GAS.LIMIT_5_000_000,
     );
     const { responseCode } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
     )[0].args;
     expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
     const { serialNumbers } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
     )[0].args;
     NftSerialNumber = Number(serialNumbers[0]);
     expect(NftSerialNumber).to.be.greaterThan(0);
@@ -302,10 +294,10 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         txSigner.wallet.address,
       );
       const beforeAmount = (await txBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
       )[0].args.amount;
       const { responseCode } = (await txBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
@@ -317,7 +309,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -328,7 +320,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -353,7 +345,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeApproval = (await approvalTx.wait()).logs.filter(
-        (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeApproval).to.equal(TX_SUCCESS_CODE);
 
@@ -364,13 +356,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         txSigner.wallet.address,
       );
       const afterAmount = (await txAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.AllowanceValue,
       )[0].args.amount;
       expect(beforeAmount).to.equal(BigInt(0));
       expect(afterAmount).to.equal(amount);
 
       //transfer token which are owned by mainContract using the eth signer with transferFrom to account[1]
-      await HTSTokenContract.connect(txSigner.wallet).transferFrom(
+      await (HTSTokenContract.connect(txSigner.wallet) as ethers.Contract).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         amount,
@@ -386,7 +378,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -397,7 +389,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -411,10 +403,10 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       );
       const txBeforeReceipt = await txBefore.wait();
       const beforeFlag = txBeforeReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Approved,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Approved,
       )[0].args.approved;
       const responseCodeTxBefore = txBeforeReceipt.logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeTxBefore).to.equal(TX_SUCCESS_CODE);
 
@@ -425,7 +417,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_5_000_000,
       );
       const { responseCode } = (await tx.wait()).logs.filter(
-        (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
@@ -435,7 +427,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         accounts[1].wallet.address,
       );
       const afterFlag = (await txAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Approved,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.Approved,
       )[0].args.approved;
 
       expect(beforeFlag).to.equal(false);
@@ -449,12 +441,12 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_5_000_000,
       );
       const { responseCode } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
       const { approved } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ApprovedAddress,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ApprovedAddress,
       )[0].args;
       expect(approved).to.equal(Constants.ZERO_HEX);
     });
@@ -471,7 +463,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -482,7 +474,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -493,7 +485,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-          (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -514,8 +506,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txXfer.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       // delay
@@ -538,7 +531,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ]);
 
       //transfer NFT to accounts[1] with the eth signer as signer
-      await NFTokenContract.connect(txSigner.wallet).transferFrom(
+      await (NFTokenContract.connect(txSigner.wallet) as ethers.Contract).transferFrom(
         mainContract.target,
         accounts[1].wallet.address,
         NftSerialNumber,
@@ -556,7 +549,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -568,7 +561,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -580,7 +573,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
           Constants.GAS.LIMIT_1_000_000,
         );
         const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-          (e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode;
         expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
       }
@@ -592,7 +585,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const tx = await mainContract.getFungibleTokenInfoPublic(HTSTokenContractAddress);
 
       const { tokenInfo, decimals } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.FungibleTokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.FungibleTokenInfo,
       )[0].args.tokenInfo;
 
       expect(tokenInfo.totalSupply).to.equal(TOKEN_MAX_SUPPLY);
@@ -606,7 +599,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const tx = await mainContract.getTokenInfoPublic(HTSTokenContractAddress);
 
       const { token, totalSupply } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(totalSupply).to.equal(TOKEN_MAX_SUPPLY);
@@ -619,7 +612,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       const tx = await mainContract.getNonFungibleTokenInfoPublic(NftHTSTokenContractAddress, NftSerialNumber);
 
       const { tokenInfo, serialNumber } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.NonFungibleTokenInfo,
       )[0].args.tokenInfo;
 
       expect(tokenInfo.totalSupply).to.equal(BigInt(1));
@@ -630,29 +623,38 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   });
 
   describe('HTS Precompile KYC Tests', async function () {
-    async function checkKyc(contractOwner, tokenAddress, accountAddress, expectedValue: boolean) {
+    async function checkKyc(
+      contractOwner: ethers.Contract,
+      tokenAddress: string,
+      accountAddress: string,
+      expectedValue: boolean,
+    ): Promise<void> {
       const tx = await contractOwner.isKycPublic(tokenAddress, accountAddress, Constants.GAS.LIMIT_1_000_000);
       const responseCodeIsKyc = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeIsKyc).to.equal(TX_SUCCESS_CODE);
 
       const isKycGranted = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.KycGranted,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.KycGranted,
       )[0].args.kycGranted;
       expect(isKycGranted).to.equal(expectedValue);
     }
 
-    async function checkTokenDefaultKYCStatus(contractOwner, tokenAddress, expectedValue: boolean) {
+    async function checkTokenDefaultKYCStatus(
+      contractOwner: ethers.Contract,
+      tokenAddress: string,
+      expectedValue: boolean,
+    ): Promise<void> {
       const txTokenDefaultStatus = await contractOwner.getTokenDefaultKycStatusPublic(
         tokenAddress,
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeTokenDefaultStatus = (await txTokenDefaultStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       const defaultTokenKYCStatus = (await txTokenDefaultStatus.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenDefaultKycStatus,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenDefaultKycStatus,
       )[0].args.defaultKycStatus;
       expect(responseCodeTokenDefaultStatus).to.equal(TX_SUCCESS_CODE);
       expect(defaultTokenKYCStatus).to.equal(expectedValue);
@@ -677,7 +679,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeGrantKyc = (await grantKycTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeGrantKyc).to.equal(TX_SUCCESS_CODE);
 
@@ -687,15 +689,13 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       // transfer hts
       const amount = BigInt(10);
       const balanceBefore = await HTSTokenContract.balanceOf(accounts[2].wallet.address);
-      await mainContract
-        .connect(txSigner.wallet)
-        .transferTokenPublic(
-          HTSTokenContractAddress,
-          accounts[0].wallet.address,
-          accounts[2].wallet.address,
-          amount,
-          Constants.GAS.LIMIT_1_000_000,
-        );
+      await (mainContract.connect(txSigner.wallet) as ethers.Contract).transferTokenPublic(
+        HTSTokenContractAddress,
+        accounts[0].wallet.address,
+        accounts[2].wallet.address,
+        amount,
+        Constants.GAS.LIMIT_1_000_000,
+      );
       await new Promise((r) => setTimeout(r, 5000));
       const balanceAfter = await HTSTokenContract.balanceOf(accounts[2].wallet.address);
 
@@ -708,7 +708,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       const responseCodeRevokeKyc = (await revokeKycTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCodeRevokeKyc).to.equal(TX_SUCCESS_CODE);
 
@@ -723,7 +723,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
       const tx = await mainContract.getTokenCustomFeesPublic(HTSTokenWithCustomFeesContractAddress);
       const { fixedFees, fractionalFees } = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenCustomFees,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenCustomFees,
       )[0].args;
 
       expect(fixedFees[0].amount).to.equal(BigInt(1));
@@ -745,18 +745,18 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
       const txBefore = await mainContract.getTokenInfoPublic(createdTokenAddress, Constants.GAS.LIMIT_1_000_000);
       const tokenInfoBefore = (await txBefore.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       const tx = await mainContract.deleteTokenPublic(createdTokenAddress, Constants.GAS.LIMIT_1_000_000);
       const responseCode = (await tx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
       )[0].args.responseCode;
       expect(responseCode).to.equal(TX_SUCCESS_CODE);
 
       const txAfter = await mainContract.getTokenInfoPublic(createdTokenAddress, Constants.GAS.LIMIT_1_000_000);
       const tokenInfoAfter = (await txAfter.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.TokenInfo,
       )[0].args.tokenInfo;
 
       expect(tokenInfoBefore.deleted).to.equal(false);
@@ -765,18 +765,19 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
   });
 
   describe('CryptoTransfer Tests', async function () {
-    let NftSerialNumber;
-    let NftSerialNumber2;
+    let NftSerialNumber: number;
+    let NftSerialNumber2: number;
 
-    async function setKyc(tokenAddress) {
+    async function setKyc(tokenAddress: string): Promise<void> {
       const grantKycTx = await mainContractOwner.grantTokenKycPublic(
         tokenAddress,
         accounts[0].wallet.address,
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await grantKycTx.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await grantKycTx.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       const grantKycTx1 = await mainContractOwner.grantTokenKycPublic(
@@ -785,8 +786,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await grantKycTx1.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await grantKycTx1.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
       const grantKycTx2 = await mainContractOwner.grantTokenKycPublic(
@@ -795,8 +797,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await grantKycTx2.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await grantKycTx2.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     }
 
@@ -826,8 +829,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txXfer.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 
@@ -841,11 +845,12 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await txMint.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txMint.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.be.equal(TX_SUCCESS_CODE);
       const { serialNumbers } = (await txMint.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
       )[0].args;
       NftSerialNumber = Number(serialNumbers[0]);
       NftSerialNumber2 = Number(serialNumbers[1]);
@@ -871,8 +876,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txXfer.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 
@@ -885,11 +891,12 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         Constants.GAS.LIMIT_1_000_000,
       );
       expect(
-        (await txMint.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-          .responseCode,
+        (await txMint.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.be.equal(TX_SUCCESS_CODE);
       const { serialNumbers } = (await txMint.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.MintedToken,
       )[0].args;
       const NftSerialNumber = serialNumbers[0];
 
@@ -923,8 +930,9 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       ];
       const txXfer = await mainContract.cryptoTransferPublic(tokenTransferList, Constants.GAS.LIMIT_1_000_000);
       expect(
-        (await txXfer.wait()).logs.filter((e) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0]
-          .args.responseCode,
+        (await txXfer.wait()).logs.filter(
+          (e: ethers.EventLog) => e.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+        )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
     });
 
@@ -937,7 +945,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       );
       expect(
         (await txApproval1.wait()).logs.filter(
-          (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
@@ -949,7 +957,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       );
       expect(
         (await txApproval2.wait()).logs.filter(
-          (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
@@ -979,7 +987,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
 
     it('should fail to swap approved non-fungible tokens', async function () {
@@ -991,7 +999,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       );
       expect(
         (await txApprove1.wait()).logs.filter(
-          (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
@@ -1003,7 +1011,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
       );
       expect(
         (await txApprove2.wait()).logs.filter(
-          (e) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+          (e: ethers.EventLog) => e?.fragment?.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
         )[0].args.responseCode,
       ).to.equal(TX_SUCCESS_CODE);
 
@@ -1026,7 +1034,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
 
     it('should fail to transfer fungible and non-fungible tokens in a single tokenTransferList', async function () {
@@ -1055,7 +1063,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
         },
       ];
 
-      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList), Constants.CALL_EXCEPTION);
+      await Assertions.expectRevert(mainContract.cryptoTransferPublic(tokenTransferList));
     });
   });
 });

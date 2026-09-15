@@ -42,11 +42,11 @@ export default class MetricsClient {
    *
    * @param metric
    */
-  async get(metric: string) {
+  async get(metric: string): Promise<string> {
     const allMetrics = (await this.client.get('')).data;
-    const allMetricsArray = allMetrics.split('\n');
+    const allMetricsArray: string[] = allMetrics.split('\n');
     const matchPattern = `${metric} `;
     const result = allMetricsArray.find((m) => m.startsWith(matchPattern));
-    return result.replace(matchPattern, '');
+    return result!.replace(matchPattern, '');
   }
 }

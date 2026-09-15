@@ -224,7 +224,7 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
  */
 async function resolveContractResultAddresses(
   ctx: IWorkerContext,
-  contractResults: any[],
+  contractResults: MirrorNodeContractResult[],
   requestDetails: RequestDetails,
 ): Promise<[Map<string, string>, Map<string, string>]> {
   const { commonService } = ctx;
@@ -371,11 +371,7 @@ export async function getBlock(
 ): Promise<IGetBlockWorkerResponse | null> {
   const { commonService, mirrorNodeClient, logger } = ctx;
   try {
-    const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
-      requestDetails,
-      blockHashOrNumber,
-      true,
-    );
+    const blockResponse = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrNumber, true);
 
     if (blockResponse == null) return null;
     const timestampRange = blockResponse.timestamp;
@@ -653,8 +649,9 @@ async function loadBlockExecutionData(
  * running cumulative gas used before this transaction. The returned shape
  * contains only the fields required for Yellow Paper receipt encoding, including the updated cumulative gas used,
  * logs and bloom, root and status, transaction index, and normalized type.
- * @param params - Parameters required to build the RLP input, including
- *   contract result data, associated logs, and the cumulative gas used.
+ * @param logs - The logs associated with the transaction.
+ * @param receiptResponse - The mirror node contract result data.
+ * @param cumulativeGasUsed - The cumulative gas used before this transaction.
  * @returns Minimal receipt data suitable for RLP encoding.
  */
 function createReceiptRlpInput(

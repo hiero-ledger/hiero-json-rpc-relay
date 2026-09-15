@@ -28,13 +28,13 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
 
   const accounts: AliasAccount[] = [];
   let txSigner: AliasAccount;
-  let BaseHTSContractAddress;
-  let HTSTokenContractAddress;
+  let BaseHTSContractAddress: string;
+  let HTSTokenContractAddress: string;
   let NftHTSTokenContractAddress;
   let baseHTSContract;
-  let baseHTSContractOwner;
-  let baseHTSContractReceiverWalletFirst;
-  let baseHTSContractReceiverWalletSecond;
+  let baseHTSContractOwner: ethers.Contract;
+  let baseHTSContractReceiverWalletFirst: ethers.Contract;
+  let baseHTSContractReceiverWalletSecond: ethers.Contract;
   let HTSTokenWithCustomFeesContractAddress;
 
   this.beforeAll(async () => {
@@ -44,7 +44,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     const BaseHTSContract = await Utils.deployContract(BaseHTSJson.abi, BaseHTSJson.bytecode, contractDeployer.wallet);
-    BaseHTSContractAddress = BaseHTSContract.target;
+    BaseHTSContractAddress = BaseHTSContract.target as string;
     const contractMirror = await mirrorNode.get(`/contracts/${BaseHTSContractAddress}`);
 
     accounts[0] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 70, relay.provider);
@@ -61,33 +61,33 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     baseHTSContractReceiverWalletSecond = baseHTSContract;
   });
 
-  async function createHTSToken() {
+  async function createHTSToken(): Promise<string> {
     const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 1_000_000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
-  async function createNftHTSToken() {
+  async function createNftHTSToken(): Promise<string> {
     const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       gasLimit: 1_000_000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
   }
 
-  async function createHTSTokenWithCustomFees() {
+  async function createHTSTokenWithCustomFees(): Promise<string> {
     const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
@@ -99,7 +99,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     );
     const txReceipt = await tx.wait();
     const { tokenAddress } = txReceipt.logs.filter(
-      (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
+      (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
     return tokenAddress;
@@ -114,8 +114,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWF = await baseHTSContractReceiverWalletFirst.associateTokenPublic(
@@ -124,8 +125,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWS = await baseHTSContractReceiverWalletSecond.associateTokenPublic(
@@ -134,8 +136,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
@@ -148,8 +151,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWF = await baseHTSContractReceiverWalletFirst.associateTokenPublic(
@@ -158,8 +162,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const txRWS = await baseHTSContractReceiverWalletSecond.associateTokenPublic(
@@ -168,8 +173,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 
@@ -183,8 +189,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txCO.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txCO.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const baseHTSContractReceiverWalletFirst = new ethers.Contract(
@@ -198,8 +205,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWF.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWF.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
 
     const baseHTSContractReceiverWalletSecond = new ethers.Contract(
@@ -213,8 +221,9 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       Constants.GAS.LIMIT_1_000_000,
     );
     expect(
-      (await txRWS.wait()).logs.filter((e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode)[0].args
-        .responseCode,
+      (await txRWS.wait()).logs.filter(
+        (e: ethers.EventLog) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
+      )[0].args.responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
 

@@ -24,30 +24,30 @@ export let createContractLegacyTransactionAndBlockHash: TransactionResponse;
 export let transaction1559_2930AndBlockHash: TransactionResponse;
 export let hapiTransactionHash: string;
 
-export function setCurrentBlockHash(value: string) {
+export function setCurrentBlockHash(value: string): void {
   currentBlockHash = value;
 }
 
-export function setLegacyTransactionAndBlockHash(value: TransactionResponse) {
+export function setLegacyTransactionAndBlockHash(value: TransactionResponse): void {
   legacyTransactionAndBlockHash = value;
 }
 
-export function setTransaction2930AndBlockHash(value: TransactionResponse) {
+export function setTransaction2930AndBlockHash(value: TransactionResponse): void {
   transaction2930AndBlockHash = value;
 }
 
-export function setTransaction1559AndBlockHash(value: TransactionResponse) {
+export function setTransaction1559AndBlockHash(value: TransactionResponse): void {
   transaction1559AndBlockHash = value;
 }
 
-export function setTransaction1559_2930AndBlockHash(value: TransactionResponse) {
+export function setTransaction1559_2930AndBlockHash(value: TransactionResponse): void {
   transaction1559_2930AndBlockHash = value;
 }
 
-export function setCreateContractLegacyTransactionAndBlockHash(value: TransactionResponse) {
+export function setCreateContractLegacyTransactionAndBlockHash(value: TransactionResponse): void {
   createContractLegacyTransactionAndBlockHash = value;
 }
 
-export function setHapiTransactionHash(value: string) {
+export function setHapiTransactionHash(value: string): void {
   hapiTransactionHash = value;
 }
