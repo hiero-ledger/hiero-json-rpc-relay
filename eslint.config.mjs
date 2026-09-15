@@ -100,7 +100,7 @@ export default defineConfig([
   },
 
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
@@ -126,15 +126,6 @@ export default defineConfig([
     rules: {
       '@typescript-eslint/no-unused-expressions': 'off',
       'no-console': 'off',
-    },
-  },
-
-  // TODO(#5192): fold into the `src/**/*.ts` block above once #5659 merges and both carry the same rules.
-  {
-    files: ['tests/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/explicit-function-return-type': 'error',
     },
   },
 ]);
