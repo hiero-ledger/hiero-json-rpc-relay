@@ -6,11 +6,12 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { type Logger } from 'pino';
 import type Piscina from 'piscina';
+import { type RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { ConfigService } from '../../src/config-service/services';
 import { type ConfigKey } from '../../src/config-service/services/globalConfig';
-import { type Eth, type JsonRpcError } from '../../src/relay';
+import { type Eth, type JsonRpcError, type Relay } from '../../src/relay';
 import { numberTo0x, toHash32 } from '../../src/relay/formatters';
 import { type ICacheClient } from '../../src/relay/lib/clients/cache/ICacheClient';
 import { type MirrorNodeClient } from '../../src/relay/lib/clients/mirrorNodeClient';
@@ -25,22 +26,23 @@ import { WorkersPool } from '../../src/relay/lib/services/workersService/Workers
 import {
   type IContractCallRequest,
   type IGetLogsParams,
-  type ITokenTransfer,
-  type ITransfer,
+  type IMirrorNodeTransactionRecord,
   type MirrorNodeContractLog,
   type RequestDetails,
 } from '../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
-// Randomly generated key
-const defaultPrivateKey = '8841e004c6f47af679c91d9282adc62aeb9fabd19cdff6a9da5a358d0613c30a';
-
 export interface RelayInternals {
   ensureOperatorHasBalance(): Promise<void>;
-  populatePreconfiguredSpendingPlans(): Promise<void>;
   waitForMirrorNode(): Promise<void>;
+  populatePreconfiguredSpendingPlans(): Promise<void>;
 }
+
+export const asRelayInternals = (relay: Relay): RelayInternals => relay as unknown as RelayInternals;
+
+// Randomly generated key
+const defaultPrivateKey = '8841e004c6f47af679c91d9282adc62aeb9fabd19cdff6a9da5a358d0613c30a';
 
 const getQueryParams = (params: object): string => {
   if (!Object.keys(params).length) {
@@ -885,34 +887,14 @@ export const defaultDetailedContractResultByHash = {
   nonce: 1,
 };
 
-interface CryptoTransferTransactionFixture {
-  bytes: null;
-  charged_tx_fee: number;
-  consensus_timestamp: string;
-  entity_id: null;
-  max_fee: string;
-  memo_base64: string;
-  name: string;
-  node: string;
-  nonce: number;
-  parent_consensus_timestamp: null;
-  result: string;
-  scheduled: boolean;
-  token_transfers: ITokenTransfer[];
-  transaction_hash: string;
-  transaction_id: string;
-  transfers: ITransfer[];
-  valid_duration_seconds: string;
-  valid_start_timestamp: string;
-}
-
 export const buildCryptoTransferTransaction = (
   from: string,
   to: string,
   amount: number,
   args: { timestamp?: string; transactionHash?: string; transactionId?: string } = {},
-): CryptoTransferTransactionFixture => {
+): IMirrorNodeTransactionRecord => {
   return {
+    assessed_custom_fees: [],
     bytes: null,
     charged_tx_fee: 2116872,
     consensus_timestamp: args.timestamp || '1669207658.365113311',
@@ -920,11 +902,13 @@ export const buildCryptoTransferTransaction = (
     max_fee: '100000000',
     memo_base64: 'UmVsYXkgdGVzdCB0b2tlbiB0cmFuc2Zlcg==',
     name: 'CRYPTOTRANSFER',
+    nft_transfers: [],
     node: '0.0.8',
     nonce: 0,
     parent_consensus_timestamp: null,
     result: 'SUCCESS',
     scheduled: false,
+    staking_reward_transfers: [],
     token_transfers: [],
     transaction_hash: args.transactionHash || 'OpCU4upAgJEBv2bjaoIurl4UYI4tuNA44ChtlKj+l0g0EvKbBpVI7lmnzeswVibQ',
     transaction_id: args.transactionId || '0.0.28527683-1669207645-620109637',
@@ -1054,7 +1038,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number): void => {
 
   before(async () => {
     redisInMemoryServer = await startRedisInMemoryServer(logger, port);
-    RedisClientManager['client'] = null;
+    (RedisClientManager as unknown as { client: RedisClientType | null }).client = null;
   });
 
   after(async () => {
@@ -1213,12 +1197,12 @@ export const mockWorkersPool = async (
 
   WorkersPool['run'] = ConfigService.get('WORKERS_POOL_ENABLED')
     ? pool['_innerRun']!
-    : async (options: WorkerTask): Promise<unknown> => {
+    : ((async (options: WorkerTask): Promise<unknown> => {
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', true);
         const result = await pool['_innerRun']!(options, mirrorNodeInstance, cacheService);
         ConfigServiceTestHelper.dynamicOverride('WORKERS_POOL_ENABLED', false);
         return result;
-      };
+      }) as typeof WorkersPool.run);
 
   WorkersPool['instance'] = {
     run: async (task: WorkerTask) => {

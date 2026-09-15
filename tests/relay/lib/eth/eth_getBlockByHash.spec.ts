@@ -46,7 +46,7 @@ import {
   MOCK_ACCOUNT_WITHOUT_TRANSACTIONS,
   NO_SUCH_BLOCK_EXISTS_RES,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -69,10 +69,10 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
     restMock.onGet(ACCOUNT_WITHOUT_TRANSACTIONS).reply(200, JSON.stringify(MOCK_ACCOUNT_WITHOUT_TRANSACTIONS));
     restMock
@@ -441,8 +441,9 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       } catch (error) {
         expect(error).to.exist;
         const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
-        expect(error.code).to.equal(predefinedError.code);
-        expect(error.message).to.equal(predefinedError.message);
+        const thrown = error as typeof predefinedError;
+        expect(thrown.code).to.equal(predefinedError.code);
+        expect(thrown.message).to.equal(predefinedError.message);
       }
     }
   });

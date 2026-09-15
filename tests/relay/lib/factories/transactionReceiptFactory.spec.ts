@@ -119,7 +119,7 @@ describe('TransactionReceiptFactory', () => {
       expect(BigInt(decodedHex)).to.equal(BigInt(receipt.cumulativeGasUsed));
       expect(cumulativeGasUsed.length).to.be.greaterThan(0);
       expect(cumulativeGasUsed[0]).to.not.equal(0x00);
-      expect(BigInt(decodedHex)).to.equal(1n);
+      expect(BigInt(decodedHex)).to.equal(BigInt(1));
     });
 
     it('encodes logs as [address, topics[], data] per Yellow Paper', () => {
@@ -281,7 +281,7 @@ describe('TransactionReceiptFactory', () => {
         s: null,
         type: null,
         v: null,
-        nonce: null,
+        nonce: null as unknown as number,
       };
 
       const receipt = TransactionReceiptFactory.createRegularReceipt({

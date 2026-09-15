@@ -5,13 +5,12 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
+import { type MirrorNodeClient } from '../../../../src/relay/lib/clients';
+import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/relay/lib/constants';
 import { type EthImpl } from '../../../../src/relay/lib/eth';
-import { type AccountService } from '../../../../src/relay/lib/services';
+import { type AccountService, type CommonService } from '../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../src/relay/lib/types';
-import type { ICacheClient } from '../../../../src/relay/services/cache';
-import { type CommonService } from '../../../../src/relay/services/commonService';
-import { type MirrorNodeClient } from '../../../../src/relay/services/mirrorNodeClient';
 import { buildCryptoTransferTransaction, mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_TIMESTAMP,
@@ -62,7 +61,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
   beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
@@ -893,7 +892,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
-        Number(`${timestamp1}.060890950`),
+        `${timestamp1}.060890950`,
       );
       // Transactions up to the block timestamp.to timestamp will be subsctracted from the current balance to get the block's balance.
       expect(resultingUpdate).to.equal(+150);
@@ -908,7 +907,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
-        Number(`${timestamp1}.060890950`),
+        `${timestamp1}.060890950`,
       );
       // Transactions up to the block timestamp.to timestamp will be subsctracted from the current balance to get the block's balance.
       expect(resultingUpdate).to.equal(-150);
@@ -923,7 +922,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
-        Number(`${timestamp1}.060890950`),
+        `${timestamp1}.060890950`,
       );
       // Transactions up to the block timestamp.to timestamp will be subsctracted from the current balance to get the block's balance.
       expect(resultingUpdate).to.equal(+50);
@@ -939,7 +938,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
-        Number(`${timestamp1}.060890950`),
+        `${timestamp1}.060890950`,
       );
       // Transactions up to the block timestamp.to timestamp will be subsctracted from the current balance to get the block's balance.
       expect(resultingUpdate).to.equal(+70);

@@ -9,7 +9,7 @@ import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService, type TransactionPoolService } from './services';
 import { type RequestDetails } from './types';
-import { type IAccountBalance } from './types/mirrorNode';
+import { type IAccountBalance, type IAccountInfo } from './types/mirrorNode';
 import { validateAuthorizationList } from './validators/authorizationList';
 
 /**
@@ -40,8 +40,8 @@ export class Precheck {
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
     try {
       return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
-    } catch (e: any) {
-      throw predefined.INVALID_ARGUMENTS(e.message.toString());
+    } catch (e) {
+      throw predefined.INVALID_ARGUMENTS((e as Error).message.toString());
     }
   }
 
@@ -97,7 +97,7 @@ export class Precheck {
    * @param tx - The transaction.
    * @param requestDetails - The request details for logging and tracking.
    */
-  async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<any> {
+  async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<IAccountInfo> {
     const accountInfo = await this.mirrorNodeClient.getAccount(tx.from!, requestDetails);
     if (accountInfo == null) {
       throw predefined.RESOURCE_NOT_FOUND(`address '${tx.from}'.`);
@@ -256,13 +256,6 @@ export class Precheck {
   }
 
   /**
-   * Calculates the intrinsic gas cost based on the number of bytes in the data field.
-   * Using a loop that goes through every two characters in the string it counts the zero and non-zero bytes.
-   * Every two characters that are packed together and are both zero counts towards zero bytes.
-   *
-   * @param data - The data with the bytes to be calculated
-   * @returns The intrinsic gas cost.
-   * @private
    * Calculates the intrinsic gas cost based on EIP-7623 floor pricing rules.
    *
    * The intrinsic gas is calculated as:

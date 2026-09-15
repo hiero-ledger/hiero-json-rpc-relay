@@ -140,7 +140,7 @@ describe('rpcParamValidationRules decorator', () => {
     });
 
     it('should support custom type strings', () => {
-      const customType = ['custom', 'type', 'string'];
+      const customType = ['custom', 'type', 'string'] as unknown as IParamValidation['type'];
 
       class TestCustomTypeClass {
         // @ts-ignore

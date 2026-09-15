@@ -56,7 +56,7 @@ describe('TransactionFactory', () => {
       const tx = TransactionFactory.createTransactionByType(1, {
         ...baseFields,
         type: '0x1',
-        accessList: ['should be ignored'],
+        accessList: ['should be ignored'] as unknown as AccessListEntry[],
       });
 
       expect(tx).to.not.equal(null);
@@ -69,8 +69,8 @@ describe('TransactionFactory', () => {
       const tx = TransactionFactory.createTransactionByType(2, {
         ...baseFields,
         type: '0x2',
-        accessList: ['should be ignored'],
-        maxPriorityFeePerGas: null,
+        accessList: ['should be ignored'] as unknown as AccessListEntry[],
+        maxPriorityFeePerGas: null as unknown as string,
         maxFeePerGas: '0x00000059',
       });
 
@@ -294,7 +294,7 @@ describe('TransactionFactory', () => {
         gas_price: '0x',
         max_priority_fee_per_gas: '0x',
         max_fee_per_gas: '0x',
-        nonce: null,
+        nonce: null as unknown as number,
         r: null,
         s: null,
         transaction_index: null,
@@ -381,8 +381,8 @@ describe('TransactionFactory', () => {
           type: 2,
           v: 1,
           nonce: 2,
-          access_list: input,
-        }) as Transaction1559
+          access_list: input as MirrorNodeContractResult['access_list'],
+        } as unknown as MirrorNodeContractResult) as Transaction1559
       ).accessList || [];
 
     it('returns an empty array for nullish/non-array input', () => {
@@ -726,8 +726,8 @@ describe('TransactionFactory', () => {
           type: 2,
           v: 1,
           nonce: 2,
-          access_list: [{ address, storage_keys: [] }],
-        }) as Transaction1559
+          access_list: [{ address: address as string, storage_keys: [] }],
+        } as unknown as MirrorNodeContractResult) as Transaction1559
       ).accessList![0].address;
 
     it('returns the zero address for non-string input', () => {

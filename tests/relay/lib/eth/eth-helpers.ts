@@ -7,6 +7,7 @@ import { register, Registry } from 'prom-client';
 import { ConfigService } from '../../../../src/config-service/services';
 import { type ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
+import { type SDKClient } from '../../../../src/relay/lib/clients/sdkClient';
 import constants from '../../../../src/relay/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/relay/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../../src/relay/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
@@ -26,6 +27,12 @@ import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiServ
 import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
 import { type LockStrategy } from '../../../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../../../config-service/configServiceTestHelper';
+
+export interface SdkClientProvider {
+  getSDKClient(): SDKClient;
+}
+
+export const asSdkClientProvider = (service: HAPIService): SdkClientProvider => service as unknown as SdkClientProvider;
 
 export function contractResultsByNumberByIndexURL(number: number, index: number): string {
   return `contracts/results?block.number=${number}&transaction.index=${index}&limit=100&order=asc&hbar=false`;

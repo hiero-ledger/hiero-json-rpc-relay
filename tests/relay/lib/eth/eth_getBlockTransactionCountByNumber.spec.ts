@@ -16,7 +16,7 @@ import {
   DEFAULT_NETWORK_FEES,
   NO_SUCH_BLOCK_EXISTS_RES,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -34,10 +34,10 @@ describe('@ethGetBlockTransactionCountByNumber using MirrorNode', async function
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
@@ -64,7 +64,7 @@ describe('@ethGetBlockTransactionCountByNumber using MirrorNode', async function
   });
 
   it('eth_getBlockTransactionCountByNumber with no match', async function () {
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(404, JSON.stringify(NO_SUCH_BLOCK_EXISTS_RES));
 
     const result = await ethImpl.getBlockTransactionCountByNumber(BLOCK_NUMBER.toString(), requestDetails);

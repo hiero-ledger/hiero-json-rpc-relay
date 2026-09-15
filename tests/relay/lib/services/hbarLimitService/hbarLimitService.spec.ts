@@ -184,7 +184,7 @@ describe('HBAR Rate Limit Service', function () {
     ];
 
     operatorEnvs.forEach((operatorEnv) => {
-      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress());
+      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN!).toEvmAddress());
 
       withOverriddenEnvsInMochaTest(operatorEnv, () => {
         describe('based on evmAddress', async function () {
@@ -780,7 +780,7 @@ describe('HBAR Rate Limit Service', function () {
         await Promise.all(updateAverageAmountSpentPerSubscriptionTierSpy.returnValues);
         const expectedAverageUsage = Math.round((otherPlanOfTheSameTier.amountSpent + expense) / 2);
         sinon.assert.calledOnceWithExactly(setAverageSpendingPlanAmountSpentGaugeSpy, expectedAverageUsage);
-        sinon.assert.calledOnceWithExactly(incUniqueSpendingPlansCounterSpy, 1);
+        sinon.assert.calledOnceWithExactly(incUniqueSpendingPlansCounterSpy, sinon.match.same(1));
       } else {
         await expect(addExpensePromise).to.eventually.be.fulfilled;
         sinon.assert.calledWith(loggerSpy.warn, `Cannot add expense to a spending plan without an evm address`);
@@ -805,7 +805,7 @@ describe('HBAR Rate Limit Service', function () {
 
     operatorEnvs.forEach((operatorEnv) => {
       const operatorAddress = operatorEnv.OPERATOR_ID_MAIN
-        ? prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress())
+        ? prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toEvmAddress())
         : zeroAddress();
 
       withOverriddenEnvsInMochaTest(operatorEnv, () => {

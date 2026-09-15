@@ -148,7 +148,7 @@ describe('webSocketServer websocket handling', () => {
     };
     sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
     const { app } = await webSocketServer.initializeWsServer();
-    wsApp = app;
+    wsApp = app as WsApp;
 
     // Start the WebSocket server and wait for it to start
     await new Promise<void>((resolve) => {
@@ -382,9 +382,10 @@ describe('webSocketServer websocket handling', () => {
     });
 
     try {
+      // `initializeWsServer` declares `app: Koa`, but it returns the `websockify`-wrapped app.
       expect((testApp as WsApp).ws.server.options.maxPayload).to.equal(0);
     } finally {
-      await new Promise<void>((resolve) => testServer.close(resolve));
+      await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }
   });
 
@@ -411,7 +412,7 @@ describe('webSocketServer websocket handling', () => {
     ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }));
     const closeCode = await Promise.race([closed, new Promise<null>((r) => setTimeout(() => r(null), 100))]);
 
-    await new Promise<void>((resolve) => testServer.close(resolve));
+    await new Promise<void>((resolve) => testServer.close(() => resolve()));
 
     expect(closeCode).to.not.equal(1009);
   });

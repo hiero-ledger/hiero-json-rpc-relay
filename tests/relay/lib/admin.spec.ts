@@ -6,7 +6,7 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay/lib/relay';
-import { type RelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
 let relay: Relay;
@@ -17,7 +17,7 @@ describe('Admin', async function () {
   // we used to initialize the relay by using the constructor, but now we use the init method
   // which checks the operator balance, we want to stub this method, its not part of the test
   before(() => {
-    const relayInternals = Relay.prototype as unknown as RelayInternals;
+    const relayInternals = asRelayInternals(Relay.prototype);
     sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
     sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
   });
@@ -59,7 +59,7 @@ describe('Admin', async function () {
           const tempRelay = await Relay.init(logger, new Registry());
           const res = await tempRelay.admin().config();
           const regex = /^\d+\.\d+\.\d+.*$/;
-          expect(res.upstreamDependencies[0].version.match(regex)).to.have.length.greaterThan(0);
+          expect(res.upstreamDependencies[0].version!.match(regex)).to.have.length.greaterThan(0);
         });
       },
     );

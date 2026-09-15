@@ -6,7 +6,7 @@ import constants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import type { AuthorizationListEntry } from '../model';
 
-type AuthorizationListTypes = AuthorizationListEntry[] | Authorization[];
+export type AuthorizationListTypes = AuthorizationListEntry[] | Authorization[];
 
 export function validateAuthorizationList(
   type: number,

@@ -7,13 +7,13 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay/lib/relay';
-import { type RelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
 
 describe('Net', async function () {
   before(() => {
-    const relayInternals = Relay.prototype as unknown as RelayInternals;
+    const relayInternals = asRelayInternals(Relay.prototype);
     sinon.stub(relayInternals, 'ensureOperatorHasBalance').resolves();
     sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
   });

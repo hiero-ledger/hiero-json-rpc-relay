@@ -3,7 +3,7 @@
 // External resources
 import { type NestedUint8Array, RLP } from '@ethereumjs/rlp';
 import { hexToBytes } from '@ethereumjs/util';
-import { type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
+import { type TokenId, type TransactionResponse, TransferTransaction } from '@hiero-ledger/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
@@ -1417,7 +1417,7 @@ describe('@debug API Acceptance Tests', function () {
         const transferAmount = 10;
 
         // Execute multiple transfers
-        const transfers = [];
+        const transfers: Promise<TransactionResponse>[] = [];
         for (let i = 0; i < 3; i++) {
           transfers.push(
             new TransferTransaction()

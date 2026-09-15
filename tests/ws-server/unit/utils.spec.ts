@@ -13,6 +13,7 @@ import { type IJsonRpcResponse } from '../../../src/server/koaJsonRpc/lib/RpcRes
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../src/ws-server/service/subscriptionService';
+import type { RelayWebSocket, WsContext } from '../../../src/ws-server/types';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -101,7 +102,7 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should log the response being sent to the client', () => {
-      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
+      sendToClient(connectionMock as unknown as RelayWebSocket, request, response, loggerMock as unknown as Logger);
 
       const expectedLogMessage = `Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(
         request,
@@ -112,14 +113,14 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should send the response to the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
+      sendToClient(connectionMock as unknown as RelayWebSocket, request, response, loggerMock as unknown as Logger);
 
       expect(connectionMock.send.calledOnce).to.be.true;
       expect(connectionMock.send.calledWith(JSON.stringify(response))).to.be.true;
     });
 
     it('should reset the inactivity TTL timer for the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock as unknown as Logger);
+      sendToClient(connectionMock as unknown as RelayWebSocket, request, response, loggerMock as unknown as Logger);
 
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledOnce).to.be.true;
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledWith(connectionMock)).to.be.true;
@@ -161,7 +162,13 @@ describe('Utilities unit tests', async function () {
       expect(subscriptionService).to.not.be.undefined;
       unsubscribeSpy = sinon.spy(subscriptionService, 'unsubscribe');
 
-      await handleConnectionClose(ctxStub, subscriptionService, limiterStub, wsMetricRegistryStub, startTime);
+      await handleConnectionClose(
+        ctxStub as unknown as WsContext,
+        subscriptionService,
+        limiterStub,
+        wsMetricRegistryStub,
+        startTime,
+      );
     });
 
     it('should unsubscribe subscriptions', async () => {
@@ -226,7 +233,13 @@ describe('Utilities unit tests', async function () {
           },
         };
 
-        await handleConnectionClose(ctxWithPing, subscriptionService, limiterStub, wsMetricRegistryStub, startTime);
+        await handleConnectionClose(
+          ctxWithPing as unknown as WsContext,
+          subscriptionService,
+          limiterStub,
+          wsMetricRegistryStub,
+          startTime,
+        );
 
         expect(clearIntervalSpy.calledWith(intervalId)).to.be.true;
         expect(ctxWithPing.websocket.terminate.calledOnce).to.be.true;
@@ -243,7 +256,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithInactivityTTL,
+          ctxWithInactivityTTL as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,
@@ -267,7 +280,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithBothTimers,
+          ctxWithBothTimers as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,
@@ -288,7 +301,7 @@ describe('Utilities unit tests', async function () {
         };
 
         await handleConnectionClose(
-          ctxWithoutTimers,
+          ctxWithoutTimers as unknown as WsContext,
           subscriptionService,
           limiterStub,
           wsMetricRegistryStub,

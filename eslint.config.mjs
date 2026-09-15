@@ -103,6 +103,7 @@ export default defineConfig([
     files: ['src/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
 

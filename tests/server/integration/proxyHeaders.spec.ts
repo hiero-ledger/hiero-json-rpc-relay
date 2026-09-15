@@ -15,8 +15,8 @@ import sinon from 'sinon';
 import { Relay } from '../../../src/relay';
 import { initializeServer, register } from '../../../src/server/server';
 import {
+  asRelayInternals,
   overrideEnvsInMochaDescribe,
-  type RelayInternals,
   useInMemoryRedisServer,
   withOverriddenEnvsInMochaTest,
 } from '../../relay/helpers';
@@ -66,8 +66,8 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
   before(async function () {
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    sinon.stub(Relay.prototype as unknown as RelayInternals, 'waitForMirrorNode').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
+    sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
     const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
@@ -211,7 +211,7 @@ describe('Proxy Headers Integration Tests', function () {
 
     // Make requests with multiple IPs in the header
     for (let i = 1; i <= 3; i++) {
-      const response = await testClient.post('/', createRequestWithIP(i.toString(), TEST_IP_D), {
+      const response = await testClient.post('/', createRequestWithIP(i.toString()), {
         headers: {
           'X-Forwarded-For': multipleIPs,
         },
@@ -223,7 +223,7 @@ describe('Proxy Headers Integration Tests', function () {
 
     // Should be rate limited based on the first IP (TEST_IP_D)
     try {
-      await testClient.post('/', createRequestWithIP('4', TEST_IP_D), {
+      await testClient.post('/', createRequestWithIP('4'), {
         headers: {
           'X-Forwarded-For': multipleIPs,
         },
@@ -239,7 +239,7 @@ describe('Proxy Headers Integration Tests', function () {
   it('should properly handle X-Forwarded-For header with different request patterns', async function () {
     // Make requests with X-Forwarded-For header
     for (let i = 1; i <= 3; i++) {
-      const response = await testClient.post('/', createRequestWithIP(i.toString(), TEST_IP_E), {
+      const response = await testClient.post('/', createRequestWithIP(i.toString()), {
         headers: {
           'X-Forwarded-For': TEST_IP_E,
         },
@@ -251,7 +251,7 @@ describe('Proxy Headers Integration Tests', function () {
 
     // Next request should be rate limited
     try {
-      await testClient.post('/', createRequestWithIP('4', TEST_IP_E), {
+      await testClient.post('/', createRequestWithIP('4'), {
         headers: {
           'X-Forwarded-For': TEST_IP_E,
         },
@@ -359,7 +359,7 @@ describe('Proxy Headers Integration Tests', function () {
 
       // Make requests with both headers - should be rate limited by X-Forwarded-For IP (TEST_IP_J)
       for (let i = 1; i <= 3; i++) {
-        const response = await testClient.post('/', createRequestWithIP(`j${i}`, TEST_IP_J), {
+        const response = await testClient.post('/', createRequestWithIP(`j${i}`), {
           headers: {
             'X-Forwarded-For': TEST_IP_J,
             Forwarded: forwardedHeader,
@@ -371,7 +371,7 @@ describe('Proxy Headers Integration Tests', function () {
 
       // Should be rate limited based on X-Forwarded-For IP (TEST_IP_J), not Forwarded IP (TEST_IP_I)
       try {
-        await testClient.post('/', createRequestWithIP('j4', TEST_IP_J), {
+        await testClient.post('/', createRequestWithIP('j4'), {
           headers: {
             'X-Forwarded-For': TEST_IP_J,
             Forwarded: forwardedHeader,

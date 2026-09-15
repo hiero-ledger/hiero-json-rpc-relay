@@ -648,7 +648,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         expect(await deployedContract.getAddress()).to.eq(contractInfo.evm_address);
         expect(await deployedContract.getDeployedCode()).to.eq(contractInfo.runtime_bytecode);
         const result = await deployedContract.ping();
-        expect(result).to.eq(1n);
+        expect(result).to.eq(BigInt(1));
       });
 
       it('@xts should execute "eth_sendRawTransaction" of type 1 and deploy a real contract', async function () {

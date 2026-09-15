@@ -19,6 +19,12 @@ import sinon from 'sinon';
 import { GCProfiler } from 'v8';
 
 import { CommonService } from '../../../src/relay/lib/services';
+import type {
+  IAccountInfo,
+  IMirrorNodeContract,
+  MirrorNodeBlock,
+  MirrorNodeBlocksPage,
+} from '../../../src/relay/lib/types';
 
 chai.use(chaiAsPromised);
 
@@ -26,12 +32,12 @@ import { MeasurableCache } from '../../../src/relay/lib/clients/cache/measurable
 import { REWARD_PERCENTILES_ERROR } from '../../../src/relay/lib/validators/constants';
 import { initializeServer } from '../../../src/server/server';
 import {
+  asRelayInternals,
   contractAddress1,
   contractAddress2,
   contractHash1,
   contractId1,
   overrideEnvsInMochaDescribe,
-  type RelayInternals,
   withOverriddenEnvsInMochaTest,
 } from '../../relay/helpers';
 import Assertions, { requestIdRegex } from '../helpers/assertions';
@@ -70,7 +76,7 @@ describe('RPC Server', function () {
       CHAIN_ID: '0x12a',
     });
 
-    const relayInternals = Relay.prototype as unknown as RelayInternals;
+    const relayInternals = asRelayInternals(Relay.prototype);
     sinon.stub(relayInternals, 'waitForMirrorNode').resolves();
 
     // Set up spy BEFORE requiring the server module to catch the constructor call
@@ -2624,8 +2630,12 @@ describe('RPC Server', function () {
       let getContractOpcodes: sinon.SinonStub;
 
       beforeEach(() => {
-        getAccount = sinon.stub(MirrorNodeClient.prototype, 'getAccount').resolves({ balance: 1000 });
-        getContract = sinon.stub(MirrorNodeClient.prototype, 'getContract').resolves({ address: contractAddress1 });
+        getAccount = sinon
+          .stub(MirrorNodeClient.prototype, 'getAccount')
+          .resolves({ balance: 1000 } as unknown as IAccountInfo);
+        getContract = sinon
+          .stub(MirrorNodeClient.prototype, 'getContract')
+          .resolves({ address: contractAddress1 } as unknown as IMirrorNodeContract);
         getContractResults = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResult);
@@ -2969,6 +2979,8 @@ describe('RPC Server', function () {
         const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
         const syntheticLog = {
           address: contractAddress1,
+          bloom: '0x1111',
+          contract_id: '0.0.1033',
           block_hash:
             '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
           block_number: 668,
@@ -3116,7 +3128,7 @@ describe('RPC Server', function () {
       beforeEach(() => {
         getHistoricalBlockResponse = sinon
           .stub(CommonService.prototype, 'getHistoricalBlockResponse')
-          .resolves(blockResponse);
+          .resolves(blockResponse as unknown as MirrorNodeBlock);
         getContractResultWithRetry = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResults);
@@ -3140,7 +3152,7 @@ describe('RPC Server', function () {
               },
             },
           ],
-        });
+        } as unknown as MirrorNodeBlocksPage);
         getBlock = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves({
           count: 1,
           hapi_version: '0.44.0',

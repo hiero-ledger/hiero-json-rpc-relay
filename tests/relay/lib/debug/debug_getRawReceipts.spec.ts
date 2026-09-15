@@ -7,7 +7,7 @@ import * as sinon from 'sinon';
 import { ConfigService } from '../../../../src/config-service/services';
 import { DebugImpl } from '../../../../src/relay/lib/debug';
 import { type Log } from '../../../../src/relay/lib/model';
-import { type MirrorNodeContractResult, RequestDetails } from '../../../../src/relay/lib/types';
+import { type MirrorNodeBlock, type MirrorNodeContractResult, RequestDetails } from '../../../../src/relay/lib/types';
 import { mockWorkersPool } from '../../helpers';
 import { generateEthTestEnv } from '../eth/eth-helpers';
 
@@ -141,7 +141,7 @@ describe('debug_getRawReceipts', function () {
   });
 
   it('produces raw receipts matching the pre-captured Quicknode payload for Monad block 0x23592c0', async function () {
-    sinon.stub(commonService, 'getHistoricalBlockResponse').resolves(quicknodeBlock);
+    sinon.stub(commonService, 'getHistoricalBlockResponse').resolves(quicknodeBlock as unknown as MirrorNodeBlock);
 
     sinon
       .stub(mirrorNodeInstance, 'getContractResults')

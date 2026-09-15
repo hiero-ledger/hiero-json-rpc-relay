@@ -12,7 +12,7 @@ import { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients/mirrorNodeClient';
 import { MirrorNodeClientError } from '../../../src/relay/lib/errors/MirrorNodeClientError';
 import { TransactionTracingStorageFactory } from '../../../src/relay/lib/services';
-import { overrideEnvsInMochaDescribe, type RelayInternals, withOverriddenEnvsInMochaTest } from '../helpers';
+import { asRelayInternals, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
 
@@ -24,7 +24,7 @@ describe('Relay', () => {
 
   const logger = pino({ level: 'silent' });
   const register = new Registry();
-  const relayInternals = Relay.prototype as unknown as RelayInternals;
+  const relayInternals = asRelayInternals(Relay.prototype);
   let relay: Relay;
 
   beforeEach(async () => {

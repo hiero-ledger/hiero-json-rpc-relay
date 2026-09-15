@@ -43,6 +43,8 @@ import testConstants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { type AliasAccount } from '../types/AliasAccount';
 
+type NonOperatorTier = Exclude<SubscriptionTier, SubscriptionTier.OPERATOR>;
+
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 
 describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
@@ -780,18 +782,18 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             hbarSpendingPlan: IDetailedHbarSpendingPlan;
           }
 
-          let accountPlanObject: Record<SubscriptionTier, AliasAccountPlan[]>;
+          let accountPlanObject: Record<NonOperatorTier, AliasAccountPlan[]>;
 
-          const accountPlanRequirements: Record<SubscriptionTier, number> = {
+          const accountPlanRequirements: Record<NonOperatorTier, number> = {
             BASIC: 3,
             EXTENDED: 3,
             PRIVILEGED: 3,
           };
 
           const createMultipleAliasAccountsWithSpendingPlans = async (
-            accountPlanRequirements: Record<SubscriptionTier, number>,
-          ): Promise<Record<SubscriptionTier, AliasAccountPlan[]>> => {
-            const accountPlanObject: Record<SubscriptionTier, AliasAccountPlan[]> = {
+            accountPlanRequirements: Record<NonOperatorTier, number>,
+          ): Promise<Record<NonOperatorTier, AliasAccountPlan[]>> => {
+            const accountPlanObject: Record<NonOperatorTier, AliasAccountPlan[]> = {
               BASIC: [],
               EXTENDED: [],
               PRIVILEGED: [],
@@ -802,7 +804,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 const accountCreatedResult = await createAliasAndAssociateSpendingPlan(
                   subscriptionTier as SubscriptionTier,
                 );
-                accountPlanObject[subscriptionTier as SubscriptionTier].push(accountCreatedResult);
+                accountPlanObject[subscriptionTier as NonOperatorTier].push(accountCreatedResult);
               }
             }
 
@@ -916,8 +918,9 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                   }
                   expect.fail(`Expected an error but nothing was thrown`);
                 } catch (e) {
-                  logger.error(e.message);
-                  expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
+                  const thrown = e as Error;
+                  logger.error(thrown.message);
+                  expect(thrown.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
                 }
               }
             }

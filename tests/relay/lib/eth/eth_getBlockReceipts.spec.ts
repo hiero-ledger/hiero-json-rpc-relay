@@ -12,6 +12,7 @@ import { type EthImpl } from '../../../../src/relay/lib/eth';
 import { type CommonService } from '../../../../src/relay/lib/services';
 import type HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
 import { type ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
+import { assertExists } from '../../../helpers/typeAssertions';
 import {
   contractHash3,
   defaultContractResults,
@@ -33,7 +34,7 @@ import {
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -75,9 +76,9 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.reset();
   });
 
@@ -114,11 +115,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
-      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
+      sortReceiptsByTransactionIndex(receipts).forEach((receipt, index) => {
         const contractResult = results[index];
         cumulativeGasUsed += contractResult.gas_used;
         expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
@@ -129,11 +130,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
-      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
+      sortReceiptsByTransactionIndex(receipts).forEach((receipt, index) => {
         const contractResult = results[index];
         cumulativeGasUsed += contractResult.gas_used;
         expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
@@ -144,11 +145,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts('latest', requestDetails);
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
-      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
+      sortReceiptsByTransactionIndex(receipts).forEach((receipt, index) => {
         const contractResult = results[index];
         cumulativeGasUsed += contractResult.gas_used;
         expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
@@ -161,11 +162,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       restMock.onGet(`blocks/0`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts('earliest', requestDetails);
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(2);
 
       let cumulativeGasUsed = 0;
-      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
+      sortReceiptsByTransactionIndex(receipts).forEach((receipt, index) => {
         const contractResult = results[index];
         cumulativeGasUsed += contractResult.gas_used;
         expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
@@ -189,7 +190,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
         // Verify only one receipt was returned (the non-reverted one)
-        expect(receipts).to.exist;
+        assertExists(receipts);
         expect(receipts.length).to.equal(2);
         expect(receipts[0].transactionHash).to.equal(results[0].hash);
         expect(receipts[1].transactionHash).to.equal(results[1].hash);
@@ -204,6 +205,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      assertExists(receipts);
       expect(receipts).to.be.an('array').that.is.empty;
     });
 
@@ -211,6 +213,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      assertExists(receipts);
       expect(receipts[0]).to.include.all.keys([
         'blockHash',
         'blockNumber',
@@ -237,6 +240,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       });
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
+      assertExists(receipts);
 
       expect(receipts[0].logs.length).to.equal(0);
       expect(receipts[1].logs.length).to.equal(defaultLogs1.length);
@@ -269,7 +273,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(1);
       expect(receipts[0].from).to.equal('0xresolvedFromAddress');
       expect(receipts[0].to).to.equal(null);
@@ -304,7 +308,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(1);
       expect(receipts[0].from).to.equal('0xresolvedFromAddress');
       expect(receipts[0].to).to.equal(null);
@@ -340,7 +344,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
-      expect(receipts).to.exist;
+      assertExists(receipts);
       expect(receipts.length).to.equal(1);
       expect(receipts[0].from).to.equal('0xresolvedFromAddress');
       expect(receipts[0].to).to.equal(resolvedToAddress);
@@ -397,13 +401,14 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         .callsFake((address) => Promise.resolve(`${address}-resolved`));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      assertExists(receipts);
 
-      expect(receipts![0].from).to.equal(`${duplicateFrom}-resolved`);
-      expect(receipts![0].to).to.equal(null); // result[0] is a contract creation transaction, so `to` should be null
-      expect(receipts![1].from).to.equal(`${duplicateFrom}-resolved`);
-      expect(receipts![1].to).to.equal(`${uniqueTo}-resolved`);
-      expect(receipts![2].from).to.equal(`${uniqueFrom}-resolved`);
-      expect(receipts![2].to).to.equal(`${sharedTo}-resolved`);
+      expect(receipts[0].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts[0].to).to.equal(null); // result[0] is a contract creation transaction, so `to` should be null
+      expect(receipts[1].from).to.equal(`${duplicateFrom}-resolved`);
+      expect(receipts[1].to).to.equal(`${uniqueTo}-resolved`);
+      expect(receipts[2].from).to.equal(`${uniqueFrom}-resolved`);
+      expect(receipts[2].to).to.equal(`${sharedTo}-resolved`);
 
       resolveEvmAddressStub.restore();
     });
@@ -417,6 +422,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
+      assertExists(receipts);
 
       expect(receipts.length).to.equal(0);
     });

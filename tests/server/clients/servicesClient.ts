@@ -512,7 +512,12 @@ export default class ServicesClient {
   }
 
   async grantKyc(
-    args = {
+    args: {
+      tokenId: string | TokenId;
+      treasuryAccountId: string;
+      adminPrivateKey: PrivateKey;
+      accountId: string | AccountId;
+    } = {
       tokenId: '0.0.1000',
       treasuryAccountId: '0.0.2',
       adminPrivateKey: this.DEFAULT_KEY,

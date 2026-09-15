@@ -4,11 +4,19 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
-import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY, rpcParamLayoutConfig } from '../../../../src/relay/lib/decorators';
-import { RequestDetails } from '../../../../src/relay/lib/types';
+import {
+  type ParamTransformFn,
+  RPC_LAYOUT,
+  RPC_PARAM_LAYOUT_KEY,
+  rpcParamLayoutConfig,
+} from '../../../../src/relay/lib/decorators';
+import { type OperationHandler, RequestDetails } from '../../../../src/relay/lib/types';
 import { Utils } from '../../../../src/relay/utils';
 
-type ParamLayoutMarked = { [RPC_PARAM_LAYOUT_KEY]?: unknown };
+type ParamLayoutMarked = { [RPC_PARAM_LAYOUT_KEY]?: string | ParamTransformFn };
+
+// The two cases below deliberately store a layout outside `OperationHandler`'s contract.
+type ParamLayoutMarkedUnchecked = { [RPC_PARAM_LAYOUT_KEY]?: unknown };
 
 describe('rpcParamLayoutConfig decorator', () => {
   // Sample request details for testing
@@ -77,18 +85,26 @@ describe('rpcParamLayoutConfig decorator', () => {
 
     it('should be processed correctly by Utils.arrangeRpcParams if passed parameter is number', () => {
       const numberParam: number = 9303;
-      const mockMethod: (() => void) & ParamLayoutMarked = function (): void {};
+      const mockMethod: (() => void) & ParamLayoutMarkedUnchecked = function (): void {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
 
-      const result = Utils.arrangeRpcParams(mockMethod, numberParam, requestDetails);
+      const result = Utils.arrangeRpcParams(
+        mockMethod as OperationHandler,
+        numberParam as unknown as unknown[],
+        requestDetails,
+      );
       expect(result).to.deep.equal([numberParam, requestDetails]);
     });
 
     it('should be processed correctly by Utils.arrangeRpcParams if passed parameter is null', () => {
-      const mockMethod: (() => void) & ParamLayoutMarked = function (): void {};
+      const mockMethod: (() => void) & ParamLayoutMarkedUnchecked = function (): void {};
       mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
 
-      const result = Utils.arrangeRpcParams(mockMethod, null, requestDetails);
+      const result = Utils.arrangeRpcParams(
+        mockMethod as OperationHandler,
+        null as unknown as unknown[],
+        requestDetails,
+      );
       expect(result).to.deep.equal([requestDetails]);
     });
   });
@@ -132,8 +148,8 @@ describe('rpcParamLayoutConfig decorator', () => {
 
   describe('Complex custom layouts', () => {
     it('should support complex parameter transformations', () => {
-      const complexTransform = (params: string[]): unknown[] => {
-        return [{ first: params[0], second: params[1] }, params[2] ? parseInt(params[2], 10) : 0];
+      const complexTransform = (params: unknown[]): unknown[] => {
+        return [{ first: params[0], second: params[1] }, params[2] ? parseInt(params[2] as string, 10) : 0];
       };
 
       const mockMethod: (() => void) & ParamLayoutMarked = function (): void {};

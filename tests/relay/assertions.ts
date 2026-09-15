@@ -7,6 +7,7 @@ import { type JsonRpcError } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import constants from '../../src/relay/lib/constants';
 import { type Block, type Receipt, type Transaction, type Transaction1559 } from '../../src/relay/lib/model';
+import { type ITransactionReceipt } from '../../src/relay/lib/types';
 
 chai.use(chaiAsPromised);
 
@@ -56,7 +57,7 @@ export default class RelayAssertions {
   };
 
   static assertTransactionReceipt = (
-    receipt: Receipt | null,
+    receipt: ITransactionReceipt | null,
     expectedReceipt: Receipt,
     liveData: { effectiveGasPrice: string },
   ): void => {

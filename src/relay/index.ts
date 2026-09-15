@@ -1,18 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
+
+import type { IAdminConfig } from './lib/admin';
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
-import type { Block, Log, Receipt, Transaction } from './lib/model';
+import type { Block, Log, Transaction } from './lib/model';
 import type { TxPoolContent, TxPoolContentFrom, TxPoolStatus } from './lib/txpool';
 import type {
   BlockTracerConfig,
+  CallTracerResult,
+  EntityTraceStateMap,
   IContractCallRequest,
+  IFeeHistory,
   IGetLogsParams,
   INewFilterParams,
   ITransactionReceipt,
+  OpcodeLoggerResult,
   RequestDetails,
+  TraceBlockTxResult,
   TransactionTracerConfig,
 } from './lib/types';
+import type { TransactionTraceRecord } from './lib/types/transactionTracing';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -23,13 +31,13 @@ export interface Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ) => Promise<any>;
+  ) => Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult>;
 
   traceBlockByNumber(
     blockNumber: string,
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<any>;
+  ): Promise<TraceBlockTxResult[]>;
 
   getBadBlocks(): Promise<[]>;
 
@@ -41,7 +49,11 @@ export interface Debug {
 
   getRawTransaction(transactionHash: string, requestDetails: RequestDetails): Promise<string>;
 
-  traceBlockByHash(blockHash: string, tracerObject: BlockTracerConfig, requestDetails: RequestDetails): Promise<any>;
+  traceBlockByHash(
+    blockHash: string,
+    tracerObject: BlockTracerConfig,
+    requestDetails: RequestDetails,
+  ): Promise<TraceBlockTxResult[]>;
 }
 
 export interface Web3 {
@@ -59,9 +71,9 @@ export interface Net {
 }
 
 export interface Admin {
-  config(): any;
+  config(): Promise<IAdminConfig>;
 
-  getTransactionTraceByHash(hash: string): Promise<any>;
+  getTransactionTraceByHash(hash: string): Promise<TransactionTraceRecord | null>;
 }
 
 export interface TxPool {
@@ -75,7 +87,11 @@ export interface TxPool {
 export interface Eth {
   blockNumber(requestDetails: RequestDetails): Promise<string>;
 
-  call(call: any, blockParam: string | object | null, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
+  call(
+    call: IContractCallRequest,
+    blockParam: string | object | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | JsonRpcError>;
 
   coinbase(): JsonRpcError;
 
@@ -136,7 +152,7 @@ export interface Eth {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError>;
 
-  getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<Receipt | null>;
+  getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null>;
 
   getUncleByBlockHashAndIndex(blockHash: string, index: string): null;
 
@@ -153,7 +169,7 @@ export interface Eth {
     newestBlock: string,
     rewardPercentiles: Array<number> | null,
     requestDetails: RequestDetails,
-  ): Promise<any>;
+  ): Promise<IFeeHistory | JsonRpcError>;
 
   hashrate(): Promise<string>;
 
@@ -189,7 +205,7 @@ export interface Eth {
 
   syncing(): Promise<boolean>;
 
-  accounts(requestDetails: RequestDetails): Array<any>;
+  accounts(requestDetails: RequestDetails): never[];
 
   getProof(): JsonRpcError;
 

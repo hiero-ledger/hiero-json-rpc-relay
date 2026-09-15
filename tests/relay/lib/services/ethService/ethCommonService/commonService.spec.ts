@@ -251,7 +251,9 @@ describe('CommonService', () => {
 
         await expect(
           commonService.getLogs(null, '0x0', 'latest', ['0xa', '0xb', '0xc'], null, requestDetails),
-        ).to.be.rejected.and.eventually.satisfy((err) => err.code === predefined.INVALID_PARAMETER('address', '').code);
+        ).to.be.rejected.and.eventually.satisfy(
+          (err: { code: number }) => err.code === predefined.INVALID_PARAMETER('address', '').code,
+        );
         expect(workerRun.notCalled).to.equal(true, 'worker must not be dispatched once the cap is exceeded');
       });
 
@@ -279,7 +281,9 @@ describe('CommonService', () => {
 
         await expect(
           runGetLogsWorker(ctx, null, '0x0', 'latest', ['0xa', '0xb', '0xc'], null, requestDetails),
-        ).to.be.rejected.and.eventually.satisfy((err) => err.code === predefined.INVALID_PARAMETER('address', '').code);
+        ).to.be.rejected.and.eventually.satisfy(
+          (err: { code: number }) => err.code === predefined.INVALID_PARAMETER('address', '').code,
+        );
         expect(validateBlockRange.notCalled).to.equal(
           true,
           'block-range validation must not run once the cap is exceeded',

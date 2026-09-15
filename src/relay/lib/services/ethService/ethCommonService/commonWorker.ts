@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Log } from '../../../model';
-import { type RequestDetails } from '../../../types';
+import { type IContractLogsResultsParams, type RequestDetails } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit } from '../../../utils/addressLimit';
 import { type IWorkerContext } from '../../workersService/workerContext';
@@ -21,8 +21,8 @@ export async function getLogs(
     // Re-check the cap inside the worker: the worker is a second entry point, so it must not trust the caller.
     assertAddressCountWithinLimit(address);
 
-    const EMPTY_RESPONSE = [];
-    const params: any = {};
+    const EMPTY_RESPONSE: Log[] = [];
+    const params: IContractLogsResultsParams = {};
     const sliceCountWrapper = { value: 1 };
 
     if (blockHash) {

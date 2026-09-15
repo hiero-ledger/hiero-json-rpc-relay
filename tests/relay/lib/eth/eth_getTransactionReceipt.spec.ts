@@ -171,10 +171,10 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
 
     expect(receipt).to.not.be.null;
-    expect(receipt.logs).to.be.an('array').with.lengthOf(DEFAULT_LOGS_3.length);
-    expect(receipt.transactionHash).to.equal(DEFAULT_LOGS_3[0].transaction_hash);
-    expect(receipt.effectiveGasPrice).to.equal('0xad78ebc5ac620000');
-    expect(receipt.status).to.equal(constants.ONE_HEX);
+    expect(receipt!.logs).to.be.an('array').with.lengthOf(DEFAULT_LOGS_3.length);
+    expect(receipt!.transactionHash).to.equal(DEFAULT_LOGS_3[0].transaction_hash);
+    expect(receipt!.effectiveGasPrice).to.equal('0xad78ebc5ac620000');
+    expect(receipt!.status).to.equal(constants.ONE_HEX);
   });
 
   it('valid receipt on match', async function () {
@@ -323,7 +323,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     const receipt = await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
 
     expect(receipt).to.exist;
-    expect(receipt.revertReason).to.eq(defaultErrorMessageHex);
+    expect(receipt!.revertReason).to.eq(defaultErrorMessageHex);
   });
 
   it('handles empty gas_used', async function () {
@@ -552,18 +552,18 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
 
     // Assert the matching reciept
-    expect(receipt.blockHash).to.eq(cacheReceipt.blockHash);
-    expect(receipt.blockNumber).to.eq(cacheReceipt.blockNumber);
-    expect(receipt.contractAddress).to.eq(cacheReceipt.contractAddress);
-    expect(receipt.cumulativeGasUsed).to.eq(cacheReceipt.cumulativeGasUsed);
-    expect(receipt.from).to.eq(cacheReceipt.from);
-    expect(receipt.gasUsed).to.eq(cacheReceipt.gasUsed);
-    expect(receipt.logs).to.deep.eq(cacheReceipt.logs);
-    expect(receipt.logsBloom).to.be.eq(cacheReceipt.logsBloom);
-    expect(receipt.status).to.eq(cacheReceipt.status);
-    expect(receipt.to).to.eq(cacheReceipt.to);
-    expect(receipt.transactionHash).to.eq(cacheReceipt.transactionHash);
-    expect(receipt.transactionIndex).to.eq(cacheReceipt.transactionIndex);
+    expect(receipt!.blockHash).to.eq(cacheReceipt.blockHash);
+    expect(receipt!.blockNumber).to.eq(cacheReceipt.blockNumber);
+    expect(receipt!.contractAddress).to.eq(cacheReceipt.contractAddress);
+    expect(receipt!.cumulativeGasUsed).to.eq(cacheReceipt.cumulativeGasUsed);
+    expect(receipt!.from).to.eq(cacheReceipt.from);
+    expect(receipt!.gasUsed).to.eq(cacheReceipt.gasUsed);
+    expect(receipt!.logs).to.deep.eq(cacheReceipt.logs);
+    expect(receipt!.logsBloom).to.be.eq(cacheReceipt.logsBloom);
+    expect(receipt!.status).to.eq(cacheReceipt.status);
+    expect(receipt!.to).to.eq(cacheReceipt.to);
+    expect(receipt!.transactionHash).to.eq(cacheReceipt.transactionHash);
+    expect(receipt!.transactionIndex).to.eq(cacheReceipt.transactionIndex);
   });
 
   it('should handle receipt with null "to" field', async function () {

@@ -182,6 +182,10 @@ describe('ConfigService tests', async function () {
     const mutableEnvs = (): Record<string, unknown> =>
       ConfigService['getInstance']()['envs'] as unknown as Record<string, unknown>;
 
+    const setPaymasterAccounts = (value: unknown): void => {
+      mutableEnvs()['PAYMASTER_ACCOUNTS'] = value;
+    };
+
     let initialPaymasterAccounts: unknown;
 
     before(() => {
@@ -189,21 +193,21 @@ describe('ConfigService tests', async function () {
     });
 
     after(() => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = initialPaymasterAccounts;
+      setPaymasterAccounts(initialPaymasterAccounts);
     });
 
     it('should validate a correct config', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should throw on invalid account id format', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         ['0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid account id format, required format is realm.shard.num',
@@ -211,9 +215,9 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid key type', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         ['0.0.8031491', 'RSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: key type must be HEX_ECDSA or HEX_ED25519',
@@ -221,7 +225,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid hex private key', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA', '0x1234', '80']];
+      setPaymasterAccounts([['0.0.8031491', 'HEX_ECDSA', '0x1234', '80']]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
@@ -229,7 +233,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw on invalid der private key', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA', '30300201003', '80']];
+      setPaymasterAccounts([['0.0.8031491', 'HEX_ECDSA', '30300201003', '80']]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
@@ -237,43 +241,43 @@ describe('ConfigService tests', async function () {
     });
 
     it('should pass on valid hex private key', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should pass on valid der ecdsa private key', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         [
           '0.0.8031491',
           'HEX_ECDSA',
           '3030020100300706052b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
           '80',
         ],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should pass on valid der ed25519 private key', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         [
           '0.0.8031491',
           'HEX_ECDSA',
           '303002010030072b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
           '80',
         ],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should throw on invalid allowanceInHBAR', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [
+      setPaymasterAccounts([
         ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '0'],
-      ];
+      ]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0: allowanceInHBAR must be an integer >= 1',
@@ -281,7 +285,7 @@ describe('ConfigService tests', async function () {
     });
 
     it('should throw if payment account array length is incorrect', () => {
-      mutableEnvs()['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA']];
+      setPaymasterAccounts([['0.0.8031491', 'HEX_ECDSA']]);
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
         'PAYMASTER_ACCOUNTS: Entry 0 must be an array of 4 element',
