@@ -135,9 +135,17 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
       '0': legacyTransactionAndBlockHash.blockHash,
       '1': legacyTransactionAndBlockHash.transactionIndex,
     },
+    ['overwrites/eth_getTransactionByBlockHashAndIndex/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.blockHash,
+      '1': syntheticTransaction.transactionIndex,
+    },
     ['overwrites/eth_getTransactionByBlockNumberAndIndex/get-block-n.io']: {
       '0': legacyTransactionAndBlockHash.blockNumber,
       '1': legacyTransactionAndBlockHash.transactionIndex,
+    },
+    ['overwrites/eth_getTransactionByBlockNumberAndIndex/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.blockNumber,
+      '1': syntheticTransaction.transactionIndex,
     },
     ['overwrites/eth_sendRawTransaction/send-legacy-transaction.io']: {
       '0': () => prepareTransaction(legacyTransaction, localNodeAccountPrivateKey),
