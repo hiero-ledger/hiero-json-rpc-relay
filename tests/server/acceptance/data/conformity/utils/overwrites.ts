@@ -99,6 +99,9 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
     ['overwrites/eth_getTransactionByHash/get-legacy-tx.io']: {
       '0': legacyTransactionAndBlockHash.transactionHash,
     },
+    ['overwrites/eth_getTransactionByHash/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.transactionHash,
+    },
     ['overwrites/eth_getTransactionByHash/get-notfound-tx.io']: {
       '0': NONEXISTENT_TX_HASH,
     },
