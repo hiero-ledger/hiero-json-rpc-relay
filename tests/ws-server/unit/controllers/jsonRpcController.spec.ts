@@ -106,6 +106,29 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('Invalid Request');
     });
 
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      it(`should return invalid request with a null id when the request id is non-primitive "${JSON.stringify(id)}"`, async function () {
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+        expect(resp.error.code).to.equal(-32600);
+        expect(resp.error.message).to.include('Invalid Request');
+        expect(resp.id).to.equal(null);
+      });
+    });
+
+    [null, 0, -1, 'test'].forEach((id) => {
+      it(`should accept a request id of "${JSON.stringify(id)}"`, async function () {
+        const chainId = '0x12a';
+        stubRelay.executeRpcMethod.resolves(chainId);
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcResultResponse;
+
+        expect(resp.result).to.equal(chainId);
+        expect(resp.id).to.equal(id);
+      });
+    });
+
     it('should throw method not found if passed method is not existing', async function () {
       const nonExistingMethod = 'eth_non-existing-method';
       defaultRequestParams[3] = { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest;

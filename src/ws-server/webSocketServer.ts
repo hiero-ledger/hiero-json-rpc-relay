@@ -29,7 +29,13 @@ import WsMetricRegistry from './metrics/wsMetricRegistry';
 import { SubscriptionService } from './service/subscriptionService';
 import type { WsContext } from './types';
 import { WS_CONSTANTS } from './utils/constants';
-import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
+import {
+  getBatchRequestsMaxSize,
+  getWsBatchRequestsEnabled,
+  handleConnectionClose,
+  isValidJsonRpcId,
+  sendToClient,
+} from './utils/utils';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string; connectionId: string }>();
@@ -227,6 +233,9 @@ export async function initializeWsServer(
 
           // process requests
           const requestPromises = request.map((item) => {
+            if (item?.id !== undefined && !isValidJsonRpcId(item.id)) {
+              return jsonRespError(null, spec.InvalidRequest, requestDetails.requestId);
+            }
             if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
               return jsonRespError(
                 item.id,
