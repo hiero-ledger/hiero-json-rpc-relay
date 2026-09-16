@@ -16,9 +16,16 @@ export interface Transaction {
 export interface TransactionResponse {
   transactionHash: string;
   blockHash: string;
-  transactionIndex: number;
-  blockNumber: number;
+  transactionIndex: string;
+  blockNumber: string;
   contractAddress: string | null;
+}
+
+export interface SyntheticTransactionResponse {
+  transactionHash: string;
+  blockHash: string;
+  blockNumber: string;
+  transactionIndex: string;
 }
 
 export interface JsonRpcRequest {

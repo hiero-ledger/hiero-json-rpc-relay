@@ -5,11 +5,11 @@ import {
   currentBlockHash,
   EMPTY_TX_HASH,
   ETHEREUM_NETWORK_ACCOUNT_HASH,
-  hapiTransactionHash,
   legacyTransactionAndBlockHash,
   localNodeAccountPrivateKey,
   NONEXISTENT_TX_HASH,
   RELAY_URL,
+  syntheticTransaction,
   transaction1559AndBlockHash,
   transaction2930AndBlockHash,
 } from './constants';
@@ -118,7 +118,7 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
       '0': createContractLegacyTransactionAndBlockHash.transactionHash,
     },
     ['overwrites/eth_getTransactionReceipt/get-hapi-receipt.io']: {
-      '0': hapiTransactionHash,
+      '0': syntheticTransaction.transactionHash,
     },
     ['overwrites/eth_getBalance/get-balance.io']: {
       '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
