@@ -115,12 +115,12 @@ export const getRequestResult = async (
   const subdomain = method.split('_')[0] ?? null;
 
   if (!RPC_WS_API.has(subdomain)) {
-    return jsonRespError(request.id || null, spec.SubdomainDisabled(request.method), requestDetails.requestId);
+    return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(relay, request.method)) {
-    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
+    return jsonRespError(request.id, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 
   // verify rate limit for method method based on IP

@@ -138,6 +138,21 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
     });
 
+    it('should echo a falsy but valid id of 0 when the method is not found', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'eth_non-existing-method', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.error.code).to.equal(-32601);
+      expect(resp.id).to.equal(0);
+    });
+
+    it('should echo a falsy but valid id of 0 when the subdomain is disabled', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'foo_bar', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.id).to.equal(0);
+    });
+
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
       stubConnectionLimiter.shouldRateLimitOnMethod.resolves(true);
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;

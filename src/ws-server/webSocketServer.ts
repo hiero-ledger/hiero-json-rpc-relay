@@ -238,7 +238,7 @@ export async function initializeWsServer(
             }
             if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
               return jsonRespError(
-                item.id,
+                isValidJsonRpcId(item.id) ? item.id : null,
                 spec.BatchRequestsMethodNotPermitted(item.method),
                 requestDetails.requestId,
               );
