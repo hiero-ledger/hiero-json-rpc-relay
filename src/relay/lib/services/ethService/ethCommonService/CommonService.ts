@@ -506,6 +506,13 @@ export class CommonService implements ICommonService {
   public addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void {
     const topicParams = params as Record<string, string | string[]>;
     if (topics) {
+      if (topics.length > constants.LOG_TOPICS_MAX_POSITIONS) {
+        throw predefined.INVALID_PARAMETER(
+          'topics',
+          `A maximum of ${constants.LOG_TOPICS_MAX_POSITIONS} topic positions are allowed`,
+        );
+      }
+
       for (let i = 0; i < topics.length; i++) {
         const topic = topics[i];
         if (!_.isNil(topic)) {
