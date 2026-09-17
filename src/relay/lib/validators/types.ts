@@ -106,9 +106,15 @@ export const TYPES = {
   },
   topics: {
     test: (param: unknown): boolean => {
-      return Array.isArray(param) ? validateArray(param.flat(), 'topicHash') : false;
+      if (!Array.isArray(param) || param.length > mainConstants.LOG_TOPICS_MAX_POSITIONS) return false;
+      if (
+        param.some((position) => Array.isArray(position) && position.length > mainConstants.LOG_TOPICS_MAX_SUB_TOPICS)
+      ) {
+        return false;
+      }
+      return validateArray(param.flat(), 'topicHash');
     },
-    error: `Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic`,
+    error: Constants.TOPICS_ERROR,
   },
   transaction: {
     test: (param: unknown): boolean => {

@@ -481,6 +481,44 @@ describe('Validator', async () => {
         ),
       );
     });
+
+    const topic = '0x790673a87ac19773537b2553e1dc7c451f659e0f75d1b69a706ad42d25cbdb55';
+
+    it(`does not throw an error on ${mainConstants.LOG_TOPICS_MAX_POSITIONS} positions`, async () => {
+      const positions = Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(topic);
+
+      expect(validateParams([positions], validation)).to.eq(undefined);
+    });
+
+    it(`throws an error on more than ${mainConstants.LOG_TOPICS_MAX_POSITIONS} positions`, async () => {
+      const positions = Array(mainConstants.LOG_TOPICS_MAX_POSITIONS + 1).fill(topic);
+
+      expect(() => validateParams([positions], validation)).to.throw(
+        expectInvalidParam(0, topicsError, JSON.stringify(positions)),
+      );
+    });
+
+    it('throws an error on null-padded positions past the limit', async () => {
+      const positions = [...Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(null), topic];
+
+      expect(() => validateParams([positions], validation)).to.throw(
+        expectInvalidParam(0, topicsError, JSON.stringify(positions)),
+      );
+    });
+
+    it(`does not throw an error on ${mainConstants.LOG_TOPICS_MAX_SUB_TOPICS} sub-topics in a position`, async () => {
+      const positions = [Array(mainConstants.LOG_TOPICS_MAX_SUB_TOPICS).fill(topic)];
+
+      expect(validateParams([positions], validation)).to.eq(undefined);
+    });
+
+    it(`throws an error on more than ${mainConstants.LOG_TOPICS_MAX_SUB_TOPICS} sub-topics in a position`, async () => {
+      const positions = [Array(mainConstants.LOG_TOPICS_MAX_SUB_TOPICS + 1).fill(topic)];
+
+      expect(() => validateParams([positions], validation)).to.throw(
+        expectInvalidParam(0, topicsError, JSON.stringify(positions)),
+      );
+    });
   });
 
   describe('validates topicHash type correctly', async () => {
@@ -1183,7 +1221,7 @@ describe('Validator', async () => {
           topics: ['NotHEX'],
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: ["NotHEX"]`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.TOPICS_ERROR}, value: ["NotHEX"]`,
       );
     });
 
@@ -1194,7 +1232,7 @@ describe('Validator', async () => {
           topics: null,
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: null`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.TOPICS_ERROR}, value: null`,
       );
     });
 

@@ -510,8 +510,11 @@ export class CommonService implements ICommonService {
         const topic = topics[i];
         if (!_.isNil(topic)) {
           if (Array.isArray(topic)) {
-            if (topic.length > 100) {
-              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
+            if (topic.length > constants.LOG_TOPICS_MAX_SUB_TOPICS) {
+              throw predefined.INVALID_PARAMETER(
+                i,
+                `Topic ${i} exceeds maximum nested length of ${constants.LOG_TOPICS_MAX_SUB_TOPICS}`,
+              );
             }
             const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);

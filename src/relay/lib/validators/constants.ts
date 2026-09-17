@@ -15,6 +15,7 @@ export const BLOCK_HASH_ERROR = `Expected ${HASH_ERROR} of a block`;
 export const TRANSACTION_HASH_ERROR = `Expected ${HASH_ERROR} of a transaction`;
 export const TOPIC_HASH_ERROR = `Expected ${HASH_ERROR} of a topic`;
 export const REWARD_PERCENTILES_ERROR = `Expected an array of up to ${mainConstants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE} numbers, each between 0 and 100`;
+export const TOPICS_ERROR = `Expected an array or array of arrays containing ${HASH_ERROR} of a topic, with at most ${mainConstants.LOG_TOPICS_MAX_POSITIONS} positions and at most ${mainConstants.LOG_TOPICS_MAX_SUB_TOPICS} topics per position`;
 export const INVALID_BLOCK_HASH_TAG_NUMBER = 'The value passed is not a valid blockHash/blockNumber/blockTag value:';
 export enum TracerType {
   CallTracer = 'callTracer',
