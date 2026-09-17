@@ -130,7 +130,7 @@ export const getRequestResult = async (
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method
   let response: IJsonRpcResponse;
-  if (method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE && !limiter.validateSubscriptionLimit(ctx)) {
+  if (method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE && !limiter.validateSubscriptionLimit(ctx.websocket)) {
     return jsonRespError(request.id, predefined.MAX_SUBSCRIPTIONS, requestDetails.requestId);
   }
 
