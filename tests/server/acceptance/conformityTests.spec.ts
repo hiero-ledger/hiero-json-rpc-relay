@@ -116,15 +116,6 @@ describe('@api-conformity', async function () {
   describe('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
     before(async () => {
-      setLegacyTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, legacyTransaction));
-      setTransaction2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction2930));
-      setTransaction1559AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559));
-      setTransaction1559_2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559_2930));
-      setCreateContractLegacyTransactionAndBlockHash(
-        await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
-      );
-      await initGenesisData();
-
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
       const hapiTestAccount = await Utils.createAliasAccount(
@@ -149,6 +140,15 @@ describe('@api-conformity', async function () {
       await hapiResp.getRecord(servicesNode.client);
 
       setSyntheticTransaction(await pollForSyntheticTransaction(tokenId.toString()));
+
+      setLegacyTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, legacyTransaction));
+      setTransaction2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction2930));
+      setTransaction1559AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559));
+      setTransaction1559_2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559_2930));
+      setCreateContractLegacyTransactionAndBlockHash(
+        await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
+      );
+      await initGenesisData();
 
       setCurrentBlockHash(await getLatestBlockHash(RELAY_URL));
     });
