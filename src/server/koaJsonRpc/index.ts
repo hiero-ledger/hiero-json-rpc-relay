@@ -199,7 +199,10 @@ export default class KoaJsonRpc {
   isValidJsonRpcRequest(body: Pick<IJsonRpcRequest, 'id'>): body is IJsonRpcRequest {
     // validate it has the correct jsonrpc version, method, and id
     const candidate = body as Partial<IJsonRpcRequest>;
-    return candidate.jsonrpc === '2.0' && typeof candidate.method === 'string';
+    if (candidate.jsonrpc !== '2.0' || typeof candidate.method !== 'string') return false;
+
+    // the relay only supports positional params, so anything present other than an array is an invalid request
+    return candidate.params === undefined || Array.isArray(candidate.params);
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {

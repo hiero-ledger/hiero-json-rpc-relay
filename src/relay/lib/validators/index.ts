@@ -57,7 +57,13 @@ export function rpcParamValidationRules(validationRules: Record<number, IParamVa
   };
 }
 
-export function validateParams(params: unknown[], indexes: { [index: number]: IParamValidation }): void {
+export function validateParams(
+  params: unknown[] | null | undefined,
+  indexes: { [index: number]: IParamValidation },
+): void {
+  // a JS default only covers `undefined`, so `params: null` has to be normalised here
+  params ??= [];
+
   if (params.length > Object.keys(indexes).length) {
     throw predefined.INVALID_PARAMETERS;
   }

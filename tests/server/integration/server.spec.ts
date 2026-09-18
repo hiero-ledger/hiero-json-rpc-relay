@@ -261,6 +261,65 @@ describe('RPC Server', function () {
     });
   });
 
+  describe('JSON-RPC "params" validation', function () {
+    [null, 'params', { from: contractAddress1 }].forEach((params) => {
+      it(`should return "Invalid Request" when "params" is non-array "${JSON.stringify(params)}"`, async function () {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+            params,
+          });
+          Assertions.expectedError();
+        } catch (error) {
+          BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+        }
+      });
+    });
+
+    it('should return "Invalid Request" when "params" is null on a parameterless method', async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: RelayCalls.ETH_ENDPOINTS.NET_VERSION,
+          params: null,
+        });
+        Assertions.expectedError();
+      } catch (error) {
+        BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+      }
+    });
+
+    it('should accept a request with "params" omitted', async function () {
+      const res = await testClient.post('/', {
+        id: '2',
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+      });
+
+      BaseTest.defaultResponseChecks(res);
+      expect(res.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+
+    it('should only fail the batch entry carrying null "params"', async function () {
+      const response = await testClient.post('/', [
+        { id: '2', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+        { id: '3', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CALL, params: null },
+        { id: '4', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+      ]);
+
+      BaseTest.baseDefaultResponseChecks(response);
+
+      expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      expect(response.data[1].id).to.be.equal('3');
+      expect(response.data[1].error.code).to.be.equal(-32600);
+      expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
+      expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+  });
+
   withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: true }, async function () {
     xit('supports optionality of request id when configured', async function () {
       const { app: app2 } = await initializeServer();
