@@ -6,7 +6,6 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
-  type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
@@ -21,8 +20,6 @@ export interface ICommonService {
   genericErrorHandler(error: unknown, logMessage?: string): void;
 
   getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
-
-  getContractAddressFromReceipt(contractResult: MirrorNodeContractResultBase): string | null;
 
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
