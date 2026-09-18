@@ -3,7 +3,6 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/"
-      - "/packages/*"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
@@ -21,7 +20,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "npm"
-    directories: 
+    directories:
       - "/docs/examples"
       - "/k6"
     schedule:
@@ -48,7 +47,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    
+
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
