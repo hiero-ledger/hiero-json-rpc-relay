@@ -78,6 +78,12 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
     ['overwrites/eth_getBlockByHash/get-block-by-hash.io']: {
       '0': transaction2930AndBlockHash.blockHash,
     },
+    ['overwrites/eth_getBlockByHash/get-synthetic-block.io']: {
+      '0': syntheticTransaction.blockHash,
+    },
+    ['overwrites/eth_getBlockByNumber/get-synthetic-block.io']: {
+      '0': syntheticTransaction.blockNumber,
+    },
     ['overwrites/eth_getBlockReceipts/get-synthetic-receipts.io']: {
       '0': syntheticTransaction.blockNumber,
     },
