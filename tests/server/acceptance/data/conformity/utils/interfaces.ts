@@ -50,6 +50,15 @@ export interface FileContent {
   request: string;
   response: string;
   wildcards?: string[];
+  containsPaths?: string[];
+}
+
+/** The relaxations a fixture declares for comparing its recorded response. */
+export interface ComparisonRules {
+  /** Paths whose value is not compared at all. */
+  wildcards: string[];
+  /** Paths whose array must contain the recorded entries rather than equal them. */
+  containsPaths: string[];
 }
 
 export interface ErrorResponse {

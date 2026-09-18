@@ -7,31 +7,39 @@ import { sendRequestToRelay } from './utils';
 import { findSchema, hasResponseFormatIssues, isResponseValid } from './validations';
 
 /**
- * Splits a given input string into distinct segments representing the request, the response, and optional wildcard fields.
+ * Splits a given input string into distinct segments representing the request, the response, and the
+ * optional `## wildcard:` and `## contains:` directives.
  *
  * @param {string} content - The input string to be segmented.
- * @returns {{ request: string, response: string, wildcards: string[] }} - An object containing the separated request, response strings, and wildcard fields.
+ * @returns {{ request: string, response: string, wildcards: string[], containsPaths: string[] }} - The separated request and response strings plus the declared relaxations.
  */
-export function splitReqAndRes(content: string): { request: string; response: string; wildcards: string[] } {
+export function splitReqAndRes(content: string): {
+  request: string;
+  response: string;
+  wildcards: string[];
+  containsPaths: string[];
+} {
   const lines = content
     .split('\n')
     .map((line: string) => line.trim())
     .filter((line: string) => line.length > 0);
-  const wildcards: string[] = [];
-
   const requestLine = lines.find((line: string) => line.startsWith('>>'));
   const responseLine = lines.find((line: string) => line.startsWith('<<'));
-  const wildcardLine = lines.find((line: string) => line.startsWith('## wildcard:'));
 
-  if (wildcardLine) {
-    wildcards.push(
-      ...wildcardLine
-        .replace('## wildcard:', '')
-        .trim()
-        .split(',')
-        .map((field: string) => field.trim()),
-    );
-  }
+  const parseDirective = (directive: string): string[] => {
+    const line = lines.find((entry: string) => entry.startsWith(directive));
+    return line
+      ? line
+          .replace(directive, '')
+          .trim()
+          .split(',')
+          .map((field: string) => field.trim())
+          .filter((field: string) => field.length > 0)
+      : [];
+  };
+
+  const wildcards = parseDirective('## wildcard:');
+  const containsPaths = parseDirective('## contains:');
 
   if (!requestLine || !responseLine) {
     throw new Error('Missing or improperly formatted request/response lines');
@@ -41,6 +49,7 @@ export function splitReqAndRes(content: string): { request: string; response: st
     request: requestLine.slice(2).trim(),
     response: responseLine.slice(2).trim(),
     wildcards,
+    containsPaths,
   };
 }
 
@@ -84,21 +93,23 @@ export async function processFileContent(
   console.log(`Schema found for directory "${directory}": ${!!schema}`);
 
   const wildcards = content.wildcards || [];
+  const containsPaths = content.containsPaths || [];
   console.log('Wildcards being used:', JSON.stringify(wildcards));
+  console.log('Contains paths being used:', JSON.stringify(containsPaths));
 
   if (needError) {
     console.log('Validating an error response.');
-    const valid = hasResponseFormatIssues(response, content.response, wildcards);
+    const valid = hasResponseFormatIssues(response, content.response, wildcards, containsPaths);
     expect(valid).to.be.false;
   } else {
     console.log('Validating a success response.');
-    if (schema && wildcards.length === 0) {
+    if (schema && wildcards.length === 0 && containsPaths.length === 0) {
       console.log('Using schema validation.');
       const valid = isResponseValid(schema, response);
       expect(valid).to.be.true;
     } else {
       console.log('Using response format check (key-by-key comparison).');
-      const hasMissingKeys = hasResponseFormatIssues(response, JSON.parse(content.response), wildcards);
+      const hasMissingKeys = hasResponseFormatIssues(response, JSON.parse(content.response), wildcards, containsPaths);
       expect(hasMissingKeys).to.be.false;
     }
     console.log('Success response validation finished.');

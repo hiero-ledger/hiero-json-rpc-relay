@@ -6,7 +6,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect } from 'chai';
 
-import type { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
+import type { ComparisonRules, ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 
 let execApisOpenRpcData: { methods: Method[] } | null = null;
 function getExecApisOpenRpcData(): { methods: Method[] } {
@@ -27,6 +27,7 @@ addFormats(ajv);
  * @param actualResponse - The actual response received from the API call
  * @param expectedResponse - The expected response structure to validate against (can be object, string, or ErrorResponse)
  * @param wildcards - Array of property paths to ignore during validation (default: empty array)
+ * @param containsPaths - Array paths matched by containment rather than equality (default: empty array)
  * @returns {boolean} Returns true if the response format has issues (validation failed), false if format is valid
  *
  * @description
@@ -65,7 +66,9 @@ export function hasResponseFormatIssues(
   actualResponse: Record<string, unknown> | ErrorResponse | JsonRpcResponse,
   expectedResponse: Record<string, unknown> | string | ErrorResponse,
   wildcards: string[] = [],
+  containsPaths: string[] = [],
 ): boolean {
+  const rules: ComparisonRules = { wildcards, containsPaths };
   let parsedExpectedResponse: Record<string, unknown> | ErrorResponse = expectedResponse as Record<string, unknown>;
   if (typeof expectedResponse === 'string') {
     try {
@@ -100,7 +103,7 @@ export function hasResponseFormatIssues(
     return true;
   }
 
-  return hasValuesMismatch(actualResponse, parsedExpectedResponse, wildcards);
+  return hasValuesMismatch(actualResponse, parsedExpectedResponse, rules);
 }
 
 /**
@@ -128,21 +131,27 @@ function arePrimitivesDifferent(actual: unknown, expected: unknown): boolean {
 }
 
 /**
- * Checks if two arrays have different values
+ * Checks if two arrays have different values.
  *
  * @param actual - The actual array from the response
  * @param expected - The expected array to compare against
- * @param wildcards - Array of property paths to ignore during comparison
+ * @param rules - The relaxations declared by the fixture
  * @param path - Current property path being evaluated
  * @returns {boolean} - Returns true if arrays have different values, false if they match
  */
-function hasArrayValuesMismatch(actual: unknown[], expected: unknown[], wildcards: string[], path: string): boolean {
+function hasArrayValuesMismatch(actual: unknown[], expected: unknown[], rules: ComparisonRules, path: string): boolean {
+  if (rules.containsPaths.includes(path)) {
+    return expected.some((expectedEntry, i) =>
+      actual.every((actualEntry) => hasValuesMismatch(actualEntry, expectedEntry, rules, `${path}[${i}]`)),
+    );
+  }
+
   if (actual.length !== expected.length) {
     return true;
   }
 
   for (let i = 0; i < expected.length; i++) {
-    if (hasValuesMismatch(actual[i], expected[i], wildcards, `${path}[${i}]`)) {
+    if (hasValuesMismatch(actual[i], expected[i], rules, `${path}[${i}]`)) {
       return true;
     }
   }
@@ -154,25 +163,25 @@ function hasArrayValuesMismatch(actual: unknown[], expected: unknown[], wildcard
  *
  * @param actual - The actual object from the response
  * @param expected - The expected object to compare against
- * @param wildcards - Array of property paths to ignore during comparison
+ * @param rules - The relaxations declared by the fixture
  * @param path - Current property path being evaluated
  * @returns {boolean} - Returns true if properties are missing or values are mismatched, false if all match
  */
 function hasObjectPropertiesMismatch(
   actual: Record<string, unknown>,
   expected: Record<string, unknown>,
-  wildcards: string[],
+  rules: ComparisonRules,
   path: string,
 ): boolean {
   for (const key in expected) {
     const newPath = path ? `${path}.${key}` : key;
-    if (wildcards.includes(newPath)) {
+    if (rules.wildcards.includes(newPath)) {
       continue;
     }
     if (!(key in actual)) {
       return true;
     }
-    if (hasValuesMismatch(actual[key], expected[key], wildcards, newPath)) {
+    if (hasValuesMismatch(actual[key], expected[key], rules, newPath)) {
       return true;
     }
   }
@@ -184,11 +193,16 @@ function hasObjectPropertiesMismatch(
  *
  * @param actual - The actual object/array from the response
  * @param expected - The expected object/array to compare against
- * @param wildcards - Array of property paths to ignore during comparison
+ * @param rules - The relaxations declared by the fixture
  * @param path - Current property path being evaluated
  * @returns {boolean} - Returns true if mismatches are found, false if values match
  */
-function hasComplexTypeMismatch(actual: object | null, expected: object, wildcards: string[], path: string): boolean {
+function hasComplexTypeMismatch(
+  actual: object | null,
+  expected: object,
+  rules: ComparisonRules,
+  path: string,
+): boolean {
   if (actual === null) {
     return true;
   }
@@ -201,13 +215,13 @@ function hasComplexTypeMismatch(actual: object | null, expected: object, wildcar
   }
 
   if (isExpectedArray) {
-    return hasArrayValuesMismatch(actual as unknown[], expected as unknown[], wildcards, path);
+    return hasArrayValuesMismatch(actual as unknown[], expected as unknown[], rules, path);
   }
 
   return hasObjectPropertiesMismatch(
     actual as Record<string, unknown>,
     expected as Record<string, unknown>,
-    wildcards,
+    rules,
     path,
   );
 }
@@ -217,7 +231,7 @@ function hasComplexTypeMismatch(actual: object | null, expected: object, wildcar
  *
  * @param actual - The actual value received from the response
  * @param expected - The expected value to compare against
- * @param wildcards - Array of property paths that should be ignored during comparison
+ * @param rules - The relaxations declared by the fixture
  * @param path - Current property path being evaluated (used for nested object traversal)
  * @returns {boolean} - Returns true if values are different/don't match, false if they match
  *
@@ -229,7 +243,7 @@ function hasComplexTypeMismatch(actual: object | null, expected: object, wildcar
  * - Complex objects: Delegates to hasComplexTypeMismatch for arrays and objects
  * - Primitive values: Uses direct comparison for primitive types
  */
-function hasValuesMismatch(actual: unknown, expected: unknown, wildcards: string[], path = ''): boolean {
+function hasValuesMismatch(actual: unknown, expected: unknown, rules: ComparisonRules, path = ''): boolean {
   if (path === '' && expected && typeof expected === 'object' && (expected as ErrorResponse).error) {
     return hasErrorResponseMismatch(actual as Record<string, unknown>, expected as ErrorResponse);
   }
@@ -243,7 +257,7 @@ function hasValuesMismatch(actual: unknown, expected: unknown, wildcards: string
   }
 
   if (typeof expected === 'object') {
-    return hasComplexTypeMismatch(actual as object | null, expected, wildcards, path);
+    return hasComplexTypeMismatch(actual as object | null, expected, rules, path);
   }
 
   return arePrimitivesDifferent(actual, expected);
