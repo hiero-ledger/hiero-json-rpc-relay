@@ -17,6 +17,6 @@
     "ethers": "6.17.0"
   },
   "devDependencies": {
-    "@types/k6": "1.4.0"
+    "@types/k6": "2.2.1"
   }
 }
