@@ -149,7 +149,6 @@ class TransactionReceiptFactory {
         return null;
       }
 
-      // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
       const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
       return prepend0x(tokenAddress);
     }
