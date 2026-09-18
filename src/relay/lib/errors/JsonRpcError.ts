@@ -242,6 +242,10 @@ export const predefined = {
       code: -32610,
       message: `Unsupported operation. ${message}`,
     }),
+  REQUEST_ABORTED: new JsonRpcError({
+    code: -32021,
+    message: 'Request aborted by the client',
+  }),
   PAGINATION_MAX: (count: number): JsonRpcError =>
     new JsonRpcError({
       code: -32011,
