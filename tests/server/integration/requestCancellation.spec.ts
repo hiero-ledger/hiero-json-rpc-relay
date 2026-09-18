@@ -12,8 +12,29 @@ import { type AddressInfo } from 'net';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
+import { resetWorkerContext } from '../../../src/relay/lib/services/workersService/workerContext';
+import { WorkersPool } from '../../../src/relay/lib/services/workersService/WorkersPool';
 import { initializeServer } from '../../../src/server/server';
 import { asRelayInternals } from '../../relay/helpers';
+
+type WorkersPoolTestInternals = {
+  _innerRun?: typeof WorkersPool.run;
+  run: typeof WorkersPool.run;
+  instance: unknown;
+  handleTaskFn: unknown;
+};
+
+const resetWorkersPoolState = (): void => {
+  const pool = WorkersPool as unknown as WorkersPoolTestInternals;
+
+  if (pool._innerRun) {
+    pool.run = pool._innerRun;
+    delete pool._innerRun;
+  }
+  pool.instance = undefined;
+  pool.handleTaskFn = null;
+  resetWorkerContext();
+};
 
 describe('Request cancellation', function () {
   this.timeout(30_000);
@@ -93,11 +114,14 @@ describe('Request cancellation', function () {
       RATE_LIMIT_DISABLED: true,
       MAX_ADDRESSES_PER_REQUEST: ADDRESS_COUNT,
       MIRROR_NODE_HTTP_MAX_SOCKETS: UPSTREAM_MAX_SOCKETS,
+      WORKERS_POOL_ENABLED: false,
     };
     for (const [name, value] of Object.entries(overriddenConfig)) {
       previousConfig[name] = ConfigService.get(name as Parameters<typeof ConfigService.get>[0]) as ConfigValue;
       ConfigServiceTestHelper.dynamicOverride(name, value);
     }
+
+    resetWorkersPoolState();
 
     sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
 
@@ -114,6 +138,7 @@ describe('Request cancellation', function () {
 
   after(async function () {
     sinon.restore();
+    resetWorkersPoolState();
     for (const name of Object.keys(overriddenConfig)) {
       ConfigServiceTestHelper.dynamicOverride(name, previousConfig[name]);
     }
