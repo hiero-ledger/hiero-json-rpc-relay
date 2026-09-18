@@ -143,6 +143,23 @@ describe('Subscription limit enforcement', function () {
     expect(ctx.websocket.subscriptions).to.eq(1);
   });
 
+  it('hands back the held id when a connection at the limit re-subscribes to a filter it already holds', async function () {
+    const held = { topics: [topic(1)] };
+    const first = await dispatch(subscribeRequest(0, [constants.SUBSCRIBE_EVENTS.LOGS, held]));
+    await Promise.all(
+      Array.from({ length: SUBSCRIPTION_LIMIT - 1 }, (_, i) =>
+        dispatch(subscribeRequest(i + 1, [constants.SUBSCRIBE_EVENTS.LOGS, { topics: [topic(i + 100)] }])),
+      ),
+    );
+    expect(ctx.websocket.subscriptions).to.eq(SUBSCRIPTION_LIMIT);
+
+    const repeat = await dispatch(subscribeRequest(99, [constants.SUBSCRIBE_EVENTS.LOGS, held]));
+
+    expect(isError(repeat)).to.be.false;
+    expect((repeat as { result: string }).result).to.eq((first as { result: string }).result);
+    expect(ctx.websocket.subscriptions).to.eq(SUBSCRIPTION_LIMIT);
+  });
+
   it('releases the slot on eth_unsubscribe so a later subscribe is admitted', async function () {
     const responses = await Promise.all(uniqueLogsSubscribes(SUBSCRIPTION_LIMIT).map(dispatch));
     const subscriptionId = (responses[0] as { result: string }).result;
