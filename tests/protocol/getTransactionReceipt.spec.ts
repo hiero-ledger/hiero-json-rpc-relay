@@ -193,7 +193,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         expect(txReceipt.to).to.be.eq(accounts[1].address.toLowerCase());
         expect(txReceipt.from).to.be.eq(accounts[0].address.toLowerCase());
         expect(txReceipt.transactionHash).to.be.eq(expectedTxReceipt.hash);
-        expect(txReceipt.contractAddress).to.be.eq(expectedTxReceipt.address);
+        expect(txReceipt.contractAddress).to.be.null;
         expect(txReceipt.blockHash).to.be.eq(expectedTxReceipt.block_hash.slice(0, 66));
         expect(Number(txReceipt.transactionIndex)).to.be.eq(expectedTxReceipt.transaction_index);
       });
@@ -382,6 +382,14 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         expect(contractDeploymentReceipt).to.exist;
         expect(contractDeploymentReceipt.contractAddress).to.not.be.null;
         expect(contractDeploymentReceipt.to).to.be.null;
+      });
+
+      it('should execute "eth_getTransactionReceipt" and set "contractAddress" to null for a call to a contract', async () => {
+        const receipt = (await client.call(METHOD_NAME, [relayContractTransferTxHash])) as TransactionReceiptResponse;
+
+        expect(receipt).to.exist;
+        expect(receipt.to.toLowerCase()).to.equal(relayContractTransferTo.toLowerCase());
+        expect(receipt.contractAddress).to.be.null;
       });
 
       it('@release should fail to execute "eth_getTransactionReceipt" for hash of London transaction', async () => {
