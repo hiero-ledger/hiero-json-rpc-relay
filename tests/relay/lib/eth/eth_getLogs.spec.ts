@@ -746,6 +746,18 @@ describe('@ethGetLogs using MirrorNode', async function () {
     ).to.be.rejectedWith(predefined.INVALID_PARAMETER(0, 'Topic 0 exceeds maximum nested length of 100').message);
   });
 
+  it('should throw an error when topics array exceeds 4 positions', async function () {
+    const tooManyPositions = [null, null, null, null, DEFAULT_LOG_TOPICS[0]];
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
+
+    await expect(
+      ethImpl.getLogs(
+        { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: tooManyPositions },
+        requestDetails,
+      ),
+    ).to.be.rejectedWith(predefined.INVALID_PARAMETER('topics', 'A maximum of 4 topic positions are allowed').message);
+  });
+
   it('should throw an error when topic is not a valid hex string', async function () {
     const invalidTopic = 'not-a-valid-hex';
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
