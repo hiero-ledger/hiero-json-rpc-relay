@@ -118,7 +118,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     status: '0x1',
     transactionHash: '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392',
     transactionIndex: '0x0',
-    contractAddress: '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9',
+    contractAddress: null,
     root: undefined,
   };
 
@@ -229,9 +229,13 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   it('valid receipt with evm address on match', async function () {
     // mirror node request mocks
-    restMock
-      .onGet(`contracts/results/${defaultTxHash}?hbar=false`)
-      .reply(200, JSON.stringify(defaultDetailedContractResultByHash));
+    restMock.onGet(`contracts/results/${defaultTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        contract_id: defaultDetailedContractResultByHash.created_contract_ids[0],
+      }),
+    );
     restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
       200,
       JSON.stringify({
