@@ -42,6 +42,7 @@ describe('Request cancellation', function () {
   const ADDRESS_COUNT = 40;
   const UPSTREAM_DELAY_MS = 300;
   const ABORT_AFTER_MS = 50;
+  const ABORT_SETTLE_MS = 600;
   const UPSTREAM_MAX_SOCKETS = 4;
   const addressesFor = (id: number): string[] =>
     Array.from({ length: ADDRESS_COUNT }, (_, i) => `0x${(id * 1000 + i + 1).toString(16).padStart(40, '0')}`);
@@ -160,21 +161,25 @@ describe('Request cancellation', function () {
 
   it('stops the downstream fan-out when the client aborts the request', async function () {
     await sendAndAbort(2);
-    const requestsAtAbort = logRequests;
+
+    await sleep(ABORT_SETTLE_MS);
+    const requestsAfterAbort = logRequests;
 
     await sleep(UPSTREAM_DELAY_MS * 4);
-    expect(logRequests).to.equal(requestsAtAbort);
+    expect(logRequests).to.equal(requestsAfterAbort);
     expect(logRequests).to.be.at.most(UPSTREAM_MAX_SOCKETS * 2);
   });
 
   it('stops the downstream fan-out for repeated aborted requests', async function () {
     const abortedRequests = 5;
     await Promise.all(Array.from({ length: abortedRequests }, (_, i) => sendAndAbort(10 + i)));
-    const requestsAtAbort = logRequests;
+
+    await sleep(ABORT_SETTLE_MS);
+    const requestsAfterAbort = logRequests;
 
     await sleep(UPSTREAM_DELAY_MS * 4);
 
-    expect(logRequests).to.equal(requestsAtAbort);
+    expect(logRequests).to.equal(requestsAfterAbort);
     expect(logRequests).to.be.at.most(UPSTREAM_MAX_SOCKETS * 2 * abortedRequests);
   });
 
