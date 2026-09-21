@@ -42,7 +42,7 @@
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "globals": "17.12.0",
     "husky": "9.1.7",
-    "lint-staged": "16.4.0",
+    "lint-staged": "17.5.1",
     "mocha": "11.8.0",
     "mocha-junit-reporter": "2.2.1",
     "mocha-multi-reporters": "1.5.2",
