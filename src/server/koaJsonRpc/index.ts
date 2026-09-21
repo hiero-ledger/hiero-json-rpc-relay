@@ -13,7 +13,7 @@ import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
 import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
-import { isRequestAbortedError } from '../../relay/lib/utils/requestAbort';
+import { isRequestAbortedError, requestAbortReason } from '../../relay/lib/utils/requestAbort';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
@@ -32,6 +32,7 @@ const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was written';
 const REQUEST_COMPLETED_ABORT_REASON = 'The request finished';
+const CLIENT_DISCONNECTED = 'CLIENT DISCONNECTED';
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
@@ -43,6 +44,7 @@ export default class KoaJsonRpc {
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
   private readonly methodResponseHistogram: Histogram;
   private readonly relay: Relay;
+  private readonly logger: Logger;
 
   constructor(
     logger: Logger,
@@ -52,6 +54,7 @@ export default class KoaJsonRpc {
     opts?: { limit: string | null },
   ) {
     this.koaApp = new Koa();
+    this.logger = logger;
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.rateLimiter = new IPRateLimiterService(rateLimitStore, register);
@@ -87,8 +90,17 @@ export default class KoaJsonRpc {
         } else {
           await this.handleSingleRequest(ctx, body, requestId, abortController.signal);
         }
+      } catch (error) {
+        if (!isRequestAbortedError(error)) {
+          throw error;
+        }
+
+        this.logger.debug(`Request abandoned by the client: requestId=%s, method=%s`, requestId, ctx.state.methodName);
+        ctx.respond = false;
+        ctx.state.status = CLIENT_DISCONNECTED;
+        ctx.state.clientDisconnected = true;
       } finally {
-        abortController.abort(REQUEST_COMPLETED_ABORT_REASON);
+        abortController.abort(requestAbortReason(REQUEST_COMPLETED_ABORT_REASON));
       }
     };
   }
@@ -105,7 +117,7 @@ export default class KoaJsonRpc {
 
     const onResponseClose = (): void => {
       if (!ctx.res.writableFinished) {
-        abortController.abort(CLIENT_DISCONNECTED_ABORT_REASON);
+        abortController.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));
       }
     };
 
@@ -129,8 +141,8 @@ export default class KoaJsonRpc {
     } else if (!this.isValidJsonRpcRequest(body)) {
       response = jsonRespError(body.id, spec.InvalidRequest, requestId);
     } else {
-      response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal);
       ctx.state.methodName = body.method;
+      response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal);
     }
 
     ctx.body = response;
@@ -222,9 +234,7 @@ export default class KoaJsonRpc {
       return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestId);
     }
 
-    if (abortSignal?.aborted) {
-      return jsonRespError(request.id, predefined.REQUEST_ABORTED, requestId);
-    }
+    abortSignal?.throwIfAborted();
 
     try {
       const requestDetails = new RequestDetails({ requestId, ipAddress, abortSignal });
@@ -242,7 +252,7 @@ export default class KoaJsonRpc {
         : jsonRespResult(request.id, result);
     } catch (err) {
       if (isRequestAbortedError(err)) {
-        return jsonRespError(request.id, predefined.REQUEST_ABORTED, requestId);
+        throw err;
       }
 
       /* istanbul ignore next: this catch block covers programmatic errors and should not happen */

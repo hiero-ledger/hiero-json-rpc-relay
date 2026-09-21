@@ -542,14 +542,13 @@ export class MirrorNodeClient {
       const axiosError = error as { response?: { status?: number }; code?: string };
 
       if (isRequestAborted(requestDetails)) {
-        controller.abort();
         this.logger.debug(
           `Mirror node request cancelled after the caller abandoned the request: method=%s, path=%s, duration=%sms`,
           method,
           path,
           ms,
         );
-        throw predefined.REQUEST_ABORTED;
+        throwIfRequestAborted(requestDetails);
       }
 
       // Calculate effective status code

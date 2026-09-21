@@ -162,7 +162,7 @@ export class RpcMethodDispatcher {
     const errorMessage = (error as { message?: unknown })?.message?.toString() || 'Unknown error';
     if (isRequestAbortedError(error)) {
       this.logger.debug(`Method execution cancelled by the caller: rpcMethodName=%s`, rpcMethodName);
-      return error as JsonRpcError;
+      throw error;
     }
 
     this.logger.error(`Error executing method: rpcMethodName=%s, error=%s`, rpcMethodName, errorMessage);

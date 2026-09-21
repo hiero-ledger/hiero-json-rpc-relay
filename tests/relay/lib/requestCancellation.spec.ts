@@ -11,7 +11,6 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
-import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/relay/lib/services';
 import { RequestDetails } from '../../../src/relay/lib/types';
@@ -85,7 +84,7 @@ describe('Request cancellation', function () {
       expect(() => throwIfRequestAborted(requestDetails)).to.not.throw();
     });
 
-    it('throws REQUEST_ABORTED once the signal is aborted', () => {
+    it('throws the native abort error once the signal is aborted', () => {
       const controller = new AbortController();
       const requestDetails = new RequestDetails({
         requestId: 'test-request-id',
@@ -95,7 +94,16 @@ describe('Request cancellation', function () {
       controller.abort();
 
       expect(isRequestAborted(requestDetails)).to.equal(true);
-      expect(() => throwIfRequestAborted(requestDetails)).to.throw(predefined.REQUEST_ABORTED.message);
+
+      let error: unknown = null;
+      try {
+        throwIfRequestAborted(requestDetails);
+      } catch (err: unknown) {
+        error = err;
+      }
+
+      expect(isRequestAbortedError(error)).to.equal(true);
+      expect((error as Error).name).to.equal('AbortError');
     });
   });
 
@@ -110,14 +118,18 @@ describe('Request cancellation', function () {
       restMock.onGet(LOGS_QUERY_REGEX).reply(200, JSON.stringify({ logs: [] }));
       controller.abort();
 
-      await expect(
-        mirrorNodeClient.getContractResultsLogsByAddress('0x0000000000000000000000000000000000000001', requestDetails),
-      ).to.be.rejectedWith(predefined.REQUEST_ABORTED.message);
+      const error = await mirrorNodeClient
+        .getContractResultsLogsByAddress('0x0000000000000000000000000000000000000001', requestDetails)
+        .then(
+          () => null,
+          (err: unknown) => err,
+        );
 
+      expect(isRequestAbortedError(error)).to.equal(true);
       expect(restMock.history.get.length).to.equal(0);
     });
 
-    it('fails an in-flight request with REQUEST_ABORTED and drops the upstream connection', async () => {
+    it('fails an in-flight request with the native abort error and drops the upstream connection', async () => {
       let upstreamRequests = 0;
       let resolveUpstreamClosed: (closedBeforeResponse: boolean) => void;
       const upstreamClosed = new Promise<boolean>((resolve) => {
@@ -204,10 +216,14 @@ describe('Request cancellation', function () {
         });
       });
 
-      await expect(
-        commonService.getLogsByAddress(ADDRESSES, { timestamp: ['gte:1', 'lte:2'] }, requestDetails),
-      ).to.be.rejectedWith(predefined.REQUEST_ABORTED.message);
+      const error = await commonService
+        .getLogsByAddress(ADDRESSES, { timestamp: ['gte:1', 'lte:2'] }, requestDetails)
+        .then(
+          () => null,
+          (err: unknown) => err,
+        );
 
+      expect(isRequestAbortedError(error)).to.equal(true);
       expect(restMock.history.get.length).to.be.lessThan(ADDRESSES.length);
     });
 

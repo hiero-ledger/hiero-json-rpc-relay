@@ -8,7 +8,6 @@ const HTTP_STATUS = {
   BAD_REQUEST: 400,
   TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
-  CLIENT_CLOSED_REQUEST: 499,
   NOT_IMPLEMENTED: 501,
 };
 
@@ -20,7 +19,6 @@ const ERROR_CODE_MAP: Record<number, number> = {
   [-32602]: HTTP_STATUS.BAD_REQUEST, // Invalid params
   [-32601]: HTTP_STATUS.BAD_REQUEST, // Method not found
   [-32605]: HTTP_STATUS.TOO_MANY_REQUESTS, // Rate limit exceeded
-  [-32021]: HTTP_STATUS.CLIENT_CLOSED_REQUEST,
 };
 
 // Map Mirror Node error codes to Relay HTTP status codes

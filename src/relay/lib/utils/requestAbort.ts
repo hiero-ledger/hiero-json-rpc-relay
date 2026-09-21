@@ -1,12 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { type RequestDetails } from '../types/RequestDetails';
+
+/**
+ * The name the platform gives to a cancellation raised through an `AbortSignal`.
+ */
+const ABORT_ERROR_NAME = 'AbortError';
+
+/**
+ * The name Axios gives to the rejection of a request cancelled through its `signal` option.
+ */
+const AXIOS_CANCELED_ERROR_NAME = 'CanceledError';
 
 /**
  * The part of {@link RequestDetails}.
  */
 type CancellableRequest = Pick<RequestDetails, 'abortSignal'>;
+
+/**
+ * Builds the reason an {@link AbortController} is aborted with, so that awaiting callers unwind with the
+ * platform's native abort error instead of a relay-specific one.
+ *
+ * @param message - The human readable explanation of why the request was abandoned.
+ * @returns The `AbortError` to pass to `AbortController.abort()`.
+ */
+export function requestAbortReason(message: string): DOMException {
+  return new DOMException(message, ABORT_ERROR_NAME);
+}
 
 /**
  * Returns the cancellation signal of a request, if it carries one.
@@ -29,22 +49,24 @@ export function isRequestAborted(requestDetails?: CancellableRequest): boolean {
 }
 
 /**
- * Throws {@link predefined.REQUEST_ABORTED} when the caller has abandoned the request.
+ * Unwinds the current operation when the caller has abandoned the request, by throwing the signal's own
+ * abort reason. This mirrors how a cancelled `context.Context` unwinds a request in other Ethereum clients:
+ * the work stops, and no client-facing error is invented for a response that can no longer be delivered.
  *
  * @param requestDetails - The request metadata to check.
  */
 export function throwIfRequestAborted(requestDetails?: CancellableRequest): void {
-  if (isRequestAborted(requestDetails)) {
-    throw predefined.REQUEST_ABORTED;
-  }
+  getRequestAbortSignal(requestDetails)?.throwIfAborted();
 }
 
 /**
  * Reports whether an error is the cancellation raised when the caller abandons the request.
  *
  * @param error - The value thrown or returned by the failed operation.
- * @returns `true` when the error signals that the request was aborted by its caller.
+ * @returns `true` for the native `AbortError`, or for the `CanceledError` Axios raises when an in-flight
+ *          request is aborted.
  */
 export function isRequestAbortedError(error: unknown): boolean {
-  return error instanceof JsonRpcError && error.code === predefined.REQUEST_ABORTED.code;
+  const name = (error as { name?: unknown } | null | undefined)?.name;
+  return name === ABORT_ERROR_NAME || name === AXIOS_CANCELED_ERROR_NAME;
 }
