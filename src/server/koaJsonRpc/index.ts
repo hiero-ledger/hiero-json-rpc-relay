@@ -107,7 +107,7 @@ export default class KoaJsonRpc {
 
   /**
    * Creates the request-scoped {@link AbortController} that ties downstream work to the lifetime of the
-   * HTTP request, and aborts it when the client disconnects before the response has been written.
+   * HTTP request and aborts it when the client disconnects before the response has been written.
    *
    * @param ctx - The Koa context of the request being served.
    * @returns The controller whose signal is passed to the relay for this request.
