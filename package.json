@@ -134,7 +134,7 @@
     "axios-retry": "4.5.0",
     "better-lookup": "1.4.1",
     "co-body": "6.2.0",
-    "dotenv": "17.4.2",
+    "dotenv": "18.0.2",
     "ethers": "6.17.0",
     "find-config": "1.0.0",
     "json-bigint": "1.0.0",
