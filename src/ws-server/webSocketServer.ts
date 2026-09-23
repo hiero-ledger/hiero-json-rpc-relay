@@ -18,6 +18,7 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '../relay/lib/services';
 import { RequestDetails } from '../relay/lib/types';
 import { countBatchAddresses, WS_BATCH_ADDRESS_METHODS } from '../relay/lib/utils/addressLimit';
+import { isRequestAbortedError, requestAbortReason } from '../relay/lib/utils/requestAbort';
 import KoaJsonRpc from '../server/koaJsonRpc';
 import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';
@@ -31,6 +32,8 @@ import type { WsContext } from './types';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 
+const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was sent';
+const REQUEST_COMPLETED_ABORT_REASON = 'The request finished';
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string; connectionId: string }>();
 
@@ -121,6 +124,8 @@ export async function initializeWsServer(
 
     // Record the start time when the connection is established
     const startTime = process.hrtime();
+
+    const inFlightRequests = new Set<AbortController>();
     ctx.websocket.limiter = limiter;
     ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
@@ -133,6 +138,12 @@ export async function initializeWsServer(
       'close',
       AsyncResource.bind(async (code: number, message: Buffer) => {
         logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
+
+        for (const inFlightRequest of inFlightRequests) {
+          inFlightRequest.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));
+        }
+        inFlightRequests.clear();
+
         await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
       }),
     );
@@ -148,140 +159,157 @@ export async function initializeWsServer(
       const requestId = uuid();
       ctx.websocket.requestId = requestId;
 
+      const abortController = new AbortController();
+      inFlightRequests.add(abortController);
+
       const requestDetails = new RequestDetails({
         requestId,
         ipAddress: ctx.request.ip,
         connectionId: ctx.websocket.id,
+        abortSignal: abortController.signal,
       });
 
-      await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
-        // Increment the total messages counter for each message received
-        wsMetricRegistry.getCounter('totalMessageCounter').inc();
+      try {
+        await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+          // Increment the total messages counter for each message received
+          wsMetricRegistry.getCounter('totalMessageCounter').inc();
 
-        // Record the start time when a new message is received
-        const msgStartTime = process.hrtime();
+          // Record the start time when a new message is received
+          const msgStartTime = process.hrtime();
 
-        // Reset the TTL timer for inactivity upon receiving a message from the client
-        limiter.resetInactivityTTLTimer(ctx.websocket);
-        // parse the received message from the client into a JSON object
-        let request: IJsonRpcRequest | IJsonRpcRequest[];
-        try {
-          request = JSON.parse(msg.toString('ascii'));
-        } catch (e) {
-          // Log an error if the message cannot be decoded and send an invalid request error to the client
-          logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
-          ctx.websocket.send(JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)));
-          return;
-        }
-
-        // check if request is a batch request (array) or a signle request (JSON)
-        if (Array.isArray(request)) {
-          if (logger.isLevelEnabled('trace')) {
-            logger.trace(`Receive batch request=${JSON.stringify(request)}`);
-          }
-
-          // Increment metrics for batch_requests
-          wsMetricRegistry.getCounter('methodsCounter').labels(WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME).inc();
-          wsMetricRegistry
-            .getCounter('methodsCounterByIp')
-            .labels(ctx.request.ip, WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME)
-            .inc();
-
-          // send error if batch request feature is not enabled
-          if (!getWsBatchRequestsEnabled()) {
-            const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
-            logger.warn(`${JSON.stringify(batchRequestDisabledError)}`);
+          // Reset the TTL timer for inactivity upon receiving a message from the client
+          limiter.resetInactivityTTLTimer(ctx.websocket);
+          // parse the received message from the client into a JSON object
+          let request: IJsonRpcRequest | IJsonRpcRequest[];
+          try {
+            request = JSON.parse(msg.toString('ascii'));
+          } catch (e) {
+            // Log an error if the message cannot be decoded and send an invalid request error to the client
+            logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
             ctx.websocket.send(
-              JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]),
+              JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)),
             );
             return;
           }
 
-          // send error if batch request exceed max batch size
-          if (request.length > getBatchRequestsMaxSize()) {
-            const batchRequestAmountMaxExceed = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(
-              request.length,
-              getBatchRequestsMaxSize(),
-            );
-            logger.warn(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
-            ctx.websocket.send(
-              JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
-            );
-            return;
-          }
-
-          // reject the whole batch when the caller-supplied address total across all entries exceeds the shared cap
-          const maxAddressesPerRequest = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
-          const addressTotal = countBatchAddresses(request, WS_BATCH_ADDRESS_METHODS);
-          if (addressTotal > maxAddressesPerRequest) {
-            const batchRequestAddressTotalExceed = predefined.WS_BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(
-              addressTotal,
-              maxAddressesPerRequest,
-            );
-            logger.warn(`${JSON.stringify(batchRequestAddressTotalExceed)}`);
-            ctx.websocket.send(
-              JSON.stringify([jsonRespError(null, batchRequestAddressTotalExceed, requestDetails.requestId)]),
-            );
-            return;
-          }
-
-          // process requests
-          const requestPromises = request.map((item) => {
-            if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
-              return jsonRespError(
-                item.id,
-                spec.BatchRequestsMethodNotPermitted(item.method),
-                requestDetails.requestId,
-              );
+          // check if request is a batch request (array) or a signle request (JSON)
+          if (Array.isArray(request)) {
+            if (logger.isLevelEnabled('trace')) {
+              logger.trace(`Receive batch request=${JSON.stringify(request)}`);
             }
-            return getRequestResult(
+
+            // Increment metrics for batch_requests
+            wsMetricRegistry.getCounter('methodsCounter').labels(WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME).inc();
+            wsMetricRegistry
+              .getCounter('methodsCounterByIp')
+              .labels(ctx.request.ip, WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME)
+              .inc();
+
+            // send error if batch request feature is not enabled
+            if (!getWsBatchRequestsEnabled()) {
+              const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
+              logger.warn(`${JSON.stringify(batchRequestDisabledError)}`);
+              ctx.websocket.send(
+                JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]),
+              );
+              return;
+            }
+
+            // send error if batch request exceed max batch size
+            if (request.length > getBatchRequestsMaxSize()) {
+              const batchRequestAmountMaxExceed = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(
+                request.length,
+                getBatchRequestsMaxSize(),
+              );
+              logger.warn(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
+              ctx.websocket.send(
+                JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
+              );
+              return;
+            }
+
+            // reject the whole batch when the caller-supplied address total across all entries exceeds the shared cap
+            const maxAddressesPerRequest = ConfigService.get('MAX_ADDRESSES_PER_REQUEST');
+            const addressTotal = countBatchAddresses(request, WS_BATCH_ADDRESS_METHODS);
+            if (addressTotal > maxAddressesPerRequest) {
+              const batchRequestAddressTotalExceed = predefined.WS_BATCH_REQUESTS_ADDRESS_TOTAL_EXCEEDED(
+                addressTotal,
+                maxAddressesPerRequest,
+              );
+              logger.warn(`${JSON.stringify(batchRequestAddressTotalExceed)}`);
+              ctx.websocket.send(
+                JSON.stringify([jsonRespError(null, batchRequestAddressTotalExceed, requestDetails.requestId)]),
+              );
+              return;
+            }
+
+            // process requests
+            const requestPromises = request.map((item) => {
+              if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
+                return jsonRespError(
+                  item.id,
+                  spec.BatchRequestsMethodNotPermitted(item.method),
+                  requestDetails.requestId,
+                );
+              }
+              return getRequestResult(
+                ctx,
+                relay,
+                logger,
+                item,
+                limiter,
+                mirrorNodeClient,
+                wsMetricRegistry,
+                requestDetails,
+                subscriptionService,
+              );
+            });
+
+            // resolve all promises
+            const responses = await Promise.all(requestPromises);
+
+            // send to client
+            sendToClient(ctx.websocket, request, responses, logger);
+          } else {
+            if (logger.isLevelEnabled('trace')) {
+              logger.trace(`Receive single request=${JSON.stringify(request)}`);
+            }
+
+            // process requests
+            const response = await getRequestResult(
               ctx,
               relay,
               logger,
-              item,
+              request,
               limiter,
               mirrorNodeClient,
               wsMetricRegistry,
               requestDetails,
               subscriptionService,
             );
-          });
 
-          // resolve all promises
-          const responses = await Promise.all(requestPromises);
-
-          // send to client
-          sendToClient(ctx.websocket, request, responses, logger);
-        } else {
-          if (logger.isLevelEnabled('trace')) {
-            logger.trace(`Receive single request=${JSON.stringify(request)}`);
+            // send to client
+            sendToClient(ctx.websocket, request, response, logger);
           }
 
-          // process requests
-          const response = await getRequestResult(
-            ctx,
-            relay,
-            logger,
-            request,
-            limiter,
-            mirrorNodeClient,
-            wsMetricRegistry,
-            requestDetails,
-            subscriptionService,
-          );
+          // Calculate the duration of the connection
+          const msgEndTime = process.hrtime(msgStartTime);
+          const msgDurationInMiliSeconds = (msgEndTime[0] + msgEndTime[1] / 1e9) * 1000; // Convert duration to miliseconds
 
-          // send to client
-          sendToClient(ctx.websocket, request, response, logger);
+          // Update the connection duration histogram with the calculated duration
+          const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
+          wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
+        });
+      } catch (error) {
+        if (!isRequestAbortedError(error)) {
+          throw error;
         }
 
-        // Calculate the duration of the connection
-        const msgEndTime = process.hrtime(msgStartTime);
-        const msgDurationInMiliSeconds = (msgEndTime[0] + msgEndTime[1] / 1e9) * 1000; // Convert duration to miliseconds
-
-        // Update the connection duration histogram with the calculated duration
-        const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
-        wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
-      });
+        logger.debug(`Request abandoned by the client: connectionId=%s, requestId=%s`, ctx.websocket.id, requestId);
+      } finally {
+        inFlightRequests.delete(abortController);
+        abortController.abort(requestAbortReason(REQUEST_COMPLETED_ABORT_REASON));
+      }
     });
 
     if (pingInterval > 0) {

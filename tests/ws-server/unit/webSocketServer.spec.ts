@@ -10,6 +10,7 @@ import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
+import { type RequestDetails } from '../../../src/relay/lib/types';
 import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcController';
 import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import * as utils from '../../../src/ws-server/utils/utils';
@@ -263,6 +264,59 @@ describe('webSocketServer websocket handling', () => {
     await ws.close();
 
     expect(histStub.calledWith('messageDuration')).to.be.true;
+  });
+
+  it('hands the relay a request-scoped abort signal that fires when the socket closes', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const requestReceived = new Promise<void>((resolve) => {
+      sinon.stub(jsonRpcController, 'getRequestResult').callsFake((...args: unknown[]) => {
+        capturedSignal = (args[7] as RequestDetails).abortSignal;
+        resolve();
+        // never settles on its own: the socket closing is what has to end this request
+        return new Promise(() => {});
+      });
+    });
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_getLogs', params: [{}] }));
+    await requestReceived;
+
+    expect(capturedSignal, 'the relay received no abort signal').to.not.equal(undefined);
+    expect(capturedSignal!.aborted).to.equal(false);
+
+    const aborted = new Promise<void>((resolve) => capturedSignal!.addEventListener('abort', () => resolve()));
+    ws.close();
+    await aborted;
+
+    expect(capturedSignal!.aborted).to.equal(true);
+    expect((capturedSignal!.reason as Error).name).to.equal('AbortError');
+  });
+
+  it('sends nothing back when a request is abandoned by the client', async () => {
+    const unhandled: string[] = [];
+    const onUnhandledRejection = (reason: unknown): void => {
+      unhandled.push(String(reason));
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    sinon
+      .stub(jsonRpcController, 'getRequestResult')
+      .rejects(new DOMException('The client closed the connection before the response was sent', 'AbortError'));
+
+    try {
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+      ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_getLogs', params: [{}] }));
+
+      await new Promise((r) => setTimeout(r, 100));
+      await ws.close();
+      await new Promise((r) => setTimeout(r, 50));
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+
+    expect(sendToClientStub.called, 'an abandoned request must not be answered').to.equal(false);
+    expect(unhandled).to.deep.equal([]);
   });
 
   it('should be able to execute batch request', async () => {
