@@ -828,7 +828,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const txHash = await relay.sendRawTransaction(
             await sender.wallet.signTransaction({
               ...defaultLondonTransactionData,
-              to: accounts[2].address,
+              to: parentContractAddress,
               nonce: await relay.getAccountNonce(sender.address),
             }),
           );
