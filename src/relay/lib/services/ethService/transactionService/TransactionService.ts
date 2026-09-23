@@ -215,23 +215,8 @@ export class TransactionService implements ITransactionService {
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     const contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
 
-    if (contractResult === null || contractResult.hash === undefined) {
-      // handle synthetic transactions
-      const syntheticLogs = await this.common.getLogsWithParams(
-        null,
-        {
-          'transaction.hash': hash,
-        },
-        requestDetails,
-      );
-
-      // no tx found
-      if (!syntheticLogs.length) {
-        this.logger.trace(`no tx for %s`, hash);
-        return null;
-      }
-
-      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
+    if (contractResult === null) {
+      return null;
     }
 
     // A record with no block linkage belongs to a transaction rejected before consensus: it will never be

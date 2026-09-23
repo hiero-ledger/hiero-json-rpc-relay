@@ -469,16 +469,17 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     };
 
     it('should throw a -32003 rejection error for a record carrying neither a nonce nor a signature', async function () {
-      restMock.onGet(`contracts/results/${childTxHash}?hbar=false`).reply(200, JSON.stringify(childRecord));
+      const rejectedTxHash = '0x21149a73c4024b5915457549f82eae9b0e45f705c24f6aeb33a958dfe0e765aa';
+      restMock.onGet(`contracts/results/${rejectedTxHash}?hbar=false`).reply(200, JSON.stringify(childRecord));
 
-      const error = await ethImpl.getTransactionReceipt(childTxHash, requestDetails).catch((e) => e);
+      const error = await ethImpl.getTransactionReceipt(rejectedTxHash, requestDetails).catch((e) => e);
 
       expect(error).to.be.instanceOf(JsonRpcError);
       const jsonRpcError = error as JsonRpcError;
       expect(jsonRpcError.code).to.eq(-32003);
       expect(jsonRpcError.message).to.eq('Transaction rejected: SPENDER_DOES_NOT_HAVE_ALLOWANCE');
       const data = jsonRpcError.data as Record<string, unknown>;
-      expect(data.txHash).to.eq(childTxHash);
+      expect(data.txHash).to.eq(rejectedTxHash);
       expect(data.hederaStatus).to.eq('SPENDER_DOES_NOT_HAVE_ALLOWANCE');
     });
 
