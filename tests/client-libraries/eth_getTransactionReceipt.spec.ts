@@ -167,8 +167,6 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
         transaction_index: null,
         result: PRE_CONSENSUS_HEDERA_STATUS,
         error_message: null,
-        nonce: null,
-        v: null,
       },
     };
     sinon
