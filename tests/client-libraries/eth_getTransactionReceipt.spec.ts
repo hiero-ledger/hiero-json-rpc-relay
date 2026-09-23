@@ -14,6 +14,7 @@ import { Relay } from '../../src/relay';
 import { MirrorNodeClient } from '../../src/relay/lib/clients';
 import { TransactionService } from '../../src/relay/lib/services/ethService/transactionService/TransactionService';
 import { type TransactionTracingService } from '../../src/relay/lib/services/transactionTracingService/transactionTracingService';
+import { type MirrorNodeContractResultDetails } from '../../src/relay/lib/types';
 import { initializeServer } from '../../src/server/server';
 import { type RelayInternals } from '../relay/helpers';
 
@@ -137,19 +138,17 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
 
     const { app, relay } = await initializeServer();
 
-    sinon
-      .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
-      .callsFake(async (_method: string, params: unknown[]) =>
-        String(params?.[0] ?? '').toLowerCase() === HASHES.validated
-          ? {
-              hash: HASHES.validated,
-              block_hash: RECEIPT.blockHash,
-              block_number: 17,
-              transaction_index: 0,
-              result: 'SUCCESS',
-            }
-          : null,
-      );
+    sinon.stub(MirrorNodeClient.prototype, 'getContractResult').callsFake(async (hash: string) =>
+      hash.toLowerCase() === HASHES.validated
+        ? ({
+            hash: HASHES.validated,
+            block_hash: RECEIPT.blockHash,
+            block_number: 17,
+            transaction_index: 0,
+            result: 'SUCCESS',
+          } as unknown as MirrorNodeContractResultDetails)
+        : null,
+    );
     const transactionServiceInternals = TransactionService.prototype as unknown as TransactionServiceInternals;
     sinon.stub(transactionServiceInternals, 'handleSyntheticTransactionReceipt').resolves(null);
     sinon.stub(transactionServiceInternals, 'handleRegularTransactionReceipt').resolves(RECEIPT);

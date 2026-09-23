@@ -10,11 +10,7 @@ import { METRICS, MetricsFactory } from '../../../../../metrics';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
-import {
-  isChildContractRecord,
-  isImmatureContractRecord,
-  type MirrorNodeClient,
-} from '../../../clients/mirrorNodeClient';
+import { isImmatureContractRecord, type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
@@ -217,12 +213,7 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const contractResult =
-      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
-        this.mirrorNodeClient.getContractResult.name,
-        [hash, requestDetails],
-        { returnImmatureRecords: true },
-      );
+    const contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
 
     if (contractResult === null || contractResult.hash === undefined) {
       // handle synthetic transactions
@@ -243,9 +234,9 @@ export class TransactionService implements ITransactionService {
       return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
     }
 
-    // A record still immature after the full polling window belongs to a transaction rejected before
-    // execution: it will never be part of a block. Filter it out rather than serve a transaction whose
-    // block fields can never be filled in - `eth_getTransactionReceipt` carries the rejection detail.
+    // A record with no block linkage belongs to a transaction rejected before consensus: it will never be
+    // part of a block. Filter it out rather than serve a transaction whose block fields can never be
+    // filled in - `eth_getTransactionReceipt` carries the rejection detail.
     if (isImmatureContractRecord(contractResult)) {
       this.logger.trace(`immature (rejected) contract result filtered out for %s`, hash);
       return null;
@@ -282,12 +273,7 @@ export class TransactionService implements ITransactionService {
       this.logger.warn(`Failed to resolve %s by recorded consensus timestamp: %s`, hash, error);
     }
 
-    const receiptResponse =
-      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
-        this.mirrorNodeClient.getContractResult.name,
-        [hash, requestDetails],
-        { returnImmatureRecords: true },
-      );
+    const receiptResponse = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
@@ -305,19 +291,15 @@ export class TransactionService implements ITransactionService {
 
       return null;
     } else {
-      // A record still immature after the full polling window belongs to a transaction rejected before
-      // execution: no block linkage will ever be filled in, so no receipt can be built. Surface the
-      // rejection with its details instead of a half-populated receipt.
+      // A record with no block linkage is not part of a block, so no receipt can be built. A non-SUCCESS
+      // result means it was rejected before consensus (e.g. `INVALID_SIGNATURE`, `WRONG_NONCE`): surface the
+      // rejection with its details. Otherwise report it as not found.
       if (isImmatureContractRecord(receiptResponse)) {
-        // A child record lacks an index too, but it is no rejection: it is not an ethereum
-        // transaction at all, so it has no receipt of its own. Report it as not found, the way
-        // `eth_getTransactionByHash` already does for the same record.
-        if (isChildContractRecord(receiptResponse)) {
-          this.logger.trace(`child (synthetic) record has no receipt of its own for %s`, hash);
-          return null;
+        if (receiptResponse.result !== constants.SUCCESS) {
+          throw await this.buildRejectedRecordError(hash, receiptResponse);
         }
 
-        throw await this.buildRejectedRecordError(hash, receiptResponse);
+        return null;
       }
 
       // Mirror Node reflected a receipt - upgrade any traced record to validated (admin-inspection only).
@@ -332,13 +314,13 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Builds the `-32003` error for a transaction the Mirror Node reflects as a permanently immature record,
-   * i.e. one rejected before execution. The Mirror Node record is authoritative for the Hedera status
+   * Builds the `-32003` error for a transaction the Mirror Node reflects without block linkage,
+   * i.e. one rejected before consensus. The Mirror Node record is authoritative for the Hedera status
    * (`result`) and failure detail (`error_message`); a traced record, when the relay submitted the
    * transaction itself, fills in whatever the record leaves blank plus the Hedera transaction id.
    *
    * @param hash The transaction hash
-   * @param record The immature contract result returned by the Mirror Node
+   * @param record The contract result without block linkage returned by the Mirror Node
    * @returns {Promise<JsonRpcError>} A promise that resolves to the `-32003` rejection error
    */
   private async buildRejectedRecordError(hash: string, record: MirrorNodeContractResultDetails): Promise<JsonRpcError> {

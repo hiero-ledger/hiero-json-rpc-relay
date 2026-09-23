@@ -26,7 +26,7 @@ use(chaiAsPromised);
 
 describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async function () {
   this.timeout(10000);
-  const { restMock, ethImpl, mirrorNodeInstance, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
   const emptyBloom = constants.EMPTY_BLOOM;
 
@@ -468,16 +468,59 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       nonce: 3019,
     };
 
-    const collapseImmatureRecordPolling = (): void => {
-      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRequestRetryCount').returns(1);
-      sandbox.stub(mirrorNodeInstance, 'getMirrorNodeRetryDelay').returns(0);
-    };
-
-    it('should report a child (synthetic) record as not found rather than as a rejected transaction', async function () {
+    it('should throw a -32003 rejection error for a record carrying neither a nonce nor a signature', async function () {
       restMock.onGet(`contracts/results/${childTxHash}?hbar=false`).reply(200, JSON.stringify(childRecord));
-      collapseImmatureRecordPolling();
 
-      const receipt = await ethImpl.getTransactionReceipt(childTxHash, requestDetails);
+      const error = await ethImpl.getTransactionReceipt(childTxHash, requestDetails).catch((e) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: SPENDER_DOES_NOT_HAVE_ALLOWANCE');
+      const data = jsonRpcError.data as Record<string, unknown>;
+      expect(data.txHash).to.eq(childTxHash);
+      expect(data.hederaStatus).to.eq('SPENDER_DOES_NOT_HAVE_ALLOWANCE');
+    });
+
+    it('should throw a -32003 rejection error for a pre-consensus INVALID_SIGNATURE rejection without polling', async function () {
+      const invalidSignatureTxHash = '0x12aeaede031064911b2650ed460b2dedeefc66653b2a6cacb99af0b88074a468';
+      const url = `contracts/results/${invalidSignatureTxHash}?hbar=false`;
+      restMock.onGet(url).reply(
+        200,
+        JSON.stringify({
+          ...childRecord,
+          hash: invalidSignatureTxHash,
+          block_number: 50448,
+          result: 'INVALID_SIGNATURE',
+          error_message: null,
+        }),
+      );
+
+      const error = await ethImpl.getTransactionReceipt(invalidSignatureTxHash, requestDetails).catch((e) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      const jsonRpcError = error as JsonRpcError;
+      expect(jsonRpcError.code).to.eq(-32003);
+      expect(jsonRpcError.message).to.eq('Transaction rejected: INVALID_SIGNATURE');
+      const data = jsonRpcError.data as Record<string, unknown>;
+      expect(data.txHash).to.eq(invalidSignatureTxHash);
+      expect(data.hederaStatus).to.eq('INVALID_SIGNATURE');
+      expect(restMock.history.get.filter((request) => request.url === url)).to.have.lengthOf(1);
+    });
+
+    it('should report a SUCCESS record without block linkage as not found', async function () {
+      const successTxHash = '0x51149a73c4094b5915457449f82eae9b0e45f705d24f6aeb33a858dfe0e765a6';
+      restMock.onGet(`contracts/results/${successTxHash}?hbar=false`).reply(
+        200,
+        JSON.stringify({
+          ...childRecord,
+          hash: successTxHash,
+          result: 'SUCCESS',
+          error_message: null,
+        }),
+      );
+
+      const receipt = await ethImpl.getTransactionReceipt(successTxHash, requestDetails);
 
       expect(receipt).to.be.null;
     });
@@ -486,7 +529,6 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       restMock
         .onGet(`contracts/results/${rejectedParentTxHash}?hbar=false`)
         .reply(200, JSON.stringify(rejectedParentRecord));
-      collapseImmatureRecordPolling();
 
       const error = await ethImpl.getTransactionReceipt(rejectedParentTxHash, requestDetails).catch((e) => e);
 

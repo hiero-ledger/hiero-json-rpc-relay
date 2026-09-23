@@ -309,7 +309,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     });
   });
 
-  it('should filter out the transaction if it stays immature for the whole polling window', async function () {
+  it('should filter out a transaction rejected before consensus', async function () {
     const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640513';
 
     restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
