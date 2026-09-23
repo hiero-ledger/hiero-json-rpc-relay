@@ -63,6 +63,7 @@ config:
   # SERVER_HOST:
   # SERVER_REQUEST_TIMEOUT_MS:
   # CLIENT_TRANSPORT_SECURITY:
+  # CORS_ALLOWED_ORIGINS: '["https://app.example.com"]'  # empty (default) keeps Access-Control-Allow-Origin: *
 
   # ========== ETHEREUM API CONFIGURATION ==========
   # DEBUG_API_ENABLED:
