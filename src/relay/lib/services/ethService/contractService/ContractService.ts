@@ -11,6 +11,7 @@ import {
   strip0x,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
+  weibarToTinyBar,
 } from '../../../../formatters';
 import type { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -19,10 +20,14 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { type Log } from '../../../model';
 import {
+  type AccountStorage,
   type IContractCallRequest,
   type IContractCallResponse,
   type IGetLogsParams,
+  type IStateOverride,
+  type IStorageEntry,
   type RequestDetails,
+  type StateOverrideSet,
 } from '../../../types';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
@@ -385,6 +390,74 @@ export class ContractService implements IContractService {
       transaction.data = transaction.input;
       delete transaction.input;
     }
+  }
+
+  /**
+   * Translates an Ethereum state override set into the mirror node's `state_overrides` format.
+   *
+   * The two differ in shape, naming and units: Ethereum keys overrides by address and holds storage
+   * as a map, while the mirror node expects an array of entries carrying their own address,
+   * snake_case fields and storage as key/value pairs.
+   *
+   * @param {StateOverrideSet} stateOverrides - The override set as received from the caller.
+   * @returns {IStateOverride[]} The equivalent mirror node overrides, empty when nothing is left to send.
+   */
+  public formatStateOverrides(stateOverrides: StateOverrideSet): IStateOverride[] {
+    const formatted: IStateOverride[] = [];
+
+    for (const [address, override] of Object.entries(stateOverrides)) {
+      const entry: IStateOverride = { address: address.toLowerCase() };
+
+      if (override.balance !== undefined) {
+        entry.balance = this.toTinybarBalance(override.balance, address);
+      }
+
+      if (override.nonce !== undefined) {
+        entry.nonce = numberTo0x(BigInt(override.nonce));
+      }
+
+      if (override.code !== undefined) {
+        entry.code = override.code;
+      }
+
+      if (override.state !== undefined) {
+        const slots = ContractService.toStorageEntries(override.state);
+        // An empty `state` means "replace all storage with nothing". The mirror node ignores an
+        // empty list and reads real storage instead, so a single zero slot forces full replacement.
+        entry.state =
+          slots.length > 0 ? slots : [{ key: constants.ZERO_HEX_32_BYTE, value: constants.ZERO_HEX_32_BYTE }];
+      }
+
+      if (override.stateDiff !== undefined) {
+        entry.state_diff = ContractService.toStorageEntries(override.stateDiff);
+      }
+
+      const hasOverrides = Object.keys(entry).length > 1;
+      if (hasOverrides) {
+        formatted.push(entry);
+      }
+    }
+
+    return formatted;
+  }
+
+  /**
+   * Converts a weibar balance override to tinybars, capped at what the network can hold.
+   */
+  private toTinybarBalance(balance: string, address: string): string {
+    const tinybars = weibarToTinyBar(balance);
+    const totalSupply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
+
+    if (tinybars > totalSupply) {
+      this.logger.warn('Balance override for %s exceeds the total supply and was capped', address);
+      return numberTo0x(totalSupply);
+    }
+
+    return numberTo0x(tinybars);
+  }
+
+  private static toStorageEntries(storage: AccountStorage): IStorageEntry[] {
+    return Object.entries(storage).map(([key, value]) => ({ key, value }));
   }
 
   /**

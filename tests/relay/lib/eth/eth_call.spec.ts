@@ -6,6 +6,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
+import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
@@ -920,6 +921,83 @@ describe('@ethCall Eth Call spec', async function () {
       await contractService['contractCallFormat'](transaction, requestDetails);
 
       expect(transaction.from).to.equal(operatorEvmAddress);
+    });
+
+    describe('formatStateOverrides', () => {
+      const ZERO_SLOT = '0x' + '0'.repeat(64);
+      const SLOT_3 = '0x' + '0'.repeat(63) + '3';
+      const VALUE_1 = '0x' + '0'.repeat(63) + '1';
+
+      it('should convert the address-keyed map into an array with lowercased addresses', () => {
+        const result = contractService.formatStateOverrides({
+          '0xAbC0000000000000000000000000000000000001': { nonce: '0x1' },
+        });
+
+        expect(result).to.deep.equal([{ address: '0xabc0000000000000000000000000000000000001', nonce: '0x1' }]);
+      });
+
+      it('should convert balance from weibars to tinybars', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { balance: '0x56bc75e2d63100000' } });
+
+        expect(result[0].balance).to.equal('0x2540be400');
+      });
+
+      it('should cap a balance above the total supply', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { balance: `0x${'f'.repeat(64)}` } });
+
+        expect(result[0].balance).to.equal(numberTo0x(BigInt(constants.TOTAL_SUPPLY_TINYBARS)));
+      });
+
+      it('should normalise nonce to minimal hex', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { nonce: '0x0000000000000001' } });
+
+        expect(result[0].nonce).to.equal('0x1');
+      });
+
+      it('should pass code through unchanged', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { code: '0x602a60005260206000f3' } });
+
+        expect(result[0].code).to.equal('0x602a60005260206000f3');
+      });
+
+      it('should rename stateDiff and convert its storage map to key/value pairs', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { stateDiff: { [SLOT_3]: VALUE_1 } } });
+
+        expect(result[0].state_diff).to.deep.equal([{ key: SLOT_3, value: VALUE_1 }]);
+        expect(result[0].state).to.be.undefined;
+      });
+
+      it('should convert a populated state map to key/value pairs', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { state: { [SLOT_3]: VALUE_1 } } });
+
+        expect(result[0].state).to.deep.equal([{ key: SLOT_3, value: VALUE_1 }]);
+      });
+
+      it('should send a zero slot for an empty state map so all storage is replaced', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { state: {} } });
+
+        expect(result[0].state).to.deep.equal([{ key: ZERO_SLOT, value: ZERO_SLOT }]);
+      });
+
+      it('should send an empty list for an empty stateDiff map', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { stateDiff: {} } });
+
+        expect(result[0].state_diff).to.deep.equal([]);
+      });
+
+      it('should drop entries that carry no fields', () => {
+        const result = contractService.formatStateOverrides({ '0x1': {}, '0x2': { nonce: '0x1' } });
+
+        expect(result).to.deep.equal([{ address: '0x2', nonce: '0x1' }]);
+      });
+
+      it('should return an empty array when every entry is dropped', () => {
+        expect(contractService.formatStateOverrides({ '0x1': {}, '0x2': {} })).to.deep.equal([]);
+      });
+
+      it('should return an empty array for an empty override set', () => {
+        expect(contractService.formatStateOverrides({})).to.deep.equal([]);
+      });
     });
   });
 });
