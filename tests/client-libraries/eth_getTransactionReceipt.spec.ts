@@ -24,12 +24,15 @@ const TX_ID = '0.0.1234@1700000000.000000001';
 const REJECT_DETAIL = 'transaction 0.0.1234 failed precheck with status WRONG_NONCE';
 const REJECT_HEDERA_STATUS = 'WRONG_NONCE';
 const TIMEOUT_DETAIL = 'timeout exceeded';
+const PRE_CONSENSUS_HEDERA_STATUS = 'INVALID_SIGNATURE';
+const PRE_CONSENSUS_DETAIL = 'The transaction was rejected before execution and will never be included in a block.';
 
 const HASHES = {
   validated: '0x' + '1'.repeat(64),
   rejected: '0x' + '2'.repeat(64),
   timedout: '0x' + '3'.repeat(64),
   pending: '0x' + '4'.repeat(64),
+  preConsensusRejected: '0x' + '5'.repeat(64),
 };
 
 const RECEIPT = {
@@ -90,6 +93,16 @@ function assertRejected(decoded: DecodedError): void {
   expect(decoded.data!.provisional).to.not.equal(true);
 }
 
+function assertPreConsensusRejected(decoded: DecodedError): void {
+  expect(decoded.code).to.equal(-32003);
+  expect(decoded.data).to.be.an('object');
+  expect(decoded.data!.txHash).to.equal(HASHES.preConsensusRejected);
+  expect(decoded.data!.detail).to.equal(PRE_CONSENSUS_DETAIL);
+  expect(decoded.data!.hederaStatus).to.equal(PRE_CONSENSUS_HEDERA_STATUS);
+  expect(decoded.data!.transactionId).to.equal(undefined);
+  expect(decoded.data!.provisional).to.not.equal(true);
+}
+
 function assertTimedout(decoded: DecodedError): void {
   expect(decoded.code).to.equal(-32003);
   expect(decoded.data).to.be.an('object');
@@ -138,17 +151,32 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
 
     const { app, relay } = await initializeServer();
 
-    sinon.stub(MirrorNodeClient.prototype, 'getContractResult').callsFake(async (hash: string) =>
-      hash.toLowerCase() === HASHES.validated
-        ? ({
-            hash: HASHES.validated,
-            block_hash: RECEIPT.blockHash,
-            block_number: 17,
-            transaction_index: 0,
-            result: 'SUCCESS',
-          } as unknown as MirrorNodeContractResultDetails)
-        : null,
-    );
+    const contractResults: Record<string, Partial<MirrorNodeContractResultDetails>> = {
+      [HASHES.validated]: {
+        hash: HASHES.validated,
+        block_hash: RECEIPT.blockHash,
+        block_number: 17,
+        transaction_index: 0,
+        result: 'SUCCESS',
+      },
+
+      [HASHES.preConsensusRejected]: {
+        hash: HASHES.preConsensusRejected,
+        block_hash: RECEIPT.blockHash,
+        block_number: 17,
+        transaction_index: null,
+        result: PRE_CONSENSUS_HEDERA_STATUS,
+        error_message: null,
+        nonce: null,
+        v: null,
+      },
+    };
+    sinon
+      .stub(MirrorNodeClient.prototype, 'getContractResult')
+      .callsFake(
+        async (hash: string) =>
+          (contractResults[hash.toLowerCase()] as MirrorNodeContractResultDetails | undefined) ?? null,
+      );
     const transactionServiceInternals = TransactionService.prototype as unknown as TransactionServiceInternals;
     sinon.stub(transactionServiceInternals, 'handleSyntheticTransactionReceipt').resolves(null);
     sinon.stub(transactionServiceInternals, 'handleRegularTransactionReceipt').resolves(RECEIPT);
@@ -189,6 +217,10 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
 
       it('decodes a final -32003 with the failure payload for a rejected transaction', async () => {
         assertRejected(library.decode(await captureError(library.request(HASHES.rejected))));
+      });
+
+      it('decodes a final -32003 from the mirror node record for a transaction rejected before consensus', async () => {
+        assertPreConsensusRejected(library.decode(await captureError(library.request(HASHES.preConsensusRejected))));
       });
 
       it('decodes a provisional -32003 for a timed-out transaction', async () => {
