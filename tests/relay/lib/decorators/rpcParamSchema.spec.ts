@@ -4,12 +4,12 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
+import * as validator from '../../../../src/relay/lib/validators';
 import {
   type IParamValidation,
   RPC_PARAM_VALIDATION_RULES_KEY,
   rpcParamValidationRules,
 } from '../../../../src/relay/lib/validators';
-import * as validator from '../../../../src/relay/lib/validators';
 
 type ValidationRulesMarked = { [RPC_PARAM_VALIDATION_RULES_KEY]?: Record<number, IParamValidation> };
 
