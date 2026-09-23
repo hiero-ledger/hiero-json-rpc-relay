@@ -72,6 +72,34 @@ describe('Request cancellation', function () {
     );
   };
 
+  const BATCH_SIZE = 4;
+  const BATCH_ADDRESS_COUNT = ADDRESS_COUNT / BATCH_SIZE;
+
+  const getBatchPayload = (id: number): Record<string, unknown>[] =>
+    Array.from({ length: BATCH_SIZE }, (_, i) => ({
+      jsonrpc: '2.0',
+      id: id + i,
+      method: 'eth_getLogs',
+      params: [
+        {
+          fromBlock: '0x1',
+          toBlock: '0x1',
+          address: addressesFor(id + i).slice(0, BATCH_ADDRESS_COUNT),
+          topics: [],
+        },
+      ],
+    }));
+
+  const sendBatchAndAbort = async (id: number): Promise<void> => {
+    const abortController = new AbortController();
+    setTimeout(() => abortController.abort(), ABORT_AFTER_MS);
+
+    await relayClient.post('/', getBatchPayload(id), { signal: abortController.signal }).then(
+      () => expect.fail('the aborted batch request is not expected to produce a response'),
+      () => undefined,
+    );
+  };
+
   const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   before(async function () {
@@ -181,6 +209,43 @@ describe('Request cancellation', function () {
 
     expect(logRequests).to.equal(requestsAfterAbort);
     expect(logRequests).to.be.at.most(UPSTREAM_MAX_SOCKETS * 2 * abortedRequests);
+  });
+
+  it('serves a batch request in full when the client waits for the response', async function () {
+    const response = await relayClient.post('/', getBatchPayload(60));
+
+    expect(response.status).to.equal(200);
+    expect(response.data).to.have.lengthOf(BATCH_SIZE);
+    expect(response.data.every((entry: { result: unknown }) => Array.isArray(entry.result))).to.equal(true);
+    expect(logRequests).to.equal(ADDRESS_COUNT);
+  });
+
+  it('stops the downstream fan-out when the client aborts a batch request', async function () {
+    await sendBatchAndAbort(70);
+
+    await sleep(ABORT_SETTLE_MS);
+    const requestsAfterAbort = logRequests;
+
+    await sleep(UPSTREAM_DELAY_MS * 4);
+    expect(logRequests).to.equal(requestsAfterAbort);
+    expect(logRequests).to.be.at.most(UPSTREAM_MAX_SOCKETS * 2);
+  });
+
+  it('leaves no unhandled rejection behind when a batch request is abandoned', async function () {
+    const unhandled: string[] = [];
+    const onUnhandledRejection = (reason: unknown): void => {
+      unhandled.push(String(reason));
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    try {
+      await sendBatchAndAbort(80);
+      await sleep(UPSTREAM_DELAY_MS * 4);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+
+    expect(unhandled).to.deep.equal([]);
   });
 
   it('keeps serving unrelated requests while requests are being abandoned', async function () {
