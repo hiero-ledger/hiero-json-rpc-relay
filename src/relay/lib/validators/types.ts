@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
 import mainConstants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
@@ -107,14 +108,15 @@ export const TYPES = {
   topics: {
     test: (param: unknown): boolean => {
       if (!Array.isArray(param) || param.length > mainConstants.LOG_TOPICS_MAX_POSITIONS) return false;
-      if (
-        param.some((position) => Array.isArray(position) && position.length > mainConstants.LOG_TOPICS_MAX_SUB_TOPICS)
-      ) {
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
+      if (param.some((position) => Array.isArray(position) && position.length > maxSubTopics)) {
         return false;
       }
       return validateArray(param.flat(), 'topicHash');
     },
-    error: Constants.TOPICS_ERROR,
+    get error(): string {
+      return Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'));
+    },
   },
   transaction: {
     test: (param: unknown): boolean => {

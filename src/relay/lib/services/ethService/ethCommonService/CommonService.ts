@@ -513,15 +513,13 @@ export class CommonService implements ICommonService {
         );
       }
 
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
       for (let i = 0; i < topics.length; i++) {
         const topic = topics[i];
         if (!_.isNil(topic)) {
           if (Array.isArray(topic)) {
-            if (topic.length > constants.LOG_TOPICS_MAX_SUB_TOPICS) {
-              throw predefined.INVALID_PARAMETER(
-                i,
-                `Topic ${i} exceeds maximum nested length of ${constants.LOG_TOPICS_MAX_SUB_TOPICS}`,
-              );
+            if (topic.length > maxSubTopics) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of ${maxSubTopics}`);
             }
             const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
