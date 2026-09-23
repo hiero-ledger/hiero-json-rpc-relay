@@ -216,6 +216,13 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
+  // Each sub-topic is sent to the Mirror Node as a repeated `topicN` query param, so this must not exceed the
+  // Mirror Node's `hiero.mirror.rest.query.maxRepeatedQueryParameters` (default 100).
+  ETH_GET_LOGS_SUB_TOPICS_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+  },
   ETH_GET_TRANSACTION_COUNT_CACHE_TTL: {
     type: 'number',
     required: false,
