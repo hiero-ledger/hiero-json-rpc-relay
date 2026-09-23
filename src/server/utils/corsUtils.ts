@@ -2,6 +2,7 @@
 
 import cors from '@koa/cors';
 import type Koa from 'koa';
+import type { VerifyClientCallbackAsync } from 'ws';
 
 import { ConfigService } from '../../config-service/services';
 
@@ -47,6 +48,19 @@ export function resolveAllowedOrigin(requestOrigin: string): string {
 
   return allowed.has(normalizeOrigin(requestOrigin)) ? requestOrigin : '';
 }
+
+/**
+ * Enforces `CORS_ALLOWED_ORIGINS` on the WebSocket handshake, as browsers apply no CORS to WebSockets.
+ * A handshake without an `Origin` is a non-browser client and is let through.
+ */
+export const verifyWsOrigin: VerifyClientCallbackAsync = ({ origin }, done) => {
+  if (!origin || resolveAllowedOrigin(origin)) {
+    done(true);
+    return;
+  }
+
+  done(false, 403, 'Origin not allowed');
+};
 
 /**
  * Registers the CORS middleware, with the allowed origin resolved per request.

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import type { IncomingMessage } from 'http';
 import Koa from 'koa';
 
-import { applyCorsMiddleware, resolveAllowedOrigin } from '../../../src/server/utils/corsUtils';
+import { applyCorsMiddleware, resolveAllowedOrigin, verifyWsOrigin } from '../../../src/server/utils/corsUtils';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 
 describe('corsUtils', () => {
@@ -88,6 +89,41 @@ describe('corsUtils', () => {
 
       it('should ignore case, surrounding whitespace and a trailing slash', () => {
         expect(resolveAllowedOrigin('https://app.example.com')).to.equal('https://app.example.com');
+      });
+    });
+  });
+
+  describe('verifyWsOrigin', () => {
+    const verify = (origin: string | undefined): unknown[] => {
+      let verdict: unknown[] = [];
+      verifyWsOrigin({ origin: origin as string, secure: false, req: {} as IncomingMessage }, (...args) => {
+        verdict = args;
+      });
+      return verdict;
+    };
+
+    it('should accept any origin when CORS_ALLOWED_ORIGINS is unset', () => {
+      expect(verify('https://attacker.example')).to.deep.equal([true]);
+      expect(verify('null')).to.deep.equal([true]);
+    });
+
+    describe('with an allowlist configured', () => {
+      overrideEnvsInMochaDescribe({ CORS_ALLOWED_ORIGINS: ['https://app.example.com'] });
+
+      it('should accept a listed origin', () => {
+        expect(verify('https://app.example.com')).to.deep.equal([true]);
+      });
+
+      it('should reject an unlisted origin with 403', () => {
+        expect(verify('https://attacker.example')).to.deep.equal([false, 403, 'Origin not allowed']);
+      });
+
+      it('should reject the null origin with 403', () => {
+        expect(verify('null')).to.deep.equal([false, 403, 'Origin not allowed']);
+      });
+
+      it('should accept a handshake without an Origin header', () => {
+        expect(verify(undefined)).to.deep.equal([true]);
       });
     });
   });
