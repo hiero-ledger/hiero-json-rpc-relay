@@ -818,6 +818,39 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
       });
 
+      describe('Transaction rejected before consensus', async () => {
+        overrideEnvsInMochaDescribe({ USE_ASYNC_TX_PROCESSING: true });
+        it('should return a -32003 error from "eth_getTransactionReceipt" for an INVALID_SIGNATURE transaction', async () => {
+          const { contract_id: parentContractId } = await mirrorNode.get(`/contracts/${parentContractAddress}`);
+          const sender = await servicesNode.createAccountWithContractIdKey(parentContractId, 5, relay.provider);
+          await mirrorNode.get(`/accounts/${sender.address}`);
+
+          const txHash = await relay.sendRawTransaction(
+            await sender.wallet.signTransaction({
+              ...defaultLondonTransactionData,
+              to: accounts[2].address,
+              nonce: await relay.getAccountNonce(sender.address),
+            }),
+          );
+
+          const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
+          expect(mnResult.result).to.equal('INVALID_SIGNATURE');
+          expect(mnResult.transaction_index).to.be.null;
+
+          const expectedError = predefined.TRANSACTION_REJECTED_DETAILED({ txHash, hederaStatus: 'INVALID_SIGNATURE' });
+          try {
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash]);
+            Assertions.expectedError();
+          } catch (e) {
+            const error = (e as { response?: { bodyJson?: { error?: { data?: Record<string, unknown> } } } })?.response
+              ?.bodyJson?.error;
+            Assertions.jsonRpcError(error, expectedError);
+            expect(error?.data?.txHash).to.equal(txHash.toLowerCase());
+            expect(error?.data?.hederaStatus).to.equal('INVALID_SIGNATURE');
+          }
+        });
+      });
+
       it('@release should execute "eth_getTransactionByBlockHashAndIndex"', async function () {
         const response = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX, [
           mirrorContractDetails.block_hash.substring(0, 66),
