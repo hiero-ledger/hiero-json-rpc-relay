@@ -68,7 +68,7 @@ async function main() {
         const mirrorResponse = await fetch(`${client.mirrorRestApiBaseUrl}/accounts/${accountId}`);
         const { balance } = await mirrorResponse.json();
 
-        console.log(`  Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}, tokens: ${JSON.stringify(balance.tokens)}\n`);
+        console.log(`  Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}\n`);
     }
 
     console.log(`Token Details:`);

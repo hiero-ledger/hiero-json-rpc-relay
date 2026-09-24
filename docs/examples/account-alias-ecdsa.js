@@ -85,7 +85,7 @@ async function main() {
     const mirrorResponse = await fetch(`${client.mirrorRestApiBaseUrl}/accounts/${info.accountId}`);
     const { balance } = await mirrorResponse.json();
 
-    console.log(`Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}, tokens: ${JSON.stringify(balance.tokens)}`);
+    console.log(`Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}`);
 
     /*
      * Note that once an account exists in the ledger, it is assigned a normal AccountId, which can be retrieved
