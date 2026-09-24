@@ -11,6 +11,7 @@ import {
 import { type AuthorizationListTypes, validateAuthorizationList } from './authorizationList';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
+import { validateStateOverrideSet } from './stateOverride';
 import { validateArray } from './utils';
 
 export const TYPES = {
@@ -182,11 +183,10 @@ export const TYPES = {
   },
   stateOverride: {
     test: (param: unknown): boolean => {
-      // Must be an object if provided
-      // TODO: This validation should be more detailed when state override is officially supported.
-      return typeof param === 'object' && !Array.isArray(param);
+      validateStateOverrideSet(param);
+      return true;
     },
-    error: 'Expected StateOverride object (currently accepting any object structure)',
+    error: 'Expected StateOverride object keyed by address',
   },
   yParityHex: {
     test: (param: unknown): boolean => /^0x([0-9a-fA-F]?){1,2}$/.test(param as string),
