@@ -181,6 +181,12 @@ export const TYPES = {
     },
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
+  blockOverride: {
+    // Accepted by geth, but the mirror node's contracts/call API has no equivalent, so a request
+    // relying on it would silently execute against the real block context.
+    test: (): boolean => false,
+    error: 'Block overrides are not supported',
+  },
   stateOverride: {
     test: (param: unknown): boolean => {
       validateStateOverrideSet(param);

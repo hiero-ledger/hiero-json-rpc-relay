@@ -90,6 +90,10 @@ describe('validateStateOverrideSet', () => {
       expect(() => validateStateOverrideSet({ [ADDRESS]: { code: `0x${'a'.repeat(24576 * 2 - 2)}` } })).not.to.throw();
     });
 
+    it('should accept 0x, which clears the code', () => {
+      expect(() => validateStateOverrideSet({ [ADDRESS]: { code: '0x' } })).not.to.throw();
+    });
+
     it('should reject code above the maximum length', () => {
       expect(() => validateStateOverrideSet({ [ADDRESS]: { code: `0x${'a'.repeat(24576 * 2)}` } })).to.throw(
         'code exceeds the maximum',

@@ -1385,4 +1385,18 @@ describe('Validator', async () => {
       expect(result).to.eq(undefined);
     });
   });
+
+  describe('validates blockOverride type correctly', async () => {
+    const validation: Record<number, IParamValidation> = { 0: { type: 'blockOverride', required: false } };
+
+    it('throws an error naming block overrides', async () => {
+      expect(() => validateParams([{ number: '0x1' }], validation)).to.throw(
+        expectInvalidParam(0, 'Block overrides are not supported', '{"number":"0x1"}'),
+      );
+    });
+
+    it('does not throw when the parameter is absent', async () => {
+      expect(validateParams([], validation)).to.eq(undefined);
+    });
+  });
 });

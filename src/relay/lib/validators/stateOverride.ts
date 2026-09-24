@@ -67,7 +67,7 @@ function validateAccountOverride(address: string, override: IAccountOverride): v
   }
 
   if (override.code !== undefined) {
-    requireHex(address, 'code', override.code);
+    requireHex(address, 'code', override.code, true);
     if (override.code.length > constants.STATE_OVERRIDE_MAX_CODE_LENGTH) {
       throw predefined.INVALID_PARAMETER(
         PARAM,
@@ -112,8 +112,9 @@ function validateStorage(address: string, field: string, storage: Record<string,
   }
 }
 
-function requireHex(address: string, field: string, value: string): void {
-  if (typeof value !== 'string' || !isHex(value)) {
+function requireHex(address: string, field: string, value: string, allowEmpty = false): void {
+  const empty = allowEmpty && value === constants.EMPTY_HEX;
+  if (typeof value !== 'string' || (!empty && !isHex(value))) {
     throw predefined.INVALID_PARAMETER(PARAM, `'${address}' ${field} ${Constants.DEFAULT_HEX_ERROR.toLowerCase()}`);
   }
 }
