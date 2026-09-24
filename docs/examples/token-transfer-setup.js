@@ -3,7 +3,6 @@ import {
     PrivateKey,
     Hbar,
     AccountId,
-    AccountBalanceQuery,
     AccountInfoQuery,
     TransferTransaction, TokenCreateTransaction, TokenAssociateTransaction,
 } from "@hiero-ledger/sdk";
@@ -64,11 +63,12 @@ async function main() {
             `  Sent 10 tokens from account ${client.operatorAccountId.toString()} to account ${accountId.toString()} on token ${tokenId.toString()}`
         );
 
-        const balance = await new AccountBalanceQuery()
-            .setAccountId(accountId)
-            .execute(client);
+        // wait for the mirror node to populate the transaction
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const mirrorResponse = await fetch(`${client.mirrorRestApiBaseUrl}/accounts/${accountId}`);
+        const { balance } = await mirrorResponse.json();
 
-        console.log(`  Balances of the new account: ${balance.toString()}\n`);
+        console.log(`  Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}, tokens: ${JSON.stringify(balance.tokens)}\n`);
     }
 
     console.log(`Token Details:`);

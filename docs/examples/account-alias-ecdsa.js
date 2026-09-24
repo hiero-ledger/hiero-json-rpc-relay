@@ -3,7 +3,6 @@ import {
     PrivateKey,
     Hbar,
     AccountId,
-    AccountBalanceQuery,
     AccountInfoQuery,
     TransferTransaction,
 } from "@hiero-ledger/sdk";
@@ -77,15 +76,16 @@ async function main() {
         .execute(client);
     await response.getReceipt(client);
 
-    const balance = await new AccountBalanceQuery()
-        .setAccountId(aliasAccountId)
-        .execute(client);
-
-    console.log(`Balances of the new account: ${balance.toString()}`);
-
     const info = await new AccountInfoQuery()
         .setAccountId(aliasAccountId)
         .execute(client);
+
+    // wait for the mirror node to populate the transaction
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const mirrorResponse = await fetch(`${client.mirrorRestApiBaseUrl}/accounts/${info.accountId}`);
+    const { balance } = await mirrorResponse.json();
+
+    console.log(`Balances of the new account: Hbar: ${Hbar.fromTinybars(balance.balance).toString()}, tokens: ${JSON.stringify(balance.tokens)}`);
 
     /*
      * Note that once an account exists in the ledger, it is assigned a normal AccountId, which can be retrieved
