@@ -119,12 +119,14 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} call - The transaction object with call data
    * @param {string | object | null} blockParam - Block number, tag, or object with blockHash/blockNumber
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the call
    * @returns {Promise<string>} The return value of the executed contract call
    */
   public async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
       if (call.to && !isValidEthereumAddress(call.to)) {
@@ -134,6 +136,11 @@ export class ContractService implements IContractService {
       const blockNumberOrTag = this.extractBlockParam(blockParam);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
+
+      const overrides = stateOverride ? this.formatStateOverrides(stateOverride) : [];
+      if (overrides.length > 0) {
+        call.state_overrides = overrides;
+      }
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {

@@ -11,7 +11,13 @@ import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import type { ContractService } from '../../../../src/relay/lib/services';
-import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
+import {
+  type IContractCallRequest,
+  type IContractCallResponse,
+  RequestDetails,
+  type StateOverrideSet,
+} from '../../../../src/relay/lib/types';
+import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
 import {
   defaultCallData,
@@ -84,6 +90,76 @@ describe('@ethCall Eth Call spec', async function () {
   this.afterEach(() => {
     getSdkClientStub.restore();
     restMock.resetHandlers();
+  });
+
+  describe('state override parameter binding', () => {
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+    const callObject = { to: CONTRACT_ADDRESS_1, data: CONTRACT_CALL_DATA };
+    let callStub: sinon.SinonStub;
+
+    const dispatch = async (params: unknown[]): Promise<void> => {
+      const args = Utils.arrangeRpcParams(
+        ethImpl.call as Parameters<typeof Utils.arrangeRpcParams>[0],
+        params,
+        requestDetails,
+      );
+      await (ethImpl.call as (...methodArgs: unknown[]) => Promise<string>).apply(ethImpl, args);
+    };
+
+    beforeEach(() => {
+      callStub = sinon.stub(contractService, 'call').resolves('0x');
+    });
+
+    afterEach(() => {
+      callStub.restore();
+    });
+
+    it('keeps requestDetails in its own argument when a state override is sent', async () => {
+      await dispatch([callObject, 'latest', stateOverride]);
+
+      expect(callStub.firstCall.args[2]).to.equal(requestDetails);
+      expect(callStub.firstCall.args[3]).to.deep.equal(stateOverride);
+    });
+
+    it('passes no state override when the caller sends two parameters', async () => {
+      await dispatch([callObject, 'latest']);
+
+      expect(callStub.firstCall.args[2]).to.equal(requestDetails);
+      expect(callStub.firstCall.args[3]).to.be.undefined;
+    });
+  });
+
+  describe('state overrides in the mirror node request', () => {
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+
+    const postedBody = async (stateOverride?: StateOverrideSet): Promise<IContractCallRequest> => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      // replyOnce, so the handler does not outlive this test — afterEach only resets restMock.
+      web3Mock.onPost('contracts/call').replyOnce(200, { result: '0x00' });
+      web3Mock.resetHistory();
+
+      await contractService.call({ ...callData }, 'latest', requestDetails, stateOverride);
+
+      return JSON.parse(web3Mock.history.post[0].data);
+    };
+
+    it('sends the translated override set as state_overrides', async () => {
+      const body = await postedBody({ [CONTRACT_ADDRESS_1]: { balance: '0x2540be400' } });
+
+      expect(body.state_overrides).to.deep.equal([{ address: CONTRACT_ADDRESS_1.toLowerCase(), balance: '0x1' }]);
+    });
+
+    it('omits state_overrides when no override is passed', async () => {
+      const body = await postedBody();
+
+      expect(body).to.not.have.property('state_overrides');
+    });
+
+    it('omits state_overrides when every entry translates to nothing', async () => {
+      const body = await postedBody({ [CONTRACT_ADDRESS_1]: {} });
+
+      expect(body).to.not.have.property('state_overrides');
+    });
   });
 
   describe('eth_call precheck failures', async function () {
@@ -420,7 +496,7 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -460,7 +536,7 @@ describe('@ethCall Eth Call spec', async function () {
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -603,7 +679,7 @@ describe('@ethCall Eth Call spec', async function () {
       );
 
       const expectedError = predefined.CONTRACT_REVERT(defaultErrorMessageText);
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -646,7 +722,7 @@ describe('@ethCall Eth Call spec', async function () {
       );
 
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);

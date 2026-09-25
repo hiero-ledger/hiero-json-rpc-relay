@@ -37,6 +37,7 @@ import {
   type INewFilterParams,
   type ITransactionReceipt,
   type RequestDetails,
+  type StateOverrideSet,
   type TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
@@ -937,12 +938,14 @@ export class EthImpl implements Eth {
     2: { type: 'stateOverride', required: false },
     3: { type: 'blockOverride', required: false },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string> {
     const callData = call.data ? call.data : call.input;
@@ -958,7 +961,7 @@ export class EthImpl implements Eth {
       method: constants.ETH_CALL,
     });
 
-    return this.contractService.call(call, blockParam, requestDetails);
+    return this.contractService.call(call, blockParam, requestDetails, stateOverride);
   }
 
   /**

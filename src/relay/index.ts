@@ -17,6 +17,7 @@ import type {
   ITransactionReceipt,
   OpcodeLoggerResult,
   RequestDetails,
+  StateOverrideSet,
   TraceBlockTxResult,
   TransactionTracerConfig,
 } from './lib/types';
@@ -90,6 +91,7 @@ export interface Eth {
   call(
     call: IContractCallRequest,
     blockParam: string | object | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError>;
 
