@@ -28,6 +28,11 @@ import {
   RequestDetails,
   type StateOverrideSet,
 } from '../../../../src/relay/lib/types';
+import {
+  type IParamValidation,
+  RPC_PARAM_VALIDATION_RULES_KEY,
+  validateParams,
+} from '../../../../src/relay/lib/validators';
 import { Utils } from '../../../../src/relay/utils';
 import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
@@ -858,6 +863,66 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
         expect(estimateStub.firstCall.args[2]).to.equal(requestDetails);
         expect(estimateStub.firstCall.args[3]).to.be.undefined;
+      });
+    });
+
+    describe('error paths', () => {
+      const withOverride = (): Promise<string> =>
+        contractService.estimateGas({ ...callObject }, null, requestDetails, {
+          [OVERRIDE_ADDRESS]: { balance: '0x1' },
+        });
+
+      it('surfaces the mirror node feature-disabled 400 without calling it a revert', async () => {
+        web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.stateOverridesNotSupported));
+
+        const error = await withOverride().catch((e: JsonRpcError) => e);
+
+        expect(error).to.be.instanceOf(JsonRpcError);
+        expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+        expect((error as JsonRpcError).message).to.contain('State overrides are not supported.');
+      });
+
+      it('maps a mirror node 500 to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+        web3Mock.onPost('contracts/call').replyOnce(500, JSON.stringify(mockData.internalServerError));
+
+        const error = await withOverride().catch((e: JsonRpcError) => e);
+
+        expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+      });
+    });
+
+    describe('parameter rules', () => {
+      const rules = (ethImpl.estimateGas as unknown as Record<string, unknown>)[
+        RPC_PARAM_VALIDATION_RULES_KEY
+      ] as Record<number, IParamValidation>;
+
+      it('declares a rule for the state override parameter', () => {
+        expect(rules[2]).to.deep.equal({ type: 'stateOverride', required: false });
+      });
+
+      it('rejects null, which geth accepts as "no overrides"', () => {
+        expect(() => validateParams([callObject, 'latest', null], rules)).to.throw(
+          'The value passed is not valid: null',
+        );
+      });
+
+      it('rejects movePrecompileToAddress', () => {
+        expect(() =>
+          validateParams(
+            [callObject, 'latest', { [OVERRIDE_ADDRESS]: { movePrecompileToAddress: OVERRIDE_ADDRESS } }],
+            rules,
+          ),
+        ).to.throw("'movePrecompileToAddress' is not supported");
+      });
+
+      it('rejects a block override in the fourth parameter', () => {
+        expect(() => validateParams([callObject, 'latest', {}, { number: '0x1' }], rules)).to.throw(
+          'Block overrides are not supported',
+        );
+      });
+
+      it('accepts the method being called without any override', () => {
+        expect(() => validateParams([callObject, 'latest'], rules)).not.to.throw();
       });
     });
 

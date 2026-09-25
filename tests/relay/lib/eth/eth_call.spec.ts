@@ -17,6 +17,11 @@ import {
   RequestDetails,
   type StateOverrideSet,
 } from '../../../../src/relay/lib/types';
+import {
+  type IParamValidation,
+  RPC_PARAM_VALIDATION_RULES_KEY,
+  validateParams,
+} from '../../../../src/relay/lib/validators';
 import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
 import {
@@ -159,6 +164,69 @@ describe('@ethCall Eth Call spec', async function () {
       const body = await postedBody({ [CONTRACT_ADDRESS_1]: {} });
 
       expect(body).to.not.have.property('state_overrides');
+    });
+  });
+
+  describe('state override error paths', () => {
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+
+    const callWithOverride = (): Promise<string> => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      return contractService.call({ ...callData }, 'latest', requestDetails, stateOverride);
+    };
+
+    it('surfaces the mirror node feature-disabled 400 without calling it a revert', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.stateOverridesNotSupported));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+      expect((error as JsonRpcError).message).to.contain('State overrides are not supported.');
+    });
+
+    it('maps a mirror node 500 to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(500, JSON.stringify(mockData.internalServerError));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+    });
+  });
+
+  describe('state override parameter rules', () => {
+    const rules = (ethImpl.call as unknown as Record<string, unknown>)[RPC_PARAM_VALIDATION_RULES_KEY] as Record<
+      number,
+      IParamValidation
+    >;
+    const CALL = { to: CONTRACT_ADDRESS_1, data: CONTRACT_CALL_DATA };
+
+    it('declares a rule for the state override parameter', () => {
+      expect(rules[2]).to.deep.equal({ type: 'stateOverride', required: false });
+    });
+
+    it('rejects null, which geth accepts as "no overrides"', () => {
+      expect(() => validateParams([CALL, 'latest', null], rules)).to.throw('The value passed is not valid: null');
+    });
+
+    it('rejects movePrecompileToAddress', () => {
+      expect(() =>
+        validateParams(
+          [CALL, 'latest', { [CONTRACT_ADDRESS_1]: { movePrecompileToAddress: CONTRACT_ADDRESS_1 } }],
+          rules,
+        ),
+      ).to.throw("'movePrecompileToAddress' is not supported");
+    });
+
+    it('rejects a block override in the fourth parameter', () => {
+      expect(() => validateParams([CALL, 'latest', {}, { number: '0x1' }], rules)).to.throw(
+        'Block overrides are not supported',
+      );
+    });
+
+    it('accepts the method being called without any override', () => {
+      expect(() => validateParams([CALL, 'latest'], rules)).not.to.throw();
     });
   });
 
