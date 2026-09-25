@@ -264,11 +264,14 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transaction', required: true },
     1: { type: 'blockNumber', required: false },
+    2: { type: 'stateOverride', required: false },
+    3: { type: 'blockOverride', required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   async estimateGas(
     transaction: IContractCallRequest,
     _blockParam: string | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string> {
     // Removing empty '0x' data parameter sent by Metamask
@@ -285,7 +288,7 @@ export class EthImpl implements Eth {
       });
     }
 
-    return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
+    return await this.contractService.estimateGas(transaction, _blockParam, requestDetails, stateOverride);
   }
 
   /**

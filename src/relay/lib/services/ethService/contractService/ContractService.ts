@@ -137,10 +137,7 @@ export class ContractService implements IContractService {
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
-      const overrides = stateOverride ? this.formatStateOverrides(stateOverride) : [];
-      if (overrides.length > 0) {
-        call.state_overrides = overrides;
-      }
+      this.applyStateOverrides(call, stateOverride);
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
@@ -163,15 +160,17 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the estimate
    * @returns {Promise<string>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
    */
   public async estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
-      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
+      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails, stateOverride);
 
       if (!response?.result) {
         if (this.logger.isLevelEnabled('debug')) {
@@ -449,6 +448,19 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Attaches a translated override set to a mirror node request, in place.
+   *
+   * @param {IContractCallRequest} call - The request being prepared for the mirror node
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace, as received from the caller
+   */
+  private applyStateOverrides(call: IContractCallRequest, stateOverride?: StateOverrideSet): void {
+    const overrides = stateOverride ? this.formatStateOverrides(stateOverride) : [];
+    if (overrides.length > 0) {
+      call.state_overrides = overrides;
+    }
+  }
+
+  /**
    * Converts a weibar balance override to tinybars, capped at what the network can hold.
    */
   private toTinybarBalance(balance: string, address: string): string {
@@ -477,8 +489,10 @@ export class ContractService implements IContractService {
   private async estimateGasFromMirrorNode(
     transaction: IContractCallRequest,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<IContractCallResponse | null> {
     await this.contractCallFormat(transaction, requestDetails);
+    this.applyStateOverrides(transaction, stateOverride);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }

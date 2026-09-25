@@ -104,6 +104,7 @@ export interface Eth {
   estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError>;
 

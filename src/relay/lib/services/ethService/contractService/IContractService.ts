@@ -46,5 +46,6 @@ export interface IContractService {
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ) => Promise<string>;
 }

@@ -328,7 +328,7 @@ describe('Open RPC Specification', function () {
     mock.onGet(`accounts/undefined${noTransactions}`).reply(404);
     // Mock a successful gas estimation response
     mock.onPost(`contracts/call`).reply(200, JSON.stringify({ result: '0x5208' }));
-    const response = await ethImpl.estimateGas({}, null, requestDetails);
+    const response = await ethImpl.estimateGas({}, null, undefined, requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_estimateGas, response);
   });
