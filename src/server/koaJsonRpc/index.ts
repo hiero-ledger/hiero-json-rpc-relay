@@ -13,6 +13,7 @@ import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
 import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
+import { isRequestAbortedError, requestAbortReason } from '../../relay/lib/utils/requestAbort';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { spec } from './lib/RpcError';
@@ -29,6 +30,9 @@ const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
+const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was written';
+const REQUEST_COMPLETED_ABORT_REASON = 'The request finished';
+const CLIENT_DISCONNECTED = 'CLIENT DISCONNECTED';
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
@@ -40,6 +44,7 @@ export default class KoaJsonRpc {
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
   private readonly methodResponseHistogram: Histogram;
   private readonly relay: Relay;
+  private readonly logger: Logger;
 
   constructor(
     logger: Logger,
@@ -49,6 +54,7 @@ export default class KoaJsonRpc {
     opts?: { limit: string | null },
   ) {
     this.koaApp = new Koa();
+    this.logger = logger;
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.rateLimiter = new IPRateLimiterService(rateLimitStore, register);
@@ -69,32 +75,74 @@ export default class KoaJsonRpc {
         return;
       }
 
-      let body: unknown | unknown[];
+      const abortController = this.createRequestAbortController(ctx);
       try {
-        body = await parse.json(ctx, { limit: this.limit });
-      } catch {
-        ctx.body = jsonRespError(null, spec.ParseError, requestId);
-        ctx.status = 400;
-        return;
-      }
-      //check if body is array or object
-      if (Array.isArray(body)) {
-        await this.handleBatchRequest(ctx, body, requestId);
-      } else {
-        await this.handleSingleRequest(ctx, body, requestId);
+        let body: unknown | unknown[];
+        try {
+          body = await parse.json(ctx, { limit: this.limit });
+        } catch {
+          ctx.body = jsonRespError(null, spec.ParseError, requestId);
+          ctx.status = 400;
+          return;
+        }
+        if (Array.isArray(body)) {
+          await this.handleBatchRequest(ctx, body, requestId, abortController.signal);
+        } else {
+          await this.handleSingleRequest(ctx, body, requestId, abortController.signal);
+        }
+      } catch (error) {
+        if (!isRequestAbortedError(error)) {
+          throw error;
+        }
+
+        this.logger.debug(`Request abandoned by the client: requestId=%s, method=%s`, requestId, ctx.state.methodName);
+        ctx.respond = false;
+        ctx.state.status = CLIENT_DISCONNECTED;
+        ctx.state.clientDisconnected = true;
+      } finally {
+        abortController.abort(requestAbortReason(REQUEST_COMPLETED_ABORT_REASON));
       }
     };
   }
 
-  private async handleSingleRequest(ctx: Koa.ParameterizedContext, body: unknown, requestId: string): Promise<void> {
+  /**
+   * Creates the request-scoped {@link AbortController} that ties downstream work to the lifetime of the
+   * HTTP request and aborts it when the client disconnects before the response has been written.
+   *
+   * @param ctx - The Koa context of the request being served.
+   * @returns The controller whose signal is passed to the relay for this request.
+   */
+  private createRequestAbortController(ctx: Koa.ParameterizedContext): AbortController {
+    const abortController = new AbortController();
+
+    const onResponseClose = (): void => {
+      if (!ctx.res.writableFinished) {
+        abortController.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));
+      }
+    };
+
+    ctx.res.once('close', onResponseClose);
+    abortController.signal.addEventListener('abort', () => ctx.res.off('close', onResponseClose), {
+      once: true,
+    });
+
+    return abortController;
+  }
+
+  private async handleSingleRequest(
+    ctx: Koa.ParameterizedContext,
+    body: unknown,
+    requestId: string,
+    abortSignal: AbortSignal,
+  ): Promise<void> {
     let response: IJsonRpcResponse;
     if (!this.hasValidJsonRpcId(body)) {
       response = jsonRespError(null, spec.InvalidRequest, requestId);
     } else if (!this.isValidJsonRpcRequest(body)) {
       response = jsonRespError(body.id, spec.InvalidRequest, requestId);
     } else {
-      response = await this.getRequestResult(body, ctx.ip, requestId);
       ctx.state.methodName = body.method;
+      response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal);
     }
 
     ctx.body = response;
@@ -107,7 +155,12 @@ export default class KoaJsonRpc {
     }
   }
 
-  private async handleBatchRequest(ctx: Koa.ParameterizedContext, body: unknown[], requestId: string): Promise<void> {
+  private async handleBatchRequest(
+    ctx: Koa.ParameterizedContext,
+    body: unknown[],
+    requestId: string,
+    abortSignal: AbortSignal,
+  ): Promise<void> {
     // verify that batch requests are enabled
     if (!getBatchRequestsEnabled()) {
       ctx.body = jsonRespError(null, predefined.BATCH_REQUESTS_DISABLED, requestId);
@@ -155,7 +208,7 @@ export default class KoaJsonRpc {
         return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestId);
 
       const startTime = Date.now();
-      return this.getRequestResult(item, ctx.ip, requestId).then((res) => {
+      return this.getRequestResult(item, ctx.ip, requestId, abortSignal).then((res) => {
         const ms = Date.now() - startTime;
         const code = 'error' in res ? res.error.code : 200;
         this.methodResponseHistogram?.labels(item.method, `${code}`, 'true').observe(ms);
@@ -170,14 +223,21 @@ export default class KoaJsonRpc {
     ctx.state.status = responseSuccessStatusCode;
   }
 
-  async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
+  async getRequestResult(
+    request: IJsonRpcRequest,
+    ipAddress: string,
+    requestId: string,
+    abortSignal?: AbortSignal,
+  ): Promise<IJsonRpcResponse> {
     const subdomain = request.method.split('_')[0] ?? null;
     if (!RPC_HTTP_API.has(subdomain)) {
       return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestId);
     }
 
+    abortSignal?.throwIfAborted();
+
     try {
-      const requestDetails = new RequestDetails({ requestId, ipAddress });
+      const requestDetails = new RequestDetails({ requestId, ipAddress, abortSignal });
       // check rate limit for method and ip
       const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
       if (await this.rateLimiter.shouldRateLimit(ipAddress, request.method, methodTotalLimit, requestDetails)) {
@@ -191,6 +251,10 @@ export default class KoaJsonRpc {
         ? jsonRespError(request.id, result, requestId)
         : jsonRespResult(request.id, result);
     } catch (err) {
+      if (isRequestAbortedError(err)) {
+        throw err;
+      }
+
       /* istanbul ignore next: this catch block covers programmatic errors and should not happen */
       return jsonRespError(request.id, spec.InternalError(err), requestId);
     }

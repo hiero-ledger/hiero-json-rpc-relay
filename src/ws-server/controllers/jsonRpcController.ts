@@ -6,6 +6,7 @@ import { ConfigService } from '../../config-service/services';
 import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { type MirrorNodeClient } from '../../relay/lib/clients';
 import { type RequestDetails } from '../../relay/lib/types';
+import { isRequestAbortedError } from '../../relay/lib/utils/requestAbort';
 import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../../server/koaJsonRpc/lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
@@ -67,6 +68,10 @@ const handleSendingRequestsToRelay = async ({
       return jsonRespResult(request.id, result);
     }
   } catch (err) {
+    if (isRequestAbortedError(err)) {
+      throw err;
+    }
+
     return jsonRespError(request.id, spec.InternalError(err), requestDetails.requestId);
   }
 };
@@ -161,6 +166,11 @@ export const getRequestResult = async (
         response = await handleSendingRequestsToRelay({ ...sharedParams });
     }
   } catch (error) {
+    if (isRequestAbortedError(error)) {
+      logger.debug(`Method execution cancelled by the caller: connectionId=%s, method=%s`, ctx.websocket.id, method);
+      throw error;
+    }
+
     logger.warn(
       error,
       `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,

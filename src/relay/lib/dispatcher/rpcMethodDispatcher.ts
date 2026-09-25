@@ -10,6 +10,7 @@ import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { type OperationHandler, type RequestDetails, type RpcMethodRegistry } from '../types';
+import { isRequestAbortedError } from '../utils/requestAbort';
 import { RPC_PARAM_VALIDATION_RULES_KEY, validateParams } from '../validators';
 
 /**
@@ -159,6 +160,11 @@ export class RpcMethodDispatcher {
    */
   private handleRpcMethodError(error: unknown, rpcMethodName: string): JsonRpcError {
     const errorMessage = (error as { message?: unknown })?.message?.toString() || 'Unknown error';
+    if (isRequestAbortedError(error)) {
+      this.logger.debug(`Method execution cancelled by the caller: rpcMethodName=%s`, rpcMethodName);
+      throw error;
+    }
+
     this.logger.error(`Error executing method: rpcMethodName=%s, error=%s`, rpcMethodName, errorMessage);
 
     // If error is already a JsonRpcError, use it directly

@@ -112,7 +112,9 @@ export async function initializeServer(
       logger.info(
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
-      methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
+      if (!ctx.state.clientDisconnected) {
+        methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
+      }
     }
   });
 
