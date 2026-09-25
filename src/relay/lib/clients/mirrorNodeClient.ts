@@ -1104,23 +1104,11 @@ export class MirrorNodeClient {
    * - The record matures (all fields are properly populated)
    * - The maximum retry count is reached
    *
-   * Records rejected by a Hedera-specific validation (`HEDERA_SPECIFIC_REVERT_STATUSES`, e.g. `WRONG_NONCE`)
-   * never reached the EVM and are therefore never part of a block: their block linkage can never fill in,
-   * so they are returned immediately rather than polled for the full window.
-   *
    * @param methodName - The name of the method used to fetch contract results.
    * @param args - The arguments to be passed to the specified method for fetching contract results.
-   * @param options - Retry options.
-   * @param options.returnImmatureRecords - When true, a record still immature after the final polling
-   *   attempt is returned as-is instead of throwing `DEPENDENT_SERVICE_IMMATURE_RECORDS`, letting the
-   *   caller classify it (see {@link isImmatureContractRecord}) and surface the rejection itself.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry<T = unknown>(
-    methodName: string,
-    args: unknown[],
-    options: { returnImmatureRecords?: boolean } = {},
-  ): Promise<T> {
+  public async getContractResultWithRetry<T = unknown>(methodName: string, args: unknown[]): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -1169,10 +1157,8 @@ export class MirrorNodeClient {
             );
           }
 
-          // If immature records persist after the final polling attempt, hand the record back when the
-          // caller opted in (it classifies the outcome itself), otherwise throw DEPENDENT_SERVICE_IMMATURE_RECORDS.
+          // If immature records persist after the final polling attempt, throw DEPENDENT_SERVICE_IMMATURE_RECORDS
           if (isLastAttempt) {
-            if (options.returnImmatureRecords) return contractResult;
             throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
           }
 
