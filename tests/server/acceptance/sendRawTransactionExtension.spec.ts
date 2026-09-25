@@ -493,11 +493,20 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
       const txHash = await relay.sendRawTransaction(signedTx);
-      await relay.pollForValidTransactionReceipt(txHash);
 
       const info = await mirrorNode.get(`/contracts/results/${txHash}`);
       expect(info).to.exist;
       expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
+
+      let receiptError: { code?: number; data?: { hederaStatus?: string } } | undefined;
+      try {
+        await relay.call('eth_getTransactionReceipt', [txHash]);
+      } catch (e) {
+        receiptError = (e as { response?: { bodyJson?: { error?: typeof receiptError } } }).response?.bodyJson?.error;
+      }
+      expect(receiptError).to.exist;
+      expect(receiptError!.code).to.eq(-32003);
+      expect(receiptError!.data?.hederaStatus).to.eq('INSUFFICIENT_TX_FEE');
     });
   });
 
