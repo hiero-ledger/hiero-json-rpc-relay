@@ -1404,11 +1404,15 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
           const signedTx = await createAndSignPaymasterTransaction(accounts[2], accounts[0].address);
           const txHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-          await relay.pollForValidTransactionReceipt(txHash);
 
           const info = await mirrorNode.get(`/contracts/results/${txHash}`);
           expect(info).to.exist;
           expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
+
+          const response = await client.callRaw('eth_getTransactionReceipt', [txHash]);
+          expect(response.error).to.exist;
+          expect(response.error!.code).to.eq(-32003);
+          expect((response.error!.data as { hederaStatus?: string }).hederaStatus).to.eq('INSUFFICIENT_TX_FEE');
         });
       });
 
