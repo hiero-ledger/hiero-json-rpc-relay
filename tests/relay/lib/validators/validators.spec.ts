@@ -25,6 +25,18 @@ describe('Validator', async () => {
     return `Invalid parameter '${index}' for ${object}: ${message}, value: ${paramValue}`;
   }
 
+  describe('normalises missing params', async () => {
+    it('treats null params as an empty array', async () => {
+      const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: false } };
+      expect(() => validateParams(null, validation)).to.not.throw();
+    });
+
+    it('still reports required params as missing when params is null', async () => {
+      const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: true } };
+      expect(() => validateParams(null, validation)).to.throw('Missing value for required parameter 0');
+    });
+  });
+
   describe('validates Address type correctly', async () => {
     const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: false } };
 

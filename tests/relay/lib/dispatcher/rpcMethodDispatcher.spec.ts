@@ -100,6 +100,17 @@ describe('RpcMethodDispatcher', () => {
       expect(result).to.equal(TEST_RESULT);
     });
 
+    it('should normalise null params to an empty array', async () => {
+      const validateSpy = sinon.spy(dispatcherInternals, 'precheckRpcMethod');
+      const processSpy = sinon.spy(dispatcherInternals, 'processRpcMethod');
+
+      const result = await dispatcher.dispatch(TEST_METHOD_NAME, null, TEST_REQUEST_DETAILS);
+
+      expect(validateSpy.calledWith(TEST_METHOD_NAME, [])).to.be.true;
+      expect(processSpy.calledWith(operationHandler, [], TEST_REQUEST_DETAILS)).to.be.true;
+      expect(result).to.equal(TEST_RESULT);
+    });
+
     it('should handle and format errors from any phase of dispatch', async () => {
       // Make validation throw an error
       const testError = new JsonRpcError({ code: -32000, message: 'Validation error' });
