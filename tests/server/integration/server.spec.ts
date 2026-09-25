@@ -125,6 +125,74 @@ describe('RPC Server', function () {
       BaseTest.validCorsCheck(response);
     });
 
+    describe('CORS_ALLOWED_ORIGINS', function () {
+      const ALLOWED_ORIGIN = 'https://app.example.com';
+      const ARBITRARY_ORIGIN = 'https://attacker.example';
+      const CHAIN_ID_REQUEST = { jsonrpc: '2.0', id: '2', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] };
+
+      it('should keep the wildcard policy for an arbitrary origin when unset', async function () {
+        const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ARBITRARY_ORIGIN } });
+
+        expect(response.status).to.eq(200);
+        expect(response.headers['access-control-allow-origin']).to.eq('*');
+      });
+
+      it('should keep the wildcard policy for the null origin when unset', async function () {
+        const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: 'null' } });
+
+        expect(response.headers['access-control-allow-origin']).to.eq('*');
+      });
+
+      withOverriddenEnvsInMochaTest({ CORS_ALLOWED_ORIGINS: [ALLOWED_ORIGIN] }, () => {
+        it('should echo back an allowlisted origin on a JSON-RPC response', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ALLOWED_ORIGIN } });
+
+          expect(response.status).to.eq(200);
+          expect(response.headers['access-control-allow-origin']).to.eq(ALLOWED_ORIGIN);
+          expect(response.data.result).to.eq(ConfigService.get('CHAIN_ID'));
+        });
+
+        it('should withhold CORS headers from an arbitrary origin', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ARBITRARY_ORIGIN } });
+
+          expect(response.status).to.eq(200);
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+          expect(response.headers['vary']).to.contain('Origin');
+        });
+
+        it('should withhold CORS headers from the null origin', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: 'null' } });
+
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+        });
+
+        it('should answer a preflight from an allowlisted origin', async function () {
+          const response = await testClient.options('/', {
+            headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+          });
+
+          expect(response.status).to.eq(204);
+          expect(response.headers['access-control-allow-origin']).to.eq(ALLOWED_ORIGIN);
+          expect(response.headers['access-control-allow-methods']).to.eq('GET,POST');
+        });
+
+        it('should reject a preflight from an arbitrary origin', async function () {
+          const response = await testClient.options('/', {
+            headers: { Origin: ARBITRARY_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+          });
+
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+          expect(response.headers).to.not.have.property('access-control-allow-methods');
+        });
+
+        it('should not advertise credentialed access', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ALLOWED_ORIGIN } });
+
+          expect(response.headers).to.not.have.property('access-control-allow-credentials');
+        });
+      });
+    });
+
     it('should execute metrics collection', async function () {
       const response = await testClient.get('/metrics');
 

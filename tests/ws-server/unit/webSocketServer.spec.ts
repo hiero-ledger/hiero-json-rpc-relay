@@ -14,6 +14,7 @@ import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcCo
 import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import * as utils from '../../../src/ws-server/utils/utils';
 import * as webSocketServer from '../../../src/ws-server/webSocketServer';
+import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
@@ -415,5 +416,65 @@ describe('webSocketServer websocket handling', () => {
     await new Promise<void>((resolve) => testServer.close(() => resolve()));
 
     expect(closeCode).to.not.equal(1009);
+  });
+});
+
+describe('webSocketServer origin allowlist', () => {
+  const ALLOWED_ORIGIN = 'https://app.example.com';
+  const ARBITRARY_ORIGIN = 'https://attacker.example';
+
+  let server: http.Server;
+  const sockets: WebSocket[] = [];
+
+  async function handshakeStatus(origin?: string): Promise<number> {
+    const ws = new WebSocket(wsUrl(server), { origin });
+    sockets.push(ws);
+
+    return new Promise((resolve, reject) => {
+      ws.once('open', () => resolve(101));
+      ws.once('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
+      ws.once('error', reject);
+    });
+  }
+
+  beforeEach(async function () {
+    const mockRelay = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
+    const { app } = await webSocketServer.initializeWsServer();
+
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, '127.0.0.1', () => resolve());
+    });
+  });
+
+  afterEach((done) => {
+    sinon.restore();
+    sockets.forEach((s) => s.terminate());
+    sockets.length = 0;
+    server.close(done);
+  });
+
+  it('should accept a handshake from an arbitrary origin when CORS_ALLOWED_ORIGINS is unset', async () => {
+    expect(await handshakeStatus(ARBITRARY_ORIGIN)).to.equal(101);
+  });
+
+  describe('with an allowlist configured', () => {
+    overrideEnvsInMochaDescribe({ CORS_ALLOWED_ORIGINS: [ALLOWED_ORIGIN] });
+
+    it('should accept a handshake from a listed origin', async () => {
+      expect(await handshakeStatus(ALLOWED_ORIGIN)).to.equal(101);
+    });
+
+    it('should refuse a handshake from an unlisted origin with 403', async () => {
+      expect(await handshakeStatus(ARBITRARY_ORIGIN)).to.equal(403);
+    });
+
+    it('should refuse a handshake from the null origin with 403', async () => {
+      expect(await handshakeStatus('null')).to.equal(403);
+    });
+
+    it('should accept a handshake without an Origin header from a non-browser client', async () => {
+      expect(await handshakeStatus()).to.equal(101);
+    });
   });
 });

@@ -3,7 +3,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import type { ConfigKey, ConfigProperty } from '../../../../src/config-service/services/globalConfig';
+import type { ConfigKey, ConfigProperty, ConfigValue } from '../../../../src/config-service/services/globalConfig';
 import { GlobalConfig } from '../../../../src/config-service/services/globalConfig';
 import { ValidationService } from '../../../../src/config-service/services/validationService';
 import { overrideEnvsInMochaDescribe } from '../../../relay/helpers';
@@ -286,8 +286,8 @@ describe('ValidationService tests', async function () {
   describe('validate rules declared in GlobalConfig', () => {
     const CASES: ReadonlyArray<{
       key: ConfigKey;
-      accept: readonly number[];
-      reject: readonly number[];
+      accept: readonly ConfigValue[];
+      reject: readonly ConfigValue[];
     }> = [
       {
         key: 'INPUT_SIZE_LIMIT',
@@ -308,6 +308,24 @@ describe('ValidationService tests', async function () {
         key: 'MIRROR_NODE_HTTP_MAX_SOCKETS',
         accept: [1, 300],
         reject: [0, -1, 1.5, NaN],
+      },
+      {
+        key: 'CORS_ALLOWED_ORIGINS',
+        accept: [
+          [],
+          ['*'],
+          ['null'],
+          ['https://app.example.com', 'http://localhost:3000'],
+          ['  HTTPS://App.Example.com/  '],
+          ['chrome-extension://abcdefghijklmnop'],
+        ],
+        reject: [
+          ['app.example.com'],
+          ['https://app.example.com/dapp'],
+          ['https://app.example.com?a=1'],
+          [''],
+          ['*.example.com'],
+        ],
       },
     ];
 

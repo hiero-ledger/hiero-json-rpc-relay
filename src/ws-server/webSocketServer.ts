@@ -22,6 +22,7 @@ import KoaJsonRpc from '../server/koaJsonRpc';
 import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '../server/koaJsonRpc/lib/RpcResponse';
+import { verifyWsOrigin } from '../server/utils/corsUtils';
 import { applyProxyMiddleware } from '../server/utils/proxyUtils';
 import { getRequestResult } from './controllers/jsonRpcController';
 import ConnectionLimiter from './metrics/connectionLimiter';
@@ -101,7 +102,7 @@ export async function initializeWsServer(
     `Configured WebSocket maxPayload: ${inputSizeLimitMb === -1 ? 'unlimited' : `${maxPayloadBytes} bytes (${inputSizeLimitMb} MB)`}`,
   );
 
-  const app = websockify(new Koa(), { maxPayload: maxPayloadBytes });
+  const app = websockify(new Koa(), { maxPayload: maxPayloadBytes, verifyClient: verifyWsOrigin });
 
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);

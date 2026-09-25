@@ -2,7 +2,6 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import cors from '@koa/cors';
 import fs from 'fs';
 import type Koa from 'koa';
 import path from 'path';
@@ -22,6 +21,7 @@ import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
 import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConformityService';
+import { applyCorsMiddleware } from './utils/corsUtils';
 import { applyProxyMiddleware } from './utils/proxyUtils';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
@@ -93,8 +93,7 @@ export async function initializeServer(
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);
 
-  // Set CORS
-  app.use(cors({ allowMethods: ['GET', 'POST'] }));
+  applyCorsMiddleware(app);
 
   // Middleware for non POST request timing
   app.use(async (ctx, next) => {
