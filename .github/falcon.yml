@@ -1,0 +1,13 @@
+network:
+  --consensus-node-version: "v0.77.0-rc.6"
+  --node-aliases: "node1"
+setup:
+  --consensus-node-version: "v0.77.0-rc.6"
+  --node-aliases: "node1"
+consensusNode:
+  --node-aliases: "node1"
+mirrorNode:
+  --enable-ingress: true
+  --pinger: true
+  --mirror-node-version: "v0.162.0"
+  --values-file: .github/mirror-node-values.yaml
