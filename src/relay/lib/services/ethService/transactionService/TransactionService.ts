@@ -222,8 +222,7 @@ export class TransactionService implements ITransactionService {
     // A record with no block linkage belongs to a transaction rejected before consensus: it will never be
     // part of a block. Filter it out rather than serve a transaction whose block fields can never be
     // filled in - `eth_getTransactionReceipt` carries the rejection detail.
-    if (isImmatureContractRecord(contractResult)) {
-      this.logger.trace(`immature (rejected) contract result filtered out for %s`, hash);
+    if (isImmatureContractRecord(contractResult, this.logger)) {
       return null;
     }
 
@@ -279,7 +278,7 @@ export class TransactionService implements ITransactionService {
       // A record with no block linkage is not part of a block, so no receipt can be built. A non-SUCCESS
       // result means it was rejected before consensus (e.g. `INVALID_SIGNATURE`, `WRONG_NONCE`): surface the
       // rejection with its details. Otherwise report it as not found.
-      if (isImmatureContractRecord(receiptResponse)) {
+      if (isImmatureContractRecord(receiptResponse, this.logger)) {
         if (receiptResponse.result !== constants.SUCCESS) {
           throw await this.buildRejectedRecordError(hash, receiptResponse);
         }

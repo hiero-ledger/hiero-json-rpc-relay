@@ -73,13 +73,24 @@ type REQUEST_METHODS = 'GET' | 'POST';
  * {@link Utils.isRejectedDueToHederaSpecificValidation}.
  *
  * @param record - The contract result or log record to classify; null/undefined is not immature.
+ * @param logger - Logger instance.
  * @returns True when `transaction_index`, `block_number`, or `block_hash` is unpopulated.
  */
 export const isImmatureContractRecord = (
-  record?: { transaction_index?: number | null; block_number?: number | null; block_hash?: string | null } | null,
-): boolean =>
-  record != null &&
-  (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
+  record:
+    { transaction_index?: number | null; block_number?: number | null; block_hash?: string | null } | null | undefined,
+  logger: Logger,
+): boolean => {
+  const isImmature =
+    record != null &&
+    (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
+
+  if (isImmature) {
+    logger.info(`Immature record detected: %s`, JSON.stringify(record));
+  }
+
+  return isImmature;
+};
 
 /**
  * Whether a Mirror Node contract-result record belongs to a child  transaction rather than to a
@@ -1123,7 +1134,7 @@ export class MirrorNodeClient {
         let foundImmatureRecord = false;
 
         for (const contractObject of contractObjects) {
-          if (!isImmatureContractRecord(contractObject)) continue;
+          if (!isImmatureContractRecord(contractObject, this.logger)) continue;
 
           // A record rejected by a Hedera-specific validation never reached the EVM, so it is never part of
           // a block and no amount of polling can populate its block linkage. It is a final record, not an
@@ -1354,7 +1365,9 @@ export class MirrorNodeClient {
     attempt: number = 0,
   ): Promise<MirrorNodeContractLog[]> {
     const logResults = await fetchFn();
-    const hasImmatureRecords = logResults.some((log) => log && (isImmatureContractRecord(log) || log.index == null));
+    const hasImmatureRecords = logResults.some(
+      (log) => log && (isImmatureContractRecord(log, this.logger) || log.index == null),
+    );
 
     if (hasImmatureRecords) {
       const isLastAttempt = attempt >= maxAttempts - 1;
