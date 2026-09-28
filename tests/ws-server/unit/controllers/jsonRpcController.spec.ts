@@ -123,12 +123,13 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('IP Rate limit exceeded');
     });
 
-    it('should throw Max Subscription error if subscription limit is reached', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(false);
+    it('should surface the Max Subscription error thrown by the subscription service', async function () {
+      stubSubscriptionService.subscribe.throws(predefined.MAX_SUBSCRIPTIONS);
       defaultRequestParams[3] = {
         id: '2',
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         jsonrpc: '2.0',
+        params: ['newHeads'],
       } as IJsonRpcRequest;
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
@@ -137,7 +138,6 @@ describe('JSON Rpc Controller', function () {
     });
     withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
       it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
@@ -150,7 +150,6 @@ describe('JSON Rpc Controller', function () {
       });
 
       it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
