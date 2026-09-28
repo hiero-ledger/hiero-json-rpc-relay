@@ -6,29 +6,64 @@ import WebSocket from 'ws';
 export { RPC_METHODS } from './rpcMethods';
 
 import { ConfigService } from '../../../src/config-service/services';
+import { type ConfigKey } from '../../../src/config-service/services/globalConfig';
+import { type IJsonRpcError } from '../../../src/server/koaJsonRpc/lib/RpcError';
+import { type IJsonRpcResponse } from '../../../src/server/koaJsonRpc/lib/RpcResponse';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
+
+export function assertJsonRpcError(
+  response: IJsonRpcResponse,
+): asserts response is IJsonRpcResponse & { error: IJsonRpcError } {
+  expect(response).to.have.property('error');
+}
+
+export function assertJsonRpcResult<Result>(
+  response: IJsonRpcResponse<Result>,
+): asserts response is IJsonRpcResponse<Result> & { result: Result } {
+  expect(response).to.have.property('result');
+}
+
+export interface WsJsonRpcRequest {
+  id: number;
+  jsonrpc: string;
+  method: string;
+  params: unknown;
+}
+
+export interface WsJsonRpcResponse {
+  id?: number;
+  jsonrpc?: string;
+  method?: string;
+  result?: unknown;
+  error?: { code: number; message: string; name?: string; data?: unknown };
+}
 
 export class WsTestHelper {
   static async assertFailInvalidParamsEthersWsProvider(
     wsProvider: WebSocketProvider,
     methodName: string,
-    params: any[],
-  ) {
+    params: unknown[],
+  ): Promise<void> {
     try {
       await wsProvider.send(methodName, params);
       expect(true).to.eq(false);
-    } catch (error: any) {
-      const errorToCheck = error.info || error;
+    } catch (error) {
+      const thrown = error as { info?: WsJsonRpcResponse } & WsJsonRpcResponse;
+      const errorToCheck = thrown.info || thrown;
       expect(errorToCheck.error).to.exist;
-      expect(errorToCheck.error.code).to.be.oneOf([-32000, -32602, -32603]);
+      expect(errorToCheck.error!.code).to.be.oneOf([-32000, -32602, -32603]);
     }
   }
 
-  static async sendRequestToStandardWebSocket(method: string, params: any, ms?: number | undefined) {
+  static async sendRequestToStandardWebSocket<T = WsJsonRpcResponse>(
+    method: string,
+    params: unknown,
+    ms?: number | undefined,
+  ): Promise<T> {
     const BATCH_REQUEST_METHOD_NAME = 'batch_request';
     const webSocket = new WebSocket(WsTestConstant.WS_RELAY_URL);
 
-    let response: any;
+    let response: T | undefined;
 
     if (method === BATCH_REQUEST_METHOD_NAME) {
       webSocket.on('open', () => {
@@ -41,7 +76,7 @@ export class WsTestHelper {
     }
 
     webSocket.on('message', (data: string) => {
-      response = JSON.parse(data);
+      response = JSON.parse(data) as T;
     });
 
     while (!response) {
@@ -52,21 +87,21 @@ export class WsTestHelper {
     return response;
   }
 
-  static async assertFailInvalidParamsStandardWebSocket(method: string, params: any[]) {
+  static async assertFailInvalidParamsStandardWebSocket(method: string, params: unknown[]): Promise<void> {
     const response = await WsTestHelper.sendRequestToStandardWebSocket(method, params);
     WsTestHelper.assertJsonRpcObject(response);
     expect(response.error).to.exist;
-    expect(response.error.code).to.be.oneOf([-32000, -32602, -32603]);
+    expect(response.error!.code).to.be.oneOf([-32000, -32602, -32603]);
   }
 
-  static assertJsonRpcObject(obj: any) {
+  static assertJsonRpcObject(obj: WsJsonRpcResponse): void {
     expect(obj).to.exist;
     expect(obj.id).to.eq(1);
     expect(obj.jsonrpc).to.eq('2.0');
     expect(obj.method).to.not.exist; // Should not have method field in response for standard non-subscription methods
   }
 
-  static prepareJsonRpcObject(method: string, params: any) {
+  static prepareJsonRpcObject(method: string, params: unknown): WsJsonRpcRequest {
     return {
       id: 1,
       jsonrpc: '2.0',
@@ -119,10 +154,10 @@ export class WsTestHelper {
    *   expect(ConfigService.get('TEST')).to.equal(true);
    * });
    */
-  static overrideEnvsInMochaDescribe(envs: NodeJS.Dict<any>) {
-    const envsToReset: NodeJS.Dict<string> = {};
+  static overrideEnvsInMochaDescribe(envs: NodeJS.Dict<unknown>): void {
+    const envsToReset: NodeJS.Dict<unknown> = {};
 
-    const overrideEnv = (key: string, value: any) => {
+    const overrideEnv = (key: string, value: unknown): void => {
       if (value === undefined) {
         ConfigServiceTestHelper.remove(key);
       } else {
@@ -132,8 +167,7 @@ export class WsTestHelper {
 
     before(() => {
       for (const key in envs) {
-        // @ts-ignore
-        envsToReset[key] = ConfigService.get(key);
+        envsToReset[key] = ConfigService.get(key as ConfigKey);
         overrideEnv(key, envs[key]);
       }
     });
@@ -162,7 +196,7 @@ export class WsTestHelper {
    *   expect(ConfigService.get('TEST')).to.equal(true);
    * });
    */
-  static withOverriddenEnvsInMochaTest(envs: NodeJS.Dict<any>, tests: () => void) {
+  static withOverriddenEnvsInMochaTest(envs: NodeJS.Dict<unknown>, tests: () => void): void {
     const overriddenEnvs = Object.entries(envs)
       .map(([key, value]) => `${key}=${value}`)
       .join(', ');

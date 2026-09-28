@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ConfigProperty, GlobalConfig } from './globalConfig';
+import { type ConfigProperty, type ConfigValue, GlobalConfig } from './globalConfig';
 
 export class ValidationService {
   /**
@@ -63,8 +63,8 @@ export class ValidationService {
    * @param envs - Dictionary of environment variables and their string values
    * @returns Dictionary with environment variables cast to their proper types
    */
-  static typeCasting(envs: NodeJS.Dict<string>): NodeJS.Dict<any> {
-    const typeCastedEnvs: NodeJS.Dict<any> = {};
+  static typeCasting(envs: NodeJS.Dict<string>): NodeJS.Dict<ConfigValue> {
+    const typeCastedEnvs: NodeJS.Dict<ConfigValue> = {};
 
     Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
       if (!Object.prototype.hasOwnProperty.call(envs, entryName)) {
@@ -106,7 +106,10 @@ export class ValidationService {
    *                  overridable so callers can supply their own without mutating the shared one
    * @throws Error on the first entry whose rule rejects its value
    */
-  static validate(castedEnvs: NodeJS.Dict<any>, entries: Record<string, ConfigProperty> = GlobalConfig.ENTRIES): void {
+  static validate(
+    castedEnvs: NodeJS.Dict<ConfigValue>,
+    entries: Record<string, ConfigProperty> = GlobalConfig.ENTRIES,
+  ): void {
     Object.entries(entries).forEach(([entryName, entryInfo]) => {
       const value = castedEnvs[entryName];
 

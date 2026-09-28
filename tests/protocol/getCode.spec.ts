@@ -45,14 +45,17 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
 
   async function createNftHTSToken(account: AliasAccount): Promise<string> {
     const main = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
-    const tx = await (main as any).createNonFungibleTokenPublic(account.wallet.address, {
+    const tx = await main.getFunction('createNonFungibleTokenPublic')(account.wallet.address, {
       value: BigInt('30000000000000000000'),
       ...Helper.GAS.LIMIT_5_000_000,
     });
     const receipt = await tx.wait();
+    if (receipt === null) {
+      throw new Error('createNonFungibleTokenPublic did not produce a receipt');
+    }
     await relay.pollForValidTransactionReceipt(receipt.hash);
 
-    const { tokenAddress } = (receipt.logs as any[]).filter(
+    const { tokenAddress } = (receipt.logs as ethers.EventLog[]).filter(
       (e) => e.fragment?.name === RelayCalls.HTS_CONTRACT_EVENTS.CreatedToken,
     )[0].args;
 
@@ -116,7 +119,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
       it('@release should execute "eth_getCode" for contract with id converted to evm_address', async () => {
         const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${basicContractAddress}`);
         const contractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
-        const res = (await client.call(METHOD_NAME, [`0x${contractId.toSolidityAddress()}`, 'latest'])) as string;
+        const res = (await client.call(METHOD_NAME, [`0x${contractId.toEvmAddress()}`, 'latest'])) as string;
         expect(res).to.eq(basicContractJson.deployedBytecode);
       });
 

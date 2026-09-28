@@ -35,7 +35,7 @@ describe('RedisRateLimitStore Test Suite', function () {
     // Create a mock Redis client (pre-connected, as expected by the new pattern)
     mockRedisClient = {
       eval: sinon.stub(),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<RedisClientType>;
   });
 
   afterEach(() => {
@@ -165,7 +165,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       const testLogger = pino({ level: 'error' });
       // Stub child to return the same logger instance so we can spy on it
-      sinon.stub(testLogger, 'child').returns(testLogger);
+      sinon.stub(testLogger, 'child').returns(testLogger as unknown as ReturnType<typeof testLogger.child>);
       const loggerSpy = sinon.spy(testLogger, 'error');
 
       const store = new RedisRateLimitStore(
@@ -229,7 +229,7 @@ describe('RedisRateLimitStore Real Redis Test Suite', function () {
   let store: RedisRateLimitStore;
   let keyCounter = 0;
 
-  const uniqueKey = () => new RateLimitKey(`127.0.0.${++keyCounter}`, 'eth_chainId');
+  const uniqueKey = (): RateLimitKey => new RateLimitKey(`127.0.0.${++keyCounter}`, 'eth_chainId');
 
   after(() => {
     redisClient?.destroy();

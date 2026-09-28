@@ -9,7 +9,7 @@ import sinon from 'sinon';
 import { ConfigService } from '../../../../src/config-service/services';
 import { predefined } from '../../../../src/relay';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
-import { RequestDetails } from '../../../../src/relay/lib/types';
+import { type LockAcquisitionResult, RequestDetails } from '../../../../src/relay/lib/types';
 import { signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -20,6 +20,25 @@ chai.use(chaiAsPromised);
  * sendRawTransactionProcessor directly with a stubbed submitTransaction so we exercise the exact
  * handleSubmissionError branch that records each state, without needing full Mirror Node mocking.
  */
+
+interface TransactionServiceInternals {
+  accountService: { getTransactionCounts: (address: string, requestDetails: RequestDetails) => Promise<unknown> };
+  admitTransaction: (senderAddress: string, parsedTx: Transaction, requestDetails: RequestDetails) => Promise<unknown>;
+  sendRawTransactionProcessor: (
+    transactionBuffer: Buffer,
+    parsedTx: Transaction,
+    networkGasPriceInWeiBars: number,
+    execLockResult: LockAcquisitionResult | undefined,
+    requestDetails: RequestDetails,
+  ) => Promise<unknown>;
+  submitTransaction: (...args: never[]) => Promise<unknown>;
+  transactionPoolService: { saveTransaction: (...args: never[]) => Promise<void> };
+}
+
+interface RejectedTransactionErrorData {
+  provisional?: boolean;
+}
+
 describe('eth_sendRawTransaction transaction tracing', function () {
   const requestDetails = new RequestDetails({ requestId: 'sendRawTracing', ipAddress: '0.0.0.0' });
   const TX_ID = '0.0.1234@1700000000.000000001';
@@ -42,7 +61,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
 
     it('traces a clean submission as sent with the transaction id', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
-      const transactionService = ethImpl['transactionService'] as any;
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
       const { parsedTx, transactionBuffer } = await buildSignedTx();
 
       sinon.stub(transactionService, 'submitTransaction').resolves({ submittedTransactionId: TX_ID, error: null });
@@ -66,7 +85,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
     // already holds the hash can discover the failure via the receipt fallback instead of polling forever.
     it('traces a non-SDK submission error as timedout (provisional) and surfaces it via the receipt fallback', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
-      const transactionService = ethImpl['transactionService'] as any;
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
       const { parsedTx, transactionBuffer } = await buildSignedTx();
 
       sinon
@@ -84,12 +103,12 @@ describe('eth_sendRawTransaction transaction tracing', function () {
       const fallback = await transactionTracingService.getReceiptFallbackError(parsedTx.hash!);
       expect(fallback).to.not.be.null;
       expect(fallback!.code).to.equal(-32003);
-      expect((fallback!.data as any).provisional).to.be.true;
+      expect((fallback!.data as RejectedTransactionErrorData).provisional).to.be.true;
     });
 
     it('traces the pending state on a successful admit', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
-      const transactionService = ethImpl['transactionService'] as any;
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
       const { parsedTx } = await buildSignedTx();
 
       sinon
@@ -97,7 +116,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
         .resolves({ confirmedCount: 0, pendingCount: 0, mirrorNodeArtifact: undefined });
       sinon.stub(transactionService.transactionPoolService, 'saveTransaction').resolves();
 
-      await transactionService.admitTransaction(parsedTx.from, parsedTx, requestDetails);
+      await transactionService.admitTransaction(parsedTx.from!, parsedTx, requestDetails);
 
       const record = await transactionTracingService.getByHash(parsedTx.hash!);
       expect(record).to.not.be.null;
@@ -106,7 +125,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
 
     it('traces a tx-pool persistence failure as rejected and surfaces INTERNAL_ERROR', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
-      const transactionService = ethImpl['transactionService'] as any;
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
       const { parsedTx } = await buildSignedTx();
 
       sinon
@@ -114,7 +133,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
         .resolves({ confirmedCount: 0, pendingCount: 0, mirrorNodeArtifact: undefined });
       sinon.stub(transactionService.transactionPoolService, 'saveTransaction').rejects(new Error('pool write failed'));
 
-      await expect(transactionService.admitTransaction(parsedTx.from, parsedTx, requestDetails)).to.be.rejectedWith(
+      await expect(transactionService.admitTransaction(parsedTx.from!, parsedTx, requestDetails)).to.be.rejectedWith(
         'Error invoking RPC: Failed to save transaction to pool: pool write failed',
       );
 
@@ -126,7 +145,7 @@ describe('eth_sendRawTransaction transaction tracing', function () {
 
     it('traces an SDK timeout as timedout', async () => {
       const { ethImpl, transactionTracingService } = generateEthTestEnv();
-      const transactionService = ethImpl['transactionService'] as any;
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
       const { parsedTx, transactionBuffer } = await buildSignedTx();
 
       const timeoutError = new SDKClientError(

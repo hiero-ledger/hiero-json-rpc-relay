@@ -18,7 +18,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
 
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     ['', ''],
     ['', '0x0'],
@@ -48,7 +48,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const accounts: AliasAccount[] = [];
-  let simpleContractParams: any[];
+  let simpleContractParams: unknown[];
   let storageContract: ethers.Contract;
   let storageContractAddress: string;
 
@@ -161,7 +161,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           '0x0000000000000000000000000000000000000000000000000000000000000000',
           'latest',
         ])) as string;
-        const blockNumberBeforeChange = `0x${(blockNumber - 1).toString(16)}`;
+        const blockNumberBeforeChange = `0x${(parseInt(blockNumber, 16) - 1).toString(16)}`;
         const storageValBeforeChange = (await client.call(METHOD_NAME, [
           storageContractAddress,
           '0x0000000000000000000000000000000000000000000000000000000000000000',

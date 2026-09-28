@@ -6,13 +6,13 @@ import BigNumber from 'bignumber.js';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
-import pino from 'pino';
+import pino, { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 import proxyquire from 'proxyquire';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { MirrorNodeClientError, predefined } from '../../../src/relay';
+import { type JsonRpcError, MirrorNodeClientError, predefined } from '../../../src/relay';
 import { isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
@@ -23,7 +23,11 @@ import {
   TransactionTimestampIndexFactory,
 } from '../../../src/relay/lib/services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
 import {
+  type IAccountInfo,
+  type IMirrorNodeLinks,
+  type MirrorNodeBlock,
   type MirrorNodeContractLog,
+  type MirrorNodeContractResultDetails,
   type MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../../../src/relay/lib/types';
@@ -74,7 +78,12 @@ describe('MirrorNodeClient', async function () {
       }).MirrorNodeClient;
     }
 
-    const buildLocalClientDeps = () => {
+    const buildLocalClientDeps = (): {
+      localRegistry: Registry;
+      localLogger: Logger;
+      localInstance: AxiosInstance;
+      localCache: ICacheClient;
+    } => {
       const localRegistry = new Registry();
       const localLogger = pino({ level: 'silent' });
       const localInstance = axios.create({
@@ -206,7 +215,7 @@ describe('MirrorNodeClient', async function () {
 
       const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv4);
       expect(result).to.exist;
-      expect(result.account).to.equal(testAccount);
+      expect(result!.account).to.equal(testAccount);
     });
 
     it('should add Forwarded header with IPv6 address wrapped in brackets', async () => {
@@ -224,7 +233,7 @@ describe('MirrorNodeClient', async function () {
 
       const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv6);
       expect(result).to.exist;
-      expect(result.account).to.equal(testAccount);
+      expect(result!.account).to.equal(testAccount);
     });
 
     it('should not add Forwarded header when IP address is empty', async () => {
@@ -240,7 +249,7 @@ describe('MirrorNodeClient', async function () {
 
       const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithoutIP);
       expect(result).to.exist;
-      expect(result.account).to.equal(testAccount);
+      expect(result!.account).to.equal(testAccount);
     });
 
     it('should not add Forwarded header when IP address is null', async () => {
@@ -293,7 +302,7 @@ describe('MirrorNodeClient', async function () {
 
       const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv6);
       expect(result).to.exist;
-      expect(result.account).to.equal(testAccount);
+      expect(result!.account).to.equal(testAccount);
     });
   });
 
@@ -304,7 +313,7 @@ describe('MirrorNodeClient', async function () {
 
     for (const code of nullResponseCodes) {
       it(`returns null when ${code} is returned`, async () => {
-        const error = new Error('test error');
+        const error = new Error('test error') as Error & { response: string };
         error['response'] = 'test error';
 
         const result = mirrorNodeInstance.handleError(
@@ -313,7 +322,6 @@ describe('MirrorNodeClient', async function () {
           CONTRACT_CALL_ENDPOINT,
           code,
           'POST',
-          requestDetails,
         );
         expect(result).to.equal(null);
       });
@@ -322,19 +330,13 @@ describe('MirrorNodeClient', async function () {
     for (const code of errorRepsonseCodes) {
       it(`throws an error when ${code} is returned`, async () => {
         try {
-          const error = new Error('test error');
+          const error = new Error('test error') as Error & { response: string };
           error['response'] = 'test error';
-          mirrorNodeInstance.handleError(
-            error,
-            CONTRACT_CALL_ENDPOINT,
-            CONTRACT_CALL_ENDPOINT,
-            code,
-            'POST',
-            requestDetails,
-          );
+          mirrorNodeInstance.handleError(error, CONTRACT_CALL_ENDPOINT, CONTRACT_CALL_ENDPOINT, code, 'POST');
           expect.fail('should have thrown an error');
-        } catch (e: any) {
-          expect(e.message).to.equal('test error');
+        } catch (e) {
+          const thrown = e as Error;
+          expect(thrown.message).to.equal('test error');
         }
       });
     }
@@ -364,14 +366,14 @@ describe('MirrorNodeClient', async function () {
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedAccountId).to.eq(accountId);
   });
 
   it('Can extract the evm address out of an account pagination next link url', async () => {
     const evmAddress = '0x583031d1113ad414f02576bd6afa5bbdf935b7d9';
     const url = `/api/v1/accounts/${evmAddress}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedEvmAddress).to.eq(evmAddress);
   });
 
@@ -394,14 +396,14 @@ describe('MirrorNodeClient', async function () {
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedAccountId = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedAccountId).to.eq(accountId);
   });
 
   it('Can extract the evm address out of an account pagination next link url', async () => {
     const evmAddress = '0x583031d1113ad414f02576bd6afa5bbdf935b7d9';
     const url = `/api/v1/accounts/${evmAddress}?limit=100&timestamp=lt:1682455406.562695326`;
-    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url, requestDetails);
+    const extractedEvmAddress = mirrorNodeInstance.extractAccountIdFromUrl(url);
     expect(extractedEvmAddress).to.eq(evmAddress);
   });
 
@@ -546,17 +548,21 @@ describe('MirrorNodeClient', async function () {
       }),
     );
 
-    const result = await mirrorNodeInstance.get('accounts', 'accounts', requestDetails);
+    const result = await mirrorNodeInstance.get<{ accounts: IAccountInfo[]; links: IMirrorNodeLinks }>(
+      'accounts',
+      'accounts',
+      requestDetails,
+    );
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.exist;
-    expect(result.accounts).to.exist;
-    expect(result.accounts.length).to.gt(0);
-    result.accounts.forEach((acc: any) => {
+    expect(result!.links).to.exist;
+    expect(result!.links.next).to.exist;
+    expect(result!.accounts).to.exist;
+    expect(result!.accounts.length).to.gt(0);
+    result!.accounts.forEach((acc) => {
       expect(acc.account).to.exist;
       expect(acc.balance).to.exist;
-      expect(acc.balance.balance).to.exist;
-      expect(acc.balance.timestamp).to.exist;
+      expect(acc.balance!.balance).to.exist;
+      expect(acc.balance!.timestamp).to.exist;
     });
   });
 
@@ -566,17 +572,23 @@ describe('MirrorNodeClient', async function () {
     };
     mock.onPost('contracts/call', { foo: 'bar' }).reply(200, JSON.stringify(mockResult));
 
-    const result = await mirrorNodeInstance.post('contracts/call', { foo: 'bar' }, 'contracts/call', requestDetails);
+    const result = await mirrorNodeInstance.post<typeof mockResult>(
+      'contracts/call',
+      { foo: 'bar' },
+      'contracts/call',
+      requestDetails,
+    );
     expect(result).to.exist;
-    expect(result.result).to.exist;
-    expect(result.result).to.eq(mockResult.result);
+    expect(result!.result).to.exist;
+    expect(result!.result).to.eq(mockResult.result);
   });
 
   it('call to non-existing REST route returns 404', async () => {
     try {
       expect(await mirrorNodeInstance.get('non-existing-route', 'non-existing-route', requestDetails)).to.throw;
-    } catch (err: any) {
-      expect(err.statusCode).to.eq(404);
+    } catch (err) {
+      const thrown = err as MirrorNodeClientError;
+      expect(thrown.statusCode).to.eq(404);
     }
   });
 
@@ -598,10 +610,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getAccount(alias, requestDetails);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.transactions.length).to.gt(0);
-    expect(result.transactions[0].nonce).to.equal(3);
+    expect(result!.links).to.exist;
+    expect(result!.links!.next).to.equal(null);
+    expect(result!.transactions!.length).to.gt(0);
+    expect(result!.transactions![0].nonce).to.equal(3);
   });
 
   it('`getBlock by hash` works', async () => {
@@ -677,10 +689,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getBlocks(requestDetails, number);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.blocks.length).to.gt(0);
-    const firstBlock = result.blocks[0];
+    expect(result!.links).to.exist;
+    expect(result!.links!.next).to.equal(null);
+    expect(result!.blocks.length).to.gt(0);
+    const firstBlock = result!.blocks[0];
     expect(firstBlock.count).equal(block.count);
     expect(firstBlock.number).equal(block.number);
   });
@@ -693,10 +705,10 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getBlocks(requestDetails, undefined, timestamp);
     expect(result).to.exist;
-    expect(result.links).to.exist;
-    expect(result.links.next).to.equal(null);
-    expect(result.blocks.length).to.gt(0);
-    const firstBlock = result.blocks[0];
+    expect(result!.links).to.exist;
+    expect(result!.links!.next).to.equal(null);
+    expect(result!.blocks.length).to.gt(0);
+    const firstBlock = result!.blocks[0];
     expect(firstBlock.count).equal(block.count);
     expect(firstBlock.number).equal(block.number);
   });
@@ -791,9 +803,10 @@ describe('MirrorNodeClient', async function () {
     try {
       await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, 2);
       expect.fail('should have thrown an error');
-    } catch (e: any) {
-      expect(e.message).to.equal('Exceeded maximum mirror node pagination count: 2');
-      expect(e.code).to.equal(predefined.PAGINATION_MAX(0).code);
+    } catch (e) {
+      const thrown = e as JsonRpcError;
+      expect(thrown.message).to.equal('Exceeded maximum mirror node pagination count: 2');
+      expect(thrown.code).to.equal(predefined.PAGINATION_MAX(0).code);
     }
   });
 
@@ -801,7 +814,7 @@ describe('MirrorNodeClient', async function () {
     mock.onGet(`contracts/${mockData.contractEvmAddress}`).reply(200, JSON.stringify(mockData.contract));
     const result = await mirrorNodeInstance.getContract(mockData.contractEvmAddress, requestDetails);
     expect(result).to.exist;
-    expect(result.contract_id).equal('0.0.2000');
+    expect(result!.contract_id).equal('0.0.2000');
   });
 
   it('`getContract` not found', async () => {
@@ -815,7 +828,7 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getAccount(mockData.accountEvmAddress, requestDetails);
     expect(result).to.exist;
-    expect(result.account).equal('0.0.1014');
+    expect(result!.account).equal('0.0.1014');
   });
 
   it('`getAccount` not found', async () => {
@@ -832,9 +845,10 @@ describe('MirrorNodeClient', async function () {
     let errorRaised = false;
     try {
       await mirrorNodeInstance.getAccount(evmAddress, requestDetails);
-    } catch (error: any) {
+    } catch (error) {
+      const thrown = error as Error;
       errorRaised = true;
-      expect(error.message).to.equal(`Request failed with status code 500`);
+      expect(thrown.message).to.equal(`Request failed with status code 500`);
     }
     expect(errorRaised).to.be.true;
   });
@@ -845,9 +859,10 @@ describe('MirrorNodeClient', async function () {
     let errorRaised = false;
     try {
       await mirrorNodeInstance.getAccount(invalidAddress, requestDetails);
-    } catch (error: any) {
+    } catch (error) {
+      const thrown = error as Error;
       errorRaised = true;
-      expect(error.message).to.equal(`Request failed with status code 400`);
+      expect(thrown.message).to.equal(`Request failed with status code 400`);
     }
     expect(errorRaised).to.be.true;
   });
@@ -855,7 +870,7 @@ describe('MirrorNodeClient', async function () {
   it('`getTokenById`', async () => {
     mock.onGet(`tokens/${mockData.tokenId}`).reply(200, JSON.stringify(mockData.token));
 
-    const result = await mirrorNodeInstance.getTokenById(mockData.tokenId, requestDetails);
+    const result = (await mirrorNodeInstance.getTokenById(mockData.tokenId, requestDetails)) as typeof mockData.token;
     expect(result).to.exist;
     expect(result.token_id).equal('0.0.13312');
   });
@@ -976,10 +991,10 @@ describe('MirrorNodeClient', async function () {
     const hash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6399';
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -998,10 +1013,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, transaction_index: undefined }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -1020,10 +1035,10 @@ describe('MirrorNodeClient', async function () {
       );
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -1040,10 +1055,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_number: undefined }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.contract_id).equal(detailedContractResult.contract_id);
     expect(result.to).equal(detailedContractResult.to);
@@ -1059,10 +1074,10 @@ describe('MirrorNodeClient', async function () {
       .replyOnce(200, JSON.stringify({ ...detailedContractResult, block_hash: '0x' }));
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.block_hash).equal(detailedContractResult.block_hash);
     expect(mock.history.get.length).to.eq(2);
@@ -1085,10 +1100,10 @@ describe('MirrorNodeClient', async function () {
 
     mock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
     expect(result).to.exist;
     expect(result.transaction_index).equal(detailedContractResult.transaction_index);
     expect(result.block_number).equal(detailedContractResult.block_number);
@@ -1112,10 +1127,10 @@ describe('MirrorNodeClient', async function () {
     }, mock);
 
     try {
-      await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-        hash,
-        requestDetails,
-      ]);
+      await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+        mirrorNodeInstance.getContractResult.name,
+        [hash, requestDetails],
+      );
       expect.fail('should have thrown an error');
     } catch (error) {
       expect(error).to.exist;
@@ -1138,10 +1153,10 @@ describe('MirrorNodeClient', async function () {
       }),
     );
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
 
     expect(result.result).to.eq('WRONG_NONCE');
     expect(result.block_number).to.be.null;
@@ -1163,10 +1178,10 @@ describe('MirrorNodeClient', async function () {
       }),
     );
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
 
     expect(result.result).to.eq('SUCCESS');
     expect(result.transaction_index).to.be.null;
@@ -1184,10 +1199,10 @@ describe('MirrorNodeClient', async function () {
       .onGet(`contracts/results/${hash}?hbar=false`)
       .replyOnce(200, JSON.stringify(detailedContractResult));
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(mirrorNodeInstance.getContractResult.name, [
-      hash,
-      requestDetails,
-    ]);
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
+      mirrorNodeInstance.getContractResult.name,
+      [hash, requestDetails],
+    );
 
     expect(result.transaction_index).to.eq(detailedContractResult.transaction_index);
     expect(result.block_number).to.eq(detailedContractResult.block_number);
@@ -1207,7 +1222,7 @@ describe('MirrorNodeClient', async function () {
       return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(200, JSON.stringify(immatureRecord));
     }, mock);
 
-    const result = await mirrorNodeInstance.getContractResultWithRetry(
+    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
       mirrorNodeInstance.getContractResult.name,
       [hash, requestDetails],
       { returnImmatureRecords: true },
@@ -1253,7 +1268,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultForBlock` returns the most recent contract result for a block', async () => {
     const block = {
       timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
-    } as any;
+    } as unknown as MirrorNodeBlock;
     mock
       .onGet(
         `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
@@ -1270,7 +1285,7 @@ describe('MirrorNodeClient', async function () {
   it('`getLatestContractResultForBlock` returns null when the block has no contract results', async () => {
     const block = {
       timestamp: { from: '1651560386.060890949', to: '1651560389.060890949' },
-    } as any;
+    } as unknown as MirrorNodeBlock;
     mock
       .onGet(
         `contracts/results?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=1&order=desc&hbar=false`,
@@ -1304,7 +1319,7 @@ describe('MirrorNodeClient', async function () {
     const result = await mirrorNodeInstance.getContractResultsByAddress(contractId, requestDetails);
     expect(result).to.exist;
     expect(result!.links).to.exist;
-    expect(result!.links.next).to.equal(null);
+    expect(result!.links!.next).to.equal(null);
     expect(result!.results.length).to.gt(0);
     const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
@@ -1321,7 +1336,7 @@ describe('MirrorNodeClient', async function () {
     const result = await mirrorNodeInstance.getContractResultsByAddress(address, requestDetails);
     expect(result).to.exist;
     expect(result!.links).to.exist;
-    expect(result!.links.next).to.equal(null);
+    expect(result!.links!.next).to.equal(null);
     expect(result!.results.length).to.gt(0);
     const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
@@ -1338,7 +1353,7 @@ describe('MirrorNodeClient', async function () {
     const result = await mirrorNodeInstance.getLatestContractResultsByAddress(address, undefined, 1, requestDetails);
     expect(result).to.exist;
     expect(result!.links).to.exist;
-    expect(result!.links.next).to.equal(null);
+    expect(result!.links!.next).to.equal(null);
     expect(result!.results.length).to.gt(0);
     const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
@@ -1360,7 +1375,7 @@ describe('MirrorNodeClient', async function () {
     );
     expect(result).to.exist;
     expect(result!.links).to.exist;
-    expect(result!.links.next).to.equal(null);
+    expect(result!.links!.next).to.equal(null);
     expect(result!.results.length).to.gt(0);
     const firstResult = result!.results[0];
     expect(firstResult.contract_id).equal(detailedContractResult.contract_id);
@@ -1642,8 +1657,8 @@ describe('MirrorNodeClient', async function () {
     );
 
     expect(result).to.exist;
-    expect(result.state).to.exist;
-    expect(result.state[0].value).to.eq(defaultCurrentContractState.state[0].value);
+    expect(result!.state).to.exist;
+    expect(result!.state[0].value).to.eq(defaultCurrentContractState.state[0].value);
   });
 
   it('`getContractCurrentStateByAddressAndSlot` - incorrect address', async () => {
@@ -1690,7 +1705,7 @@ describe('MirrorNodeClient', async function () {
     const incorrectAddress = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ed';
     try {
       expect(await mirrorNodeInstance.getContractResultsLogsByAddress(incorrectAddress, requestDetails)).to.throw;
-    } catch (err: any) {
+    } catch (err) {
       expect(err).to.exist;
     }
   });
@@ -1698,7 +1713,8 @@ describe('MirrorNodeClient', async function () {
   it('`getBlocks` by number', async () => {
     mock.onGet(`blocks?limit=1&order=desc`).reply(200, JSON.stringify(block));
 
-    const result = await mirrorNodeInstance.getLatestBlock(requestDetails);
+    // the adapter replies with a single block rather than the `{ blocks, links }` page the endpoint returns
+    const result = (await mirrorNodeInstance.getLatestBlock(requestDetails)) as unknown as typeof block;
     expect(result).to.exist;
     expect(result.count).equal(block.count);
     expect(result.number).equal(block.number);
@@ -1741,13 +1757,16 @@ describe('MirrorNodeClient', async function () {
 
     const result = await mirrorNodeInstance.getNetworkExchangeRate(requestDetails);
     expect(result).to.exist;
-    expect(result.current_rate).to.exist;
-    expect(result.next_rate).to.exist;
+    expect(result!.current_rate).to.exist;
+    expect(result!.next_rate).to.exist;
     expect(result).to.exist;
-    expect(result.current_rate.cent_equivalent).equal(exchangerate.current_rate.cent_equivalent);
-    expect(result.next_rate.hbar_equivalent).equal(exchangerate.next_rate.hbar_equivalent);
-    expect(result.timestamp).equal(exchangerate.timestamp);
+    expect(result!.current_rate.cent_equivalent).equal(exchangerate.current_rate.cent_equivalent);
+    expect(result!.next_rate.hbar_equivalent).equal(exchangerate.next_rate.hbar_equivalent);
+    expect(result!.timestamp).equal(exchangerate.timestamp);
   });
+
+  // `IMirrorNodeEntity` models only the fields the relay reads; these assertions inspect raw payload keys.
+  type ResolvedEntityPayload = { account?: string; token_id?: string; schedule_id?: string };
 
   describe('resolveEntityType', async () => {
     const notFoundAddress = random20BytesAddress();
@@ -1788,7 +1807,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.have.property('entity');
       expect(entityType!.type).to.eq('ACCOUNT');
       expect(entityType!.entity).to.have.property('account');
-      expect(entityType!.entity.account).to.eq(mockData.account.account);
+      expect((entityType!.entity as ResolvedEntityPayload).account).to.eq(mockData.account.account);
     });
 
     it('returns `TOKEN` when CONTRACTS and ACCOUNTS endpoints returns 404 and TOKEN endpoint returns a result', async () => {
@@ -1805,7 +1824,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
       expect(entityType!.type).to.eq('TOKEN');
-      expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
+      expect((entityType!.entity as ResolvedEntityPayload).token_id).to.eq(mockData.tokenId);
     });
 
     it('returns null when CONTRACTS and ACCOUNTS endpoints return 404', async () => {
@@ -1835,7 +1854,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
       expect(entityType!.type).to.eq('TOKEN');
-      expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
+      expect((entityType!.entity as ResolvedEntityPayload).token_id).to.eq(mockData.tokenId);
     });
 
     it('does not call mirror node tokens API when token is not long zero type', async () => {
@@ -1874,7 +1893,7 @@ describe('MirrorNodeClient', async function () {
       );
       expect(entityType).to.exist;
       expect(entityType!.type).to.eq('SCHEDULE');
-      expect(entityType!.entity.schedule_id).to.eq(scheduleId);
+      expect((entityType!.entity as ResolvedEntityPayload).schedule_id).to.eq(scheduleId);
     });
 
     it('does not cache latest `ACCOUNT` results so EIP-7702 delegation changes are not hidden', async () => {
@@ -2033,14 +2052,19 @@ describe('MirrorNodeClient', async function () {
       mock.onGet(`transactions/${defaultTransactionIdFormatted}`).reply(200, JSON.stringify(defaultTransaction));
       const transaction = await mirrorNodeInstance.getTransactionById(defaultTransactionId, requestDetails);
       expect(transaction).to.exist;
-      expect(transaction.transactions.length).to.equal(defaultTransaction.transactions.length);
+      expect(transaction!.transactions.length).to.equal(defaultTransaction.transactions.length);
     });
 
     it('should be able to fetch transaction by transaction id and nonce', async () => {
       mock
         .onGet(`transactions/${defaultTransactionIdFormatted}?nonce=1`)
         .reply(200, JSON.stringify(defaultTransaction.transactions[1]));
-      const transaction = await mirrorNodeInstance.getTransactionById(defaultTransactionId, requestDetails, 1);
+      // with a nonce the endpoint returns one transaction, not the `ITransactionsPage` the signature declares
+      const transaction = (await mirrorNodeInstance.getTransactionById(
+        defaultTransactionId,
+        requestDetails,
+        1,
+      )) as unknown as MirrorNodeTransactionRecord;
       expect(transaction).to.exist;
       expect(transaction.transaction_id).to.equal(defaultTransaction.transactions[1].transaction_id);
       expect(transaction.result).to.equal(defaultTransaction.transactions[1].result);
@@ -2087,8 +2111,8 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('getPaginatedResults', async () => {
-    const mockPages = (pages) => {
-      let mockedResults: any[] = [];
+    const mockPages = (pages: number): { foo: string }[] => {
+      let mockedResults: { foo: string }[] = [];
       for (let i = 0; i < pages; i++) {
         const results = [{ foo: `bar${i}` }];
         mockedResults = mockedResults.concat(results);
@@ -2163,12 +2187,13 @@ describe('MirrorNodeClient', async function () {
           requestDetails,
         );
         expect.fail('should have thrown an error');
-      } catch (e: any) {
+      } catch (e) {
+        const thrown = e as JsonRpcError;
         const errorRef = predefined.PAGINATION_MAX(0); // reference error for all properties except message
-        expect(e.message).to.equal(
+        expect(thrown.message).to.equal(
           `Exceeded maximum mirror node pagination count: ${ConfigService.get('MIRROR_NODE_PAGINATION_MAX')}`,
         );
-        expect(e.code).to.equal(errorRef.code);
+        expect(thrown.code).to.equal(errorRef.code);
       }
     });
   });
@@ -2179,7 +2204,7 @@ describe('MirrorNodeClient', async function () {
     it('if the method returns an immediate result it is called only once', async () => {
       mock.onGet(uri).reply(200, JSON.stringify(mockData.account));
 
-      const result = await mirrorNodeInstance.repeatedRequest(
+      const result = await mirrorNodeInstance.repeatedRequest<IAccountInfo>(
         'getAccount',
         [mockData.accountEvmAddress, requestDetails],
         3,
@@ -2198,7 +2223,7 @@ describe('MirrorNodeClient', async function () {
         .onGet(uri)
         .reply(200, JSON.stringify(mockData.account));
 
-      const result = await mirrorNodeInstance.repeatedRequest(
+      const result = await mirrorNodeInstance.repeatedRequest<IAccountInfo>(
         'getAccount',
         [mockData.accountEvmAddress, requestDetails],
         3,
@@ -2210,7 +2235,7 @@ describe('MirrorNodeClient', async function () {
     });
 
     it('method is repeated the specified number of times if no result is found', async () => {
-      const result = await mirrorNodeInstance.repeatedRequest(
+      const result = await mirrorNodeInstance.repeatedRequest<IAccountInfo>(
         'getAccount',
         [mockData.accountEvmAddress, requestDetails],
         3,
@@ -2231,7 +2256,7 @@ describe('MirrorNodeClient', async function () {
         .onGet(uri)
         .reply(200, JSON.stringify(mockData.account));
 
-      const result = await mirrorNodeInstance.repeatedRequest(
+      const result = await mirrorNodeInstance.repeatedRequest<IAccountInfo>(
         'getAccount',
         [mockData.accountEvmAddress, requestDetails],
         3,
@@ -2362,7 +2387,7 @@ describe('MirrorNodeClient', async function () {
   describe('getAccountLatestEthereumTransactionsByTimestamp', async () => {
     const evmAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
     const timestamp = '1686019921.957394003';
-    const transactionPath = (addresss, num) =>
+    const transactionPath = (addresss: string, num: number): string =>
       `accounts/${addresss}?transactiontype=ETHEREUMTRANSACTION&timestamp=lte:${timestamp}&limit=${num}&order=desc`;
     const defaultTransaction = {
       transactions: [
@@ -2427,7 +2452,7 @@ describe('MirrorNodeClient', async function () {
         requestDetails,
       );
       expect(transactions).to.exist;
-      expect(transactions.transactions.length).to.equal(0);
+      expect(transactions!.transactions!.length).to.equal(0);
     });
 
     it('should be able to fetch single ethereum transactions for an account', async () => {
@@ -2440,7 +2465,7 @@ describe('MirrorNodeClient', async function () {
         requestDetails,
       );
       expect(transactions).to.exist;
-      expect(transactions.transactions.length).to.equal(1);
+      expect(transactions!.transactions!.length).to.equal(1);
     });
 
     it('should be able to fetch ethereum transactions for an account', async () => {
@@ -2452,7 +2477,7 @@ describe('MirrorNodeClient', async function () {
         2,
       );
       expect(transactions).to.exist;
-      expect(transactions.transactions.length).to.equal(2);
+      expect(transactions!.transactions!.length).to.equal(2);
     });
 
     it('should throw Error with unexpected exception if mirror node returns unexpected error', async () => {
@@ -2461,9 +2486,10 @@ describe('MirrorNodeClient', async function () {
       let errorRaised = false;
       try {
         await mirrorNodeInstance.getAccountLatestEthereumTransactionsByTimestamp(address, timestamp, requestDetails);
-      } catch (error: any) {
+      } catch (error) {
+        const thrown = error as Error;
         errorRaised = true;
-        expect(error.message).to.equal(`Request failed with status code 500`);
+        expect(thrown.message).to.equal(`Request failed with status code 500`);
       }
       expect(errorRaised).to.be.true;
     });
@@ -2478,9 +2504,10 @@ describe('MirrorNodeClient', async function () {
           timestamp,
           requestDetails,
         );
-      } catch (error: any) {
+      } catch (error) {
+        const thrown = error as Error;
         errorRaised = true;
-        expect(error.message).to.equal(`Request failed with status code 400`);
+        expect(thrown.message).to.equal(`Request failed with status code 400`);
       }
       expect(errorRaised).to.be.true;
     });
@@ -2557,20 +2584,20 @@ describe('MirrorNodeClient', async function () {
       mock.onGet(blockPath).reply(200, JSON.stringify({ blocks: [mockData.blocks.blocks[0]] }));
       const earlierBlock = await mirrorNodeInstance.getEarliestBlock(requestDetails);
       expect(earlierBlock).to.exist;
-      expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
+      expect(earlierBlock!.name).to.be.equal(mockData.blocks.blocks[0].name);
     });
 
     it('should fetch block for valid network from cache on additional calls', async () => {
       mock.onGet(blockPath).reply(200, JSON.stringify({ blocks: [mockData.blocks.blocks[0]] }));
       let earlierBlock = await mirrorNodeInstance.getEarliestBlock(requestDetails);
       expect(earlierBlock).to.exist;
-      expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
+      expect(earlierBlock!.name).to.be.equal(mockData.blocks.blocks[0].name);
 
       // verify that the cache is used
       mock.onGet(blockPath).reply(404, JSON.stringify(mockData.notFound));
       earlierBlock = await mirrorNodeInstance.getEarliestBlock(requestDetails);
       expect(earlierBlock).to.exist;
-      expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
+      expect(earlierBlock!.name).to.be.equal(mockData.blocks.blocks[0].name);
     });
   });
 
@@ -3078,27 +3105,31 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('response body parsing', () => {
-    const getNetworkFeesWithBody = async (body: string): Promise<any> => {
+    // `getNetworkFees` is only the vehicle for exercising the response-body parser, so the
+    // bodies below are arbitrary JSON rather than real `INetworkFees` payloads.
+    const getNetworkFeesWithBody = async <T>(body: string): Promise<T> => {
       mock.onGet('network/fees').reply(200, body);
-      return mirrorNodeInstance.getNetworkFees(requestDetails);
+      return (await mirrorNodeInstance.getNetworkFees(requestDetails)) as unknown as T;
     };
 
     it('should preserve an integer beyond the safe range as a BigNumber', async () => {
-      const response = await getNetworkFeesWithBody('{"amount":1000000000000000000000}');
+      const response = await getNetworkFeesWithBody<{ amount: BigNumber }>('{"amount":1000000000000000000000}');
 
       expect(BigNumber.isBigNumber(response.amount)).to.be.true;
       expect(response.amount.toString()).to.equal('1000000000000000000000');
     });
 
     it('should preserve a negative integer beyond the safe range as a BigNumber', async () => {
-      const response = await getNetworkFeesWithBody('{"amount":-1000000000000000000000}');
+      const response = await getNetworkFeesWithBody<{ amount: BigNumber }>('{"amount":-1000000000000000000000}');
 
       expect(BigNumber.isBigNumber(response.amount)).to.be.true;
       expect(response.amount.toString()).to.equal('-1000000000000000000000');
     });
 
     it('should widen at the same literal-length boundary as json-bigint', async () => {
-      const response = await getNetworkFeesWithBody('{"small":999999999999999,"big":1000000000000000}');
+      const response = await getNetworkFeesWithBody<{ small: number; big: BigNumber }>(
+        '{"small":999999999999999,"big":1000000000000000}',
+      );
 
       expect(response.small).to.be.a('number');
       expect(response.small).to.equal(999999999999999);
@@ -3108,7 +3139,7 @@ describe('MirrorNodeClient', async function () {
 
     it('should leave long digit runs inside strings untouched', async () => {
       const paddedTopic = `0x${'0'.repeat(64)}`;
-      const response = await getNetworkFeesWithBody(
+      const response = await getNetworkFeesWithBody<{ data: string; timestamp: string; gas: number }>(
         JSON.stringify({ data: paddedTopic, timestamp: '1700000000.123456789', gas: 57 }),
       );
 
@@ -3119,14 +3150,16 @@ describe('MirrorNodeClient', async function () {
 
     it('should not treat a timestamp filter inside links.next as a widened literal', async () => {
       const next = '/api/v1/contracts/results/logs?limit=100&order=desc&timestamp=lt:1788415891.548547568';
-      const response = await getNetworkFeesWithBody(JSON.stringify({ logs: [{ index: 3 }], links: { next } }));
+      const response = await getNetworkFeesWithBody<{ links: { next: string }; logs: { index: number }[] }>(
+        JSON.stringify({ logs: [{ index: 3 }], links: { next } }),
+      );
 
       expect(response.links.next).to.equal(next);
       expect(response.logs[0].index).to.be.a('number').that.equals(3);
     });
 
     it('should return the raw body when it cannot be parsed', async () => {
-      const response = await getNetworkFeesWithBody('not a json body');
+      const response = await getNetworkFeesWithBody<string>('not a json body');
 
       expect(response).to.equal('not a json body');
     });

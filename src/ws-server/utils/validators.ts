@@ -12,7 +12,7 @@ import { getMultipleAddressesEnabled } from './utils';
 
 interface EthSubscribeLogsParams {
   address?: string | string[];
-  topics?: any[];
+  topics?: unknown[];
 }
 
 /**
@@ -46,7 +46,7 @@ const validateIsContractOrTokenAddress = async (
 
 /**
  * Validates the parameters for subscribing to ETH logs.
- * @param {any} filters - The filters object containing parameters for subscribing to ETH logs.
+ * @param {EthSubscribeLogsParams} filters - The filters object containing parameters for subscribing to ETH logs.
  * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the MirrorNode API.
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
  */

@@ -198,13 +198,13 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     [
       {
         title: 'should return null with no operations',
-        run: async () => {},
+        run: async (): Promise<void> => {},
         address: testAddress1,
         expectedValue: null,
       },
       {
         title: 'should still return null after addToList attempts to seed baseline',
-        run: async () => {
+        run: async (): Promise<void> => {
           await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 5);
         },
         address: testAddress1,
@@ -212,7 +212,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       },
       {
         title: 'should return value after removeFromList operations',
-        run: async () => {
+        run: async (): Promise<void> => {
           await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
           await storage.removeFromList(testAddress1, testRlp1);
         },
@@ -221,7 +221,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       },
       {
         title: 'should return incremented value after removeFromListAndIncrementConfirmedCount operations',
-        run: async () => {
+        run: async (): Promise<void> => {
           await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
           await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1);
         },

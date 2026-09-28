@@ -70,8 +70,8 @@ export class HbarSpendingPlanConfigService {
           ];
         }),
       );
-    } catch (error: any) {
-      logger.error(`Failed to get pre-configured spending plan keys: ${error.message}`);
+    } catch (error) {
+      logger.error(`Failed to get pre-configured spending plan keys: ${(error as Error).message}`);
       return new Set<string>();
     }
   }
@@ -121,11 +121,11 @@ export class HbarSpendingPlanConfigService {
     // Try to parse the value directly as JSON
     try {
       return JSON.parse(spendingPlanConfig) as SpendingPlanConfig[];
-    } catch (jsonParseError: any) {
+    } catch (jsonParseError) {
       // If parsing as JSON fails, treat it as a file path
       if (logger.isLevelEnabled('trace')) {
         logger.trace(
-          `Failed to parse HBAR_SPENDING_PLAN as JSON: ${jsonParseError.message}, now treating it as a file path...`,
+          `Failed to parse HBAR_SPENDING_PLAN as JSON: ${(jsonParseError as Error).message}, now treating it as a file path...`,
         );
       }
       try {
@@ -141,8 +141,8 @@ export class HbarSpendingPlanConfigService {
           }
           return [];
         }
-      } catch (fileError: any) {
-        throw new Error(`File error: ${fileError.message}`, { cause: fileError });
+      } catch (fileError) {
+        throw new Error(`File error: ${(fileError as Error).message}`, { cause: fileError });
       }
     }
   }
@@ -167,7 +167,6 @@ export class HbarSpendingPlanConfigService {
    *
    * @param {IDetailedHbarSpendingPlan[]} existingPlans - The existing HBAR spending plans in the database.
    * @param {SpendingPlanConfig[]} spendingPlanConfigs - The current spending plan configurations.
-   * @param {RequestDetails} requestDetails - The details of the current request.
    * @returns {Promise<number>} - A promise that resolves with the number of plans deleted.
    * @private
    */

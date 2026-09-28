@@ -54,7 +54,7 @@ export async function updateRequestParams<T = unknown>(
   const fullPath = `overwrites/${request.method}/${fileName}`;
 
   if (fullPath in paramMappings) {
-    const mapping = paramMappings[fullPath];
+    const mapping = paramMappings[fullPath as keyof typeof paramMappings];
     for (const [paramIndex, value] of Object.entries(mapping)) {
       let resolvedValue: T | string = value as T | string;
       if (typeof value === 'function') {
@@ -67,8 +67,8 @@ export async function updateRequestParams<T = unknown>(
   return request;
 }
 
-function buildTransactionOverrides() {
-  async function prepareTransaction(transaction: Transaction, privateKey: string) {
+function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
+  async function prepareTransaction(transaction: Transaction, privateKey: string): Promise<string> {
     const nonce = parseInt(await getTransactionCount(RELAY_URL), 16);
     const txToSign = { ...transaction, nonce };
     return await signTransaction(txToSign, privateKey);

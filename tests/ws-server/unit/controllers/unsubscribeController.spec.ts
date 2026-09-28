@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import type Koa from 'koa';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -9,13 +9,16 @@ import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeCl
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type ISharedParams } from '../../../../src/ws-server/controllers/jsonRpcController';
 import { handleEthUnsubscribe } from '../../../../src/ws-server/controllers/unsubscribeController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
+import { type WsContext } from '../../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
+import { assertJsonRpcError, assertJsonRpcResult } from '../../helper';
 
-function createMockContext(): Koa.Context {
+function createMockContext(): WsContext {
   return {
     websocket: {
       id: 'test-connection-id',
@@ -27,19 +30,19 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as WsContext;
 }
 
 describe('Unsubscribe Controller', function () {
   const subscriptionId = '5644';
 
-  let mockLogger: any;
-  let stubWsMetricRegistry: WsMetricRegistry;
-  let stubRelay: Relay;
-  let stubConnectionLimiter: ConnectionLimiter;
-  let stubMirrorNodeClient: MirrorNodeClient;
-  let stubSubscriptionService: SubscriptionService;
-  let stubConfigService: ConfigService;
+  let mockLogger: { warn: sinon.SinonStub };
+  let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
+  let stubRelay: sinon.SinonStubbedInstance<Relay>;
+  let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
+  let stubMirrorNodeClient: sinon.SinonStubbedInstance<MirrorNodeClient>;
+  let stubSubscriptionService: sinon.SinonStubbedInstance<SubscriptionService>;
+  let stubConfigService: sinon.SinonStub;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -70,7 +73,7 @@ describe('Unsubscribe Controller', function () {
   });
 
   describe('handleEthUnsubscribe', async function () {
-    let defaultParams: any;
+    let defaultParams: ISharedParams;
 
     beforeEach(() => {
       defaultParams = {
@@ -78,7 +81,7 @@ describe('Unsubscribe Controller', function () {
         method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
         params: [subscriptionId],
         relay: stubRelay,
-        logger: mockLogger,
+        logger: mockLogger as unknown as Logger,
         limiter: stubConnectionLimiter,
         mirrorNodeClient: stubMirrorNodeClient,
         ctx: createMockContext(),
@@ -91,13 +94,17 @@ describe('Unsubscribe Controller', function () {
       stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
       const resp = await handleEthUnsubscribe(defaultParams);
 
+      assertJsonRpcError(resp);
+
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.contain('WS Subscriptions are disabled');
     });
 
     it('should be able to unsubscribe', async function () {
-      stubSubscriptionService.unsubscribe.returns(subscriptionId);
+      stubSubscriptionService.unsubscribe.returns(1);
       const resp = await handleEthUnsubscribe(defaultParams);
+
+      assertJsonRpcResult(resp);
 
       expect(resp.result).to.be.true;
     });

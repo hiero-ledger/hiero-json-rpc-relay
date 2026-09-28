@@ -6,11 +6,22 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../../../src/config-service/services';
 import { numberTo0x } from '../../../../../src/relay/formatters';
+import { type MirrorNodeClient } from '../../../../../src/relay/lib/clients/mirrorNodeClient';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
+import { type ICommonService } from '../../../../../src/relay/lib/services';
 import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
 import { type IFeeHistory, type MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
+
+interface FeeServiceInternals {
+  getFeeHistoryDataFromBlock(
+    blockNumber: number,
+    requestDetails: RequestDetails,
+    prefetchedBlock?: MirrorNodeBlock,
+  ): Promise<{ fee: string; gasUsedRatio: number }>;
+  getGasUsedRatioForBlock(block: MirrorNodeBlock): number;
+}
 
 describe('FeeService', function () {
   const requestDetails = new RequestDetails({ requestId: 'feeServiceUnitTest', ipAddress: '0.0.0.0' });
@@ -59,7 +70,11 @@ describe('FeeService', function () {
         };
 
         const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
-        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+        feeService = new FeeService(
+          mirrorStub as unknown as MirrorNodeClient,
+          commonStub as unknown as ICommonService,
+          logger,
+        );
 
         commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
       });
@@ -142,6 +157,7 @@ describe('FeeService', function () {
 
   describe('getFeeHistoryDataFromBlock — gas price source', function () {
     let feeService: FeeService;
+    let feeServiceInternals: FeeServiceInternals;
     let mirrorStub: {
       getBlock: sinon.SinonStub;
       getLatestContractResultForBlock: sinon.SinonStub;
@@ -156,7 +172,12 @@ describe('FeeService', function () {
         };
         commonStub = { getGasPriceInWeibars: sinon.stub().resolves(77) };
         const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
-        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+        feeService = new FeeService(
+          mirrorStub as unknown as MirrorNodeClient,
+          commonStub as unknown as ICommonService,
+          logger,
+        );
+        feeServiceInternals = feeService as unknown as FeeServiceInternals;
       });
 
       afterEach(function () {
@@ -168,7 +189,7 @@ describe('FeeService', function () {
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: '0x72' }); // 114 weibars
 
-        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(1, requestDetails, block);
+        const { fee } = await feeServiceInternals.getFeeHistoryDataFromBlock(1, requestDetails, block);
 
         expect(fee).to.equal(numberTo0x(114));
         expect(commonStub.getGasPriceInWeibars.called).to.be.false;
@@ -179,7 +200,7 @@ describe('FeeService', function () {
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getLatestContractResultForBlock.resolves(null);
 
-        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(2, requestDetails, block);
+        const { fee } = await feeServiceInternals.getFeeHistoryDataFromBlock(2, requestDetails, block);
 
         expect(fee).to.equal(numberTo0x(77));
         expect(commonStub.getGasPriceInWeibars.calledOnce).to.be.true;
@@ -190,7 +211,7 @@ describe('FeeService', function () {
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getLatestContractResultForBlock.resolves({ gas_price: null });
 
-        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(3, requestDetails, block);
+        const { fee } = await feeServiceInternals.getFeeHistoryDataFromBlock(3, requestDetails, block);
 
         expect(fee).to.equal(numberTo0x(77));
         expect(commonStub.getGasPriceInWeibars.calledOnce).to.be.true;
@@ -201,7 +222,7 @@ describe('FeeService', function () {
         mirrorStub.getBlock.resolves(block);
         mirrorStub.getLatestContractResultForBlock.rejects(new Error('mirror error'));
 
-        const { fee } = await (feeService as any).getFeeHistoryDataFromBlock(4, requestDetails, block);
+        const { fee } = await feeServiceInternals.getFeeHistoryDataFromBlock(4, requestDetails, block);
 
         expect(fee).to.equal(constants.ZERO_HEX);
       });
@@ -214,12 +235,12 @@ describe('FeeService', function () {
     let obtainStub: sinon.SinonStub;
 
     function ratioFor(block: MirrorNodeBlock): number {
-      return (feeService as any).getGasUsedRatioForBlock(block);
+      return (feeService as unknown as FeeServiceInternals).getGasUsedRatioForBlock(block);
     }
 
     beforeEach(function () {
       warnSpy = sinon.spy();
-      feeService = new FeeService({} as any, {} as any, { warn: warnSpy } as unknown as Logger);
+      feeService = new FeeService({} as MirrorNodeClient, {} as ICommonService, { warn: warnSpy } as unknown as Logger);
       obtainStub = sinon.stub(blockGasLimit, 'obtainBlockGasLimit').callThrough();
     });
 

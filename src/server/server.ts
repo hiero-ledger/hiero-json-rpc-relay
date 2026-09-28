@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import cors from '@koa/cors';
 import fs from 'fs';
+import type Koa from 'koa';
 import path from 'path';
 import pino from 'pino';
 import { type Registry } from 'prom-client';
@@ -64,7 +65,7 @@ export async function initializeServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
   redisClient?: RedisClientType,
-): Promise<{ app: any; relay: Relay }> {
+): Promise<{ app: Koa; relay: Relay }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger.child({ name: 'relay' }), register));
   if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {
@@ -205,8 +206,8 @@ export async function initializeServer(
       query: ctx.get('query'),
     };
 
-    for (const key in options) {
-      if (typeof options[key] !== 'boolean' && typeof options[key] !== 'string') {
+    for (const [key, value] of Object.entries(options)) {
+      if (typeof value !== 'boolean' && typeof value !== 'string') {
         throw new Error(`Option \`${key}\` requires a boolean or a string`);
       }
     }

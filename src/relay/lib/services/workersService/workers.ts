@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type RequestDetails } from '../../types';
+import { type LogTopic } from '../../types/requestParams';
 import { getBalance } from '../ethService/accountService/accountWorker';
 import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';
@@ -26,7 +27,7 @@ interface GetLogsTask {
   fromBlock: string | 'latest';
   toBlock: string | 'latest';
   address: string | string[] | null;
-  topics: any[] | null;
+  topics: LogTopic[] | null;
   requestDetails: RequestDetails;
 }
 
@@ -56,7 +57,7 @@ export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | Get
  * @returns A promise that resolves to the handler's result.
  * @throws {Error} If `task.type` does not match any known task variant.
  */
-export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext): Promise<any> {
+export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext): Promise<unknown> {
   // On a worker thread Piscina invokes this with no ctx; fall back to the shared per-thread cached context.
   if (!ctx) {
     ctx = getWorkerContext();
@@ -83,6 +84,6 @@ export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext)
       return await getBalance(ctx, task.account, task.blockNumberOrTagOrHash, task.requestDetails);
 
     default:
-      throw new Error(`Unknown task type: ${(task as any).type}`);
+      throw new Error(`Unknown task type: ${(task as { type: string }).type}`);
   }
 }

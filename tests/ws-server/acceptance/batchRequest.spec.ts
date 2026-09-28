@@ -7,12 +7,12 @@ import { ethers, type WebSocketProvider } from 'ethers';
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
 import { requestIdRegex } from '../../server/helpers/assertions';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import { type WsJsonRpcRequest, type WsJsonRpcResponse, WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-request Batch Requests', async function () {
   const METHOD_NAME = 'batch_request';
   let ethersWsProvider: WebSocketProvider;
-  let batchRequests: any = [];
+  let batchRequests: WsJsonRpcRequest[] = [];
 
   before(async () => {
     batchRequests = [
@@ -69,11 +69,14 @@ describe('@web-socket-batch-request Batch Requests', async function () {
   WsTestHelper.withOverriddenEnvsInMochaTest({ WS_BATCH_REQUESTS_ENABLED: true }, () => {
     it(`@release Should submit batch requests to WS server using Standard Web Socket and retrieve batch responses`, async () => {
       // call batch request
-      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, batchRequests);
+      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+        METHOD_NAME,
+        batchRequests,
+      );
 
       // individually process each request
-      const promises: any = [];
-      batchRequests.forEach((request: any) => {
+      const promises: Promise<WsJsonRpcResponse>[] = [];
+      batchRequests.forEach((request) => {
         promises.push(WsTestHelper.sendRequestToStandardWebSocket(request.method, request.params));
       });
       const individualResponses = await Promise.all(promises);
@@ -86,7 +89,7 @@ describe('@web-socket-batch-request Batch Requests', async function () {
 
         // For error responses, ignore the request ID
         if (batch.error?.message?.includes('Request ID:')) {
-          expect(batch.error.code).to.equal(ind.error.code);
+          expect(batch.error.code).to.equal(ind.error!.code);
           expect(batch.error.message).to.include(batch.error.message.split('] ')[1]);
         } else {
           expect(batch).to.deep.equal(ind);
@@ -96,7 +99,7 @@ describe('@web-socket-batch-request Batch Requests', async function () {
 
     it('@release Should return errors for blacklisted methods', async function () {
       const disallowedMethods = ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS');
-      const requests: any[] = [];
+      const requests: WsJsonRpcRequest[] = [];
       for (let index = 0; index < disallowedMethods.length; index++) {
         requests.push({
           id: index,
@@ -106,13 +109,16 @@ describe('@web-socket-batch-request Batch Requests', async function () {
         });
       }
 
-      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, requests);
+      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+        METHOD_NAME,
+        requests,
+      );
       expect(batchResponses.length).to.equal(disallowedMethods.length);
       for (let index = 0; index < disallowedMethods.length; index++) {
         expect(batchResponses[index].id).to.equal(index);
-        expect(batchResponses[index].error.code).to.equal(-32007);
+        expect(batchResponses[index].error!.code).to.equal(-32007);
         expect(batchResponses[index]).to.haveOwnProperty('error');
-        expect(batchResponses[index].error.message).to.match(
+        expect(batchResponses[index].error!.message).to.match(
           requestIdRegex(`Method ${disallowedMethods[index]} is not permitted as part of batch requests`),
         );
       }
@@ -120,7 +126,10 @@ describe('@web-socket-batch-request Batch Requests', async function () {
 
     WsTestHelper.withOverriddenEnvsInMochaTest({ WS_BATCH_REQUESTS_MAX_SIZE: 1 }, () => {
       it('Should submit batch requests to WS server and get batchRequestAmountMaxExceed if requests size exceeds WS_BATCH_REQUESTS_MAX_SIZE', async () => {
-        const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, batchRequests);
+        const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+          METHOD_NAME,
+          batchRequests,
+        );
 
         const expectedError = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(
           batchRequests.length,
@@ -135,7 +144,10 @@ describe('@web-socket-batch-request Batch Requests', async function () {
 
   WsTestHelper.withOverriddenEnvsInMochaTest({ WS_BATCH_REQUESTS_ENABLED: false }, () => {
     it('Should submit batch requests to WS server and get batchRequestDisabledError if WS_BATCH_REQUESTS_DISABLED=false ', async () => {
-      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, batchRequests);
+      const batchResponses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+        METHOD_NAME,
+        batchRequests,
+      );
 
       const expectedError = predefined.WS_BATCH_REQUESTS_DISABLED;
       delete expectedError.data;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import type Koa from 'koa';
+import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
@@ -11,15 +11,18 @@ import constants from '../../../../src/relay/lib/constants';
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { type IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { type ISharedParams } from '../../../../src/ws-server/controllers/jsonRpcController';
 import { handleEthSubscribe } from '../../../../src/ws-server/controllers/subscribeController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
 import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
+import { type WsContext } from '../../../../src/ws-server/types';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { contractAddress1, contractAddress2 } from '../../../relay/helpers';
+import { assertJsonRpcError, assertJsonRpcResult } from '../../helper';
 chai.use(chaiAsPromised);
 
-function createMockContext(): Koa.Context {
+function createMockContext(): WsContext {
   return {
     websocket: {
       id: 'test-connection-id',
@@ -31,20 +34,20 @@ function createMockContext(): Koa.Context {
     },
     request: { ip: '127.0.0.1' },
     app: { server: { _connections: 0 } },
-  } as Koa.Context;
+  } as unknown as WsContext;
 }
 
 describe('Subscribe Controller', function () {
   const nonExistingMethod = 'non-existing-method';
   const subscriptionId = '5644';
 
-  let mockLogger: any;
-  let stubWsMetricRegistry: WsMetricRegistry;
-  let stubRelay: Relay;
-  let stubConnectionLimiter: ConnectionLimiter;
-  let stubMirrorNodeClient: MirrorNodeClient;
-  let stubSubscriptionService: SubscriptionService;
-  let stubConfigService: ConfigService;
+  let mockLogger: { warn: sinon.SinonStub; info: sinon.SinonStub };
+  let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
+  let stubRelay: sinon.SinonStubbedInstance<Relay>;
+  let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
+  let stubMirrorNodeClient: sinon.SinonStubbedInstance<MirrorNodeClient>;
+  let stubSubscriptionService: sinon.SinonStubbedInstance<SubscriptionService>;
+  let stubConfigService: sinon.SinonStub;
   let requestDetails: RequestDetails;
 
   beforeEach(() => {
@@ -76,7 +79,7 @@ describe('Subscribe Controller', function () {
   });
 
   describe('handleEthSubscribe', async function () {
-    let defaultParams: any;
+    let defaultParams: ISharedParams;
 
     beforeEach(() => {
       defaultParams = {
@@ -84,7 +87,7 @@ describe('Subscribe Controller', function () {
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         params: [constants.SUBSCRIBE_EVENTS.NEW_HEADS, {}],
         relay: stubRelay,
-        logger: mockLogger,
+        logger: mockLogger as unknown as Logger,
         limiter: stubConnectionLimiter,
         mirrorNodeClient: stubMirrorNodeClient,
         ctx: createMockContext(),
@@ -97,6 +100,8 @@ describe('Subscribe Controller', function () {
       stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
       const resp = await handleEthSubscribe(defaultParams);
 
+      assertJsonRpcError(resp);
+
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.contain('WS Subscriptions are disabled');
     });
@@ -108,11 +113,13 @@ describe('Subscribe Controller', function () {
         params: [constants.SUBSCRIBE_EVENTS.LOGS, {}],
       });
 
+      assertJsonRpcResult(resp);
+
       expect(resp.result).to.equal(subscriptionId);
     });
 
     it('should not be able to subscribe for logs when multiple addresses are provided as filter ', async function () {
-      stubMirrorNodeClient.resolveEntityType.returns(true);
+      stubMirrorNodeClient.resolveEntityType.resolves({ type: constants.TYPE_CONTRACT, entity: {} });
       stubSubscriptionService.subscribe.returns(subscriptionId);
 
       await expect(
@@ -133,6 +140,8 @@ describe('Subscribe Controller', function () {
       stubSubscriptionService.subscribe.returns(subscriptionId);
       stubConfigService.withArgs('WS_NEW_HEADS_ENABLED').returns(true);
       const resp = await handleEthSubscribe(defaultParams);
+
+      assertJsonRpcResult(resp);
 
       expect(resp.result).to.equal(subscriptionId);
     });

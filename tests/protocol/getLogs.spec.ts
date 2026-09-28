@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 
 import { predefined } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
+import { type Log } from '../../src/relay/lib/model';
 import { ConfigServiceTestHelper } from '../config-service/configServiceTestHelper';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
@@ -19,8 +20,15 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   this.timeout(240 * 1000);
   const METHOD_NAME = 'eth_getLogs';
 
+  interface LogTransaction {
+    from: string;
+    blockNumber: string;
+    blockHash: string;
+    nonce: string;
+  }
+
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  const INVALID_PARAMS: unknown[][] = [
     [],
     [{ address: '0xhedera', fromBlock: 'latest', toBlock: 'latest' }],
     [{ address: FAKE_TX_HASH, fromBlock: '0xhedera', toBlock: 'latest' }],
@@ -49,11 +57,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const accounts: AliasAccount[] = [];
-  let log0Block: any, log4Block: any;
+  let log0Block: LogTransaction, log4Block: LogTransaction;
   let contractAddress: string, contractAddress2: string;
   let latestBlock: number, previousBlock: number;
   let expectedAmountOfLogs: number;
-  let simpleContractFilterObj: any;
+  let simpleContractFilterObj: { address: string | ethers.Addressable; fromBlock: string; toBlock: string };
 
   before(async () => {
     accounts.push(...(await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 2, initialBalance)));
@@ -115,7 +123,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('@release Should execute eth_getLogs and handle valid requests correctly', async () => {
-        const logs = (await client.call(METHOD_NAME, [simpleContractFilterObj])) as any[];
+        const logs = (await client.call(METHOD_NAME, [simpleContractFilterObj])) as Log[];
 
         expect(logs[0].address.toLowerCase()).to.eq((simpleContractFilterObj.address as string).toLowerCase());
         expect(logs[0].logIndex).to.eq('0x0');
@@ -129,10 +137,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             fromBlock: numberTo0x(previousBlock),
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
 
         expect(logs.length).to.be.greaterThan(0);
-        const txIndexLogIndexMapping: any[] = [];
+        const txIndexLogIndexMapping: string[] = [];
         for (const i in logs) {
           expect(logs[i]).to.have.property('address');
           expect(logs[i]).to.have.property('logIndex');
@@ -179,7 +187,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             fromBlock: log0Block.blockNumber,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
 
         const log0BlockInt = parseInt(log0Block.blockNumber);
@@ -201,7 +209,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: log4Block.blockNumber,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
 
         const log0BlockInt = parseInt(log0Block.blockNumber);
@@ -221,7 +229,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: `0x${notExistedLog.toString(16)}`,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
 
         expect(logs.length).to.eq(0);
       });
@@ -233,7 +241,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             fromBlock: numberTo0x(previousBlock),
             address: contractAddress,
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
 
         for (const i in logs) {
@@ -249,7 +257,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             fromBlock: numberTo0x(latestBlock - customBlockRangeLimit - 1),
             address: contractAddress,
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
 
         for (const i in logs) {
@@ -263,7 +271,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             fromBlock: numberTo0x(previousBlock),
             address: [contractAddress, contractAddress2, Address.NON_EXISTING_ADDRESS],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
         expect(logs.length).to.be.eq(6);
 
@@ -280,7 +288,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             blockHash: log0Block.blockHash,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
 
         for (const i in logs) {
@@ -294,7 +302,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             blockHash: Address.NON_EXISTING_BLOCK_HASH,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs).to.exist;
         expect(logs.length).to.be.eq(0);
       });
@@ -306,7 +314,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: log4Block.blockNumber,
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.be.greaterThan(0);
         //using second log in array, because the first doesn't contain any topics
         const topic = logs[1].topics[0];
@@ -317,7 +325,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: log4Block.blockNumber,
             topics: [topic],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logsWithTopic.length).to.be.greaterThan(0);
 
         for (const i in logsWithTopic) {
@@ -337,7 +345,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: numberTo0x(latestBlock),
             address: [contractAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
 
         expect(logs.length).to.eq(expectedAmountOfLogs);
       });
@@ -349,7 +357,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: 'latest',
             address: ethers.ZeroAddress,
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.eq(0);
       });
 
@@ -365,7 +373,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
             toBlock: 'latest',
             address: [ethers.ZeroAddress, contractAddress2],
           },
-        ])) as any[];
+        ])) as Log[];
         expect(logs.length).to.eq(1);
       });
 

@@ -5,8 +5,31 @@ import sinon from 'sinon';
 
 import { run } from '../../bin/hiero-relay.js';
 
+interface FsStub {
+  existsSync: sinon.SinonStub;
+  createWriteStream: sinon.SinonStub;
+}
+
+interface CliHelperStub {
+  populateEnvBaseOnReadOnlyOption: sinon.SinonStub;
+  populateEnvBasedOnNetwork: sinon.SinonStub;
+  getStdio: sinon.SinonStub;
+  gracefulStop: sinon.SinonStub;
+}
+
+interface ProcessStub {
+  env: NodeJS.ProcessEnv;
+  exit: sinon.SinonStub;
+  on: sinon.SinonStub;
+}
+
 describe('CLI run()', () => {
-  let fsStub, spawnStub, cliHelperStub, consoleStub, processStub, dotenvStub;
+  let fsStub: FsStub;
+  let spawnStub: sinon.SinonStub;
+  let cliHelperStub: CliHelperStub;
+  let consoleStub: { log: sinon.SinonStub };
+  let processStub: ProcessStub;
+  let dotenvStub: { config: sinon.SinonStub };
 
   beforeEach(() => {
     fsStub = {

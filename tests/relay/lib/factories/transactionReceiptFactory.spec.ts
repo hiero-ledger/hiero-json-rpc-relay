@@ -12,7 +12,13 @@ import type { ITransactionReceipt, MirrorNodeContractResultReceipt } from '../..
 export type DecodedLog = [Uint8Array, Uint8Array[], Uint8Array];
 export type DecodedReceipt = [Uint8Array, Uint8Array, Uint8Array, DecodedLog[]];
 
-function decodeEncodedReceipt(encoded: string) {
+function decodeEncodedReceipt(encoded: string): {
+  txType: number;
+  rootOrStatus: Uint8Array;
+  cumulativeGasUsed: Uint8Array;
+  logsBloom: Uint8Array;
+  logs: DecodedLog[];
+} {
   const bytes = hexToBytes(encoded as `0x${string}`);
 
   const isTyped = bytes.length > 0 && (bytes[0] === 0x01 || bytes[0] === 0x02);
@@ -113,7 +119,7 @@ describe('TransactionReceiptFactory', () => {
       expect(BigInt(decodedHex)).to.equal(BigInt(receipt.cumulativeGasUsed));
       expect(cumulativeGasUsed.length).to.be.greaterThan(0);
       expect(cumulativeGasUsed[0]).to.not.equal(0x00);
-      expect(BigInt(decodedHex)).to.equal(1n);
+      expect(BigInt(decodedHex)).to.equal(BigInt(1));
     });
 
     it('encodes logs as [address, topics[], data] per Yellow Paper', () => {
@@ -275,7 +281,7 @@ describe('TransactionReceiptFactory', () => {
         s: null,
         type: null,
         v: null,
-        nonce: null,
+        nonce: null as unknown as number,
       };
 
       const receipt = TransactionReceiptFactory.createRegularReceipt({

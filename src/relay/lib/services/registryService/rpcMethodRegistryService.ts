@@ -29,7 +29,7 @@ export function registerRpcMethods(rpcNamespaceRegistry: RpcNamespaceRegistry[])
     Object.getOwnPropertyNames(prototype)
       .filter((operationName) => operationName !== 'constructor' && typeof prototype[operationName] === 'function')
       .forEach((operationName) => {
-        const operationFunction = serviceImpl[operationName];
+        const operationFunction = Reflect.get(serviceImpl, operationName);
 
         // Only register methods that have been decorated with @rpcMethod (i.e. RPC_METHOD_KEY is true)
         if (operationFunction && operationFunction[RPC_METHOD_KEY] === true) {

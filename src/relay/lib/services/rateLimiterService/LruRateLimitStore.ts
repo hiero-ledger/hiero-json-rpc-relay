@@ -4,7 +4,7 @@ import { type RateLimitKey, type RateLimitStore } from '../../types';
 
 interface DatabaseEntry {
   reset: number;
-  methodInfo: any;
+  methodInfo: Record<string, MethodDatabase>;
 }
 
 interface MethodDatabase {
@@ -18,7 +18,7 @@ interface MethodDatabase {
  * Tracks request counts per IP and method within a time window.
  */
 export class LruRateLimitStore implements RateLimitStore {
-  private database: any;
+  private database: Record<string, DatabaseEntry>;
   private duration: number;
 
   /**

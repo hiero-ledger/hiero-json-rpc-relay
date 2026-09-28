@@ -45,14 +45,15 @@ export interface SpendingPlanConfig {
  * @param plan - The object to validate.
  * @returns {boolean} - True if the object is a valid {@link SpendingPlanConfig}, false otherwise.
  */
-export function isValidSpendingPlanConfig(plan: any): plan is SpendingPlanConfig {
+export function isValidSpendingPlanConfig(plan: unknown): plan is SpendingPlanConfig {
+  const candidate = plan as Partial<SpendingPlanConfig> | null | undefined;
   return (
-    plan &&
-    typeof plan.id === 'string' &&
-    typeof plan.name === 'string' &&
-    typeof plan.subscriptionTier === 'string' &&
-    Object.values(SubscriptionTier).includes(plan.subscriptionTier) &&
-    ((Array.isArray(plan.evmAddresses) && plan.evmAddresses.length > 0) ||
-      (Array.isArray(plan.ipAddresses) && plan.ipAddresses.length > 0))
+    candidate != null &&
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.subscriptionTier === 'string' &&
+    Object.values(SubscriptionTier).includes(candidate.subscriptionTier) &&
+    ((Array.isArray(candidate.evmAddresses) && candidate.evmAddresses.length > 0) ||
+      (Array.isArray(candidate.ipAddresses) && candidate.ipAddresses.length > 0))
   );
 }

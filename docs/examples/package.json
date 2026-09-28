@@ -3,10 +3,10 @@
     "private": true,
     "type": "module",
     "engines": {
-        "node": ">=10.17.0"
+        "node": ">=18"
     },
     "dependencies": {
-        "@hiero-ledger/sdk": "^2.83.0",
-        "dotenv": "^17.2.1"
+        "@hiero-ledger/sdk": "2.88.0",
+        "dotenv": "17.4.2"
     }
 }

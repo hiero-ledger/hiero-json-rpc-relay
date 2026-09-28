@@ -9,7 +9,7 @@ import { type ISharedParams } from './jsonRpcController';
  * Unsubscribes the WebSocket from the specified subscription ID and returns the response.
  * @param {object} args - An object containing the function parameters as properties.
  * @param {Context} args.ctx - The context object containing information about the WebSocket connection.
- * @param {any[]} args.params - The parameters of the unsubscription request.
+ * @param {unknown[]} args.params - The parameters of the unsubscription request.
  * @param {IJsonRpcRequest} args.request - The request object received from the client.
  * @param {Relay} args.relay - The relay object used for managing WebSocket subscriptions.
  * @param {ConnectionLimiter} args.limiter - The limiter object used for rate limiting WebSocket connections.
@@ -27,7 +27,7 @@ export const handleEthUnsubscribe = ({
   if (!areSubscriptionsEnabled()) {
     return sendSubscriptionsDisabledError(logger, requestDetails);
   }
-  const subId = params[0];
+  const subId = params[0] as string | undefined;
   const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
   limiter.decrementSubs(ctx, unsubbedCount);
   return jsonRespResult(request.id, unsubbedCount !== 0);

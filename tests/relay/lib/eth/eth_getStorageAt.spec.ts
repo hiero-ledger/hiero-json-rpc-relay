@@ -29,7 +29,7 @@ import {
   MOST_RECENT_BLOCK,
   OLDER_BLOCK,
 } from './eth-config';
-import { generateEthTestEnv } from './eth-helpers';
+import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
@@ -46,7 +46,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
   }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
     generateEthTestEnv();
   const requestDetails = new RequestDetails({ requestId: 'eth_getStorageAtTest', ipAddress: '0.0.0.0' });
-  function confirmResult(result: string) {
+  function confirmResult(result: string): void {
     expect(result).to.exist;
     expect(result).to.not.be.null;
     expect(result).equal(DEFAULT_CURRENT_CONTRACT_STATE.state[0].value);
@@ -56,11 +56,11 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
 
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon.stub(asSdkClientProvider(hapiServiceInstance), 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));

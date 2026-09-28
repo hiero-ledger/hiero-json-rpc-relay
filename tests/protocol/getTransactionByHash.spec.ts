@@ -10,7 +10,7 @@ import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import DeployerContractJson from '../server/contracts/Deployer.json';
 import parentContractJson from '../server/contracts/Parent.json';
-import Assertions from '../server/helpers/assertions';
+import Assertions, { type TransactionResponseLike } from '../server/helpers/assertions';
 import Address from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
 import { type AliasAccount } from '../server/types/AliasAccount';
@@ -22,7 +22,21 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
 
   const FAKE_TX_HASH = `0x${'00'.repeat(20)}`;
-  const INVALID_PARAMS: any[][] = [
+  interface TransactionByHash extends TransactionResponseLike {
+    r: string;
+    s: string;
+    v: string;
+  }
+
+  interface MirrorContractResult {
+    block_hash: string;
+    hash: string;
+    r: string;
+    s: string;
+    v: number;
+  }
+
+  const INVALID_PARAMS: unknown[][] = [
     [],
     [''],
     [66],
@@ -46,10 +60,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
   const accounts: AliasAccount[] = [];
   let parentContractAddress: string;
   let simpleTxHash: string;
-  let simpleTxMirror: any;
+  let simpleTxMirror: MirrorContractResult;
   let deployerContract: ethers.Contract;
   let deployerContractAddress: string;
-  let deployerDefaultTxFields: any;
+  let deployerDefaultTxFields: ethers.TransactionRequest;
 
   before(async () => {
     accounts.push(...(await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 2, initialBalance)));
@@ -103,7 +117,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
       it('@release Should execute eth_getTransactionByHash and handle valid requests correctly', async () => {
-        const txReceipt = (await client.call(METHOD_NAME, [simpleTxHash])) as any;
+        const txReceipt = (await client.call(METHOD_NAME, [simpleTxHash])) as TransactionByHash;
         expect(txReceipt.from).to.be.eq(accounts[0].address.toLowerCase());
         expect(txReceipt.to).to.be.eq(accounts[1].address.toLowerCase());
         expect(txReceipt.blockHash).to.be.eq(simpleTxMirror.block_hash.slice(0, 66));
@@ -130,7 +144,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         const transactionHash = await relay.sendRawTransaction(signedTx);
         const mirrorTransaction = await mirrorNode.get(`/contracts/results/${transactionHash}`);
 
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionByHash;
         const addressResult = await mirrorNode.get(`/accounts/${res.from}`);
         mirrorTransaction.from = addressResult.evm_address;
 
@@ -163,7 +177,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
         // wait for tx receipt
         await relay.pollForValidTransactionReceipt(transactionHash);
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionByHash;
 
         expect(res.to).to.be.null;
       });
@@ -171,7 +185,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
       it('should return to = null for contract deployment tx', async () => {
         const { hash } = deployerContract.deploymentTransaction()!;
 
-        const res = (await client.call(METHOD_NAME, [hash])) as any;
+        const res = (await client.call(METHOD_NAME, [hash])) as TransactionByHash;
         expect(res.to).to.be.null;
       });
 
@@ -186,7 +200,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         );
         await relay.pollForValidTransactionReceipt(transactionHash);
 
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionByHash;
         expect(res.to).to.equal(deployerContractAddress);
       });
 
@@ -201,7 +215,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         );
         await relay.pollForValidTransactionReceipt(transactionHash);
 
-        const res = (await client.call(METHOD_NAME, [transactionHash])) as any;
+        const res = (await client.call(METHOD_NAME, [transactionHash])) as TransactionByHash;
         expect(res.to).to.equal(deployerContractAddress);
       });
 

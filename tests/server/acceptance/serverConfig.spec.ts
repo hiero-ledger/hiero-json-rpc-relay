@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { type Hbar } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 
 import { ConfigService } from '../../../src/config-service/services';
@@ -12,12 +13,12 @@ describe('@server-config Server Configuration Options Coverage', function () {
       const host = ConfigService.get('SERVER_HOST') || 'localhost';
       const port = ConfigService.get('SERVER_PORT');
       const method = 'eth_blockNumber';
-      const params: any[] = [];
+      const params: unknown[] = [];
 
       await expect(
         Utils.sendJsonRpcRequestWithDelay(host, port, method, params, requestTimeoutMs + 1000),
       ).to.eventually.be.rejected.and.satisfy(
-        ({ code, message }) => code === 'ECONNRESET' && message === 'socket hang up',
+        ({ code, message }: { code: string; message: string }) => code === 'ECONNRESET' && message === 'socket hang up',
       );
     });
 
@@ -25,7 +26,7 @@ describe('@server-config Server Configuration Options Coverage', function () {
     // to fail as well. This is a workaround to avoid that
     before(async () => {
       const balance = await global.servicesNode.getOperatorBalance();
-      global.servicesNode.getOperatorBalance = () => Promise.resolve(balance);
+      global.servicesNode.getOperatorBalance = (): Promise<Hbar> => Promise.resolve(balance);
     });
   });
 });

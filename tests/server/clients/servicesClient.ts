@@ -2,7 +2,6 @@
 
 import {
   AccountAllowanceApproveTransaction,
-  AccountBalanceQuery,
   AccountCreateTransaction,
   AccountId,
   AccountInfoQuery,
@@ -32,6 +31,7 @@ import {
   TokenType,
   type Transaction,
   TransactionId,
+  type TransactionReceipt,
   type TransactionResponse,
   TransferTransaction,
 } from '@hiero-ledger/sdk';
@@ -41,6 +41,11 @@ import type Long from 'long';
 import { Utils as relayUtils } from '../../../src/relay/utils';
 import { Utils } from '../helpers/utils';
 import { type AliasAccount } from '../types/AliasAccount';
+
+interface HTSTransactionResult {
+  client: Client;
+  receipt: TransactionReceipt;
+}
 
 const supportedEnvs = ['previewnet', 'testnet', 'mainnet'];
 
@@ -122,20 +127,22 @@ export default class ServicesClient {
     };
   }
 
-  async executeQuery<T>(query: Query<T>) {
+  async executeQuery<T>(query: Query<T>): Promise<T> {
     return query.execute(this.client);
   }
 
-  async executeTransaction(transaction: Transaction) {
+  async executeTransaction(transaction: Transaction): Promise<TransactionResponse> {
     return await transaction.execute(this.client);
   }
 
-  async executeAndGetTransactionReceipt(transaction: Transaction) {
+  async executeAndGetTransactionReceipt(transaction: Transaction): Promise<TransactionReceipt> {
     const resp = await this.executeTransaction(transaction);
     return resp?.getReceipt(this.client);
   }
 
-  async getRecordResponseDetails(resp: TransactionResponse) {
+  async getRecordResponseDetails(
+    resp: TransactionResponse,
+  ): Promise<{ executedTimestamp: string; executedTransactionId: string }> {
     const record = await resp.getRecord(this.client);
     const nanoString = record.consensusTimestamp.nanos.toString();
     const executedTimestamp = `${record.consensusTimestamp.seconds}.${nanoString.padStart(9, '0')}`;
@@ -147,7 +154,7 @@ export default class ServicesClient {
     return { executedTimestamp, executedTransactionId };
   }
 
-  async createToken(initialSupply: number = 1000) {
+  async createToken(initialSupply: number = 1000): Promise<TokenId> {
     const symbol = Math.random().toString(36).slice(2, 6).toUpperCase();
     const resp = await this.executeAndGetTransactionReceipt(
       new TokenCreateTransaction()
@@ -163,7 +170,7 @@ export default class ServicesClient {
     return tokenId!;
   }
 
-  async associateToken(tokenId: string | TokenId) {
+  async associateToken(tokenId: string | TokenId): Promise<void> {
     await this.executeAndGetTransactionReceipt(
       new TokenAssociateTransaction()
         .setAccountId(this._thisAccountId())
@@ -172,17 +179,13 @@ export default class ServicesClient {
     );
   }
 
-  async transferToken(tokenId: string | TokenId, recipient: AccountId, amount = 10) {
-    const receipt = await this.executeAndGetTransactionReceipt(
+  async transferToken(tokenId: string | TokenId, recipient: AccountId, amount = 10): Promise<TransactionReceipt> {
+    return await this.executeAndGetTransactionReceipt(
       new TransferTransaction()
         .addTokenTransfer(tokenId, this._thisAccountId(), -amount)
         .addTokenTransfer(tokenId, recipient, amount)
         .setTransactionMemo('Relay test token transfer'),
     );
-
-    await this.executeQuery(new AccountBalanceQuery().setAccountId(recipient));
-
-    return receipt;
   }
 
   async executeContractCall(
@@ -190,7 +193,7 @@ export default class ServicesClient {
     functionName: string,
     params: ContractFunctionParameters,
     gasLimit: number | Long = 75000,
-  ) {
+  ): Promise<{ contractExecuteTimestamp: string; contractExecutedTransactionId: string }> {
     const tx = new ContractExecuteTransaction()
       .setContractId(contractId)
       .setGas(gasLimit)
@@ -213,7 +216,7 @@ export default class ServicesClient {
     params: ContractFunctionParameters,
     gasLimit = 500_000,
     amount = 0,
-  ) {
+  ): Promise<{ contractExecuteTimestamp: string; contractExecutedTransactionId: string }> {
     const tx = new ContractExecuteTransaction()
       .setContractId(contractId)
       .setGas(gasLimit)
@@ -237,7 +240,6 @@ export default class ServicesClient {
     provider: JsonRpcProvider | null = null,
     keyList?: KeyList,
   ): Promise<AliasAccount> {
-    await this.executeQuery(new AccountBalanceQuery().setAccountId(accountId));
     const accountInfo = (await this.executeQuery(new AccountInfoQuery().setAccountId(accountId)))!;
     const servicesClient = new ServicesClient(this.network, accountInfo.accountId.toString(), privateKey.toString());
 
@@ -266,7 +268,7 @@ export default class ServicesClient {
     contractId: string | ContractId,
     initialBalance = 10,
     provider: JsonRpcProvider | null = null,
-  ) {
+  ): Promise<AliasAccount> {
     const privateKey = PrivateKey.generateECDSA();
     const publicKey = privateKey.publicKey;
 
@@ -315,7 +317,7 @@ export default class ServicesClient {
     gas = 100_000,
     constructorParameters: Uint8Array = new Uint8Array(),
     initialBalance = 0,
-  ) {
+  ): Promise<TransactionReceipt> {
     const contractCreate = await new ContractCreateFlow()
       .setGas(gas)
       .setBytecode(contract.bytecode)
@@ -325,21 +327,21 @@ export default class ServicesClient {
     return contractCreate.getReceipt(this.client);
   }
 
-  _thisAccountId() {
+  _thisAccountId(): AccountId {
     return this.client.operatorAccountId || AccountId.fromString('0.0.0');
   }
 
   async getOperatorBalance(): Promise<Hbar> {
-    const accountBalance = await new AccountBalanceQuery()
-      .setAccountId(this.client.operatorAccountId!)
-      .execute(this.client);
-    return accountBalance.hbars;
+    // wait 2 sec for mirror node data population
+    await new Promise((r) => setTimeout(r, 2000));
+    const account = await global.mirrorNode.get(`/accounts/${this._thisAccountId().toString()}`);
+    return Hbar.fromTinybars(account.balance.balance);
   }
 
-  async getFileContent(fileId: string): Promise<any> {
+  async getFileContent(fileId: string): Promise<Buffer> {
     const query = new FileContentsQuery().setFileId(fileId);
 
-    return await query.execute(this.client);
+    return (await query.execute(this.client)) as Buffer;
   }
 
   async updateFileContent(fileId: string, content: string): Promise<void> {
@@ -352,7 +354,7 @@ export default class ServicesClient {
     await response.getReceipt(this.client);
   }
 
-  getClient() {
+  getClient(): Client {
     try {
       const network = JSON.parse(this.network);
       return Client.forNetwork(network);
@@ -370,7 +372,7 @@ export default class ServicesClient {
       initialSupply: 5000,
       adminPrivateKey: this.DEFAULT_KEY,
     },
-  ) {
+  ): Promise<HTSTransactionResult> {
     const expiration = new Date();
     expiration.setDate(expiration.getDate() + 30);
 
@@ -443,7 +445,7 @@ export default class ServicesClient {
       maxSupply: 5000,
       adminPrivateKey: this.DEFAULT_KEY,
     },
-  ) {
+  ): Promise<HTSTransactionResult> {
     const htsClient = this.getClient();
     htsClient.setOperator(AccountId.fromString(args.treasuryAccountId), args.adminPrivateKey);
 
@@ -486,7 +488,7 @@ export default class ServicesClient {
       treasuryAccountId: '0.0.2',
       adminPrivateKey: this.DEFAULT_KEY,
     },
-  ) {
+  ): Promise<HTSTransactionResult> {
     const htsClient = this.getClient();
     htsClient.setOperator(AccountId.fromString(args.treasuryAccountId), args.adminPrivateKey);
 
@@ -504,13 +506,18 @@ export default class ServicesClient {
   }
 
   async grantKyc(
-    args = {
+    args: {
+      tokenId: string | TokenId;
+      treasuryAccountId: string;
+      adminPrivateKey: PrivateKey;
+      accountId: string | AccountId;
+    } = {
       tokenId: '0.0.1000',
       treasuryAccountId: '0.0.2',
       adminPrivateKey: this.DEFAULT_KEY,
       accountId: '0.0.1001',
     },
-  ) {
+  ): Promise<HTSTransactionResult> {
     const htsClient = this.getClient();
     htsClient.setOperator(AccountId.fromString(args.treasuryAccountId), args.adminPrivateKey);
 
@@ -534,7 +541,7 @@ export default class ServicesClient {
     tokenId: string | TokenId,
     privateKey: PrivateKey,
     htsClient: Client,
-  ) {
+  ): Promise<void> {
     const tokenAssociate = await (
       await new TokenAssociateTransaction()
         .setAccountId(accountId)
@@ -546,7 +553,7 @@ export default class ServicesClient {
     await tokenAssociate.getReceipt(htsClient);
   }
 
-  async approveHTSToken(spenderId: string | AccountId, tokenId: string | TokenId, htsClient: Client) {
+  async approveHTSToken(spenderId: string | AccountId, tokenId: string | TokenId, htsClient: Client): Promise<void> {
     const amount = 10000;
     const tokenApprove = await new AccountAllowanceApproveTransaction()
       .addTokenAllowance(tokenId, spenderId, amount)
@@ -560,7 +567,7 @@ export default class ServicesClient {
     tokenId: string | TokenId,
     amount: number | Long,
     fromId: string | AccountId = this.client.operatorAccountId!,
-  ) {
+  ): Promise<void> {
     const tokenTransfer = await new TransferTransaction()
       .addTokenTransfer(tokenId, fromId, -amount)
       .addTokenTransfer(tokenId, accountId, amount)

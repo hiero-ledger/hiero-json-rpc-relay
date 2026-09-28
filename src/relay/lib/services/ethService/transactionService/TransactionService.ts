@@ -28,6 +28,7 @@ import { Precheck } from '../../../precheck';
 import type {
   IAccountBalance,
   IContractResultsParams,
+  IExchangeRate,
   ITransactionReceipt,
   LockAcquisitionResult,
   MirrorNodeContractResult,
@@ -601,9 +602,9 @@ export class TransactionService implements ITransactionService {
     const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
     const cacheTTL = 15 * 60 * 1000; // 15 minutes
 
-    let currentNetworkExchangeRate = await this.cacheService.get(cacheKey, callingMethod);
+    let currentNetworkExchangeRate = await this.cacheService.get<IExchangeRate>(cacheKey, callingMethod);
     if (!currentNetworkExchangeRate) {
-      currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
+      currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails))!.current_rate;
       await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, cacheTTL);
     }
     return currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
@@ -937,11 +938,11 @@ export class TransactionService implements ITransactionService {
    *   post-exec failure   → nonce moved            → { null, true }
    */
   private async handleSubmissionError(
-    error: any,
+    error: unknown,
     parsedTx: EthersTransaction,
     senderAddress: string,
     requestDetails: RequestDetails,
-  ): Promise<{ error: any; shouldPollAndCleanup: boolean }> {
+  ): Promise<{ error: unknown; shouldPollAndCleanup: boolean }> {
     // Success: nothing to trace here (the processor already recorded `sent`).
     if (!error) return { error: null, shouldPollAndCleanup: true };
 
@@ -1028,7 +1029,7 @@ export class TransactionService implements ITransactionService {
    * @param originalCallerAddress The address of the original caller
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
    * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<{submittedTransactionId: string, error: any}>} A promise that resolves to an object containing transaction submission details
+   * @returns {Promise<{submittedTransactionId: string, error: unknown}>} A promise that resolves to an object containing transaction submission details
    */
   private async submitTransaction(
     transactionBuffer: Buffer,
@@ -1037,11 +1038,11 @@ export class TransactionService implements ITransactionService {
     requestDetails: RequestDetails,
   ): Promise<{
     submittedTransactionId: string;
-    error: any;
+    error: unknown;
   }> {
     let fileId: FileId | null = null;
     let submittedTransactionId = '';
-    let error = null;
+    let error: unknown = null;
 
     try {
       // Pass a lazy getter so the exchange rate is only fetched when the HFS path is actually
@@ -1068,7 +1069,7 @@ export class TransactionService implements ITransactionService {
           `Transaction successfully submitted but returned invalid transactionID: transactionId==${submittedTransactionId}`,
         );
       }
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof SDKClientError) {
         submittedTransactionId = e.transactionId || '';
       }

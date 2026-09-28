@@ -8,14 +8,14 @@ import { expect } from 'chai';
 
 import type { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 
-let execApisOpenRpcData: any = null;
-function getExecApisOpenRpcData() {
+let execApisOpenRpcData: { methods: Method[] } | null = null;
+function getExecApisOpenRpcData(): { methods: Method[] } {
   if (!execApisOpenRpcData) {
     const filePath = path.resolve(__dirname, '../../../../../../openrpc_exec_apis.json');
     if (!fs.existsSync(filePath)) throw new Error(`OpenRPC data file not found at path: ${filePath}`);
     execApisOpenRpcData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   }
-  return execApisOpenRpcData;
+  return execApisOpenRpcData!;
 }
 
 const ajv = new Ajv({ strict: false });

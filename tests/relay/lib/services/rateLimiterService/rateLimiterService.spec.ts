@@ -36,12 +36,12 @@ describe('IPRateLimiterService Test Suite', function () {
     // Create a mock store for tests
     mockStore = {
       incrementAndCheck: sinon.stub().resolves(false),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<RateLimitStore>;
 
     // Create a mock Redis client for tests that need it
     mockRedisClient = {
       eval: sinon.stub(),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<RedisClientType>;
   });
 
   afterEach(() => {

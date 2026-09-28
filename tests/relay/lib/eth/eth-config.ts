@@ -731,7 +731,7 @@ export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL = `contracts/results/logs?tim
 export const BLOCKS_LIMIT_ORDER_URL = 'blocks?limit=1&order=desc';
 export const CONTRACTS_RESULTS_NEXT_URL = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc&hbar=false`; // just flip the timestamp parameters for simplicity
 export const ACCOUNT_WITHOUT_TRANSACTIONS = `accounts/${LONG_ZERO_ADDRESS}?transactions=false`;
-export const contractByEvmAddress = (evmAddress: string) => `contracts/${evmAddress}`;
+export const contractByEvmAddress = (evmAddress: string): string => `contracts/${evmAddress}`;
 export const CONTRACTS_RESULTS_BLOCK_NUMBER_URL = `contracts/results?block.number=${DEFAULT_BLOCK.number}&limit=100&order=asc&hbar=false`;
 export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2 = `contracts/results/logs?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`;
 

@@ -7,7 +7,8 @@ import { Utils } from '../../server/helpers/utils';
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 eth_newFilter', async function () {
-  let wsFilterObj: any, ethersWsProvider: WebSocketProvider;
+  let wsFilterObj: { address: (string | ethers.Addressable)[]; fromBlock: string; toBlock: string };
+  let ethersWsProvider: WebSocketProvider;
   const METHOD_NAME = 'eth_newFilter';
   const INVALID_PARAMS = [
     [],
@@ -68,7 +69,7 @@ describe('@web-socket-batch-2 eth_newFilter', async function () {
     it(`@release Should execute eth_newFilter on Standard Web Socket and handle valid requests correctly`, async () => {
       const response = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, [wsFilterObj]);
       WsTestHelper.assertJsonRpcObject(response);
-      const filterId = response.result;
+      const filterId = response.result as string;
 
       expect(filterId).to.exist;
       expect(filterId.startsWith('0x')).to.be.true;

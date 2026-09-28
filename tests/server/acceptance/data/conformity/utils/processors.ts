@@ -12,7 +12,7 @@ import { findSchema, hasResponseFormatIssues, isResponseValid } from './validati
  * @param {string} content - The input string to be segmented.
  * @returns {{ request: string, response: string, wildcards: string[] }} - An object containing the separated request, response strings, and wildcard fields.
  */
-export function splitReqAndRes(content: string) {
+export function splitReqAndRes(content: string): { request: string; response: string; wildcards: string[] } {
   const lines = content
     .split('\n')
     .map((line: string) => line.trim())
@@ -63,7 +63,12 @@ export function splitReqAndRes(content: string) {
  *    - Schema validation (when schema exists and no wildcards)
  *    - Response format validation (key-by-key comparison with wildcards support)
  */
-export async function processFileContent(relayUrl: string, directory: string, file: string, content: FileContent) {
+export async function processFileContent(
+  relayUrl: string,
+  directory: string,
+  file: string,
+  content: FileContent,
+): Promise<void> {
   console.log('Executing for ', file);
   console.log('Original request:', content.request);
   const modifiedRequest = await updateRequestParams(file, JSON.parse(content.request));

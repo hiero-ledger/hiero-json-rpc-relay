@@ -14,7 +14,7 @@ import { txWithLogWithNoTopics, txWithMultipleLogs } from './fixtures/txReceiptL
  * @param address
  * @param topics
  */
-const toLogs = (address: string, topics?: string[] | null) => [{ address, topics }] as Log[];
+const toLogs = (address: string, topics?: string[] | null): Log[] => [{ address, topics }] as Log[];
 
 describe('LogsBloomUtils', () => {
   describe('buildLogsBloom', () => {
@@ -23,7 +23,7 @@ describe('LogsBloomUtils', () => {
      * @param item
      * @param bitvector
      */
-    const checkInLogsBloom = (item: string, bitvector: string) => {
+    const checkInLogsBloom = (item: string, bitvector: string): boolean => {
       const bitvectorUint8Arr = Uint8Array.from(Buffer.from(strip0x(bitvector), 'hex'));
       const itemBuf = Buffer.alloc(32, strip0x(keccak256(item)), 'hex');
 

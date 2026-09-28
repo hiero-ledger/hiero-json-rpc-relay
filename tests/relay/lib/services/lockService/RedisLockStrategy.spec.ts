@@ -12,9 +12,14 @@ import {
   LockMetricsService as LockMetricsServiceClass,
 } from '../../../../../src/relay/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../../src/relay/lib/services/lockService/RedisLockStrategy';
+import { assertExists } from '../../../../helpers/typeAssertions';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 use(chaiAsPromised);
+
+interface RedisLockStrategyInternals {
+  generateSessionKey(): string;
+}
 
 describe('RedisLockStrategy Test Suite', function () {
   this.timeout(10000);
@@ -23,6 +28,7 @@ describe('RedisLockStrategy Test Suite', function () {
   let mockRedisClient: sinon.SinonStubbedInstance<RedisClientType>;
   let mockMetricsService: sinon.SinonStubbedInstance<LockMetricsService>;
   let redisLockStrategy: RedisLockStrategy;
+  let lockInternals: RedisLockStrategyInternals;
 
   const testAddress = '0x1234567890abcdef1234567890abcdef12345678';
   const normalizedAddress = testAddress.toLowerCase();
@@ -40,7 +46,7 @@ describe('RedisLockStrategy Test Suite', function () {
       lLen: sinon.stub(),
       eval: sinon.stub(),
       exists: sinon.stub(),
-    } as any;
+    } as unknown as sinon.SinonStubbedInstance<RedisClientType>;
 
     // Default: session is present in the queue. Individual tests override with
     // `.resolves([])` to exercise the rejoin path.
@@ -62,10 +68,11 @@ describe('RedisLockStrategy Test Suite', function () {
     } as sinon.SinonStubbedInstance<LockMetricsService>;
 
     redisLockStrategy = new RedisLockStrategy(
-      mockRedisClient as any,
+      mockRedisClient as unknown as RedisClientType,
       logger,
       mockMetricsService as unknown as LockMetricsService,
     );
+    lockInternals = redisLockStrategy as unknown as RedisLockStrategyInternals;
   });
 
   afterEach(() => {
@@ -84,7 +91,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lLen.resolves(0);
 
       // Stub generateSessionKey to return predictable value
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -113,7 +120,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lLen.resolves(1);
       mockRedisClient.exists.resolves(1); // Other session's heartbeat exists (alive)
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -134,7 +141,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(upperCaseAddress);
 
@@ -151,7 +158,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lIndex.rejects(redisError);
       mockRedisClient.lRem.resolves(1);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -170,7 +177,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // lPush fails immediately
       mockRedisClient.lPush.rejects(redisError);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -234,7 +241,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const evalCall = mockRedisClient.eval.getCall(0);
       expect(evalCall).to.not.be.null;
-      expect((evalCall as any).args[1].keys[0]).to.equal(`lock:${upperCaseAddress.toLowerCase()}`);
+      expect((evalCall.args[1] as { keys: string[] }).keys[0]).to.equal(`lock:${upperCaseAddress.toLowerCase()}`);
     });
   });
 
@@ -251,7 +258,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0); // Queue empty after acquiring
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(session1);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(session1);
 
       const result1 = await redisLockStrategy.acquireLock(testAddress);
       expect(result1).to.not.be.undefined;
@@ -274,7 +281,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -305,7 +312,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1); // Zombie removal and our queue cleanup
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -344,7 +351,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(1);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -362,8 +369,10 @@ describe('RedisLockStrategy Test Suite', function () {
 
       // Each heartbeat SET should have PX (TTL in ms)
       heartbeatCalls.forEach((call) => {
-        expect(call.args[2]).to.have.property('PX');
-        expect(call.args[2].PX).to.be.a('number');
+        const options = call.args[2];
+        assertExists(options);
+        expect(options).to.have.property('PX');
+        expect(options.PX).to.be.a('number');
       });
     });
 
@@ -376,7 +385,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -390,6 +399,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // Verify each heartbeat SET has TTL (PX option)
       heartbeatSetCalls.forEach((call) => {
         const options = call.args[2];
+        assertExists(options);
         expect(options).to.have.property('PX');
         // TTL should be pollIntervalMs * LOCK_HEARTBEAT_MISSED_COUNT
         const expectedTtl =
@@ -413,7 +423,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(1);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -436,7 +446,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lIndex.rejects(redisError);
       mockRedisClient.lRem.rejects(new Error('Cleanup failed'));
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -458,7 +468,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -480,7 +490,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -507,7 +517,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lIndex.rejects(redisError);
       mockRedisClient.lRem.resolves(1);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -537,7 +547,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
       expect(result).to.not.be.undefined;
@@ -579,7 +589,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -605,7 +615,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -624,7 +634,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -645,7 +655,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
-      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+      sinon.stub(lockInternals, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -667,7 +677,7 @@ describe('RedisLockStrategy Real Redis Test Suite', function () {
   let strategy: RedisLockStrategy;
   let addressCounter = 0;
 
-  const uniqueAddress = () => `0x${(++addressCounter).toString(16).padStart(40, '0')}`;
+  const uniqueAddress = (): string => `0x${(++addressCounter).toString(16).padStart(40, '0')}`;
 
   after(() => {
     redisClient?.destroy();

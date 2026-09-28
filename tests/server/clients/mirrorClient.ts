@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Axios, { type AxiosInstance } from 'axios';
+import Axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 
 export default class MirrorClient {
@@ -33,7 +33,7 @@ export default class MirrorClient {
     this.client = mirrorNodeClient;
   }
 
-  async get(path: string) {
+  async get(path: string): Promise<AxiosResponse['data']> {
     return (await this.client.get(path)).data;
   }
 }

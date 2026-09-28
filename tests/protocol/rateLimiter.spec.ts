@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 
 import { WsTestHelper } from '../ws-server/helper';
-import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
+import { ALL_PROTOCOL_CLIENTS, type RpcRawResponse } from './helpers/protocolClient';
 
 /**
  * Protocol-level rate limiting tests.
@@ -21,6 +21,13 @@ describe('@protocol-acceptance @protocol-acceptance-eth-plain @ratelimiter Rate 
   const RATE_LIMIT = 2;
   const IP_RATE_LIMIT_ERROR_CODE = -32605;
 
+  function assertHasError(
+    response: RpcRawResponse,
+    message?: string,
+  ): asserts response is RpcRawResponse & { error: NonNullable<RpcRawResponse['error']> } {
+    expect(response.error, message).to.exist;
+  }
+
   /**
    * Sends `limit` requests that must all succeed, then sends one more that must
    * be rejected with the IP rate limit error code (-32605)
@@ -37,8 +44,7 @@ describe('@protocol-acceptance @protocol-acceptance-eth-plain @ratelimiter Rate 
     }
 
     const rateLimitedResponse = await client.callRaw(method, params);
-    expect(rateLimitedResponse.error, `[${client.label}] Request ${limit + 1} for ${method} should be rate limited`).to
-      .exist;
+    assertHasError(rateLimitedResponse, `[${client.label}] Request ${limit + 1} for ${method} should be rate limited`);
     expect(rateLimitedResponse.error.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     expect(rateLimitedResponse.error.message).to.include('IP Rate limit exceeded');
     expect(rateLimitedResponse.error.message).to.include(method);
@@ -88,7 +94,7 @@ describe('@protocol-acceptance @protocol-acceptance-eth-plain @ratelimiter Rate 
             expect(response.error).to.not.exist;
           }
           const hashrateLimited = await client.callRaw('eth_hashrate', []);
-          expect(hashrateLimited.error).to.exist;
+          assertHasError(hashrateLimited);
           expect(hashrateLimited.error.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
 
           // net_version -tier 3- has its own independent counter and must still succeed

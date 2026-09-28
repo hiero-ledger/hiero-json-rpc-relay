@@ -2,21 +2,21 @@
   "name": "layer-zero-example",
   "scripts": {},
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
-    "hardhat": "^3.1.12"
+    "@nomicfoundation/hardhat-toolbox": "7.0.0",
+    "hardhat": "3.1.12"
   },
   "dependencies": {
-    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.21",
-    "@layerzerolabs/lz-v2-utilities": "^3.0.22",
-    "@layerzerolabs/oapp-evm": "^0.3.0",
-    "@layerzerolabs/onft-evm": "^0.1.0",
-    "dotenv": "^16.4.7"
+    "@layerzerolabs/lz-evm-oapp-v2": "3.0.27",
+    "@layerzerolabs/lz-v2-utilities": "3.0.27",
+    "@layerzerolabs/oapp-evm": "0.3.0",
+    "@layerzerolabs/onft-evm": "0.1.0",
+    "dotenv": "16.4.7"
   },
   "overrides": {
-    "elliptic": "^6.6.1",
-    "ws": "^8.17.1",
-    "axios": "^1.8.2",
-    "cookie": "^0.7.0",
-    "@openzeppelin/contracts": "^5.1.0"
+    "elliptic": "6.6.1",
+    "ws": "8.20.1",
+    "axios": "1.19.0",
+    "cookie": "0.7.0",
+    "@openzeppelin/contracts": "5.3.0"
   }
 }

@@ -20,6 +20,7 @@ import { ethers } from 'ethers';
 import { ConfigService } from '../../../src/config-service/services';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
 import { withOverriddenEnvsInMochaTest } from '../../relay/helpers';
+import type MirrorClient from '../clients/mirrorClient';
 import type RelayClient from '../clients/relayClient';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import { Utils } from '../helpers/utils';
@@ -34,11 +35,23 @@ const GAS_PRICE_1501_GWEI = BigInt(1501) * GWEI;
 
 const LEGACY_GAS_LIMIT = 3_000_000;
 
+interface SignedTxFields {
+  hash: string;
+  value: string;
+  gasPrice: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+}
+
 describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
   this.timeout(240 * 1000);
 
   // @ts-ignore
-  const { mirrorNode, relay, initialBalance }: { mirrorNode: any; relay: RelayClient; initialBalance: string } = global;
+  const {
+    mirrorNode,
+    relay,
+    initialBalance,
+  }: { mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const CHAIN_ID = Number(ConfigService.get('CHAIN_ID'));
 
@@ -60,7 +73,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
     );
   });
 
-  async function waitForRelayTransaction(txHash: string, maxAttempts = 40): Promise<any> {
+  async function waitForRelayTransaction(txHash: string, maxAttempts = 40): Promise<SignedTxFields> {
     for (let i = 0; i < maxAttempts; i++) {
       const tx = await relay.call('eth_getTransactionByHash', [txHash]);
       if (tx) {
@@ -113,7 +126,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
     return { hash, signedTx };
   }
 
-  function assertEthGetTxMatchesSigned(signedSerialized: string, rpcTx: any): void {
+  function assertEthGetTxMatchesSigned(signedSerialized: string, rpcTx: SignedTxFields): void {
     expect(rpcTx, 'eth_getTransactionByHash result').to.not.be.null;
     const fromSigned = ethers.Transaction.from(signedSerialized);
     expect(rpcTx.hash.toLowerCase()).to.equal(fromSigned.hash?.toLowerCase());
@@ -122,8 +135,8 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
     if (fromSigned.type === 0) {
       expect(BigInt(rpcTx.gasPrice)).to.equal(fromSigned.gasPrice!);
     } else {
-      expect(BigInt(rpcTx.maxFeePerGas)).to.equal(fromSigned.maxFeePerGas!);
-      expect(BigInt(rpcTx.maxPriorityFeePerGas)).to.equal(fromSigned.maxPriorityFeePerGas!);
+      expect(BigInt(rpcTx.maxFeePerGas!)).to.equal(fromSigned.maxFeePerGas!);
+      expect(BigInt(rpcTx.maxPriorityFeePerGas!)).to.equal(fromSigned.maxPriorityFeePerGas!);
     }
   }
 
@@ -291,7 +304,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       const blockNumberHex = receipt.blockNumber;
       const block = await relay.call('eth_getBlockByNumber', [blockNumberHex, true]);
       expect(block?.transactions, 'full transactions').to.be.an('array');
-      const found = block.transactions.find((t: any) => t.hash?.toLowerCase() === hash.toLowerCase());
+      const found = block.transactions.find((t: SignedTxFields) => t.hash?.toLowerCase() === hash.toLowerCase());
       expect(found, 'tx in block').to.exist;
       assertEthGetTxMatchesSigned(signedTx, found);
     });
