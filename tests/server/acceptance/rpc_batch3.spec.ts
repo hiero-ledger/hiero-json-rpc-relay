@@ -147,6 +147,10 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     const VALUE = (n: number): string => `0x${n.toString(16).padStart(64, '0')}`;
     const COUNTER_SELECTOR = '0x61bc221a'; // counter(), storage slot 0, deployed as 1
     const SALT_SELECTOR = '0xbfa0b133'; // salt(), storage slot 1, deployed as 1
+    const ABSENT_LONG_ZERO = RelayCall.NON_EXISTING_LONG_ZERO_ADDRESS;
+    const ABSENT_ALIASED = RelayCall.NON_EXISTING_ADDRESS;
+    const HTS_PRECOMPILE = '0x0000000000000000000000000000000000000167';
+    const balanceReader = (address: string): string => `0x73${address.replace('0x', '')}3160005260206000f3`;
 
     let deployerAddress: string;
     let stateOverridesUnavailable = false;
@@ -257,6 +261,135 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         'latest',
       ]);
       expect(storage).to.equal(VALUE(1));
+    });
+
+    it('applies a balance override where the contract reads it', async function () {
+      const result = await ethCall([
+        { to: deployerAddress },
+        'latest',
+        {
+          [deployerAddress]: { code: balanceReader(ABSENT_LONG_ZERO) },
+          [ABSENT_LONG_ZERO]: { balance: '0xde0b6b3a7640000' },
+        },
+      ]);
+
+      expect(result).to.equal(VALUE(100_000_000));
+    });
+
+    it('applies a balance override to a long-zero account that does not exist on chain', async function () {
+      const withoutOverride = await ethCall([
+        { to: deployerAddress },
+        'latest',
+        { [deployerAddress]: { code: balanceReader(ABSENT_LONG_ZERO) } },
+      ]);
+      expect(withoutOverride).to.equal(VALUE(0));
+
+      const withOverride = await ethCall([
+        { to: deployerAddress },
+        'latest',
+        {
+          [deployerAddress]: { code: balanceReader(ABSENT_LONG_ZERO) },
+          [ABSENT_LONG_ZERO]: { balance: '0xde0b6b3a7640000' },
+        },
+      ]);
+      expect(withOverride).to.equal(VALUE(100_000_000));
+    });
+
+    it('ignores a balance override on an aliased address with no account behind it', async function () {
+      // Only long-zero addresses resolve to a Hedera entity, so an override on an aliased address
+      // that was never created is dropped without any error.
+      const result = await ethCall([
+        { to: deployerAddress },
+        'latest',
+        {
+          [deployerAddress]: { code: balanceReader(ABSENT_ALIASED) },
+          [ABSENT_ALIASED]: { balance: '0xde0b6b3a7640000' },
+        },
+      ]);
+
+      expect(result).to.equal(VALUE(0));
+    });
+
+    it('makes an overridden balance spendable, not merely readable', async function () {
+      const transfer = { from: ABSENT_LONG_ZERO, to: deployerAddress, value: '0xde0b6b3a7640000' };
+
+      let rejectedWithoutOverride = false;
+      try {
+        await ethCall([transfer, 'latest']);
+      } catch {
+        rejectedWithoutOverride = true;
+      }
+      expect(rejectedWithoutOverride).to.be.true;
+
+      const result = await ethCall([transfer, 'latest', { [ABSENT_LONG_ZERO]: { balance: '0x152d02c7e14af6800000' } }]);
+      expect(result).to.equal('0x');
+    });
+
+    it('clears the contract code when code is 0x', async function () {
+      const result = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        'latest',
+        { [deployerAddress]: { code: '0x' } },
+      ]);
+
+      expect(result).to.equal('0x');
+    });
+
+    it('allows state on one address and stateDiff on another in the same request', async function () {
+      const result = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        'latest',
+        {
+          [deployerAddress]: { state: { [SLOT(0)]: VALUE(0x63) } },
+          [ABSENT_LONG_ZERO]: { stateDiff: { [SLOT(0)]: VALUE(0x63) } },
+        },
+      ]);
+
+      expect(result).to.equal(VALUE(0x63));
+    });
+
+    it('wipes storage when state is an empty map', async function () {
+      const result = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        'latest',
+        { [deployerAddress]: { state: {} } },
+      ]);
+
+      expect(result).to.equal(VALUE(0));
+    });
+
+    it('changes nothing when stateDiff is an empty map', async function () {
+      const result = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        'latest',
+        { [deployerAddress]: { stateDiff: {} } },
+      ]);
+
+      expect(result).to.equal(VALUE(1));
+    });
+
+    it('applies overrides at a historical block', async function () {
+      const block = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
+
+      const overridden = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        block,
+        { [deployerAddress]: { stateDiff: { [SLOT(0)]: VALUE(0x63) } } },
+      ]);
+      expect(overridden).to.equal(VALUE(0x63));
+
+      const plain = await ethCall([{ to: deployerAddress, data: COUNTER_SELECTOR }, block]);
+      expect(plain).to.equal(VALUE(1));
+    });
+
+    it('accepts an override on a system address without applying it', async function () {
+      const result = await ethCall([
+        { to: deployerAddress, data: COUNTER_SELECTOR },
+        'latest',
+        { [HTS_PRECOMPILE]: { code: '0x602a60005260206000f3' } },
+      ]);
+
+      expect(result).to.equal(VALUE(1));
     });
 
     it('applies overrides to eth_estimateGas as well', async function () {
