@@ -1684,6 +1684,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         },
         'latest',
         {},
+        {},
         null,
       ],
       eth_getTransactionByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
