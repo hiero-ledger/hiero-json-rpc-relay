@@ -226,6 +226,23 @@ describe('@ethCall Eth Call spec', async function () {
       expect((error as JsonRpcError).message).to.contain('State overrides are not supported.');
     });
 
+    it('maps a CONTRACT_EXECUTION_EXCEPTION to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+      const body = { _status: { messages: [{ message: 'CONTRACT_EXECUTION_EXCEPTION', detail: '', data: '' }] } };
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(body));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+    });
+
+    it('still reports a genuine revert as CONTRACT_REVERT when overrides are present', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.contractReverted));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.CONTRACT_REVERT().code);
+    });
+
     it('maps a mirror node 500 to COULD_NOT_SIMULATE_TRANSACTION', async () => {
       web3Mock.onPost('contracts/call').replyOnce(500, JSON.stringify(mockData.internalServerError));
 
@@ -1126,6 +1143,24 @@ describe('@ethCall Eth Call spec', async function () {
         expect(result[0].balance).to.equal('0x2540be400');
       });
 
+      it('should leave a balance exactly at the total supply untouched', () => {
+        const supply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
+        const weibars = supply * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+        const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
+
+        expect(result[0].balance).to.equal(numberTo0x(supply));
+      });
+
+      it('should leave a balance just below the total supply untouched', () => {
+        const justBelow = BigInt(constants.TOTAL_SUPPLY_TINYBARS) - BigInt(1);
+        const weibars = justBelow * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+        const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
+
+        expect(result[0].balance).to.equal(numberTo0x(justBelow));
+      });
+
       it('should cap a balance above the total supply', () => {
         const result = contractService.formatStateOverrides({ '0x1': { balance: `0x${'f'.repeat(64)}` } });
 
@@ -1167,6 +1202,23 @@ describe('@ethCall Eth Call spec', async function () {
         const result = contractService.formatStateOverrides({ '0x1': { stateDiff: {} } });
 
         expect(result[0].state_diff).to.deep.equal([]);
+      });
+
+      it('should translate a storage map the same way whichever order its keys are written in', () => {
+        const slotA = `0x${'0'.repeat(63)}1`;
+        const slotB = `0x${'0'.repeat(63)}2`;
+        const valueA = `0x${'0'.repeat(63)}a`;
+        const valueB = `0x${'0'.repeat(63)}b`;
+
+        const forwards = contractService.formatStateOverrides({
+          '0x1': { stateDiff: { [slotA]: valueA, [slotB]: valueB } },
+        });
+        const backwards = contractService.formatStateOverrides({
+          '0x1': { stateDiff: { [slotB]: valueB, [slotA]: valueA } },
+        });
+
+        expect(forwards[0].state_diff).to.have.deep.members(backwards[0].state_diff!);
+        expect(forwards[0].state_diff).to.have.lengthOf(2);
       });
 
       it('should drop entries that carry no fields', () => {
