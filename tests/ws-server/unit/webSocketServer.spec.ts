@@ -292,6 +292,27 @@ describe('webSocketServer websocket handling', () => {
     expect((capturedSignal!.reason as Error).name).to.equal('AbortError');
   });
 
+  it('keeps the abort signal of an answered request live after the socket closes', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    const answered = new Promise<void>((resolve) => sendToClientStub.callsFake(() => resolve()));
+    sinon.stub(jsonRpcController, 'getRequestResult').callsFake(async (...args: unknown[]) => {
+      capturedSignal = (args[7] as RequestDetails).abortSignal;
+      return { id: 1, jsonrpc: '2.0', result: '0x1' };
+    });
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_sendRawTransaction', params: ['0x'] }));
+    await answered;
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(capturedSignal!.aborted, 'an answered request must not be aborted').to.equal(false);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(capturedSignal!.aborted, 'closing the socket must not abort an answered request').to.equal(false);
+  });
+
   it('sends nothing back when a request is abandoned by the client', async () => {
     const unhandled: string[] = [];
     const onUnhandledRejection = (reason: unknown): void => {

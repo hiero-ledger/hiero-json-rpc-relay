@@ -33,7 +33,6 @@ import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 
 const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was sent';
-const REQUEST_COMPLETED_ABORT_REASON = 'The request finished';
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string; connectionId: string }>();
 
@@ -308,7 +307,6 @@ export async function initializeWsServer(
         logger.debug(`Request abandoned by the client: connectionId=%s, requestId=%s`, ctx.websocket.id, requestId);
       } finally {
         inFlightRequests.delete(abortController);
-        abortController.abort(requestAbortReason(REQUEST_COMPLETED_ABORT_REASON));
       }
     });
 

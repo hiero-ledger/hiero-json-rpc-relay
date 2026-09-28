@@ -12,8 +12,10 @@ import { type AddressInfo } from 'net';
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
+import { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import { resetWorkerContext } from '../../../src/relay/lib/services/workersService/workerContext';
 import { WorkersPool } from '../../../src/relay/lib/services/workersService/WorkersPool';
+import { type RequestDetails } from '../../../src/relay/lib/types';
 import { initializeServer } from '../../../src/server/server';
 import { asRelayInternals } from '../../relay/helpers';
 
@@ -185,6 +187,22 @@ describe('Request cancellation', function () {
     expect(response.status).to.equal(200);
     expect(response.data.result).to.deep.equal([]);
     expect(logRequests).to.equal(ADDRESS_COUNT);
+  });
+
+  it('never aborts the signal of a request the client waited for', async function () {
+    const logsByAddressSpy = sinon.spy(MirrorNodeClient.prototype, 'getContractResultsLogsByAddress');
+
+    try {
+      const response = await relayClient.post('/', getLogsPayload(3));
+      expect(response.status).to.equal(200);
+
+      await sleep(UPSTREAM_DELAY_MS);
+      const signals = logsByAddressSpy.getCalls().map((call) => (call.args[1] as RequestDetails).abortSignal);
+      expect(signals).to.not.be.empty;
+      expect(signals.every((signal) => signal !== undefined && !signal.aborted)).to.equal(true);
+    } finally {
+      logsByAddressSpy.restore();
+    }
   });
 
   it('stops the downstream fan-out when the client aborts the request', async function () {

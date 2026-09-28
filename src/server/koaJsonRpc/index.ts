@@ -31,7 +31,6 @@ const responseSuccessStatusCode = '200';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was written';
-const REQUEST_COMPLETED_ABORT_REASON = 'The request finished';
 const CLIENT_DISCONNECTED = 'CLIENT DISCONNECTED';
 
 export default class KoaJsonRpc {
@@ -75,7 +74,7 @@ export default class KoaJsonRpc {
         return;
       }
 
-      const abortController = this.createRequestAbortController(ctx);
+      const { signal: abortSignal, release: releaseAbortSignal } = this.createRequestAbortSignal(ctx);
       try {
         let body: unknown | unknown[];
         try {
@@ -86,9 +85,9 @@ export default class KoaJsonRpc {
           return;
         }
         if (Array.isArray(body)) {
-          await this.handleBatchRequest(ctx, body, requestId, abortController.signal);
+          await this.handleBatchRequest(ctx, body, requestId, abortSignal);
         } else {
-          await this.handleSingleRequest(ctx, body, requestId, abortController.signal);
+          await this.handleSingleRequest(ctx, body, requestId, abortSignal);
         }
       } catch (error) {
         if (!isRequestAbortedError(error)) {
@@ -100,19 +99,19 @@ export default class KoaJsonRpc {
         ctx.state.status = CLIENT_DISCONNECTED;
         ctx.state.clientDisconnected = true;
       } finally {
-        abortController.abort(requestAbortReason(REQUEST_COMPLETED_ABORT_REASON));
+        releaseAbortSignal();
       }
     };
   }
 
   /**
-   * Creates the request-scoped {@link AbortController} that ties downstream work to the lifetime of the
-   * HTTP request and aborts it when the client disconnects before the response has been written.
+   * Creates the request-scoped {@link AbortSignal} that is aborted when the client disconnects before the
+   * response has been written.
    *
    * @param ctx - The Koa context of the request being served.
-   * @returns The controller whose signal is passed to the relay for this request.
+   * @returns The signal passed to the relay for this request, and a `release` callback.
    */
-  private createRequestAbortController(ctx: Koa.ParameterizedContext): AbortController {
+  private createRequestAbortSignal(ctx: Koa.ParameterizedContext): { signal: AbortSignal; release: () => void } {
     const abortController = new AbortController();
 
     const onResponseClose = (): void => {
@@ -120,13 +119,9 @@ export default class KoaJsonRpc {
         abortController.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));
       }
     };
-
     ctx.res.once('close', onResponseClose);
-    abortController.signal.addEventListener('abort', () => ctx.res.off('close', onResponseClose), {
-      once: true,
-    });
 
-    return abortController;
+    return { signal: abortController.signal, release: () => ctx.res.off('close', onResponseClose) };
   }
 
   private async handleSingleRequest(
