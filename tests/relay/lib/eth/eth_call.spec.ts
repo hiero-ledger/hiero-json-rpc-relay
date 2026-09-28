@@ -9,6 +9,7 @@ import { ConfigService } from '../../../../src/config-service/services';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
+import { __test__ as cacheDecoratorInternals } from '../../../../src/relay/lib/decorators/cache.decorator';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import type { ContractService } from '../../../../src/relay/lib/services';
 import {
@@ -164,6 +165,45 @@ describe('@ethCall Eth Call spec', async function () {
       const body = await postedBody({ [CONTRACT_ADDRESS_1]: {} });
 
       expect(body).to.not.have.property('state_overrides');
+    });
+  });
+
+  describe('state override cache isolation', () => {
+    const BLOCK = '0x1';
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+
+    it('does not serve an overridden result to a request without overrides', async () => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      web3Mock.onPost('contracts/call').replyOnce(200, JSON.stringify({ result: '0xaa' }));
+      const plain = await ethImpl.call({ ...callData }, BLOCK, undefined, requestDetails);
+
+      web3Mock.onPost('contracts/call').replyOnce(200, JSON.stringify({ result: '0xbb' }));
+      const overridden = await ethImpl.call({ ...callData }, BLOCK, stateOverride, requestDetails);
+
+      expect(plain).to.equal('0xaa');
+      expect(overridden).to.equal('0xbb');
+
+      expect(await ethImpl.call({ ...callData }, BLOCK, undefined, requestDetails)).to.equal('0xaa');
+      expect(await ethImpl.call({ ...callData }, BLOCK, stateOverride, requestDetails)).to.equal('0xbb');
+    });
+
+    it('derives a different cache key for two override sets', () => {
+      const { generateCacheKey } = cacheDecoratorInternals.__private;
+      const withoutOverride = generateCacheKey('call', [callData, BLOCK, undefined, requestDetails]);
+      const withOverride = generateCacheKey('call', [callData, BLOCK, stateOverride, requestDetails]);
+      const withOther = generateCacheKey('call', [
+        callData,
+        BLOCK,
+        { [CONTRACT_ADDRESS_1]: { nonce: '0x1' } },
+        requestDetails,
+      ]);
+
+      expect(withoutOverride).to.not.equal(withOverride);
+      expect(withOverride).to.not.equal(withOther);
+      expect(withoutOverride).to.not.contain('balance');
+      expect(withOverride).to.contain('balance');
     });
   });
 
