@@ -261,6 +261,98 @@ describe('RPC Server', function () {
     });
   });
 
+  describe('JSON-RPC "params" validation', function () {
+    [null, 'params', { from: contractAddress1 }].forEach((params) => {
+      it(`should return "Invalid Request" when "params" is non-array "${JSON.stringify(params)}"`, async function () {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+            params,
+          });
+          Assertions.expectedError();
+        } catch (error) {
+          BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+        }
+      });
+    });
+
+    it('should return "Invalid Request" when "params" is null on a parameterless method', async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: RelayCalls.ETH_ENDPOINTS.NET_VERSION,
+          params: null,
+        });
+        Assertions.expectedError();
+      } catch (error) {
+        BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+      }
+    });
+
+    it('should accept a request with "params" omitted', async function () {
+      const res = await testClient.post('/', {
+        id: '2',
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+      });
+
+      BaseTest.defaultResponseChecks(res);
+      expect(res.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+
+    it('should only fail the batch entry carrying null "params"', async function () {
+      const response = await testClient.post('/', [
+        { id: '2', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+        { id: '3', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CALL, params: null },
+        { id: '4', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+      ]);
+
+      BaseTest.baseDefaultResponseChecks(response);
+
+      expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      expect(response.data[1].id).to.be.equal('3');
+      expect(response.data[1].error.code).to.be.equal(-32600);
+      expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
+      expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+  });
+
+  [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+    it(`should return error when JSON-RPC id is non-primitive "${JSON.stringify(id)}"`, async function () {
+      try {
+        await testClient.post('/', {
+          id,
+          jsonrpc: '2.0',
+          method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+          params: [null],
+        });
+        Assertions.expectedError();
+      } catch (error) {
+        const response = axiosResponseOf(error);
+        BaseTest.invalidRequestSpecError(response, -32600, `Invalid Request`);
+        expect(response.data.id).to.be.equal(null);
+      }
+    });
+  });
+
+  [null, 0, -1, 1.337, 'test'].forEach((id) => {
+    it(`should accept JSON-RPC id "${JSON.stringify(id)}"`, async function () {
+      const response = await testClient.post('/', {
+        id,
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+        params: [null],
+      });
+
+      BaseTest.baseDefaultResponseChecks(response);
+      expect(response.data.id).to.be.equal(id);
+      expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+  });
+
   withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: true }, async function () {
     xit('supports optionality of request id when configured', async function () {
       const { app: app2 } = await initializeServer();
@@ -831,6 +923,31 @@ describe('RPC Server', function () {
       // verify eth_chainId result
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      it(`should only reject the entry with non-primitive id "${JSON.stringify(id)}" in batch request`, async function () {
+        const response = await testClient.post('/', [
+          getEthChainIdRequest(2),
+          { id, jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [null] },
+          getEthChainIdRequest(4),
+        ]);
+
+        // verify response
+        BaseTest.baseDefaultResponseChecks(response);
+
+        // the valid siblings are unaffected
+        expect(response.data[0].id).to.be.equal('2');
+        expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+        expect(response.data[2].id).to.be.equal('4');
+        expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+
+        // only the offending entry errors
+        expect(response.data[1].id).to.be.equal(null);
+        expect(response.data[1].error).to.be.an('Object');
+        expect(response.data[1].error.code).to.be.equal(-32600);
+        expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
+      });
     });
 
     it('should execute "eth_chainId" and "eth_accounts" in batch request with invalid request id', async function () {

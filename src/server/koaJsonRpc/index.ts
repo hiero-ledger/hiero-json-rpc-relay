@@ -199,7 +199,10 @@ export default class KoaJsonRpc {
   isValidJsonRpcRequest(body: Pick<IJsonRpcRequest, 'id'>): body is IJsonRpcRequest {
     // validate it has the correct jsonrpc version, method, and id
     const candidate = body as Partial<IJsonRpcRequest>;
-    return candidate.jsonrpc === '2.0' && typeof candidate.method === 'string';
+    if (candidate.jsonrpc !== '2.0' || typeof candidate.method !== 'string') return false;
+
+    // the relay only supports positional params, so anything present other than an array is an invalid request
+    return candidate.params === undefined || Array.isArray(candidate.params);
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {
@@ -209,7 +212,10 @@ export default class KoaJsonRpc {
   hasValidJsonRpcId(body: unknown): body is Pick<IJsonRpcRequest, 'id'> {
     if (typeof body !== 'object' || body === null) return false;
 
-    if (Object.prototype.hasOwnProperty.call(body, 'id')) return true;
+    if (Object.prototype.hasOwnProperty.call(body, 'id')) {
+      const { id } = body as { id: unknown };
+      return typeof id === 'string' || typeof id === 'number' || id === null;
+    }
 
     if (this.requestIdIsOptional) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0

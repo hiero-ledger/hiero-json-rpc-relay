@@ -927,7 +927,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     it('Calling eth_subscribe Logs with an invalid topics should fail', async function () {
       const expectedError = predefined.INVALID_PARAMETER(
         `'topics' for EthSubscribeLogsParamsObject`,
-        `Expected an array or array of arrays containing Expected 0x prefixed string representing the hash (32 bytes) of a topic, value: ["0x000"]`,
+        `Expected an array or array of arrays containing 0x prefixed strings representing topic hashes (32 bytes), with at most 4 positions and at most 100 topics per position, value: ["0x000"]`,
       );
 
       await Assertions.assertPredefinedRpcError(expectedError, wsProvider.send, true, wsProvider, [
@@ -1080,6 +1080,31 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
           }
         }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      });
+
+      it('Does not allow a batch of unique filters to exceed the limit', async function () {
+        const batch = Array.from({ length: 20 }, (_, i) => ({
+          id: i + 1,
+          jsonrpc: '2.0',
+          method: 'eth_subscribe',
+          params: ['logs', { topics: [`0x${(i + 1).toString(16).padStart(64, '0')}`] }],
+        }));
+
+        const responses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+          'batch_request',
+          batch,
+        );
+
+        expect(responses).to.be.an('array').with.lengthOf(batch.length);
+
+        const subscriptionIds = responses.filter((response) => response.result).map((response) => response.result);
+        const refused = responses.filter((response) => response.error);
+
+        expect(new Set(subscriptionIds).size).to.eq(ConfigService.get('WS_SUBSCRIPTION_LIMIT'));
+        expect(refused).to.have.lengthOf(batch.length - ConfigService.get('WS_SUBSCRIPTION_LIMIT'));
+        refused.forEach((response) => expect(response.error!.code).to.eq(predefined.MAX_SUBSCRIPTIONS.code));
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       });

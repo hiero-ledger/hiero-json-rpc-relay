@@ -48,15 +48,18 @@ export class RpcMethodDispatcher {
    * 3. Error handling: Catches and formats any errors that occur
    *
    * @param rpcMethodName - The name of the RPC method to execute (e.g., "eth_blockNumber")
-   * @param rpcMethodParams - The parameters of the RPC method to execute
+   * @param rpcMethodParams - The parameters of the RPC method to execute, normalised to `[]` when absent or `null`
    * @param requestDetails - Additional details about the request context
    * @returns Promise that resolves to the method execution result or a JsonRpcError instance
    */
   public async dispatch(
     rpcMethodName: string,
-    rpcMethodParams: unknown[] = [],
+    rpcMethodParams: unknown[] | null | undefined = [],
     requestDetails: RequestDetails,
   ): Promise<unknown> {
+    // a JS default only covers `undefined`, so `params: null` has to be normalised here
+    rpcMethodParams ??= [];
+
     try {
       /////////////////////////////// Pre-execution Phase ///////////////////////////////
       const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams);
