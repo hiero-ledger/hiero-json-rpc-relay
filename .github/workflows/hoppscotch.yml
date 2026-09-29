@@ -50,12 +50,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y make gcc g++
 
       - name: Setup node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
 
       - name: Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install packages
         run: npm ci
@@ -66,21 +66,24 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
+      - name: Load pinned versions
+        run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
+
       - name: Generate falcon-values config file
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.6' }}"
+            --consensus-node-version: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           setup:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.6' }}"
+            --consensus-node-version: "${{ inputs.networkTag || env.NETWORK_TAG }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.162.0' }}"
+            --mirror-node-version: "${{ inputs.mirrorTag || env.MIRROR_NODE_TAG }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -99,7 +102,7 @@ jobs:
           MIRROR_NODE_PORT: 5551
           GRPC_LOCAL_PORT: 50211
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.85.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || env.SOLO_VERSION }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --external-address 0.0.0.0 \
             --dev \
