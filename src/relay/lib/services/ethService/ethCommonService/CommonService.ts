@@ -23,7 +23,7 @@ import {
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
-import { throwIfRequestAborted } from '../../../utils/requestAbort';
+import { isRequestAbortedError, throwIfRequestAborted } from '../../../utils/requestAbort';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -456,6 +456,10 @@ export class CommonService implements ICommonService {
   }
 
   public genericErrorHandler(error: unknown, logMessage?: string): void {
+    if (isRequestAbortedError(error)) {
+      throw error;
+    }
+
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {

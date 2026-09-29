@@ -11,13 +11,16 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { JsonRpcError } from '../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
-import { CommonService } from '../../../src/relay/lib/services';
+import { CommonService, ContractService } from '../../../src/relay/lib/services';
+import type HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import {
   getRequestAbortSignal,
   isRequestAborted,
   isRequestAbortedError,
+  requestAbortReason,
   throwIfRequestAborted,
 } from '../../../src/relay/lib/utils/requestAbort';
 
@@ -235,6 +238,55 @@ describe('Request cancellation', function () {
 
       expect(logs).to.deep.equal([]);
       expect(restMock.history.get.length).to.equal(ADDRESSES.length);
+    });
+  });
+
+  describe('error handlers', () => {
+    const abortError = requestAbortReason('client disconnected');
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+
+    let commonService: CommonService;
+    let contractService: ContractService;
+    let loggerErrorSpy: sinon.SinonSpy;
+
+    beforeEach(() => {
+      const cacheService = CacheClientFactory.create(logger, registry);
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+      contractService = new ContractService(cacheService, commonService, {} as HAPIService, logger, mirrorNodeClient);
+      loggerErrorSpy = sinon.spy(logger, 'error');
+    });
+
+    it('rethrows the abort error from the generic error handler instead of an internal error', () => {
+      expect(() => commonService.genericErrorHandler(abortError, 'Failed to retrieve block')).to.throw(abortError);
+      expect(loggerErrorSpy.called).to.equal(false);
+    });
+
+    it('still maps an unexpected error to an internal error in the generic error handler', () => {
+      expect(() => commonService.genericErrorHandler(new Error('boom'))).to.throw(JsonRpcError);
+    });
+
+    it('rethrows the abort error from eth_call', async () => {
+      sinon.stub(contractService, 'contractCallFormat').resolves();
+      sinon
+        .stub(contractService as unknown as { callMirrorNode: () => Promise<string> }, 'callMirrorNode')
+        .rejects(abortError);
+
+      await expect(
+        contractService.call({ to: '0x0000000000000000000000000000000000000001' }, 'latest', requestDetails),
+      ).to.be.rejectedWith(abortError);
+      expect(loggerErrorSpy.called).to.equal(false);
+    });
+
+    it('rethrows the abort error from eth_estimateGas', async () => {
+      sinon
+        .stub(
+          contractService as unknown as { estimateGasFromMirrorNode: () => Promise<unknown> },
+          'estimateGasFromMirrorNode',
+        )
+        .rejects(abortError);
+
+      await expect(contractService.estimateGas({}, null, requestDetails)).to.be.rejectedWith(abortError);
+      expect(loggerErrorSpy.called).to.equal(false);
     });
   });
 });
