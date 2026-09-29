@@ -159,18 +159,38 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
     WsTestHelper.withOverriddenEnvsInMochaTest({ WS_SUBSCRIPTION_LIMIT: 2, WS_NEW_HEADS_ENABLED: true }, () => {
       it('Does not allow more subscriptions per connection than the specified limit with newHeads', async function () {
-        // Create different subscriptions
-        for (let i = 0; i < 3; i++) {
+        const distinctParams = [
+          ['newHeads'],
+          ['newHeads', { includeTransactions: true }],
+          ['newHeads', { includeTransactions: false }],
+        ];
+
+        for (let i = 0; i < distinctParams.length; i++) {
           if (i === 2) {
             const expectedError = predefined.MAX_SUBSCRIPTIONS;
             await Assertions.assertPredefinedRpcError(expectedError, wsProvider.send, true, wsProvider, [
               'eth_subscribe',
-              ['newHeads'],
+              distinctParams[i],
             ]);
           } else {
-            await wsProvider.send('eth_subscribe', ['newHeads']);
+            await wsProvider.send('eth_subscribe', distinctParams[i]);
           }
         }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      });
+
+      it('Reuses the existing subscription for a repeated newHeads subscribe instead of consuming the limit', async function () {
+        const subscriptionIds = [
+          await wsProvider.send('eth_subscribe', ['newHeads']),
+          await wsProvider.send('eth_subscribe', ['newHeads']),
+          await wsProvider.send('eth_subscribe', ['newHeads']),
+        ];
+
+        expect(new Set(subscriptionIds).size).to.eq(1);
+
+        const other = await wsProvider.send('eth_subscribe', ['newHeads', { includeTransactions: true }]);
+        expect(other).to.not.eq(subscriptionIds[0]);
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       });
