@@ -300,6 +300,73 @@ describe('webSocketServer websocket handling', () => {
     expect(Array.isArray(args[2])).to.be.true;
   });
 
+  [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+    it(`should reject a batch entry whose id is non-primitive "${JSON.stringify(id)}" without failing its siblings`, async () => {
+      sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+      sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+      const grrStub = sinon.stub(jsonRpcController, 'getRequestResult');
+      grrStub.resolves({ id: 1, jsonrpc: '2.0', result: 'ok' });
+
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+      ws.send(
+        JSON.stringify([
+          { id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] },
+          { id, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] },
+        ]),
+      );
+
+      const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+      const parsed = JSON.parse(msg);
+
+      expect(parsed[0].result).to.equal('ok');
+      expect(parsed[1].id).to.equal(null);
+      expect(parsed[1].error.code).to.equal(-32600);
+      // the offending entry is answered without ever reaching the controller
+      expect(grrStub.callCount).to.equal(1);
+      await ws.close();
+    });
+  });
+
+  it('should respond with a null id when a batch entry with no id uses a disallowed method', async () => {
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return ['eth_newFilter'];
+      return originalGet(key);
+    });
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify([{ jsonrpc: '2.0', method: 'eth_newFilter', params: [] }]));
+
+    const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+    const parsed = JSON.parse(msg);
+
+    expect(parsed[0].id).to.equal(null);
+    expect(parsed[0].error.code).to.equal(-32007);
+    await ws.close();
+  });
+
+  it('should echo a falsy but valid id when a batch entry uses a disallowed method', async () => {
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return ['eth_newFilter'];
+      return originalGet(key);
+    });
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify([{ id: 0, jsonrpc: '2.0', method: 'eth_newFilter', params: [] }]));
+
+    const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+    const parsed = JSON.parse(msg);
+
+    expect(parsed[0].id).to.equal(0);
+    expect(parsed[0].error.code).to.equal(-32007);
+    await ws.close();
+  });
+
   it('should set up ping interval when WS_PING_INTERVAL > 0', async () => {
     const setIntervalSpy = sinon.spy(global, 'setInterval');
     const ws = await openWsServerAndUpdateSockets(server, sockets);

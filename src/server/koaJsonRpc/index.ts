@@ -209,7 +209,10 @@ export default class KoaJsonRpc {
   hasValidJsonRpcId(body: unknown): body is Pick<IJsonRpcRequest, 'id'> {
     if (typeof body !== 'object' || body === null) return false;
 
-    if (Object.prototype.hasOwnProperty.call(body, 'id')) return true;
+    if (Object.prototype.hasOwnProperty.call(body, 'id')) {
+      const { id } = body as { id: unknown };
+      return typeof id === 'string' || typeof id === 'number' || id === null;
+    }
 
     if (this.requestIdIsOptional) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0

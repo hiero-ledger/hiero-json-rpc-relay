@@ -113,14 +113,12 @@ const handleEthSubscribeLogs = async (
  * @param {IJsonRpcRequest} args.request - The request object received from the client.
  * @param {Relay} args.relay - The relay object for interacting with the Hedera network.
  * @param {MirrorNodeClient} args.mirrorNodeClient - The mirror node client for handling subscriptions.
- * @param {ConnectionLimiter} args.limiter - The limiter object for managing connection subscriptions.
  * @param {Logger} args.logger - The logger object for logging messages and events.
  * @param {RequestDetails} args.requestDetails - The request details for logging and tracking.
  * @returns {Promise<SubscriptionResponse>} Returns a promise that resolves with the subscription response.
  */
 export const handleEthSubscribe = async ({
   ctx,
-  limiter,
   logger,
   mirrorNodeClient,
   params,
@@ -155,8 +153,6 @@ export const handleEthSubscribe = async ({
     default:
       throw predefined.UNSUPPORTED_METHOD;
   }
-
-  limiter.incrementSubs(ctx);
 
   return response;
 };
