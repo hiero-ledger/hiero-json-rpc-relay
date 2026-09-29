@@ -506,12 +506,20 @@ export class CommonService implements ICommonService {
   public addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void {
     const topicParams = params as Record<string, string | string[]>;
     if (topics) {
+      if (topics.length > constants.LOG_TOPICS_MAX_POSITIONS) {
+        throw predefined.INVALID_PARAMETER(
+          'topics',
+          `A maximum of ${constants.LOG_TOPICS_MAX_POSITIONS} topic positions are allowed`,
+        );
+      }
+
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
       for (let i = 0; i < topics.length; i++) {
         const topic = topics[i];
         if (!_.isNil(topic)) {
           if (Array.isArray(topic)) {
-            if (topic.length > 100) {
-              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
+            if (topic.length > maxSubTopics) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of ${maxSubTopics}`);
             }
             const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);

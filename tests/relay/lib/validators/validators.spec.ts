@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
+import { ConfigService } from '../../../../src/config-service/services';
 import mainConstants from '../../../../src/relay/lib/constants';
 import {
   type IParamValidation,
@@ -11,6 +12,7 @@ import {
 import * as Constants from '../../../../src/relay/lib/validators/constants';
 import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes';
 import { isValidAndNonNullableParam, validateObject } from '../../../../src/relay/lib/validators/utils';
+import { withOverriddenEnvsInMochaTest } from '../../helpers';
 
 describe('Validator', async () => {
   function expectInvalidParam(index: number | string, message: string, paramValue?: string): string {
@@ -480,6 +482,35 @@ describe('Validator', async () => {
           '[["0x790673a87ac19773537b2553e1dc7c451f659e0f75d1b69a706ad42d25cbdb55"],["0x790673a87ac19773537b2553e1dc7"]]',
         ),
       );
+    });
+
+    const topic = '0x790673a87ac19773537b2553e1dc7c451f659e0f75d1b69a706ad42d25cbdb55';
+
+    it(`does not throw an error on ${mainConstants.LOG_TOPICS_MAX_POSITIONS} positions`, async () => {
+      const positions = Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(topic);
+
+      expect(validateParams([positions], validation)).to.eq(undefined);
+    });
+
+    it(`throws an error on null-padded positions past ${mainConstants.LOG_TOPICS_MAX_POSITIONS}`, async () => {
+      const positions = [...Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(null), topic];
+
+      expect(() => validateParams([positions], validation)).to.throw(
+        expectInvalidParam(0, topicsError, JSON.stringify(positions)),
+      );
+    });
+
+    const maxSubTopics = mainConstants.LOG_TOPICS_MAX_POSITIONS + 1;
+
+    withOverriddenEnvsInMochaTest({ ETH_GET_LOGS_SUB_TOPICS_LIMIT: maxSubTopics }, () => {
+      it('applies the configured sub-topic limit per position', async () => {
+        const positions = [Array(maxSubTopics + 1).fill(topic)];
+
+        expect(validateParams([[Array(maxSubTopics).fill(topic)]], validation)).to.eq(undefined);
+        expect(() => validateParams([positions], validation)).to.throw(
+          expectInvalidParam(0, Constants.topicsError(maxSubTopics), JSON.stringify(positions)),
+        );
+      });
     });
   });
 
@@ -1183,7 +1214,7 @@ describe('Validator', async () => {
           topics: ['NotHEX'],
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: ["NotHEX"]`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'))}, value: ["NotHEX"]`,
       );
     });
 
@@ -1194,7 +1225,7 @@ describe('Validator', async () => {
           topics: null,
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: null`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'))}, value: null`,
       );
     });
 
