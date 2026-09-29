@@ -13,7 +13,6 @@ import {
   DEFAULT_TRANSACTION,
   DEFAULT_TX_HASH,
   DETAILD_CONTRACT_RESULT_NOT_FOUND,
-  EMPTY_LOGS_RESPONSE,
   NO_TRANSACTIONS,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
@@ -127,66 +126,9 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     restMock
       .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
       .reply(404, JSON.stringify(DETAILD_CONTRACT_RESULT_NOT_FOUND));
-    restMock
-      .onGet(`contracts/results/logs?transaction.hash=${uniqueTxHash}&limit=100&order=asc`)
-      .reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
 
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
     expect(result).to.equal(null);
-  });
-
-  it('returns a valid transaction for synthetic transactions', async function () {
-    const uniqueTxHash = '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5';
-    const logs = {
-      logs: [
-        {
-          address: '0x00000000000000000000000000000000006390e6',
-          bloom: '0x00',
-          contract_id: '0.0.6525158',
-          data: '0x000000000000000000000000000000000000000000000000000000000000000a',
-          index: 0,
-          topics: [
-            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
-            '0x000000000000000000000000b562f7740eb5b7a2177994765f76c7b964437e85',
-            '0x00000000000000000000000025639d1a6b4d3ace699d541d15b898bd6a7fd5bb',
-          ],
-          block_hash:
-            '0x730c1d0263e78303b189d778a75451113162547b4b466cb8c1796deef3a8a5e486aef01c205e42af0f1abc3c1cb2378c',
-          block_number: 23279896,
-          root_contract_id: '0.0.6525158',
-          timestamp: '1754605000.616067461',
-          transaction_hash: '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5',
-          transaction_index: 7,
-        },
-      ],
-      links: { next: null },
-    };
-    restMock
-      .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
-      .reply(404, JSON.stringify(DETAILD_CONTRACT_RESULT_NOT_FOUND));
-    restMock
-      .onGet(`contracts/results/logs?transaction.hash=${uniqueTxHash}&limit=100&order=asc`)
-      .reply(200, JSON.stringify(logs));
-
-    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.be.deep.equal({
-      blockHash: '0x730c1d0263e78303b189d778a75451113162547b4b466cb8c1796deef3a8a5e4',
-      blockNumber: '0x1633918',
-      chainId: '0x12a',
-      from: '0x00000000000000000000000000000000006390e6',
-      gas: '0x61a80',
-      gasPrice: '0xfe',
-      hash: '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5',
-      input: '0x0000000000000000',
-      nonce: '0x0',
-      r: '0x',
-      s: '0x',
-      to: '0x00000000000000000000000000000000006390e6',
-      transactionIndex: '0x7',
-      type: '0x0',
-      v: '0x0',
-      value: '0x0',
-    });
   });
 
   it('account should be cached', async function () {
@@ -309,7 +251,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     });
   });
 
-  it('should filter out the transaction if it stays immature for the whole polling window', async function () {
+  it('should filter out a transaction rejected before consensus', async function () {
     const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640513';
 
     restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(

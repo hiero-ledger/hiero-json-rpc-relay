@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
+import { ContractCreateTransaction, PrivateKey, type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -815,6 +815,38 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               });
             });
           });
+        });
+      });
+
+      describe('Transaction rejected before consensus', async () => {
+        it('should return a -32003 error from "eth_getTransactionReceipt" for an INVALID_SIGNATURE via SDK contract create', async () => {
+          const response = await servicesNode.executeTransaction(
+            new ContractCreateTransaction()
+              .setBytecode(ethers.getBytes(basicContract.bytecode))
+              .setGas(100_000)
+              .setAdminKey(PrivateKey.generateECDSA().publicKey),
+          );
+          const receipt = await response.getReceiptQuery().setValidateStatus(false).execute(servicesNode.client);
+          expect(receipt.status.toString()).to.equal('INVALID_SIGNATURE');
+
+          await new Promise((r) => setTimeout(r, 2100));
+          const [payer, validStart] = response.transactionId.toString().split('@');
+          const mnResult = await mirrorNode.get(`/contracts/results/${payer}-${validStart.replace('.', '-')}`);
+          expect(mnResult.result).to.equal('INVALID_SIGNATURE');
+          expect(mnResult.transaction_index).to.be.null;
+          const txHash: string = mnResult.hash;
+
+          const expectedError = predefined.TRANSACTION_REJECTED_DETAILED({ txHash, hederaStatus: 'INVALID_SIGNATURE' });
+          try {
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash]);
+            Assertions.expectedError();
+          } catch (e) {
+            const error = (e as { response?: { bodyJson?: { error?: { data?: Record<string, unknown> } } } })?.response
+              ?.bodyJson?.error;
+            Assertions.jsonRpcError(error, expectedError);
+            expect(error?.data?.txHash).to.equal(txHash.toLowerCase());
+            expect(error?.data?.hederaStatus).to.equal('INVALID_SIGNATURE');
+          }
         });
       });
 
