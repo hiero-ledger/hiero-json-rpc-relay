@@ -927,7 +927,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     it('Calling eth_subscribe Logs with an invalid topics should fail', async function () {
       const expectedError = predefined.INVALID_PARAMETER(
         `'topics' for EthSubscribeLogsParamsObject`,
-        `Expected an array or array of arrays containing Expected 0x prefixed string representing the hash (32 bytes) of a topic, value: ["0x000"]`,
+        `Expected an array or array of arrays containing 0x prefixed strings representing topic hashes (32 bytes), with at most 4 positions and at most 100 topics per position, value: ["0x000"]`,
       );
 
       await Assertions.assertPredefinedRpcError(expectedError, wsProvider.send, true, wsProvider, [

@@ -18,7 +18,6 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
-  type MirrorNodeContractResultBase,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
@@ -506,12 +505,20 @@ export class CommonService implements ICommonService {
   public addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void {
     const topicParams = params as Record<string, string | string[]>;
     if (topics) {
+      if (topics.length > constants.LOG_TOPICS_MAX_POSITIONS) {
+        throw predefined.INVALID_PARAMETER(
+          'topics',
+          `A maximum of ${constants.LOG_TOPICS_MAX_POSITIONS} topic positions are allowed`,
+        );
+      }
+
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
       for (let i = 0; i < topics.length; i++) {
         const topic = topics[i];
         if (!_.isNil(topic)) {
           if (Array.isArray(topic)) {
-            if (topic.length > 100) {
-              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
+            if (topic.length > maxSubTopics) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of ${maxSubTopics}`);
             }
             const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
@@ -742,29 +749,6 @@ export class CommonService implements ICommonService {
       await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS);
     }
     return account;
-  }
-
-  /**
-   * This method retrieves the contract address from the receipt response.
-   * If the contract creation is via a system contract, it handles the system contract creation.
-   * If not, it returns the address from the receipt response.
-   *
-   * @param {MirrorNodeContractResultBase} receiptResponse - The receipt response object.
-   * @returns {string | null} The contract address.
-   */
-  public getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
-    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
-      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-    );
-
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
-    }
-
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
   }
 
   public async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {

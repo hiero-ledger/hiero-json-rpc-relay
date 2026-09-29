@@ -248,43 +248,45 @@ describe('TransactionReceiptFactory', () => {
   });
 
   describe('createRegularReceipt', () => {
-    it('serializes null block_number and transaction_index to 0x0 instead of throwing', () => {
-      const receiptResponse: MirrorNodeContractResultReceipt = {
-        address: '0x25fe26adc577cc89172e6156c9e24f7b9751b762',
-        amount: 0,
-        bloom: '0x',
-        call_result: '0x',
-        contract_id: '0.0.1001',
-        created_contract_ids: [],
-        error_message: null,
-        from: '0x00000000000000000000000000000000000003f6',
-        function_parameters: '0x',
-        gas_consumed: 0,
-        gas_limit: null,
-        gas_used: null,
-        timestamp: '1700000000.000000000',
-        to: '0x0000000000000000000000000000000000000409',
-        hash: '0xe494b1bb298216f2f6c97b3aa04be60e456c5e8d401e041e6da371c06bcad1d2',
-        block_hash: '0x8af70e7f281dd721a9fa61d9437a5f1b0ca0cb449ef65be98a70b7cbac2ef40e',
-        block_number: null,
-        result: 'SUCCESS',
-        transaction_index: null,
-        status: '0x1',
-        failed_initcode: null,
-        access_list: null,
-        block_gas_used: 0,
-        chain_id: null,
-        gas_price: null,
-        max_fee_per_gas: null,
-        max_priority_fee_per_gas: null,
-        r: null,
-        s: null,
-        type: null,
-        v: null,
-        nonce: null as unknown as number,
-      };
+    const baseReceiptResponse: MirrorNodeContractResultReceipt = {
+      address: '0x25fe26adc577cc89172e6156c9e24f7b9751b762',
+      amount: 0,
+      bloom: '0x',
+      call_result: '0x',
+      contract_id: '0.0.1001',
+      created_contract_ids: [],
+      error_message: null,
+      from: '0x00000000000000000000000000000000000003f6',
+      function_parameters: '0x',
+      gas_consumed: 0,
+      gas_limit: null,
+      gas_used: null,
+      timestamp: '1700000000.000000000',
+      to: '0x0000000000000000000000000000000000000409',
+      hash: '0xe494b1bb298216f2f6c97b3aa04be60e456c5e8d401e041e6da371c06bcad1d2',
+      block_hash: '0x8af70e7f281dd721a9fa61d9437a5f1b0ca0cb449ef65be98a70b7cbac2ef40e',
+      block_number: null,
+      result: 'SUCCESS',
+      transaction_index: null,
+      status: '0x1',
+      failed_initcode: null,
+      access_list: null,
+      block_gas_used: 0,
+      chain_id: null,
+      gas_price: null,
+      max_fee_per_gas: null,
+      max_priority_fee_per_gas: null,
+      r: null,
+      s: null,
+      type: null,
+      v: null,
+      nonce: null as unknown as number,
+    };
 
-      const receipt = TransactionReceiptFactory.createRegularReceipt({
+    const buildReceipt = (overrides: Partial<MirrorNodeContractResultReceipt> = {}): ITransactionReceipt => {
+      const receiptResponse: MirrorNodeContractResultReceipt = { ...baseReceiptResponse, ...overrides };
+
+      return TransactionReceiptFactory.createRegularReceipt({
         effectiveGas: '0x1',
         from: receiptResponse.from,
         logs: [],
@@ -292,9 +294,58 @@ describe('TransactionReceiptFactory', () => {
         to: receiptResponse.to,
         cumulativeGasUsed: 0,
       });
+    };
+
+    it('serializes null block_number and transaction_index to 0x0 instead of throwing', () => {
+      const receipt = buildReceipt();
 
       expect(receipt.blockNumber).to.equal('0x0');
       expect(receipt.transactionIndex).to.equal('0x0');
+    });
+
+    describe('contractAddress', () => {
+      it('is null for a message call that created no contract', () => {
+        const receipt = buildReceipt();
+
+        expect(receipt.contractAddress).to.be.null;
+        expect(receipt.to).to.equal(baseReceiptResponse.to);
+      });
+
+      it('is null when the transaction only created contracts through a callee', () => {
+        const receipt = buildReceipt({ created_contract_ids: ['0.0.2002'] });
+
+        expect(receipt.contractAddress).to.be.null;
+      });
+
+      it('is the deployed address when the transaction created the contract it reports', () => {
+        const receipt = buildReceipt({ created_contract_ids: [baseReceiptResponse.contract_id] });
+
+        expect(receipt.contractAddress).to.equal(baseReceiptResponse.address);
+        expect(receipt.to).to.be.null;
+      });
+
+      it('is the new token address for HTS token creation via the system contract', () => {
+        const tokenAddress = '0x000000000000000000000000000000000000040a';
+        const receipt = buildReceipt({
+          function_parameters: `${constants.HTS_CREATE_FUNCTIONS_SELECTORS[0]}0000`,
+          call_result: `0x${'00'.repeat(31)}16${'0'.repeat(24)}${tokenAddress.slice(2)}`,
+          to: constants.HTS_ADDRESS,
+        });
+
+        expect(receipt.contractAddress).to.equal(tokenAddress);
+      });
+
+      it('is null for a reverted HTS token creation, whose call result holds no token address', () => {
+        const receipt = buildReceipt({
+          function_parameters: `${constants.HTS_CREATE_FUNCTIONS_SELECTORS[0]}0000`,
+          call_result: '0x',
+          to: constants.HTS_ADDRESS,
+          status: constants.ZERO_HEX,
+          error_message: '0x',
+        });
+
+        expect(receipt.contractAddress).to.be.null;
+      });
     });
   });
 });

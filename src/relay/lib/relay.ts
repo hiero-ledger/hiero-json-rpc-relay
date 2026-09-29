@@ -163,13 +163,13 @@ export class Relay {
    * to invoke RPC methods on the Relay.
    *
    * @param {string} rpcMethodName - The name of the RPC method to execute
-   * @param {unknown[] | undefined} rpcMethodParams - The params for the RPC method to execute
+   * @param {unknown[] | null | undefined} rpcMethodParams - The params for the RPC method to execute
    * @param {RequestDetails} requestDetails - Additional request context
    * @returns {Promise<unknown>} The result of executing the RPC method
    */
   public async executeRpcMethod(
     rpcMethodName: string,
-    rpcMethodParams: unknown[] | undefined,
+    rpcMethodParams: unknown[] | null | undefined,
     requestDetails: RequestDetails,
   ): Promise<unknown> {
     return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
