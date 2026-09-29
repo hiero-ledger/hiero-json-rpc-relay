@@ -106,6 +106,29 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('Invalid Request');
     });
 
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      it(`should return invalid request with a null id when the request id is non-primitive "${JSON.stringify(id)}"`, async function () {
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+        expect(resp.error.code).to.equal(-32600);
+        expect(resp.error.message).to.include('Invalid Request');
+        expect(resp.id).to.equal(null);
+      });
+    });
+
+    [null, 0, -1, 'test'].forEach((id) => {
+      it(`should accept a request id of "${JSON.stringify(id)}"`, async function () {
+        const chainId = '0x12a';
+        stubRelay.executeRpcMethod.resolves(chainId);
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcResultResponse;
+
+        expect(resp.result).to.equal(chainId);
+        expect(resp.id).to.equal(id);
+      });
+    });
+
     it('should throw method not found if passed method is not existing', async function () {
       const nonExistingMethod = 'eth_non-existing-method';
       defaultRequestParams[3] = { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest;
@@ -113,6 +136,21 @@ describe('JSON Rpc Controller', function () {
 
       expect(resp.error.code).to.equal(-32601);
       expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
+    });
+
+    it('should echo a falsy but valid id of 0 when the method is not found', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'eth_non-existing-method', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.error.code).to.equal(-32601);
+      expect(resp.id).to.equal(0);
+    });
+
+    it('should echo a falsy but valid id of 0 when the subdomain is disabled', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'foo_bar', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.id).to.equal(0);
     });
 
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
@@ -123,12 +161,13 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('IP Rate limit exceeded');
     });
 
-    it('should throw Max Subscription error if subscription limit is reached', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(false);
+    it('should surface the Max Subscription error thrown by the subscription service', async function () {
+      stubSubscriptionService.subscribe.throws(predefined.MAX_SUBSCRIPTIONS);
       defaultRequestParams[3] = {
         id: '2',
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         jsonrpc: '2.0',
+        params: ['newHeads'],
       } as IJsonRpcRequest;
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
@@ -137,7 +176,6 @@ describe('JSON Rpc Controller', function () {
     });
     withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
       it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
@@ -150,7 +188,6 @@ describe('JSON Rpc Controller', function () {
       });
 
       it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
