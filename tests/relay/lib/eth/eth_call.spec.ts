@@ -191,19 +191,18 @@ describe('@ethCall Eth Call spec', async function () {
 
     it('derives a different cache key for two override sets', () => {
       const { generateCacheKey } = cacheDecoratorInternals.__private;
-      const withoutOverride = generateCacheKey('call', [callData, BLOCK, undefined, requestDetails]);
-      const withOverride = generateCacheKey('call', [callData, BLOCK, stateOverride, requestDetails]);
-      const withOther = generateCacheKey('call', [
-        callData,
-        BLOCK,
-        { [CONTRACT_ADDRESS_1]: { nonce: '0x1' } },
-        requestDetails,
-      ]);
+      const hashed = ['2'];
+      const withoutOverride = generateCacheKey('call', [callData, BLOCK, undefined, requestDetails], hashed);
+      const withOverride = generateCacheKey('call', [callData, BLOCK, stateOverride, requestDetails], hashed);
+      const withOther = generateCacheKey(
+        'call',
+        [callData, BLOCK, { [CONTRACT_ADDRESS_1]: { nonce: '0x1' } }, requestDetails],
+        hashed,
+      );
 
       expect(withoutOverride).to.not.equal(withOverride);
       expect(withOverride).to.not.equal(withOther);
-      expect(withoutOverride).to.not.contain('balance');
-      expect(withOverride).to.contain('balance');
+      expect(withOverride).to.not.contain('balance');
     });
   });
 

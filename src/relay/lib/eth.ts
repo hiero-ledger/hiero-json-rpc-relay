@@ -944,6 +944,7 @@ export class EthImpl implements Eth {
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+    hashParams: ['2'],
   })
   public async call(
     call: IContractCallRequest,
