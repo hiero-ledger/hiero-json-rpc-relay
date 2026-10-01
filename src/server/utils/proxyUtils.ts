@@ -209,23 +209,25 @@ function useClientIp(app: Koa | websockify.App, trustedProxyIps: readonly string
 export function applyProxyMiddleware(app: Koa | websockify.App, logger: Logger): void {
   const mode = ConfigService.get('REAL_IP_ADDRESS_MODE');
 
+  // Log the enum constants rather than `mode`, since CodeQL flags any env-derived value in a log as sensitive.
   if (mode === RealIpAddressMode.TRUSTED_PROXIES) {
-    const trustedProxyIps = ConfigService.get('TRUSTED_PROXY_IPS');
     logger.info(
-      `REAL_IP_ADDRESS_MODE=${mode}: client IP is read from forwarding headers only on requests from ${trustedProxyIps.length} trusted proxies`,
+      `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.TRUSTED_PROXIES}: client IP is read from forwarding headers only on requests from TRUSTED_PROXY_IPS`,
     );
-    useClientIp(app, trustedProxyIps);
+    useClientIp(app, ConfigService.get('TRUSTED_PROXY_IPS'));
     return;
   }
 
   if (mode === RealIpAddressMode.DIRECT_PEER) {
-    logger.info(`REAL_IP_ADDRESS_MODE=${mode}: client IP is the network peer, forwarding headers are ignored`);
+    logger.info(
+      `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.DIRECT_PEER}: client IP is the network peer, forwarding headers are ignored`,
+    );
     useClientIp(app);
     return;
   }
 
   logger.info(
-    `REAL_IP_ADDRESS_MODE=${mode}: client IP is read from forwarding headers, which is only safe behind a proxy that overwrites them`,
+    `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.X_FORWARDED_FOR}: client IP is read from forwarding headers, which is only safe behind a proxy that overwrites them`,
   );
 
   // enable proxy support to trust proxy-added headers for client IP detection
