@@ -91,8 +91,8 @@ export async function initializeServer(
 
   const methodResponseHistogram = metricsFactory.histogram(METRICS.server.methodResponse);
 
-  // Enable proxy support and RFC 7239 Forwarded header translation
-  applyProxyMiddleware(app);
+  // Enable proxy support per REAL_IP_ADDRESS_MODE, before anything reads ctx.ip
+  applyProxyMiddleware(app, logger);
 
   // Set CORS
   app.use(cors({ allowMethods: ['GET', 'POST'] }));

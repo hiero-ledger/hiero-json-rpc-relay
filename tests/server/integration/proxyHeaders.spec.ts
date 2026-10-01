@@ -3,6 +3,7 @@
 import Axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import { type Server } from 'http';
+import { type AddressInfo } from 'net';
 import { pino } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
@@ -13,6 +14,7 @@ ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
+import { type RequestDetails } from '../../../src/relay/lib/types';
 import { initializeServer, register } from '../../../src/server/server';
 import {
   asRelayInternals,
@@ -50,6 +52,7 @@ describe('Proxy Headers Integration Tests', function () {
 
   let testServer: Server;
   let testClient: AxiosInstance;
+  let relay: Relay;
 
   // Simple static test IPs - each test uses different IP ranges to avoid conflicts
   const TEST_IP_A = '192.168.1.100';
@@ -68,8 +71,9 @@ describe('Proxy Headers Integration Tests', function () {
   before(async function () {
     sinon.stub(asRelayInternals(Relay.prototype), 'ensureOperatorHasBalance').resolves();
     sinon.stub(asRelayInternals(Relay.prototype), 'waitForMirrorNode').resolves();
-    const { app } = await initializeServer();
-    testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
+    const initialized = await initializeServer();
+    relay = initialized.relay;
+    testServer = initialized.app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
   });
 
@@ -407,6 +411,56 @@ describe('Proxy Headers Integration Tests', function () {
           expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
         }
       });
+    });
+  });
+
+  describe('given REAL_IP_ADDRESS_MODE is DIRECT_PEER', function () {
+    overrideEnvsInMochaDescribe({ REAL_IP_ADDRESS_MODE: 'DIRECT_PEER' });
+
+    let directPeerServer: Server;
+    let directPeerClient: AxiosInstance;
+    let executeRpcMethod: sinon.SinonStub;
+
+    // The mode is read when the server starts, so this block needs its own server with its own rate limit store.
+    before(async function () {
+      executeRpcMethod = sinon.stub(relay, 'executeRpcMethod').resolves('0x1');
+      const { app } = await initializeServer(relay, register);
+      directPeerServer = app.listen(0);
+      await new Promise((resolve) => directPeerServer.once('listening', resolve));
+      directPeerClient = createTestClient((directPeerServer.address() as AddressInfo).port);
+    });
+
+    after(function () {
+      executeRpcMethod.restore();
+      directPeerServer.close();
+    });
+
+    async function postWithForwardedIp(method: string, ip: string, id: string): Promise<AxiosResponse> {
+      return directPeerClient.post(
+        '/',
+        { id, jsonrpc: '2.0', method, params: [] },
+        { headers: { 'X-Forwarded-For': ip }, validateStatus: () => true },
+      );
+    }
+
+    it('should rate limit one client that rotates X-Forwarded-For on each eth_newBlockFilter', async function () {
+      const responses: AxiosResponse[] = [];
+      for (let i = 1; i <= 10; i++) {
+        responses.push(await postWithForwardedIp('eth_newBlockFilter', `10.0.1.${i}`, `${i}`));
+      }
+
+      const succeeded = responses.filter((response) => response.data.result === '0x1');
+      const rateLimited = responses.filter((response) => response.data.error?.code === -32605);
+      expect(succeeded).to.have.lengthOf(3);
+      expect(rateLimited).to.have.lengthOf(7);
+    });
+
+    it('should hand the relay the peer IP, so a spoofed one cannot select its HBAR spending plan', async function () {
+      // HbarLimitService looks spending plans up by requestDetails.ipAddress.
+      await postWithForwardedIp('eth_sendRawTransaction', '1.2.3.4', '1');
+
+      const requestDetails: RequestDetails = executeRpcMethod.lastCall.args[2];
+      expect(requestDetails.ipAddress).to.be.oneOf(['127.0.0.1', '::1']);
     });
   });
 });

@@ -111,8 +111,8 @@ export async function initializeWsServer(
 
   const app = websockify(new Koa(), { maxPayload: maxPayloadBytes });
 
-  // Enable proxy support and RFC 7239 Forwarded header translation
-  applyProxyMiddleware(app);
+  // Enable proxy support per REAL_IP_ADDRESS_MODE, before anything reads ctx.ip
+  applyProxyMiddleware(app, logger);
 
   // `koa-websocket` hands over a bare socket; these middlewares seed the state `WsContext` describes.
   app.ws.use((koaCtx: Koa.Context, next: Koa.Next) => {
