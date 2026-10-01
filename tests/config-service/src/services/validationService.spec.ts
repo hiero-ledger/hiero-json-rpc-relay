@@ -321,6 +321,24 @@ describe('ValidationService tests', async function () {
         accept: [[], ['10.0.0.5', '10.0.0.6'], ['::ffff:10.0.0.5', '2001:db8::1']],
         reject: [['10.0.0.256'], ['10.0.0.0/24'], ['proxy.internal'], ['10.0.0.5', '']],
       },
+      {
+        key: 'CORS_ALLOWED_ORIGINS',
+        accept: [
+          [],
+          ['*'],
+          ['null'],
+          ['https://app.example.com', 'http://localhost:3000'],
+          ['  HTTPS://App.Example.com/  '],
+          ['chrome-extension://abcdefghijklmnop'],
+        ],
+        reject: [
+          ['app.example.com'],
+          ['https://app.example.com/dapp'],
+          ['https://app.example.com?a=1'],
+          [''],
+          ['*.example.com'],
+        ],
+      },
     ];
 
     CASES.forEach(({ key, accept, reject, envs = {} }) => {
