@@ -13,6 +13,45 @@ chai.use(chaiAsPromised);
 const HASH = '0x9bca036bc5d34168f7b308bd4923b628a33b72349939819175a55496101eab02';
 const TS = '1786958468.715212954';
 const BLOCK_HASH = '0x' + 'b'.repeat(64);
+const PAYER = '0x' + 'd'.repeat(40);
+const ZERO_ADDRESS = '0x' + '0'.repeat(40);
+const PRIOR_HASH = '0x' + 'e'.repeat(64);
+
+/** A contract result as the Mirror Node returns it for a block, synthetic unless gas is supplied. */
+const contractResult = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+  address: '0x0000000000000000000000000000000000120f46',
+  amount: null,
+  bloom: '0x',
+  call_result: '0x',
+  contract_id: '0.0.1183558',
+  created_contract_ids: [],
+  error_message: null,
+  from: PAYER,
+  function_parameters: '0x',
+  gas_limit: 0,
+  gas_used: null,
+  timestamp: TS,
+  to: '0x0000000000000000000000000000000000120f46',
+  hash: HASH,
+  block_hash: BLOCK_HASH,
+  block_number: 39363179,
+  result: 'SUCCESS',
+  transaction_index: 0,
+  status: '0x1',
+  failed_initcode: null,
+  access_list: [],
+  block_gas_used: 0,
+  chain_id: '0x12a',
+  gas_price: '0x47',
+  max_fee_per_gas: null,
+  max_priority_fee_per_gas: null,
+  r: null,
+  s: null,
+  type: 0,
+  v: null,
+  nonce: null,
+  ...overrides,
+});
 
 /** A synthetic transfer log as the Mirror Node returns it for a CryptoTransfer. */
 const syntheticLog = (transactionHash: string): MirrorNodeContractLog & { root_contract_id: string } => ({
@@ -44,7 +83,7 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
     sinon.stub(mirrorNodeInstance.transactionTimestampIndex, 'get').resolves(consensusTimestamp);
 
   /** Answers only the routes the fallback legitimately needs; records every path requested. */
-  const stubMirrorNode = (logsForTimestampQuery: object[] | null): string[] => {
+  const stubMirrorNode = (logsForTimestampQuery: object[] | null, blockResults?: object[] | 'reject'): string[] => {
     const paths: string[] = [];
     sinon.stub(mirrorNodeInstance, 'get').callsFake(async (path: string) => {
       const p = String(path);
@@ -54,6 +93,12 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
       }
       if (p.startsWith('network/fees')) {
         return DEFAULT_NETWORK_FEES;
+      }
+      if (p.startsWith('contracts/results?')) {
+        if (blockResults === 'reject') {
+          throw new Error('mirror node unavailable');
+        }
+        return blockResults === undefined ? null : { results: blockResults };
       }
       if (p.includes(`timestamp=eq:${TS}`)) {
         return logsForTimestampQuery === null ? null : { logs: logsForTimestampQuery };
@@ -82,6 +127,47 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
     expect(receipt!.transactionHash).to.equal(HASH);
     expect(receipt!.blockNumber).to.equal('0x258a26b');
     expect(byHashPaths(paths), `by-hash routes must not be used, saw ${byHashPaths(paths)}`).to.deep.equal([]);
+  });
+
+  it('reports the payer and the block gas total from the block results, not the log-only defaults', async () => {
+    recordedTimestamp(TS);
+    const paths = stubMirrorNode(
+      [syntheticLog(HASH)],
+      [
+        contractResult({ hash: PRIOR_HASH, transaction_index: 0, gas_used: 100, gas_limit: 50000 }),
+        contractResult({ transaction_index: 1 }),
+      ],
+    );
+
+    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
+
+    expect(receipt!.from).to.equal(PAYER);
+    expect(receipt!.cumulativeGasUsed).to.equal('0x64');
+    expect(receipt!.gasUsed).to.equal('0x0');
+    expect(receipt!.status).to.equal('0x1');
+    expect(byHashPaths(paths), `by-hash routes must not be used, saw ${byHashPaths(paths)}`).to.deep.equal([]);
+  });
+
+  it('keeps serving the log-only receipt when the block results do not contain the hash', async () => {
+    recordedTimestamp(TS);
+    stubMirrorNode([syntheticLog(HASH)], [contractResult({ hash: PRIOR_HASH, transaction_index: 0, gas_used: 100 })]);
+
+    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
+
+    expect(receipt).to.not.be.null;
+    expect(receipt!.from).to.equal(ZERO_ADDRESS);
+    expect(receipt!.cumulativeGasUsed).to.equal('0x0');
+  });
+
+  it('keeps serving a receipt when the block results cannot be loaded', async () => {
+    recordedTimestamp(TS);
+    stubMirrorNode([syntheticLog(HASH)], 'reject');
+
+    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
+
+    expect(receipt).to.not.be.null;
+    expect(receipt!.transactionHash).to.equal(HASH);
+    expect(receipt!.from).to.equal(ZERO_ADDRESS);
   });
 
   it('leaves the existing path untouched when the hash was never recorded', async () => {
