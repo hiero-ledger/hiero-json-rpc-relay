@@ -18,6 +18,7 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { RateLimitStoreFactory } from '../relay/lib/services';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
+import { HTTP_STATUS } from './koaJsonRpc/lib/httpErrorMapper';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
 import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConformityService';
@@ -111,7 +112,8 @@ export async function initializeServer(
       logger.info(
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
-      methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
+      const statusCode = ctx.state.clientDisconnected ? HTTP_STATUS.CLIENT_CLOSED_REQUEST : ctx.status;
+      methodResponseHistogram.labels(ctx.state.methodName, `${statusCode}`).observe(ms);
     }
   });
 

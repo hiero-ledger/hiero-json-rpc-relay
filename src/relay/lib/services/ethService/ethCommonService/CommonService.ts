@@ -22,6 +22,7 @@ import {
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
+import { isRequestAbortedError, throwIfRequestAborted } from '../../../utils/requestAbort';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -454,6 +455,10 @@ export class CommonService implements ICommonService {
   }
 
   public genericErrorHandler(error: unknown, logMessage?: string): void {
+    if (isRequestAbortedError(error)) {
+      throw error;
+    }
+
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -555,12 +560,15 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<MirrorNodeContractLog[]> {
+    throwIfRequestAborted(requestDetails);
+
     // Dedupe case-insensitively so a repeated address is fetched from the Mirror Node once, and so identical
     // logs are not returned twice in the flattened response.
     const addresses = dedupeAddresses(address);
-    const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params),
-    );
+    const logPromises = addresses.map(async (addr) => {
+      throwIfRequestAborted(requestDetails);
+      return this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params);
+    });
 
     const logResults = await Promise.all(logPromises);
     const logs = logResults.flatMap((logResult) => (logResult ? logResult : []));
