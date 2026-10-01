@@ -10,6 +10,7 @@ const PARAM = 'stateOverride';
 
 const ADDRESS_PATTERN = new RegExp(Constants.ADDRESS_REGEX);
 const SLOT_PATTERN = new RegExp(`${Constants.BASE_HEX_REGEX}{64}$`);
+const KNOWN_FIELDS: ReadonlySet<string> = new Set(['balance', 'nonce', 'code', 'state', 'stateDiff']);
 
 /**
  * Validates the state override set accepted as the third parameter of `eth_call` and
@@ -51,6 +52,12 @@ function validateAccountOverride(address: string, override: IAccountOverride): v
 
   if (hasOwnProperty(override, 'movePrecompileToAddress')) {
     throw predefined.INVALID_PARAMETER(PARAM, `'movePrecompileToAddress' is not supported`);
+  }
+
+  for (const field of Object.keys(override)) {
+    if (!KNOWN_FIELDS.has(field)) {
+      throw predefined.INVALID_PARAMETER(PARAM, `'${address}' has unknown field '${field}'`);
+    }
   }
 
   if (override.balance !== undefined) {

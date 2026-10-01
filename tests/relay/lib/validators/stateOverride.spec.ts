@@ -148,6 +148,46 @@ describe('validateStateOverrideSet', () => {
     });
   });
 
+  describe('unknown fields', () => {
+    it('should reject a misspelled field', () => {
+      expect(() => validateStateOverrideSet({ [ADDRESS]: { stateDiffs: { [SLOT]: VALUE } } })).to.throw(
+        "has unknown field 'stateDiffs'",
+      );
+    });
+
+    it('should reject a misspelled field even alongside a valid one', () => {
+      expect(() => validateStateOverrideSet({ [ADDRESS]: { balance: '0x1', cod: '0x00' } })).to.throw(
+        "has unknown field 'cod'",
+      );
+    });
+
+    it('should reject a field whose value is undefined, since the key is present', () => {
+      expect(() => validateStateOverrideSet({ [ADDRESS]: { stateDiffs: undefined } })).to.throw(
+        "has unknown field 'stateDiffs'",
+      );
+    });
+
+    it('should name the address that carries the unknown field', () => {
+      expect(() =>
+        validateStateOverrideSet({ [ADDRESS]: { nonce: '0x1' }, [addressAt(2)]: { noNce: '0x1' } }),
+      ).to.throw(`'${addressAt(2)}' has unknown field 'noNce'`);
+    });
+
+    it('should still report movePrecompileToAddress with its own message', () => {
+      expect(() => validateStateOverrideSet({ [ADDRESS]: { movePrecompileToAddress: ADDRESS, cod: '0x00' } })).to.throw(
+        "'movePrecompileToAddress' is not supported",
+      );
+    });
+
+    it('should accept every supported field together', () => {
+      expect(() =>
+        validateStateOverrideSet({
+          [ADDRESS]: { balance: '0x1', nonce: '0x1', code: '0x00', state: { [SLOT]: VALUE } },
+        }),
+      ).not.to.throw();
+    });
+  });
+
   describe('movePrecompileToAddress', () => {
     it('should reject it', () => {
       expect(() => validateStateOverrideSet({ [ADDRESS]: { movePrecompileToAddress: ADDRESS } })).to.throw(
