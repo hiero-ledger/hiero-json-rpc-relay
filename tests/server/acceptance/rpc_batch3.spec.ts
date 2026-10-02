@@ -150,6 +150,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     const ABSENT_LONG_ZERO = RelayCall.NON_EXISTING_LONG_ZERO_ADDRESS;
     const ABSENT_ALIASED = RelayCall.NON_EXISTING_ADDRESS;
     const HTS_PRECOMPILE = '0x0000000000000000000000000000000000000167';
+    const RETURNS_42 = '0x602a60005260206000f3'; // PUSH1 2a PUSH1 00 MSTORE PUSH1 20 PUSH1 00 RETURN
     const balanceReader = (address: string): string => `0x73${address.replace('0x', '')}3160005260206000f3`;
 
     let deployerAddress: string;
@@ -383,13 +384,21 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
 
     it('accepts an override on a system address without applying it', async function () {
-      const result = await ethCall([
-        { to: deployerAddress, data: COUNTER_SELECTOR },
-        'latest',
-        { [HTS_PRECOMPILE]: { code: '0x602a60005260206000f3' } },
+      const call = { to: HTS_PRECOMPILE, data: '0x' };
+      const responses = await relay.callBatch([
+        { id: 1, method: RelayCall.ETH_ENDPOINTS.ETH_CALL, params: [call, 'latest'] },
+        {
+          id: 2,
+          method: RelayCall.ETH_ENDPOINTS.ETH_CALL,
+          params: [call, 'latest', { [HTS_PRECOMPILE]: { code: RETURNS_42 } }],
+        },
       ]);
+      const plain = responses.find((entry: { id: number }) => entry.id === 1);
+      const overridden = responses.find((entry: { id: number }) => entry.id === 2);
 
-      expect(result).to.equal(VALUE(1));
+      expect(overridden.result).to.not.equal(VALUE(0x2a));
+      expect(overridden.result).to.equal(plain.result);
+      expect(overridden.error?.code).to.equal(plain.error?.code);
     });
 
     it('applies overrides to eth_estimateGas as well', async function () {
