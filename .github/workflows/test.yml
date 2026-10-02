@@ -34,6 +34,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # This builds only the Redis server and not bundled modules which are not used.
+          BUILD_ARGS: core
 
       - name: Create .env file
         run: cp ./tests/relay/test.env .env

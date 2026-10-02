@@ -53,6 +53,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
   // cached entities
   let parentContractAddress: string;
+  let parentDeploymentTxHash: string;
   let mirrorContractDetails: MirrorTransactionLike;
   let createChildTx: ethers.ContractTransactionResponse;
   let htsTokenId: TokenId; // Shared HTS token for synthetic transaction tests
@@ -80,6 +81,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       );
 
       parentContractAddress = parentContract.target as string;
+      const parentDeploymentTx = parentContract.deploymentTransaction();
+      assertExists(parentDeploymentTx);
+      parentDeploymentTxHash = parentDeploymentTx.hash;
       if (global.logger.isLevelEnabled('trace')) {
         global.logger.trace(`Deploy parent contract on address ${parentContractAddress}`);
       }
@@ -1225,6 +1229,37 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         }
 
         expect(receipt.from).to.equal(ethers.ZeroAddress);
+      });
+
+      describe('contractAddress in "eth_getTransactionReceipt"', () => {
+        it('should be null for a value transfer to an account', async function () {
+          const tx = await accounts[0].wallet.sendTransaction({ to: accounts[1].address, value: ONE_TINYBAR });
+          const receipt = await relay.pollForValidTransactionReceipt(tx.hash);
+
+          expect(receipt.status).to.equal('0x1');
+          expect(receipt.contractAddress).to.be.null;
+        });
+
+        it('should be null for a contract call whose callee deploys a contract', async function () {
+          const mirrorResult = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
+          expect(mirrorResult.created_contract_ids, 'createChild must deploy a Child contract').to.not.be.empty;
+
+          const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [createChildTx.hash]);
+
+          expect(receipt.status).to.equal('0x1');
+          expect(receipt.to).to.not.be.null;
+          expect(receipt.contractAddress).to.be.null;
+        });
+
+        it('should be the deployed contract address for a deployment', async function () {
+          const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+            parentDeploymentTxHash,
+          ]);
+
+          expect(receipt.to).to.be.null;
+          expect(receipt.contractAddress).to.not.be.null;
+          expect(receipt.contractAddress.toLowerCase()).to.equal(parentContractAddress.toLowerCase());
+        });
       });
     });
   });

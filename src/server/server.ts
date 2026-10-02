@@ -2,7 +2,6 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import cors from '@koa/cors';
 import fs from 'fs';
 import type Koa from 'koa';
 import path from 'path';
@@ -19,9 +18,11 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { RateLimitStoreFactory } from '../relay/lib/services';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
+import { HTTP_STATUS } from './koaJsonRpc/lib/httpErrorMapper';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
 import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConformityService';
+import { applyCorsMiddleware } from './utils/corsUtils';
 import { applyProxyMiddleware } from './utils/proxyUtils';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
@@ -93,8 +94,7 @@ export async function initializeServer(
   // Enable proxy support and RFC 7239 Forwarded header translation
   applyProxyMiddleware(app);
 
-  // Set CORS
-  app.use(cors({ allowMethods: ['GET', 'POST'] }));
+  applyCorsMiddleware(app);
 
   // Middleware for non POST request timing
   app.use(async (ctx, next) => {
@@ -112,7 +112,8 @@ export async function initializeServer(
       logger.info(
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
-      methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
+      const statusCode = ctx.state.clientDisconnected ? HTTP_STATUS.CLIENT_CLOSED_REQUEST : ctx.status;
+      methodResponseHistogram.labels(ctx.state.methodName, `${statusCode}`).observe(ms);
     }
   });
 

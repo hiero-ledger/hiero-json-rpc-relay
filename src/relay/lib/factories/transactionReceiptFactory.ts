@@ -7,11 +7,7 @@ import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, to
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
 import { type Log } from '../model';
-import {
-  type ITransactionReceipt,
-  type MirrorNodeContractResultBase,
-  type MirrorNodeContractResultReceipt,
-} from '../types';
+import { type ITransactionReceipt, type MirrorNodeContractResultReceipt } from '../types';
 import { type IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
@@ -142,19 +138,22 @@ class TransactionReceiptFactory {
    * @param receiptResponse Mirror node contract result response
    * @returns {string | null} Contract address or null
    */
-  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
+  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultReceipt): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
 
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
+    if (isCreationViaSystemContract) {
+      // a reverted call created no token, and its call result carries revert data rather than an address
+      if (receiptResponse.status !== constants.ONE_HEX) {
+        return null;
+      }
+
+      const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
+      return prepend0x(tokenAddress);
     }
 
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
+    return receiptResponse.created_contract_ids.includes(receiptResponse.contract_id) ? receiptResponse.address : null;
   }
 
   /**

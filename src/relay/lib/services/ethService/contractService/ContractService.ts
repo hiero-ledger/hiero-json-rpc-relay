@@ -29,6 +29,7 @@ import {
   type RequestDetails,
   type StateOverrideSet,
 } from '../../../types';
+import { isRequestAbortedError } from '../../../utils/requestAbort';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
 import type HAPIService from '../../hapiService/hapiService';
@@ -146,7 +147,7 @@ export class ContractService implements IContractService {
 
       return result;
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
@@ -181,7 +182,7 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
@@ -256,6 +257,8 @@ export class ContractService implements IContractService {
 
       return constants.EMPTY_HEX;
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.error(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,

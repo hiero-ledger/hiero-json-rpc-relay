@@ -57,6 +57,7 @@ import type {
   QueryParamObject,
   QueryParamValue,
 } from '../types/mirrorNode';
+import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '../utils/requestAbort';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
@@ -339,6 +340,9 @@ export class MirrorNodeClient {
         return delay;
       },
       retryCondition: (error) => {
+        if (Axios.isCancel(error)) {
+          return false;
+        }
         // @ts-ignore
         return !error?.response?.status || mirrorNodeRetryErrorCodes.includes(error?.response?.status);
       },
@@ -475,8 +479,14 @@ export class MirrorNodeClient {
     data?: unknown,
     retries?: number,
   ): Promise<T | null> {
+    throwIfRequestAborted(requestDetails);
+
     const start = Date.now();
     const controller = new AbortController();
+    const callerSignal = getRequestAbortSignal(requestDetails);
+    const onCallerAbort = (): void => controller.abort(callerSignal?.reason);
+    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+
     try {
       const axiosRequestConfig: AxiosRequestConfig = {
         headers: {
@@ -531,6 +541,16 @@ export class MirrorNodeClient {
       const ms = Date.now() - start;
       const axiosError = error as { response?: { status?: number }; code?: string };
 
+      if (isRequestAborted(requestDetails)) {
+        this.logger.debug(
+          `Mirror node request cancelled after the caller abandoned the request: method=%s, path=%s, duration=%sms`,
+          method,
+          path,
+          ms,
+        );
+        throwIfRequestAborted(requestDetails);
+      }
+
       // Calculate effective status code
       const effectiveStatusCode =
         axiosError.response?.status ||
@@ -546,6 +566,8 @@ export class MirrorNodeClient {
 
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
+    } finally {
+      callerSignal?.removeEventListener('abort', onCallerAbort);
     }
   }
 
@@ -2063,10 +2085,16 @@ export class MirrorNodeClient {
       if (activeRequestsPool.size >= concurrency) {
         await Promise.race(activeRequestsPool);
       }
+
+      if (isRequestAborted(requestDetails)) {
+        break;
+      }
     }
 
     // Wait for all remaining requests to complete
     await Promise.all(activeRequestsPool);
+
+    throwIfRequestAborted(requestDetails);
 
     // Merge all slice results with deduplication (single-threaded, no race condition)
     const allLogs: MirrorNodeContractLog[] = [];
@@ -2161,15 +2189,7 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
-      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
-      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
-      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
-      // safe to return.
-      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
-      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
-        return cachedResponse;
-      }
+      return cachedResponse;
     }
 
     const buildPromise = (fn: Promise<unknown>): Promise<unknown> =>
