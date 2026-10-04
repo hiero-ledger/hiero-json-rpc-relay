@@ -16,14 +16,18 @@ import * as eth_feeHistory from '../test/eth_feeHistory.js';
 import * as eth_gasPrice from '../test/eth_gasPrice.js';
 import * as eth_getBalance from '../test/eth_getBalance.js';
 import * as eth_getBlockByHash from '../test/eth_getBlockByHash.js';
+import * as eth_getBlockByHash_withManySyntheticTxs from '../test/eth_getBlockByHash_withManySyntheticTxs.js';
 import * as eth_getBlockByNumber from '../test/eth_getBlockByNumber.js';
+import * as eth_getBlockByNumber_withManySyntheticTxs from '../test/eth_getBlockByNumber_withManySyntheticTxs.js';
 import * as eth_getBlockReceipts from '../test/eth_getBlockReceipts.js';
+import * as eth_getBlockReceipts_withManySyntheticTxs from '../test/eth_getBlockReceipts_withManySyntheticTxs.js';
 import * as eth_getBlockTransactionCountByHash from '../test/eth_getBlockTransactionCountByHash.js';
 import * as eth_getBlockTransactionCountByNumber from '../test/eth_getBlockTransactionCountByNumber.js';
 import * as eth_getCode from '../test/eth_getCode.js';
 import * as eth_getFilterChanges from '../test/eth_getFilterChanges.js';
 import * as eth_getFilterLogs from '../test/eth_getFilterLogs.js';
 import * as eth_getLogs from '../test/eth_getLogs.js';
+import * as eth_getLogs_withManySyntheticTxs from '../test/eth_getLogs_withManySyntheticTxs.js';
 import * as eth_getProof from '../test/eth_getProof.js';
 import * as eth_getStorageAt from '../test/eth_getStorageAt.js';
 import * as eth_getTransactionByBlockHashAndIndex from '../test/eth_getTransactionByBlockHashAndIndex.js';
@@ -73,14 +77,18 @@ const tests = {
   eth_gasPrice,
   eth_getBalance,
   eth_getBlockByHash,
+  eth_getBlockByHash_withManySyntheticTxs,
   eth_getBlockByNumber,
+  eth_getBlockByNumber_withManySyntheticTxs,
   eth_getBlockTransactionCountByHash,
   eth_getBlockTransactionCountByNumber,
   eth_getBlockReceipts,
+  eth_getBlockReceipts_withManySyntheticTxs,
   eth_getCode,
   eth_getFilterChanges,
   eth_getFilterLogs,
   eth_getLogs,
+  eth_getLogs_withManySyntheticTxs,
   eth_getProof,
   eth_getStorageAt,
   eth_getTransactionByBlockHashAndIndex,
