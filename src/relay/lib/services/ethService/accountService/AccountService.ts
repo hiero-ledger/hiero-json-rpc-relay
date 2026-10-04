@@ -288,7 +288,17 @@ export class AccountService implements IAccountService {
         );
 
         balanceFound = true;
-        weibars = BigInt(currentBalance - balanceFromTxs) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+        const tinybars = currentBalance - balanceFromTxs;
+        if (tinybars < 0) {
+          this.logger.warn(
+            `Reconstructed a negative balance for account %s at block %s (current: %s, rewound: %s), returning 0`,
+            account,
+            block.number,
+            currentBalance,
+            balanceFromTxs,
+          );
+        }
+        weibars = BigInt(Math.max(tinybars, 0)) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
       }
     }
 
@@ -391,11 +401,11 @@ export class AccountService implements IAccountService {
   ): number {
     return transactions
       .filter((transaction) => {
-        return transaction.consensus_timestamp >= blockTimestamp;
+        return transaction.consensus_timestamp > blockTimestamp;
       })
       .flatMap((transaction) => {
         return transaction.transfers.filter((transfer: ITransfer) => {
-          return transfer.account === account && !transfer.is_approval;
+          return transfer.account === account;
         });
       })
       .map((transfer) => {

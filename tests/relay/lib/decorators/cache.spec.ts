@@ -241,6 +241,53 @@ describe('cache decorator', () => {
       expect(result).to.equal('eth_call_earliest');
     });
 
+    it('should hash an object argument whose index is listed in hashParams', () => {
+      const override = { '0xabc': { balance: '0x1' } };
+      const args = [{ to: '0xdef' }, 'latest', override];
+
+      const result = __test__.__private.generateCacheKey('eth_call', args, ['2']);
+
+      expect(result).to.not.contain('balance');
+      expect(result).to.match(/_0x[0-9a-f]{64}$/);
+      expect(result).to.contain('{"to":"0xdef"}');
+    });
+
+    it('should derive different hashes for different objects', () => {
+      const args = (balance: string): unknown[] => [{ to: '0xdef' }, 'latest', { '0xabc': { balance } }];
+
+      const first = __test__.__private.generateCacheKey('eth_call', args('0x1'), ['2']);
+      const second = __test__.__private.generateCacheKey('eth_call', args('0x2'), ['2']);
+
+      expect(first).to.not.equal(second);
+    });
+
+    it('should derive the same hash whatever the case of the address', () => {
+      const lower = [{ to: '0xdef' }, 'latest', { '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd': { balance: '0xaa' } }];
+      const checksummed = [
+        { to: '0xdef' },
+        'latest',
+        { '0xAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCd': { balance: '0xAA' } },
+      ];
+
+      expect(__test__.__private.generateCacheKey('eth_call', lower, ['2'])).to.equal(
+        __test__.__private.generateCacheKey('eth_call', checksummed, ['2']),
+      );
+    });
+
+    it('should leave an undefined argument at a hashed index as is', () => {
+      const args = [{ to: '0xdef' }, 'latest', undefined];
+
+      const result = __test__.__private.generateCacheKey('eth_call', args, ['2']);
+      expect(result).to.equal('eth_call_{"to":"0xdef"}_latest_undefined');
+    });
+
+    it('should serialize object arguments in full when hashParams is omitted', () => {
+      const args = [{ to: '0xdef' }, 'latest', { '0xabc': { balance: '0x1' } }];
+
+      const result = __test__.__private.generateCacheKey('eth_call', args);
+      expect(result).to.contain('balance');
+    });
+
     it('should not skip null or undefined args', () => {
       const args = [undefined, null, 'pending'];
 

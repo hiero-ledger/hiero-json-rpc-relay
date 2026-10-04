@@ -146,6 +146,20 @@ const _CONFIG = {
     required: false,
     defaultValue: 3,
   },
+  CORS_ALLOWED_ORIGINS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+    validation: (value: readonly string[]) => {
+      // `*`, `null`, or an origin: scheme + authority, no path
+      const originPattern = /^(\*|null|[a-z][a-z\d+.-]*:\/\/[^/?#\s]+\/?)$/i;
+      const invalid = value.filter((origin) => !originPattern.test(origin.trim()));
+      return (
+        invalid.length === 0 ||
+        `CORS_ALLOWED_ORIGINS entries must be "*", "null" or an origin such as "https://app.example.com", got: ${invalid.join(', ')}`
+      );
+    },
+  },
   DEBUG_API_ENABLED: {
     type: 'boolean',
     required: false,

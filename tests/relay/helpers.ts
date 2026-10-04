@@ -364,6 +364,18 @@ const mockData = {
     },
   },
 
+  stateOverridesNotSupported: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad Request',
+          detail: '400 BAD_REQUEST "State overrides are not supported."',
+          data: '',
+        },
+      ],
+    },
+  },
+
   invalidTransaction: {
     _status: {
       messages: [

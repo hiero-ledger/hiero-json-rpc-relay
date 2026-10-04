@@ -3,6 +3,7 @@
 import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import { type MirrorNodeClient } from '../../../../src/relay/lib/clients';
@@ -767,6 +768,130 @@ describe('@ethGetBalance using MirrorNode', async function () {
       expect(resBalance).to.equal(historicalBalance);
     });
 
+    it('blockNumber is in the latest 15 minutes and an allowance spend debited the account after the block.timestamp.to', async () => {
+      const blockTimestamp = '1651560900';
+      const recentBlockWithinLastfifteen = {
+        ...DEFAULT_BLOCK,
+        number: 2,
+        timestamp: {
+          from: '1651560899.060890921',
+          to: `${blockTimestamp}.060890941`,
+        },
+      };
+      const balanceAtBlock = 1958333334;
+      const credit = 500000000;
+      // A spender then pulls everything out through an allowance, leaving a current balance of 0
+      const allowanceSpend = buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.1001', balanceAtBlock + credit, {
+        timestamp: `${blockTimestamp}.060890953`,
+      });
+      allowanceSpend.transfers.find((transfer) => transfer.account === CONTRACT_ID_1)!.is_approval = true;
+
+      restMock.onGet(`blocks/2`).reply(200, JSON.stringify(recentBlockWithinLastfifteen));
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+        200,
+        JSON.stringify({
+          account: CONTRACT_ID_1,
+          balance: {
+            balance: 0,
+            timestamp: `${blockTimestamp}.060890960`,
+          },
+          transactions: [
+            allowanceSpend,
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, credit, {
+              timestamp: `${blockTimestamp}.060890952`,
+            }),
+          ],
+          links: {
+            next: null,
+          },
+        }),
+      );
+
+      const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '2', requestDetails);
+      expect(resBalance).to.equal(numberTo0x(BigInt(balanceAtBlock) * TINYBAR_TO_WEIBAR_COEF_BIGINT));
+    });
+
+    it('blockNumber is in the latest 15 minutes and a transaction landed at exactly the block.timestamp.to', async () => {
+      const blockTimestamp = '1651560900';
+      const recentBlockWithinLastfifteen = {
+        ...DEFAULT_BLOCK,
+        number: 2,
+        timestamp: {
+          from: '1651560899.060890921',
+          to: `${blockTimestamp}.060890941`,
+        },
+      };
+
+      restMock.onGet(`blocks/2`).reply(200, JSON.stringify(recentBlockWithinLastfifteen));
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+        200,
+        JSON.stringify({
+          account: CONTRACT_ID_1,
+          balance: {
+            balance: balance3,
+            timestamp: `${blockTimestamp}.060890960`,
+          },
+          transactions: [
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: `${blockTimestamp}.060890952` }),
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${blockTimestamp}.060890941` }),
+          ],
+          links: {
+            next: null,
+          },
+        }),
+      );
+
+      const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '2', requestDetails);
+      // Only the transaction after the block is rewound; the one at block.timestamp.to is part of the block
+      expect(resBalance).to.equal(numberTo0x(BigInt(balance3 - 50) * TINYBAR_TO_WEIBAR_COEF_BIGINT));
+    });
+
+    it('returns 0 and logs a warning when the reconstructed balance would be negative', async () => {
+      const blockTimestamp = '1651560900';
+      const recentBlockWithinLastfifteen = {
+        ...DEFAULT_BLOCK,
+        number: 2,
+        size: 0,
+        timestamp: {
+          from: '1651560899.060890921',
+          to: `${blockTimestamp}.060890941`,
+        },
+      };
+      // A credit after the block with no matching debit makes the rewind overshoot below zero
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+        200,
+        JSON.stringify({
+          account: CONTRACT_ID_1,
+          balance: {
+            balance: 0,
+            timestamp: `${blockTimestamp}.060890960`,
+          },
+          transactions: [
+            buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${blockTimestamp}.060890952` }),
+          ],
+          links: {
+            next: null,
+          },
+        }),
+      );
+      const warnSpy = sinon.spy(accountService['logger'], 'warn');
+
+      try {
+        const { balanceFound, weibars } = await accountService.getBalanceAtBlockNumber(
+          CONTRACT_ID_1,
+          recentBlockWithinLastfifteen,
+          { blockNumber: '4', timeStampTo: latestBlock.timestamp.to },
+          requestDetails,
+        );
+
+        expect(balanceFound).to.be.true;
+        expect(weibars).to.equal(BigInt(0));
+        expect(warnSpy.calledOnce).to.be.true;
+      } finally {
+        warnSpy.restore();
+      }
+    });
+
     it('blockNumber is the same as the latest block', async () => {
       const resBalance = await ethImpl.getBalance(CONTRACT_ID_1, '3', requestDetails);
       expect(resBalance).to.equal(hexBalance3);
@@ -942,6 +1067,34 @@ describe('@ethGetBalance using MirrorNode', async function () {
       );
       // Transactions up to the block timestamp.to timestamp will be subsctracted from the current balance to get the block's balance.
       expect(resultingUpdate).to.equal(+70);
+    });
+
+    it('Given a blockNumber, includes allowance (is_approval) transfers in the account balance change', async () => {
+      const allowanceSpend = buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.1001', 100, {
+        timestamp: `${timestamp1}.060890955`,
+      });
+      allowanceSpend.transfers.find((transfer) => transfer.account === CONTRACT_ID_1)!.is_approval = true;
+
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
+        CONTRACT_ID_1,
+        [allowanceSpend],
+        `${timestamp1}.060890950`,
+      );
+      expect(resultingUpdate).to.equal(-100);
+    });
+
+    it('Given a blockNumber, does not rewind a transaction at exactly the block timestamp.to', async () => {
+      const transactionsInBlockTimestamp = [
+        buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 100, { timestamp: `${timestamp1}.060890950` }),
+        buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: `${timestamp1}.060890951` }),
+      ];
+
+      const resultingUpdate = accountService['getBalanceAtBlockTimestamp'](
+        CONTRACT_ID_1,
+        transactionsInBlockTimestamp,
+        `${timestamp1}.060890950`,
+      );
+      expect(resultingUpdate).to.equal(+50);
     });
   });
 });

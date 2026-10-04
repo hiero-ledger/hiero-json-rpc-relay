@@ -66,6 +66,25 @@ export interface IContractLogsResultsParams {
   topic3?: string | string[];
 }
 
+/** A single storage slot on the mirror node's `state`/`state_diff` arrays. */
+export interface IStorageEntry {
+  key: string;
+  value: string;
+}
+
+/**
+ * Per-address override in the mirror node's wire format: an array entry carrying its own
+ * `address`, snake_case field names, and storage as key/value pairs rather than a map.
+ */
+export interface IStateOverride {
+  address: string;
+  balance?: string;
+  code?: string;
+  nonce?: string;
+  state?: IStorageEntry[];
+  state_diff?: IStorageEntry[];
+}
+
 export interface IContractCallRequest {
   block?: string;
   estimate?: boolean;
@@ -78,6 +97,7 @@ export interface IContractCallRequest {
   input?: string;
   accessList?: AccessListEntry[];
   authorizationList?: AuthorizationListEntry[];
+  state_overrides?: IStateOverride[];
 }
 
 export interface IContractCallResponse {
