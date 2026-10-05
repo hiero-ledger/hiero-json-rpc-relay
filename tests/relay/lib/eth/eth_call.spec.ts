@@ -6,11 +6,24 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { ConfigService } from '../../../../src/config-service/services';
+import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
+import { __test__ as cacheDecoratorInternals } from '../../../../src/relay/lib/decorators/cache.decorator';
 import { JsonRpcError, predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import type { ContractService } from '../../../../src/relay/lib/services';
-import { type IContractCallRequest, type IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
+import {
+  type IContractCallRequest,
+  type IContractCallResponse,
+  RequestDetails,
+  type StateOverrideSet,
+} from '../../../../src/relay/lib/types';
+import {
+  type IParamValidation,
+  RPC_PARAM_VALIDATION_RULES_KEY,
+  validateParams,
+} from '../../../../src/relay/lib/validators';
+import { Utils } from '../../../../src/relay/utils';
 import RelayAssertions from '../../assertions';
 import {
   defaultCallData,
@@ -83,6 +96,194 @@ describe('@ethCall Eth Call spec', async function () {
   this.afterEach(() => {
     getSdkClientStub.restore();
     restMock.resetHandlers();
+  });
+
+  describe('state override parameter binding', () => {
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+    const callObject = { to: CONTRACT_ADDRESS_1, data: CONTRACT_CALL_DATA };
+    let callStub: sinon.SinonStub;
+
+    const dispatch = async (params: unknown[]): Promise<void> => {
+      const args = Utils.arrangeRpcParams(
+        ethImpl.call as Parameters<typeof Utils.arrangeRpcParams>[0],
+        params,
+        requestDetails,
+      );
+      await (ethImpl.call as (...methodArgs: unknown[]) => Promise<string>).apply(ethImpl, args);
+    };
+
+    beforeEach(() => {
+      callStub = sinon.stub(contractService, 'call').resolves('0x');
+    });
+
+    afterEach(() => {
+      callStub.restore();
+    });
+
+    it('keeps requestDetails in its own argument when a state override is sent', async () => {
+      await dispatch([callObject, 'latest', stateOverride]);
+
+      expect(callStub.firstCall.args[2]).to.equal(requestDetails);
+      expect(callStub.firstCall.args[3]).to.deep.equal(stateOverride);
+    });
+
+    it('passes no state override when the caller sends two parameters', async () => {
+      await dispatch([callObject, 'latest']);
+
+      expect(callStub.firstCall.args[2]).to.equal(requestDetails);
+      expect(callStub.firstCall.args[3]).to.be.undefined;
+    });
+  });
+
+  describe('state overrides in the mirror node request', () => {
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+
+    const postedBody = async (stateOverride?: StateOverrideSet): Promise<IContractCallRequest> => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      // replyOnce, so the handler does not outlive this test — afterEach only resets restMock.
+      web3Mock.onPost('contracts/call').replyOnce(200, { result: '0x00' });
+      web3Mock.resetHistory();
+
+      await contractService.call({ ...callData }, 'latest', requestDetails, stateOverride);
+
+      return JSON.parse(web3Mock.history.post[0].data);
+    };
+
+    it('sends the translated override set as state_overrides', async () => {
+      const body = await postedBody({ [CONTRACT_ADDRESS_1]: { balance: '0x2540be400' } });
+
+      expect(body.state_overrides).to.deep.equal([{ address: CONTRACT_ADDRESS_1.toLowerCase(), balance: '0x1' }]);
+    });
+
+    it('omits state_overrides when no override is passed', async () => {
+      const body = await postedBody();
+
+      expect(body).to.not.have.property('state_overrides');
+    });
+
+    it('omits state_overrides when every entry translates to nothing', async () => {
+      const body = await postedBody({ [CONTRACT_ADDRESS_1]: {} });
+
+      expect(body).to.not.have.property('state_overrides');
+    });
+  });
+
+  describe('state override cache isolation', () => {
+    const BLOCK = '0x1';
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+
+    it('does not serve an overridden result to a request without overrides', async () => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      web3Mock.onPost('contracts/call').replyOnce(200, JSON.stringify({ result: '0xaa' }));
+      const plain = await ethImpl.call({ ...callData }, BLOCK, undefined, requestDetails);
+
+      web3Mock.onPost('contracts/call').replyOnce(200, JSON.stringify({ result: '0xbb' }));
+      const overridden = await ethImpl.call({ ...callData }, BLOCK, stateOverride, requestDetails);
+
+      expect(plain).to.equal('0xaa');
+      expect(overridden).to.equal('0xbb');
+
+      expect(await ethImpl.call({ ...callData }, BLOCK, undefined, requestDetails)).to.equal('0xaa');
+      expect(await ethImpl.call({ ...callData }, BLOCK, stateOverride, requestDetails)).to.equal('0xbb');
+    });
+
+    it('derives a different cache key for two override sets', () => {
+      const { generateCacheKey } = cacheDecoratorInternals.__private;
+      const hashed = ['2'];
+      const withoutOverride = generateCacheKey('call', [callData, BLOCK, undefined, requestDetails], hashed);
+      const withOverride = generateCacheKey('call', [callData, BLOCK, stateOverride, requestDetails], hashed);
+      const withOther = generateCacheKey(
+        'call',
+        [callData, BLOCK, { [CONTRACT_ADDRESS_1]: { nonce: '0x1' } }, requestDetails],
+        hashed,
+      );
+
+      expect(withoutOverride).to.not.equal(withOverride);
+      expect(withOverride).to.not.equal(withOther);
+      expect(withOverride).to.not.contain('balance');
+    });
+  });
+
+  describe('state override error paths', () => {
+    const callData = { from: ACCOUNT_ADDRESS_1, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+    const stateOverride = { [CONTRACT_ADDRESS_1]: { balance: '0x1' } };
+
+    const callWithOverride = (): Promise<string> => {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      return contractService.call({ ...callData }, 'latest', requestDetails, stateOverride);
+    };
+
+    it('surfaces the mirror node feature-disabled 400 without calling it a revert', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.stateOverridesNotSupported));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect(error).to.be.instanceOf(JsonRpcError);
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+      expect((error as JsonRpcError).message).to.contain('State overrides are not supported.');
+    });
+
+    it('maps a CONTRACT_EXECUTION_EXCEPTION to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+      const body = { _status: { messages: [{ message: 'CONTRACT_EXECUTION_EXCEPTION', detail: '', data: '' }] } };
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(body));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+    });
+
+    it('still reports a genuine revert as CONTRACT_REVERT when overrides are present', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.contractReverted));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.CONTRACT_REVERT().code);
+    });
+
+    it('maps a mirror node 500 to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+      web3Mock.onPost('contracts/call').replyOnce(500, JSON.stringify(mockData.internalServerError));
+
+      const error = await callWithOverride().catch((e: JsonRpcError) => e);
+
+      expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+    });
+  });
+
+  describe('state override parameter rules', () => {
+    const rules = (ethImpl.call as unknown as Record<string, unknown>)[RPC_PARAM_VALIDATION_RULES_KEY] as Record<
+      number,
+      IParamValidation
+    >;
+    const CALL = { to: CONTRACT_ADDRESS_1, data: CONTRACT_CALL_DATA };
+
+    it('declares a rule for the state override parameter', () => {
+      expect(rules[2]).to.deep.equal({ type: 'stateOverride', required: false });
+    });
+
+    it('rejects null, which geth accepts as "no overrides"', () => {
+      expect(() => validateParams([CALL, 'latest', null], rules)).to.throw('The value passed is not valid: null');
+    });
+
+    it('rejects movePrecompileToAddress', () => {
+      expect(() =>
+        validateParams(
+          [CALL, 'latest', { [CONTRACT_ADDRESS_1]: { movePrecompileToAddress: CONTRACT_ADDRESS_1 } }],
+          rules,
+        ),
+      ).to.throw("'movePrecompileToAddress' is not supported");
+    });
+
+    it('rejects a block override in the fourth parameter', () => {
+      expect(() => validateParams([CALL, 'latest', {}, { number: '0x1' }], rules)).to.throw(
+        'Block overrides are not supported',
+      );
+    });
+
+    it('accepts the method being called without any override', () => {
+      expect(() => validateParams([CALL, 'latest'], rules)).not.to.throw();
+    });
   });
 
   describe('eth_call precheck failures', async function () {
@@ -419,7 +620,7 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -459,7 +660,7 @@ describe('@ethCall Eth Call spec', async function () {
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -602,7 +803,7 @@ describe('@ethCall Eth Call spec', async function () {
       );
 
       const expectedError = predefined.CONTRACT_REVERT(defaultErrorMessageText);
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -645,7 +846,7 @@ describe('@ethCall Eth Call spec', async function () {
       );
 
       const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
+      await expect(ethImpl.call(callData, 'latest', undefined, requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {
           expect(error.code).to.equal(expectedError.code);
@@ -920,6 +1121,118 @@ describe('@ethCall Eth Call spec', async function () {
       await contractService['contractCallFormat'](transaction, requestDetails);
 
       expect(transaction.from).to.equal(operatorEvmAddress);
+    });
+
+    describe('formatStateOverrides', () => {
+      const ZERO_SLOT = '0x' + '0'.repeat(64);
+      const SLOT_3 = '0x' + '0'.repeat(63) + '3';
+      const VALUE_1 = '0x' + '0'.repeat(63) + '1';
+
+      it('should convert the address-keyed map into an array with lowercased addresses', () => {
+        const result = contractService.formatStateOverrides({
+          '0xAbC0000000000000000000000000000000000001': { nonce: '0x1' },
+        });
+
+        expect(result).to.deep.equal([{ address: '0xabc0000000000000000000000000000000000001', nonce: '0x1' }]);
+      });
+
+      it('should convert balance from weibars to tinybars', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { balance: '0x56bc75e2d63100000' } });
+
+        expect(result[0].balance).to.equal('0x2540be400');
+      });
+
+      it('should leave a balance exactly at the total supply untouched', () => {
+        const supply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
+        const weibars = supply * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+        const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
+
+        expect(result[0].balance).to.equal(numberTo0x(supply));
+      });
+
+      it('should leave a balance just below the total supply untouched', () => {
+        const justBelow = BigInt(constants.TOTAL_SUPPLY_TINYBARS) - BigInt(1);
+        const weibars = justBelow * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+        const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
+
+        expect(result[0].balance).to.equal(numberTo0x(justBelow));
+      });
+
+      it('should cap a balance above the total supply', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { balance: `0x${'f'.repeat(64)}` } });
+
+        expect(result[0].balance).to.equal(numberTo0x(BigInt(constants.TOTAL_SUPPLY_TINYBARS)));
+      });
+
+      it('should normalise nonce to minimal hex', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { nonce: '0x0000000000000001' } });
+
+        expect(result[0].nonce).to.equal('0x1');
+      });
+
+      it('should pass code through unchanged', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { code: '0x602a60005260206000f3' } });
+
+        expect(result[0].code).to.equal('0x602a60005260206000f3');
+      });
+
+      it('should rename stateDiff and convert its storage map to key/value pairs', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { stateDiff: { [SLOT_3]: VALUE_1 } } });
+
+        expect(result[0].state_diff).to.deep.equal([{ key: SLOT_3, value: VALUE_1 }]);
+        expect(result[0].state).to.be.undefined;
+      });
+
+      it('should convert a populated state map to key/value pairs', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { state: { [SLOT_3]: VALUE_1 } } });
+
+        expect(result[0].state).to.deep.equal([{ key: SLOT_3, value: VALUE_1 }]);
+      });
+
+      it('should send a zero slot for an empty state map so all storage is replaced', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { state: {} } });
+
+        expect(result[0].state).to.deep.equal([{ key: ZERO_SLOT, value: ZERO_SLOT }]);
+      });
+
+      it('should send an empty list for an empty stateDiff map', () => {
+        const result = contractService.formatStateOverrides({ '0x1': { stateDiff: {} } });
+
+        expect(result[0].state_diff).to.deep.equal([]);
+      });
+
+      it('should translate a storage map the same way whichever order its keys are written in', () => {
+        const slotA = `0x${'0'.repeat(63)}1`;
+        const slotB = `0x${'0'.repeat(63)}2`;
+        const valueA = `0x${'0'.repeat(63)}a`;
+        const valueB = `0x${'0'.repeat(63)}b`;
+
+        const forwards = contractService.formatStateOverrides({
+          '0x1': { stateDiff: { [slotA]: valueA, [slotB]: valueB } },
+        });
+        const backwards = contractService.formatStateOverrides({
+          '0x1': { stateDiff: { [slotB]: valueB, [slotA]: valueA } },
+        });
+
+        expect(forwards[0].state_diff).to.have.deep.members(backwards[0].state_diff!);
+        expect(forwards[0].state_diff).to.have.lengthOf(2);
+      });
+
+      it('should drop entries that carry no fields', () => {
+        const result = contractService.formatStateOverrides({ '0x1': {}, '0x2': { nonce: '0x1' } });
+
+        expect(result).to.deep.equal([{ address: '0x2', nonce: '0x1' }]);
+      });
+
+      it('should return an empty array when every entry is dropped', () => {
+        expect(contractService.formatStateOverrides({ '0x1': {}, '0x2': {} })).to.deep.equal([]);
+      });
+
+      it('should return an empty array for an empty override set', () => {
+        expect(contractService.formatStateOverrides({})).to.deep.equal([]);
+      });
     });
   });
 });
