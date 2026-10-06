@@ -40,6 +40,7 @@ import {
   type StateOverrideSet,
   type TypedEvents,
 } from './types';
+import { normalizeBlockParam } from './utils/blockParam';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -653,7 +654,8 @@ export class EthImpl implements Eth {
    *
    * @param {string} address - The Ethereum address to get the storage value from
    * @param {string} slot - The storage slot to get the value from
-   * @param {string} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
+   * @param {string} blockNumberOrTagOrHash - The block number, tag or hash to get the storage value from; an EIP-1898
+   * block object is accepted over RPC and normalized to one of these by the parameter layout
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the storage value as a hexadecimal string
    */
@@ -661,9 +663,9 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'address', required: true },
     1: { type: 'hex64', required: true },
-    2: { type: ['blockNumber', 'blockHash'], required: true },
+    2: { type: 'blockParams', required: true },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], normalizeBlockParam(params[2])]))
   @cache({
     skipParams: [{ index: '2', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
@@ -684,15 +686,17 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} account The account to get the balance from
-   * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
+   * @param {string} blockNumberOrTagOrHash The block number, tag or hash to get the balance from; an EIP-1898 block
+   * object is accepted over RPC and normalized to one of these by the parameter layout
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the balance of the account in hexadecimal format.
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'address', required: true },
-    1: { type: ['blockNumber', 'blockHash'], required: true },
+    1: { type: 'blockParams', required: true },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], normalizeBlockParam(params[1])]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
@@ -707,7 +711,8 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} address - The Ethereum address of the contract.
-   * @param {string | null} blockNumber - The block number from which to retrieve the contract code.
+   * @param {string | null} blockNumber - The block number, tag or hash from which to retrieve the contract code; an
+   * EIP-1898 block object is accepted over RPC and normalized to one of these by the parameter layout.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string>} A promise that resolves to the contract code in hexadecimal format, or an empty hex string if not found.
    * @throws {Error} Throws an error if the block number is invalid or if there is an issue retrieving the contract code.
@@ -715,8 +720,9 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'address', required: true },
-    1: { type: ['blockNumber', 'blockHash'], required: true },
+    1: { type: 'blockParams', required: true },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], normalizeBlockParam(params[1])]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
@@ -885,15 +891,17 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} address - The account address for which to retrieve the transaction count.
-   * @param {string} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
+   * @param {string} blockNumOrTag - A block number, a block tag ('earliest', 'pending', 'latest', ...) or a block hash;
+   * an EIP-1898 block object is accepted over RPC and normalized to one of these by the parameter layout.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction count in hexadecimal format or a JsonRpcError.
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'address', required: true },
-    1: { type: ['blockNumber', 'blockHash'], required: true },
+    1: { type: 'blockParams', required: true },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], normalizeBlockParam(params[1])]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
@@ -930,7 +938,8 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {IContractCallRequest} call - The contract call request data.
-   * @param {string | object | null} blockParam - Either a string (blockNumber or blockTag) or an object (blockHash or blockNumber).
+   * @param {string | null} blockParam - The block number, tag or hash to execute the call against; an EIP-1898 block
+   * object is accepted over RPC and normalized to one of these by the parameter layout, before the cache decision.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<string>} A promise that resolves to the result of the contract call.
    */
@@ -941,14 +950,14 @@ export class EthImpl implements Eth {
     2: { type: 'stateOverride', required: false },
     3: { type: 'blockOverride', required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], normalizeBlockParam(params[1]), params[2]]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
     hashParams: ['2'],
   })
   public async call(
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string> {

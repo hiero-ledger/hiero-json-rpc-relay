@@ -379,7 +379,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       it('should throw error on "eth_getBlockReceipts" with invalid parameter passed', async function () {
         const error = predefined.INVALID_PARAMETER(
           0,
-          `The value passed is not valid: 0x. ${BLOCK_NUMBER_ERROR} OR Expected ${HASH_ERROR} of a block`,
+          `The value passed is not valid: 0x. ${BLOCK_NUMBER_ERROR} OR ${HASH_ERROR} of a block`,
         );
         Assertions.assertPredefinedRpcError(error, relay.call, true, relay, [
           RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
