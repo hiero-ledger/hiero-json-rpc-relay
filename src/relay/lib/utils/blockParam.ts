@@ -34,12 +34,8 @@ export function isBlockHash(blockParam: unknown): blockParam is string {
 
 /**
  * Collapses an EIP-1898 block identifier object into the equivalent default block parameter string, so that
- * everything downstream of the parameter layout (the `@cache` decorator, the services, the worker threads) only
- * ever sees a block number, tag or hash.
- *
- * Validation guarantees that an object carries exactly one of `blockHash` / `blockNumber`. `requireCanonical` is
- * intentionally dropped: Hedera has deterministic finality and no forks or reorgs, so every block the mirror node
- * returns is canonical.
+ * everything downstream of the parameter layout (the `@cache` decorator and services) only ever sees
+ * a block number, tag or hash.
  *
  * @param blockParam - The validated default block parameter.
  * @returns The block number, tag or hash the parameter refers to; non-object values are returned unchanged.

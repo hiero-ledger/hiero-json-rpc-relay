@@ -5,10 +5,6 @@ import { expect } from 'chai';
 
 import { type WsJsonRpcRequest, type WsJsonRpcResponse, WsTestHelper } from '../helper';
 
-/**
- * EIP-1898 block identifier objects over the WebSocket server: each object form answers exactly like the matching
- * string form, both as a single request and inside a batch, and a malformed object fails only its own batch entry.
- */
 describe('@web-socket-batch-1 EIP-1898 block identifier objects', async function () {
   const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 

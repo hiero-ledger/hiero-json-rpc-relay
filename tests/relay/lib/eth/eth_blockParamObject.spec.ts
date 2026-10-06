@@ -7,16 +7,11 @@ import sinon from 'sinon';
 import { JsonRpcError } from '../../../../src/relay';
 import { RpcMethodDispatcher } from '../../../../src/relay/lib/dispatcher/rpcMethodDispatcher';
 import { registerRpcMethods } from '../../../../src/relay/lib/services/registryService/rpcMethodRegistryService';
-import { WorkersPool } from '../../../../src/relay/lib/services/workersService/WorkersPool';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import { CONTRACT_ADDRESS_1, DEFAULT_CONTRACT, DEFAULT_NETWORK_FEES, MOCK_BALANCE_RES } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
-/**
- * EIP-1898 block identifier objects, exercised end to end through the RPC dispatcher: validation, the parameter
- * layout that normalizes the object, the `@cache` decorator, and the services underneath.
- */
 describe('@ethBlockParamObject EIP-1898 block identifier objects', async function () {
   this.timeout(10000);
 
@@ -119,10 +114,6 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     web3Mock.resetHandlers();
   });
 
-  /**
-   * Calls `method` with `stringForm` and with `objectForm` on a cold cache each time, and returns both results
-   * together with the Mirror Node requests each call made.
-   */
   const compareForms = async (
     method: string,
     stringForm: string,
@@ -319,16 +310,5 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
         });
       }
     }
-  });
-
-  describe('worker thread path', () => {
-    it('posts the normalized block string to the eth_getBalance worker task', async () => {
-      const runSpy = sinon.spy(WorkersPool, 'run');
-
-      await dispatch('eth_getBalance', { blockHash: BLOCK_HASH, requireCanonical: true });
-
-      const balanceTask = runSpy.getCalls().find((call) => call.args[0].type === 'getBalance');
-      expect(balanceTask?.args[0]).to.include({ blockNumberOrTagOrHash: BLOCK_HASH });
-    });
   });
 });

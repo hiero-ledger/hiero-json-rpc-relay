@@ -114,7 +114,7 @@ function validateParam(index: number | string, param: unknown, validation: IPara
 }
 
 /**
- * Renders a parameter for an error message, serializing objects and arrays as JSON instead of `[object Object]`.
+ * Renders a parameter for an error message, serializing objects and arrays as JSON.
  */
 function stringifyParam(param: unknown): unknown {
   return typeof param === 'object' ? JSON.stringify(param) : param;
