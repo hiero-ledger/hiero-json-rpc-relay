@@ -139,7 +139,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     return { results, requests };
   };
 
-  describe('AC1 / AC3 / AC12: object forms resolve like the string form', () => {
+  describe('object forms resolve like the string form', () => {
     for (const method of Object.keys(METHODS)) {
       const cases: [string, string, object][] = [
         ['{"blockNumber": N}', BLOCK_NUMBER_HEX, { blockNumber: BLOCK_NUMBER_HEX }],
@@ -160,7 +160,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     }
   });
 
-  describe('AC2: tags inside blockNumber', () => {
+  describe('tags inside blockNumber', () => {
     for (const method of Object.keys(METHODS)) {
       for (const tag of ['latest', 'earliest', 'pending', 'safe', 'finalized']) {
         it(`${method} with {"blockNumber": "${tag}"} returns the same result as "${tag}"`, async () => {
@@ -187,7 +187,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     });
   });
 
-  describe('AC4: malformed objects are rejected before any Mirror Node request', () => {
+  describe('malformed objects are rejected before any Mirror Node request', () => {
     const malformed: [string, unknown][] = [
       ['{}', {}],
       ['both blockHash and blockNumber', { blockHash: BLOCK_HASH, blockNumber: BLOCK_NUMBER_HEX }],
@@ -219,7 +219,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     }
   });
 
-  describe('AC5: block hash on eth_getCode', () => {
+  describe('block hash on eth_getCode', () => {
     it('returns the code at the block for a plain block hash string', async () => {
       const byHash = await dispatch('eth_getCode', BLOCK_HASH);
 
@@ -228,7 +228,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     });
   });
 
-  describe('AC6: an unknown block hash is a uniform "not found"', () => {
+  describe('an unknown block hash is a uniform "not found"', () => {
     for (const method of Object.keys(METHODS)) {
       for (const [name, blockParam] of [
         ['string', UNKNOWN_HASH],
@@ -246,7 +246,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     }
   });
 
-  describe('AC8: no regression for eth_call', () => {
+  describe('no regression for eth_call', () => {
     it('forwards the block hash of a {"blockHash"} object to the Mirror Node', async () => {
       resetMirrorNodeHistory();
 
@@ -265,7 +265,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     });
   });
 
-  describe('AC10: non-cacheable tags stay uncached in object form', () => {
+  describe('non-cacheable tags stay uncached in object form', () => {
     const changeState: Record<string, () => void> = {
       eth_getBalance: () => mockAccount(MOCK_BALANCE_RES.balance.balance + 1),
       eth_call: () => {
@@ -299,7 +299,7 @@ describe('@ethBlockParamObject EIP-1898 block identifier objects', async functio
     }
   });
 
-  describe('AC11: object and string forms share one cache entry', () => {
+  describe('object and string forms share one cache entry', () => {
     for (const method of Object.keys(METHODS)) {
       for (const [stringForm, objectForm] of [
         [BLOCK_NUMBER_HEX, { blockNumber: BLOCK_NUMBER_HEX }],

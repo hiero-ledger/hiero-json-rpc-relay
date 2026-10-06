@@ -1807,7 +1807,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       blockHash = receipt.blockHash;
     });
 
-    describe('AC1: object forms are accepted on all state getters', function () {
+    describe('object forms are accepted on all state getters', function () {
       for (const method of STATE_GETTERS) {
         it(`${method} answers {"blockNumber"}, {"blockHash"} and {"blockHash", "requireCanonical"} like the block number`, async function () {
           const expected = await call(method, blockNumber);
@@ -1819,7 +1819,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC2: tags inside blockNumber', function () {
+    describe('tags inside blockNumber', function () {
       for (const method of Object.keys(METHODS)) {
         it(`${method} answers {"blockNumber": <tag>} like the plain tag`, async function () {
           for (const tag of BLOCK_TAGS) {
@@ -1845,7 +1845,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
     });
 
-    describe('AC3: requireCanonical is accepted everywhere, including eth_call', function () {
+    describe('requireCanonical is accepted everywhere, including eth_call', function () {
       for (const method of Object.keys(METHODS)) {
         it(`${method} answers requireCanonical true and false like {"blockHash"}, and rejects a non-boolean`, async function () {
           const expected = await call(method, { blockHash });
@@ -1865,7 +1865,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC4: malformed objects are rejected at validation time', function () {
+    describe('malformed objects are rejected at validation time', function () {
       const malformed = (): [unknown, string][] => [
         [{}, ValidatorConstants.BLOCK_PARAM_OBJECT_NEITHER_ERROR],
         [{ blockHash, blockNumber }, ValidatorConstants.BLOCK_PARAM_OBJECT_BOTH_ERROR],
@@ -1886,7 +1886,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC5: block hash works on eth_getCode', function () {
+    describe('block hash works on eth_getCode', function () {
       it('returns the code at the block for a plain block hash string', async function () {
         const byHash = await call('eth_getCode', blockHash);
 
@@ -1895,7 +1895,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
     });
 
-    describe('AC6: an unknown block hash is a uniform "not found"', function () {
+    describe('an unknown block hash is a uniform "not found"', function () {
       for (const method of Object.keys(METHODS)) {
         it(`${method} returns -32001 for an unknown hash in string and object form`, async function () {
           for (const blockParam of [UNKNOWN_HASH, { blockHash: UNKNOWN_HASH }]) {
@@ -1905,7 +1905,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC7: error messages are readable', function () {
+    describe('error messages are readable', function () {
       it('the hash and block parameter errors never say "Expected Expected"', function () {
         for (const message of [ValidatorConstants.BLOCK_HASH_ERROR, ValidatorConstants.BLOCK_PARAMS_ERROR]) {
           expect(message).to.not.contain('Expected Expected');
@@ -1934,7 +1934,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC8: no regression for existing forms', function () {
+    describe('no regression for existing forms', function () {
       for (const method of Object.keys(METHODS)) {
         it(`${method} still answers a block number, the tags and a raw block hash`, async function () {
           for (const blockParam of [blockNumber, blockHash, ...BLOCK_TAGS.filter((tag) => tag !== 'earliest')]) {
@@ -1948,7 +1948,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
     });
 
-    describe('AC9: spec matches behavior', function () {
+    describe('spec matches behavior', function () {
       it('declares both EIP-1898 object forms in BlockNumberOrTagOrHash for the five methods', function () {
         const schemas = openRpcData.components.schemas as Record<string, { oneOf?: { $ref?: string }[] }>;
         const refs = schemas.BlockNumberOrTagOrHash.oneOf!.map((option) => option.$ref);
@@ -1965,7 +1965,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
     });
 
-    describe('AC10: non-cacheable tags stay uncached in object form', function () {
+    describe('non-cacheable tags stay uncached in object form', function () {
       it('eth_getBalance, eth_getTransactionCount, eth_getStorageAt and eth_call with {"blockNumber": "latest"} follow state changes', async function () {
         const latest = { blockNumber: 'latest' };
         const readers: Record<string, () => Promise<unknown>> = {
@@ -1994,7 +1994,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
     });
 
-    describe('AC11 / AC12: object and string forms share one answer', function () {
+    describe('object and string forms share one answer', function () {
       for (const method of Object.keys(METHODS)) {
         it(`${method} answers "N", {"blockNumber": N}, "H", {"blockHash": H} and requireCanonical identically`, async function () {
           const forms = [blockNumber, { blockNumber }, blockHash, { blockHash }, { blockHash, requireCanonical: true }];
@@ -2007,7 +2007,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       }
     });
 
-    describe('AC13: batch parity', function () {
+    describe('batch parity', function () {
       overrideEnvsInMochaDescribe({ BATCH_REQUESTS_ENABLED: true });
 
       it('answers object forms inside a batch like single requests, failing only the malformed entries', async function () {
