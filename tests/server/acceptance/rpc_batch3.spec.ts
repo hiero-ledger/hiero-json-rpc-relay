@@ -1724,7 +1724,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     }
   });
 
-  describe.only('EIP-1898', function () {
+  describe('EIP-1898', function () {
     type RpcOutcome = { result?: unknown; error?: { code: number; message: string } };
 
     const outcome = async (method: string, params: unknown[]): Promise<RpcOutcome> => {
