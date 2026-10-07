@@ -58,7 +58,7 @@ export default class RelayAssertions {
 
   static assertTransactionReceipt = (
     receipt: ITransactionReceipt | null,
-    expectedReceipt: Receipt,
+    expectedReceipt: Omit<Receipt, 'contractAddress'> & { contractAddress: string | null },
     liveData: { effectiveGasPrice: string },
   ): void => {
     const { effectiveGasPrice } = liveData;

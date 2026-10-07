@@ -1,0 +1,79 @@
+name: Redis Version Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      redis_version:
+        description: 'Redis version to test, e.g. 8.10.1 (leave blank for the newest release)'
+        required: false
+        default: ''
+
+run-name: Redis version tests — ${{ inputs.redis_version || 'latest release' }}
+
+concurrency:
+  group: redis-version-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  redis-version-tests:
+    name: Redis ${{ inputs.redis_version || 'latest' }}
+    runs-on: hiero-smart-contracts-linux-medium
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Resolve Redis version
+        id: resolve
+        env:
+          REQUESTED: ${{ inputs.redis_version }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            VERSION="$REQUESTED"
+          else
+            VERSION=$(curl -sSfL https://api.github.com/repos/redis/redis/releases/latest \
+              | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).tag_name.replace(/^v/,'')))")
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Could not resolve a Redis version" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Testing against Redis $VERSION"
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y make gcc g++
+
+      - name: Create .env file
+        run: cp ./tests/relay/test.env .env
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          REDISMS_DISABLE_POSTINSTALL: true
+
+      - name: Build Redis ${{ steps.resolve.outputs.version }}
+        env:
+          REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
+          # This builds only the Redis server and not bundled modules which are not used.
+          BUILD_ARGS: core
+        run: |
+          node -e "require('redis-memory-server/lib/util/RedisBinary').default.getPath({ version: process.env.REDISMS_VERSION })"
+
+      - name: Run Redis tests
+        env:
+          REDISMS_VERSION: ${{ steps.resolve.outputs.version }}
+        run: npm run test:redis

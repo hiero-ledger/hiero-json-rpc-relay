@@ -25,6 +25,7 @@ import {
   toNullIfEmptyHex,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
+  weibarToTinyBar,
 } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import { overrideEnvsInMochaDescribe } from '../helpers';
@@ -354,6 +355,25 @@ describe('Formatters', () => {
     it('should round up fractional weibar values to 1 tinybar', () => {
       const value = '0x1';
       expect(weibarHexToTinyBarInt(value)).to.eq(1);
+    });
+  });
+
+  describe('weibarToTinyBar', () => {
+    it('should return the tinybar value as a bigint', () => {
+      expect(weibarToTinyBar('0x56bc75e2d63100000')).to.eq(BigInt(10_000_000_000));
+    });
+
+    it('should preserve values beyond the exact range of a JS number', () => {
+      // 2^53 + 1 tinybars, which weibarHexToTinyBarInt rounds down to 2^53
+      expect(weibarToTinyBar('0x4a817c80000002540be400')).to.eq(BigInt('9007199254740993'));
+    });
+
+    it('should accept leading zeros', () => {
+      expect(weibarToTinyBar('0x00000000056bc75e2d63100000')).to.eq(BigInt(10_000_000_000));
+    });
+
+    it('should throw rather than silently read a non-hexadecimal value as zero', () => {
+      expect(() => weibarToTinyBar('0xnothex')).to.throw(SyntaxError);
     });
   });
 

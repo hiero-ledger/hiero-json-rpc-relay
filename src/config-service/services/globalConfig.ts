@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { isIP } from 'node:net';
+
 /**
  * Extracts the type string associated with a specific key in the `_CONFIG` object.
  * If the key `K` exists in `_CONFIG`, it retrieves the 'type' property; otherwise, it resolves to `never`.
@@ -81,6 +83,13 @@ export interface ConfigProperty {
 /** A configuration value after type casting from its raw environment string. */
 export type ConfigValue = string | number | boolean | readonly string[] | readonly number[];
 
+/** How the relay finds the client IP, selected by `REAL_IP_ADDRESS_MODE`. */
+export enum RealIpAddressMode {
+  X_FORWARDED_FOR = 'X_FORWARDED_FOR',
+  TRUSTED_PROXIES = 'TRUSTED_PROXIES',
+  DIRECT_PEER = 'DIRECT_PEER',
+}
+
 /**
  * Configuration object defining various properties and their metadata.
  * Each property is an object that contains information about the environment variable,
@@ -145,6 +154,20 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 3,
+  },
+  CORS_ALLOWED_ORIGINS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+    validation: (value: readonly string[]) => {
+      // `*`, `null`, or an origin: scheme + authority, no path
+      const originPattern = /^(\*|null|[a-z][a-z\d+.-]*:\/\/[^/?#\s]+\/?)$/i;
+      const invalid = value.filter((origin) => !originPattern.test(origin.trim()));
+      return (
+        invalid.length === 0 ||
+        `CORS_ALLOWED_ORIGINS entries must be "*", "null" or an origin such as "https://app.example.com", got: ${invalid.join(', ')}`
+      );
+    },
   },
   DEBUG_API_ENABLED: {
     type: 'boolean',
@@ -215,6 +238,13 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 1000,
+  },
+  // Each sub-topic is sent to the Mirror Node as a repeated `topicN` query param, so this must not exceed the
+  // Mirror Node's `hiero.mirror.rest.query.maxRepeatedQueryParameters` (default 100).
+  ETH_GET_LOGS_SUB_TOPICS_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
   },
   ETH_GET_TRANSACTION_COUNT_CACHE_TTL: {
     type: 'number',
@@ -641,6 +671,24 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  REAL_IP_ADDRESS_MODE: {
+    type: 'string',
+    required: false,
+    defaultValue: RealIpAddressMode.X_FORWARDED_FOR,
+    validation: (value: string, envs) => {
+      const modes = Object.values<string>(RealIpAddressMode);
+      if (!modes.includes(value)) {
+        return `REAL_IP_ADDRESS_MODE must be one of ${modes.join(', ')}.`;
+      }
+      // Check if TRUSTED_PROXIES has an allowlist, since an empty one would silently behave like DIRECT_PEER.
+      const trustedProxyIps = (envs.TRUSTED_PROXY_IPS ?? []) as readonly string[];
+      return (
+        value !== RealIpAddressMode.TRUSTED_PROXIES ||
+        trustedProxyIps.length > 0 ||
+        'REAL_IP_ADDRESS_MODE=TRUSTED_PROXIES requires TRUSTED_PROXY_IPS to list at least one proxy IP.'
+      );
+    },
+  },
   REDIS_ENABLED: {
     type: 'boolean',
     required: false,
@@ -790,6 +838,13 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 1600,
+  },
+  TRUSTED_PROXY_IPS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+    validation: (value: readonly string[]) =>
+      value.every((ip) => isIP(ip) !== 0) || 'TRUSTED_PROXY_IPS must contain only IPv4 or IPv6 addresses.',
   },
   TX_DEFAULT_GAS: {
     type: 'number',

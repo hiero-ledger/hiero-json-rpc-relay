@@ -9,11 +9,13 @@ import sinon from 'sinon';
 import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { Relay } from '../../../src/relay';
+import { Relay, WebSocketError } from '../../../src/relay';
+import { type RequestDetails } from '../../../src/relay/lib/types';
 import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcController';
 import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import * as utils from '../../../src/ws-server/utils/utils';
 import * as webSocketServer from '../../../src/ws-server/webSocketServer';
+import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
@@ -265,6 +267,80 @@ describe('webSocketServer websocket handling', () => {
     expect(histStub.calledWith('messageDuration')).to.be.true;
   });
 
+  it('hands the relay a request-scoped abort signal that fires when the socket closes', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const requestReceived = new Promise<void>((resolve) => {
+      sinon.stub(jsonRpcController, 'getRequestResult').callsFake((...args: unknown[]) => {
+        capturedSignal = (args[7] as RequestDetails).abortSignal;
+        resolve();
+        // never settles on its own: the socket closing is what has to end this request
+        return new Promise(() => {});
+      });
+    });
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_getLogs', params: [{}] }));
+    await requestReceived;
+
+    expect(capturedSignal, 'the relay received no abort signal').to.not.equal(undefined);
+    expect(capturedSignal!.aborted).to.equal(false);
+
+    const aborted = new Promise<void>((resolve) => capturedSignal!.addEventListener('abort', () => resolve()));
+    ws.close();
+    await aborted;
+
+    expect(capturedSignal!.aborted).to.equal(true);
+    expect((capturedSignal!.reason as Error).name).to.equal('AbortError');
+  });
+
+  it('keeps the abort signal of an answered request live after the socket closes', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    const answered = new Promise<void>((resolve) => sendToClientStub.callsFake(() => resolve()));
+    sinon.stub(jsonRpcController, 'getRequestResult').callsFake(async (...args: unknown[]) => {
+      capturedSignal = (args[7] as RequestDetails).abortSignal;
+      return { id: 1, jsonrpc: '2.0', result: '0x1' };
+    });
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_sendRawTransaction', params: ['0x'] }));
+    await answered;
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(capturedSignal!.aborted, 'an answered request must not be aborted').to.equal(false);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(capturedSignal!.aborted, 'closing the socket must not abort an answered request').to.equal(false);
+  });
+
+  it('sends nothing back when a request is abandoned by the client', async () => {
+    const unhandled: string[] = [];
+    const onUnhandledRejection = (reason: unknown): void => {
+      unhandled.push(String(reason));
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    sinon
+      .stub(jsonRpcController, 'getRequestResult')
+      .rejects(new DOMException('The client closed the connection before the response was sent', 'AbortError'));
+
+    try {
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+      ws.send(JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_getLogs', params: [{}] }));
+
+      await new Promise((r) => setTimeout(r, 100));
+      await ws.close();
+      await new Promise((r) => setTimeout(r, 50));
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+
+    expect(sendToClientStub.called, 'an abandoned request must not be answered').to.equal(false);
+    expect(unhandled).to.deep.equal([]);
+  });
+
   it('should be able to execute batch request', async () => {
     sinon.stub(ConfigService, 'get').callsFake((key) => {
       if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
@@ -298,6 +374,73 @@ describe('webSocketServer websocket handling', () => {
 
     const { args } = sendToClientStub.getCall(0);
     expect(Array.isArray(args[2])).to.be.true;
+  });
+
+  [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+    it(`should reject a batch entry whose id is non-primitive "${JSON.stringify(id)}" without failing its siblings`, async () => {
+      sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+      sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+      const grrStub = sinon.stub(jsonRpcController, 'getRequestResult');
+      grrStub.resolves({ id: 1, jsonrpc: '2.0', result: 'ok' });
+
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+      ws.send(
+        JSON.stringify([
+          { id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] },
+          { id, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] },
+        ]),
+      );
+
+      const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+      const parsed = JSON.parse(msg);
+
+      expect(parsed[0].result).to.equal('ok');
+      expect(parsed[1].id).to.equal(null);
+      expect(parsed[1].error.code).to.equal(-32600);
+      // the offending entry is answered without ever reaching the controller
+      expect(grrStub.callCount).to.equal(1);
+      await ws.close();
+    });
+  });
+
+  it('should respond with a null id when a batch entry with no id uses a disallowed method', async () => {
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return ['eth_newFilter'];
+      return originalGet(key);
+    });
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify([{ jsonrpc: '2.0', method: 'eth_newFilter', params: [] }]));
+
+    const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+    const parsed = JSON.parse(msg);
+
+    expect(parsed[0].id).to.equal(null);
+    expect(parsed[0].error.code).to.equal(-32007);
+    await ws.close();
+  });
+
+  it('should echo a falsy but valid id when a batch entry uses a disallowed method', async () => {
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return ['eth_newFilter'];
+      return originalGet(key);
+    });
+    sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+    sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+
+    const ws = await openWsServerAndUpdateSockets(server, sockets);
+    ws.send(JSON.stringify([{ id: 0, jsonrpc: '2.0', method: 'eth_newFilter', params: [] }]));
+
+    const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
+    const parsed = JSON.parse(msg);
+
+    expect(parsed[0].id).to.equal(0);
+    expect(parsed[0].error.code).to.equal(-32007);
+    await ws.close();
   });
 
   it('should set up ping interval when WS_PING_INTERVAL > 0', async () => {
@@ -415,5 +558,105 @@ describe('webSocketServer websocket handling', () => {
     await new Promise<void>((resolve) => testServer.close(() => resolve()));
 
     expect(closeCode).to.not.equal(1009);
+  });
+
+  it('should limit one client that rotates X-Forwarded-For per connection when REAL_IP_ADDRESS_MODE is DIRECT_PEER', async () => {
+    // Delegate to the real config for every other key, so only the IP mode and the per-IP cap change.
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'REAL_IP_ADDRESS_MODE') return 'DIRECT_PEER';
+      if (key === 'WS_CONNECTION_LIMIT_PER_IP') return 2;
+      return originalGet(key);
+    });
+
+    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const { app: testApp } = await webSocketServer.initializeWsServer(
+      mockRelayInstance as unknown as Relay,
+      new Registry(),
+    );
+
+    const testServer: http.Server = await new Promise((resolve) => {
+      const s = testApp.listen(0, '127.0.0.1', () => resolve(s));
+    });
+
+    const connect = (forwardedIp: string): WebSocket => {
+      const ws = new WebSocket(wsUrl(testServer), { headers: { 'X-Forwarded-For': forwardedIp } });
+      sockets.push(ws);
+      return ws;
+    };
+
+    try {
+      const accepted = [connect('10.0.1.1'), connect('10.0.1.2')];
+      await Promise.all(accepted.map((ws) => new Promise((resolve) => ws.on('open', resolve))));
+
+      const rejected = connect('10.0.1.3');
+      const closeCode = await new Promise<number>((resolve) => rejected.on('close', (code) => resolve(code)));
+
+      expect(closeCode).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.code);
+      expect(accepted.map((ws) => ws.readyState)).to.deep.equal([WebSocket.OPEN, WebSocket.OPEN]);
+    } finally {
+      sockets.forEach((ws) => ws.terminate());
+      await new Promise<void>((resolve) => testServer.close(() => resolve()));
+    }
+  });
+});
+
+describe('webSocketServer origin allowlist', () => {
+  const ALLOWED_ORIGIN = 'https://app.example.com';
+  const ARBITRARY_ORIGIN = 'https://attacker.example';
+
+  let server: http.Server;
+  const sockets: WebSocket[] = [];
+
+  async function handshakeStatus(origin?: string): Promise<number> {
+    const ws = new WebSocket(wsUrl(server), { origin });
+    sockets.push(ws);
+
+    return new Promise((resolve, reject) => {
+      ws.once('open', () => resolve(101));
+      ws.once('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
+      ws.once('error', reject);
+    });
+  }
+
+  beforeEach(async function () {
+    const mockRelay = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
+    const { app } = await webSocketServer.initializeWsServer();
+
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, '127.0.0.1', () => resolve());
+    });
+  });
+
+  afterEach((done) => {
+    sinon.restore();
+    sockets.forEach((s) => s.terminate());
+    sockets.length = 0;
+    server.close(done);
+  });
+
+  it('should accept a handshake from an arbitrary origin when CORS_ALLOWED_ORIGINS is unset', async () => {
+    expect(await handshakeStatus(ARBITRARY_ORIGIN)).to.equal(101);
+  });
+
+  describe('with an allowlist configured', () => {
+    overrideEnvsInMochaDescribe({ CORS_ALLOWED_ORIGINS: [ALLOWED_ORIGIN] });
+
+    it('should accept a handshake from a listed origin', async () => {
+      expect(await handshakeStatus(ALLOWED_ORIGIN)).to.equal(101);
+    });
+
+    it('should refuse a handshake from an unlisted origin with 403', async () => {
+      expect(await handshakeStatus(ARBITRARY_ORIGIN)).to.equal(403);
+    });
+
+    it('should refuse a handshake from the null origin with 403', async () => {
+      expect(await handshakeStatus('null')).to.equal(403);
+    });
+
+    it('should accept a handshake without an Origin header from a non-browser client', async () => {
+      expect(await handshakeStatus()).to.equal(101);
+    });
   });
 });

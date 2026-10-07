@@ -6,6 +6,7 @@ import { ConfigService } from '../../config-service/services';
 import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { type MirrorNodeClient } from '../../relay/lib/clients';
 import { type RequestDetails } from '../../relay/lib/types';
+import { isRequestAbortedError } from '../../relay/lib/utils/requestAbort';
 import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../../server/koaJsonRpc/lib/RpcError';
 import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from '../../server/koaJsonRpc/lib/RpcResponse';
@@ -67,6 +68,10 @@ const handleSendingRequestsToRelay = async ({
       return jsonRespResult(request.id, result);
     }
   } catch (err) {
+    if (isRequestAbortedError(err)) {
+      throw err;
+    }
+
     return jsonRespError(request.id, spec.InternalError(err), requestDetails.requestId);
   }
 };
@@ -109,18 +114,18 @@ export const getRequestResult = async (
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger)) {
-    return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
+    return jsonRespError(null, spec.InvalidRequest, requestDetails.requestId);
   }
 
   const subdomain = method.split('_')[0] ?? null;
 
   if (!RPC_WS_API.has(subdomain)) {
-    return jsonRespError(request.id || null, spec.SubdomainDisabled(request.method), requestDetails.requestId);
+    return jsonRespError(request.id, spec.SubdomainDisabled(request.method), requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(relay, request.method)) {
-    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
+    return jsonRespError(request.id, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 
   // verify rate limit for method method based on IP
@@ -128,11 +133,7 @@ export const getRequestResult = async (
     return jsonRespError(null, spec.IPRateLimitExceeded(request.method), requestDetails.requestId);
   }
 
-  // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method
   let response: IJsonRpcResponse;
-  if (method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE && !limiter.validateSubscriptionLimit(ctx)) {
-    return jsonRespError(request.id, predefined.MAX_SUBSCRIPTIONS, requestDetails.requestId);
-  }
 
   // processing method
   try {
@@ -161,6 +162,11 @@ export const getRequestResult = async (
         response = await handleSendingRequestsToRelay({ ...sharedParams });
     }
   } catch (error) {
+    if (isRequestAbortedError(error)) {
+      logger.debug(`Method execution cancelled by the caller: connectionId=%s, method=%s`, ctx.websocket.id, method);
+      throw error;
+    }
+
     logger.warn(
       error,
       `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,

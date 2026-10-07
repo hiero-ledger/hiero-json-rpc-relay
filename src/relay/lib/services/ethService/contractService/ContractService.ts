@@ -11,6 +11,7 @@ import {
   strip0x,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
+  weibarToTinyBar,
 } from '../../../../formatters';
 import type { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -19,11 +20,16 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { type Log } from '../../../model';
 import {
+  type AccountStorage,
   type IContractCallRequest,
   type IContractCallResponse,
   type IGetLogsParams,
+  type IStateOverride,
+  type IStorageEntry,
   type RequestDetails,
+  type StateOverrideSet,
 } from '../../../types';
+import { isRequestAbortedError } from '../../../utils/requestAbort';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
 import type HAPIService from '../../hapiService/hapiService';
@@ -114,12 +120,14 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} call - The transaction object with call data
    * @param {string | object | null} blockParam - Block number, tag, or object with blockHash/blockNumber
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the call
    * @returns {Promise<string>} The return value of the executed contract call
    */
   public async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
       if (call.to && !isValidEthereumAddress(call.to)) {
@@ -130,6 +138,8 @@ export class ContractService implements IContractService {
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
+      this.applyStateOverrides(call, stateOverride);
+
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(`eth_call response: %s`, JSON.stringify(result));
@@ -137,7 +147,7 @@ export class ContractService implements IContractService {
 
       return result;
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
@@ -151,15 +161,17 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the estimate
    * @returns {Promise<string>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
    */
   public async estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
-      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
+      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails, stateOverride);
 
       if (!response?.result) {
         if (this.logger.isLevelEnabled('debug')) {
@@ -170,7 +182,7 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
@@ -245,6 +257,8 @@ export class ContractService implements IContractService {
 
       return constants.EMPTY_HEX;
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.error(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,
@@ -388,6 +402,87 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Translates an Ethereum state override set into the mirror node's `state_overrides` format.
+   *
+   * The two differ in shape, naming and units: Ethereum keys overrides by address and holds storage
+   * as a map, while the mirror node expects an array of entries carrying their own address,
+   * snake_case fields and storage as key/value pairs.
+   *
+   * @param {StateOverrideSet} stateOverrides - The override set as received from the caller.
+   * @returns {IStateOverride[]} The equivalent mirror node overrides, empty when nothing is left to send.
+   */
+  public formatStateOverrides(stateOverrides: StateOverrideSet): IStateOverride[] {
+    const formatted: IStateOverride[] = [];
+
+    for (const [address, override] of Object.entries(stateOverrides)) {
+      const entry: IStateOverride = { address: address.toLowerCase() };
+
+      if (override.balance !== undefined) {
+        entry.balance = this.toTinybarBalance(override.balance, address);
+      }
+
+      if (override.nonce !== undefined) {
+        entry.nonce = numberTo0x(BigInt(override.nonce));
+      }
+
+      if (override.code !== undefined) {
+        entry.code = override.code;
+      }
+
+      if (override.state !== undefined) {
+        const slots = ContractService.toStorageEntries(override.state);
+        // An empty `state` means "replace all storage with nothing". The mirror node ignores an
+        // empty list and reads real storage instead, so a single zero slot forces full replacement.
+        entry.state =
+          slots.length > 0 ? slots : [{ key: constants.ZERO_HEX_32_BYTE, value: constants.ZERO_HEX_32_BYTE }];
+      }
+
+      if (override.stateDiff !== undefined) {
+        entry.state_diff = ContractService.toStorageEntries(override.stateDiff);
+      }
+
+      const hasOverrides = Object.keys(entry).length > 1;
+      if (hasOverrides) {
+        formatted.push(entry);
+      }
+    }
+
+    return formatted;
+  }
+
+  /**
+   * Attaches a translated override set to a mirror node request, in place.
+   *
+   * @param {IContractCallRequest} call - The request being prepared for the mirror node
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace, as received from the caller
+   */
+  private applyStateOverrides(call: IContractCallRequest, stateOverride?: StateOverrideSet): void {
+    const overrides = stateOverride ? this.formatStateOverrides(stateOverride) : [];
+    if (overrides.length > 0) {
+      call.state_overrides = overrides;
+    }
+  }
+
+  /**
+   * Converts a weibar balance override to tinybars, capped at what the network can hold.
+   */
+  private toTinybarBalance(balance: string, address: string): string {
+    const tinybars = weibarToTinyBar(balance);
+    const totalSupply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
+
+    if (tinybars > totalSupply) {
+      this.logger.warn('Balance override for %s exceeds the total supply and was capped', address);
+      return numberTo0x(totalSupply);
+    }
+
+    return numberTo0x(tinybars);
+  }
+
+  private static toStorageEntries(storage: AccountStorage): IStorageEntry[] {
+    return Object.entries(storage).map(([key, value]) => ({ key, value }));
+  }
+
+  /**
    * Executes an estimate contract call gas request in the mirror node.
    *
    * @param {IContractCallRequest} transaction The transaction data for the contract call.
@@ -397,8 +492,10 @@ export class ContractService implements IContractService {
   private async estimateGasFromMirrorNode(
     transaction: IContractCallRequest,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<IContractCallResponse | null> {
     await this.contractCallFormat(transaction, requestDetails);
+    this.applyStateOverrides(transaction, stateOverride);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }

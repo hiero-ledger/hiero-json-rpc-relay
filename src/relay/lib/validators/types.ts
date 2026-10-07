@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
 import mainConstants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
@@ -11,6 +12,7 @@ import {
 import { type AuthorizationListTypes, validateAuthorizationList } from './authorizationList';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
+import { validateStateOverrideSet } from './stateOverride';
 import { validateArray } from './utils';
 
 export const TYPES = {
@@ -106,9 +108,16 @@ export const TYPES = {
   },
   topics: {
     test: (param: unknown): boolean => {
-      return Array.isArray(param) ? validateArray(param.flat(), 'topicHash') : false;
+      if (!Array.isArray(param) || param.length > mainConstants.LOG_TOPICS_MAX_POSITIONS) return false;
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
+      if (param.some((position) => Array.isArray(position) && position.length > maxSubTopics)) {
+        return false;
+      }
+      return validateArray(param.flat(), 'topicHash');
     },
-    error: `Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic`,
+    get error(): string {
+      return Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'));
+    },
   },
   transaction: {
     test: (param: unknown): boolean => {
@@ -180,13 +189,18 @@ export const TYPES = {
     },
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
+  blockOverride: {
+    // Accepted by geth, but the mirror node's contracts/call API has no equivalent, so a request
+    // relying on it would silently execute against the real block context.
+    test: (): boolean => false,
+    error: 'Block overrides are not supported',
+  },
   stateOverride: {
     test: (param: unknown): boolean => {
-      // Must be an object if provided
-      // TODO: This validation should be more detailed when state override is officially supported.
-      return typeof param === 'object' && !Array.isArray(param);
+      validateStateOverrideSet(param);
+      return true;
     },
-    error: 'Expected StateOverride object (currently accepting any object structure)',
+    error: 'Expected StateOverride object keyed by address',
   },
   yParityHex: {
     test: (param: unknown): boolean => /^0x([0-9a-fA-F]?){1,2}$/.test(param as string),

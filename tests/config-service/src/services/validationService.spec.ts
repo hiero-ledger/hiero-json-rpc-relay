@@ -3,7 +3,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import type { ConfigKey, ConfigProperty } from '../../../../src/config-service/services/globalConfig';
+import type { ConfigKey, ConfigProperty, ConfigValue } from '../../../../src/config-service/services/globalConfig';
 import { GlobalConfig } from '../../../../src/config-service/services/globalConfig';
 import { ValidationService } from '../../../../src/config-service/services/validationService';
 import { overrideEnvsInMochaDescribe } from '../../../relay/helpers';
@@ -286,8 +286,9 @@ describe('ValidationService tests', async function () {
   describe('validate rules declared in GlobalConfig', () => {
     const CASES: ReadonlyArray<{
       key: ConfigKey;
-      accept: readonly number[];
-      reject: readonly number[];
+      accept: readonly ConfigValue[];
+      reject: readonly ConfigValue[];
+      envs?: NodeJS.Dict<ConfigValue>;
     }> = [
       {
         key: 'INPUT_SIZE_LIMIT',
@@ -309,21 +310,66 @@ describe('ValidationService tests', async function () {
         accept: [1, 300],
         reject: [0, -1, 1.5, NaN],
       },
+      {
+        key: 'REAL_IP_ADDRESS_MODE',
+        accept: ['X_FORWARDED_FOR', 'TRUSTED_PROXIES', 'DIRECT_PEER'],
+        reject: ['direct_peer', ''],
+        envs: { TRUSTED_PROXY_IPS: ['10.0.0.5'] },
+      },
+      {
+        key: 'TRUSTED_PROXY_IPS',
+        accept: [[], ['10.0.0.5', '10.0.0.6'], ['::ffff:10.0.0.5', '2001:db8::1']],
+        reject: [['10.0.0.256'], ['10.0.0.0/24'], ['proxy.internal'], ['10.0.0.5', '']],
+      },
+      {
+        key: 'CORS_ALLOWED_ORIGINS',
+        accept: [
+          [],
+          ['*'],
+          ['null'],
+          ['https://app.example.com', 'http://localhost:3000'],
+          ['  HTTPS://App.Example.com/  '],
+          ['chrome-extension://abcdefghijklmnop'],
+        ],
+        reject: [
+          ['app.example.com'],
+          ['https://app.example.com/dapp'],
+          ['https://app.example.com?a=1'],
+          [''],
+          ['*.example.com'],
+        ],
+      },
     ];
 
-    CASES.forEach(({ key, accept, reject }) => {
+    CASES.forEach(({ key, accept, reject, envs = {} }) => {
       it(`should accept and reject the documented values for ${key}`, async () => {
         accept.forEach((value) =>
           expect(
-            () => ValidationService.validate({ [key]: value }),
+            () => ValidationService.validate({ ...envs, [key]: value }),
             `${key}=${value} should be accepted`,
           ).to.not.throw(),
         );
 
         reject.forEach((value) =>
-          expect(() => ValidationService.validate({ [key]: value }), `${key}=${value} should be rejected`).to.throw(
-            `Configuration error: ${key}`,
-          ),
+          expect(
+            () => ValidationService.validate({ ...envs, [key]: value }),
+            `${key}=${value} should be rejected`,
+          ).to.throw(`Configuration error: ${key}`),
+        );
+      });
+    });
+
+    it('should list the valid modes when REAL_IP_ADDRESS_MODE is unknown', async () => {
+      expect(() => ValidationService.validate({ REAL_IP_ADDRESS_MODE: 'FORWARDED_ONLY' })).to.throw(
+        'Configuration error: REAL_IP_ADDRESS_MODE must be one of X_FORWARDED_FOR, TRUSTED_PROXIES, DIRECT_PEER.',
+      );
+    });
+
+    [undefined, []].forEach((trustedProxyIps) => {
+      it(`should require TRUSTED_PROXY_IPS in TRUSTED_PROXIES mode when it is ${JSON.stringify(trustedProxyIps)}`, async () => {
+        const envs = { REAL_IP_ADDRESS_MODE: 'TRUSTED_PROXIES', TRUSTED_PROXY_IPS: trustedProxyIps };
+        expect(() => ValidationService.validate(envs)).to.throw(
+          'Configuration error: REAL_IP_ADDRESS_MODE=TRUSTED_PROXIES requires TRUSTED_PROXY_IPS to list at least one proxy IP.',
         );
       });
     });

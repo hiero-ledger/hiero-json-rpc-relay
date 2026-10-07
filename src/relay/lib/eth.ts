@@ -37,6 +37,7 @@ import {
   type INewFilterParams,
   type ITransactionReceipt,
   type RequestDetails,
+  type StateOverrideSet,
   type TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
@@ -263,11 +264,14 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transaction', required: true },
     1: { type: 'blockNumber', required: false },
+    2: { type: 'stateOverride', required: false },
+    3: { type: 'blockOverride', required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   async estimateGas(
     transaction: IContractCallRequest,
     _blockParam: string | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string> {
     // Removing empty '0x' data parameter sent by Metamask
@@ -284,7 +288,7 @@ export class EthImpl implements Eth {
       });
     }
 
-    return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
+    return await this.contractService.estimateGas(transaction, _blockParam, requestDetails, stateOverride);
   }
 
   /**
@@ -935,13 +939,17 @@ export class EthImpl implements Eth {
     0: { type: 'transaction', required: true },
     1: { type: 'blockParams', required: true },
     2: { type: 'stateOverride', required: false },
+    3: { type: 'blockOverride', required: false },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+    hashParams: ['2'],
   })
   public async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
+    stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string> {
     const callData = call.data ? call.data : call.input;
@@ -957,7 +965,7 @@ export class EthImpl implements Eth {
       method: constants.ETH_CALL,
     });
 
-    return this.contractService.call(call, blockParam, requestDetails);
+    return this.contractService.call(call, blockParam, requestDetails, stateOverride);
   }
 
   /**

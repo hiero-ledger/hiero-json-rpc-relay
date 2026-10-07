@@ -169,7 +169,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
         expect(blockResult).to.be.null;
       });
 
-      it('should execute "eth_getBlockByNumber", hydrated transactions = true for a block that contains a call with CONTRACT_NEGATIVE_VALUE status', async () => {
+      it('should execute "eth_getBlockByNumber", hydrated transactions = true and exclude a call with CONTRACT_NEGATIVE_VALUE status', async () => {
         let transactionId;
         let hasContractNegativeValueError = false;
         try {
@@ -199,12 +199,17 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
           `/contracts/results/${formatTransactionId(transactionId.toString())}`,
         );
         const txHash = mirrorResult.hash;
+
+        // the call never entered the EVM (gas_used = 0), so the mirror node
+        // leaves it out of /contracts/results listings
         const blockResult = (await client.call(METHOD_NAME, [numberTo0x(mirrorResult.block_number), true])) as {
           transactions: TransactionResponseLike[];
         };
-        expect(blockResult.transactions).to.not.be.empty;
-        expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffff172b5af000');
+        expect(blockResult.transactions.map((tx) => tx.hash)).to.not.contain(txHash);
+
+        // TODO: edit it when https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5804 is merged
+        const receipt = await client.call('eth_getTransactionReceipt', [txHash]);
+        expect(receipt).to.be.null;
       });
 
       for (const params of INVALID_PARAMS) {

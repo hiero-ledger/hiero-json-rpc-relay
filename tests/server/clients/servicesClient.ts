@@ -2,7 +2,6 @@
 
 import {
   AccountAllowanceApproveTransaction,
-  AccountBalanceQuery,
   AccountCreateTransaction,
   AccountId,
   AccountInfoQuery,
@@ -181,16 +180,12 @@ export default class ServicesClient {
   }
 
   async transferToken(tokenId: string | TokenId, recipient: AccountId, amount = 10): Promise<TransactionReceipt> {
-    const receipt = await this.executeAndGetTransactionReceipt(
+    return await this.executeAndGetTransactionReceipt(
       new TransferTransaction()
         .addTokenTransfer(tokenId, this._thisAccountId(), -amount)
         .addTokenTransfer(tokenId, recipient, amount)
         .setTransactionMemo('Relay test token transfer'),
     );
-
-    await this.executeQuery(new AccountBalanceQuery().setAccountId(recipient));
-
-    return receipt;
   }
 
   async executeContractCall(
@@ -245,7 +240,6 @@ export default class ServicesClient {
     provider: JsonRpcProvider | null = null,
     keyList?: KeyList,
   ): Promise<AliasAccount> {
-    await this.executeQuery(new AccountBalanceQuery().setAccountId(accountId));
     const accountInfo = (await this.executeQuery(new AccountInfoQuery().setAccountId(accountId)))!;
     const servicesClient = new ServicesClient(this.network, accountInfo.accountId.toString(), privateKey.toString());
 
@@ -338,10 +332,10 @@ export default class ServicesClient {
   }
 
   async getOperatorBalance(): Promise<Hbar> {
-    const accountBalance = await new AccountBalanceQuery()
-      .setAccountId(this.client.operatorAccountId!)
-      .execute(this.client);
-    return accountBalance.hbars;
+    // wait 2 sec for mirror node data population
+    await new Promise((r) => setTimeout(r, 2000));
+    const account = await global.mirrorNode.get(`/accounts/${this._thisAccountId().toString()}`);
+    return Hbar.fromTinybars(account.balance.balance);
   }
 
   async getFileContent(fileId: string): Promise<Buffer> {
