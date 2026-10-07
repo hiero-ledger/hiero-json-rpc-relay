@@ -559,7 +559,6 @@ export class MirrorNodeClient {
 
       // Record metrics
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
-      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -648,6 +647,11 @@ export class MirrorNodeClient {
     };
     const acceptedErrorResponses = MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.get(pathLabel);
 
+    // Skip counting blacklisted requests: the mirror node blocks them with a 429, but it is not rate limiting
+    if (!mirrorError.isInvalidRequestRateLimit()) {
+      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
+    }
+
     if (err.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
       this.logger.debug(
         `An accepted error occurred while communicating with the mirror node server: method=%s, path=%s, status=%s}`,
@@ -658,8 +662,15 @@ export class MirrorNodeClient {
       return null;
     }
 
-    // Contract Call returns 400 for a CONTRACT_REVERT but is a valid response, expected and should not be logged as error:
-    if (pathLabel === MirrorNodeClient.CONTRACT_CALL_ENDPOINT && effectiveStatusCode === 400) {
+    if (mirrorError.isInvalidRequestRateLimit()) {
+      this.logger.error(
+        `Request rejected by a mirror node request filter: method=%s, path=%s, status=%s`,
+        method,
+        path,
+        effectiveStatusCode,
+      );
+    } else if (pathLabel === MirrorNodeClient.CONTRACT_CALL_ENDPOINT && effectiveStatusCode === 400) {
+      // Contract Call returns 400 for a CONTRACT_REVERT but is a valid response, expected and should not be logged as error:
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `[%s] %s Contract Revert: ( StatusCode: '%s', StatusText: '%s', Detail: '%s',Data: '%s')`,

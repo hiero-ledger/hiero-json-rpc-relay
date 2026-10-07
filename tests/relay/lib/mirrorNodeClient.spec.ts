@@ -7,7 +7,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import pino, { type Logger } from 'pino';
-import { Registry } from 'prom-client';
+import { type Counter, Registry } from 'prom-client';
 import proxyquire from 'proxyquire';
 import sinon from 'sinon';
 
@@ -31,7 +31,13 @@ import {
   type MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../../../src/relay/lib/types';
-import { mockData, overrideEnvsInMochaDescribe, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
+import {
+  MIRROR_NODE_BLACKLISTED_ADDRESS,
+  mockData,
+  overrideEnvsInMochaDescribe,
+  random20BytesAddress,
+  withOverriddenEnvsInMochaTest,
+} from '../helpers';
 chai.use(chaiAsPromised);
 
 describe('MirrorNodeClient', async function () {
@@ -360,6 +366,81 @@ describe('MirrorNodeClient', async function () {
       await expect(mirrorNodeInstance.get('accounts', 'accounts', requestDetails))
         .to.eventually.be.rejectedWith('Request failed with status code 503')
         .and.have.property('statusCode', 503);
+    });
+
+    describe('requests rejected by a Mirror Node request filter', () => {
+      const callData = { to: MIRROR_NODE_BLACKLISTED_ADDRESS, data: '0x' };
+      let errorSpy: sinon.SinonSpy;
+
+      const errorCodeCount = async (statusCode: string): Promise<number> => {
+        const { values } = await (mirrorNodeInstance['mirrorErrorCodeCounter'] as Counter).get();
+        return (
+          values.find((v) => v.labels.method === CONTRACT_CALL_ENDPOINT && v.labels.statusCode === statusCode)?.value ??
+          0
+        );
+      };
+
+      beforeEach(() => {
+        errorSpy = sinon.spy(mirrorNodeInstance['logger'], 'error');
+      });
+
+      afterEach(() => {
+        errorSpy.restore();
+      });
+
+      it('does not count a 429 with detail "Invalid request" as a 429 and logs it as a rejected request', async () => {
+        mock.onPost(CONTRACT_CALL_ENDPOINT).reply(429, JSON.stringify(mockData.requestRejected));
+        const errorCountBefore = await errorCodeCount('429');
+
+        const error = await mirrorNodeInstance.postContractCall(callData, requestDetails).catch((e) => e);
+
+        expect(error).to.be.instanceOf(MirrorNodeClientError);
+        expect(error.statusCode).to.equal(429);
+        expect(error.isInvalidRequestRateLimit()).to.be.true;
+        expect(await errorCodeCount('429')).to.equal(errorCountBefore);
+        expect(errorSpy.calledOnce).to.be.true;
+        expect(errorSpy.firstCall.args[0]).to.include('Request rejected by a mirror node request filter');
+      });
+
+      for (const [name, body] of [
+        ['Mirror Node rate limit response', mockData.tooManyRequests],
+        [
+          'Mirror Node rate limit response with detail',
+          {
+            _status: {
+              messages: [{ message: 'Too Many Requests', detail: 'Requests per second rate limit exceeded' }],
+            },
+          },
+        ],
+        ['non Mirror Node response', '<html><body>429 Too Many Requests</body></html>'],
+      ] as const) {
+        it(`still counts a 429 as a 429 for a ${name}`, async () => {
+          mock.onPost(CONTRACT_CALL_ENDPOINT).reply(429, typeof body === 'string' ? body : JSON.stringify(body));
+          const errorCountBefore = await errorCodeCount('429');
+
+          const error = await mirrorNodeInstance.postContractCall(callData, requestDetails).catch((e) => e);
+
+          expect(error).to.be.instanceOf(MirrorNodeClientError);
+          expect(error.statusCode).to.equal(429);
+          expect(error.isInvalidRequestRateLimit()).to.be.false;
+          expect(await errorCodeCount('429')).to.equal(errorCountBefore + 1);
+          expect(errorSpy.calledOnce).to.be.true;
+          expect(errorSpy.firstCall.args[1]).to.include(
+            'Error encountered while communicating with the mirror node server',
+          );
+        });
+      }
+
+      it('does not treat detail "Invalid request" with a status other than 429 as a rejected request', async () => {
+        mock.onPost(CONTRACT_CALL_ENDPOINT).reply(500, JSON.stringify(mockData.requestRejected));
+        const errorCountBefore = await errorCodeCount('500');
+
+        const error = await mirrorNodeInstance.postContractCall(callData, requestDetails).catch((e) => e);
+
+        expect(error.statusCode).to.equal(500);
+        expect(error.isInvalidRequestRateLimit()).to.be.false;
+        expect(await errorCodeCount('500')).to.equal(errorCountBefore + 1);
+      });
     });
   });
 
