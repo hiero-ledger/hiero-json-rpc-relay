@@ -545,6 +545,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const tx = {
               ...defaultLondonTransactionData,
               to: accounts[2].address,
+              // Add random data, because the relay answers a reused tx hash with its earlier rejection.
+              data: ethers.hexlify(ethers.randomBytes(8)),
               nonce: await relay.getAccountNonce(accounts[1].address),
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
