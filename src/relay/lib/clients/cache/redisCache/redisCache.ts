@@ -151,9 +151,13 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The value of the key after incrementing
    */
-  async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
+  async incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.incrBy(prefixedKey, amount);
+    // A result equal to the amount means this call created the key, so it owns setting the expiry.
+    if (ttl && result === amount) {
+      await this.client.pExpire(prefixedKey, ttl);
+    }
     this.logger.trace(`incrementing %s by %s on %s call`, key, amount, callingMethod);
     return result;
   }
