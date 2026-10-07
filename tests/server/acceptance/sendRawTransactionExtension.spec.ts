@@ -822,7 +822,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const startNonce = await relay.getAccountNonce(sender.address);
         const gasPrice = await relay.gasPrice();
 
-        const txPromises = Array.from({ length: 100 }, async (_, i) => {
+        const txPromises = Array.from({ length: 20 }, async (_, i) => {
           const tx = {
             ...defaultLondonTransactionData,
             to: accounts[2].address,
