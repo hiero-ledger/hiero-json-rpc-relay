@@ -14,7 +14,6 @@ const HASH = '0x9bca036bc5d34168f7b308bd4923b628a33b72349939819175a55496101eab02
 const TS = '1786958468.715212954';
 const BLOCK_HASH = '0x' + 'b'.repeat(64);
 const PAYER = '0x' + 'd'.repeat(40);
-const ZERO_ADDRESS = '0x' + '0'.repeat(40);
 const PRIOR_HASH = '0x' + 'e'.repeat(64);
 
 /** A contract result as the Mirror Node returns it for a block, synthetic unless gas is supplied. */
@@ -119,7 +118,7 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
 
   it('resolves the receipt from the recorded timestamp without using either by-hash route', async () => {
     recordedTimestamp(TS);
-    const paths = stubMirrorNode([syntheticLog(HASH)]);
+    const paths = stubMirrorNode([syntheticLog(HASH)], [contractResult({ transaction_index: 0 })]);
 
     const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
 
@@ -148,26 +147,29 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
     expect(byHashPaths(paths), `by-hash routes must not be used, saw ${byHashPaths(paths)}`).to.deep.equal([]);
   });
 
-  it('keeps serving the log-only receipt when the block results do not contain the hash', async () => {
+  it('falls through to the existing path when the block results do not contain the hash', async () => {
     recordedTimestamp(TS);
-    stubMirrorNode([syntheticLog(HASH)], [contractResult({ hash: PRIOR_HASH, transaction_index: 0, gas_used: 100 })]);
+    const paths = stubMirrorNode(
+      [syntheticLog(HASH)],
+      [contractResult({ hash: PRIOR_HASH, transaction_index: 0, gas_used: 100 })],
+    );
 
-    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
-
-    expect(receipt).to.not.be.null;
-    expect(receipt!.from).to.equal(ZERO_ADDRESS);
-    expect(receipt!.cumulativeGasUsed).to.equal('0x0');
+    expect(await ethImpl.getTransactionReceipt(HASH, requestDetails)).to.be.null;
+    expect(
+      paths.some((p) => p.includes(`results/${HASH}`)),
+      'must fall through, not fail',
+    ).to.be.true;
   });
 
-  it('keeps serving a receipt when the block results cannot be loaded', async () => {
+  it('falls through to the existing path when the block results cannot be loaded', async () => {
     recordedTimestamp(TS);
-    stubMirrorNode([syntheticLog(HASH)], 'reject');
+    const paths = stubMirrorNode([syntheticLog(HASH)], 'reject');
 
-    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
-
-    expect(receipt).to.not.be.null;
-    expect(receipt!.transactionHash).to.equal(HASH);
-    expect(receipt!.from).to.equal(ZERO_ADDRESS);
+    expect(await ethImpl.getTransactionReceipt(HASH, requestDetails)).to.be.null;
+    expect(
+      paths.some((p) => p.includes(`results/${HASH}`)),
+      'must fall through, not fail',
+    ).to.be.true;
   });
 
   it('leaves the existing path untouched when the hash was never recorded', async () => {
@@ -187,7 +189,7 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
 
   it('falls through to the existing path when the recorded timestamp yields no logs', async () => {
     recordedTimestamp(TS);
-    const paths = stubMirrorNode([]);
+    const paths = stubMirrorNode([], [contractResult({ transaction_index: 0 })]);
 
     expect(await ethImpl.getTransactionReceipt(HASH, requestDetails)).to.be.null;
     expect(

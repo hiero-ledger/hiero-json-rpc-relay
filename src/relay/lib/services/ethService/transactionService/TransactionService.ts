@@ -838,16 +838,11 @@ export class TransactionService implements ITransactionService {
     this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
 
     const blockNumber = Number(ownLogs[0].blockNumber);
-    const blockContractResults = await this.mirrorNodeClient
-      .getContractResults(requestDetails, { blockNumber })
-      .catch((error) => {
-        this.logger.warn(`Failed to load the block results of %s: %s`, hash, error);
-        return [] as MirrorNodeContractResult[];
-      });
+    const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, { blockNumber });
 
     const contractResult = blockContractResults.find((result) => result.hash === hash);
     if (!contractResult) {
-      return await this.buildSyntheticReceipt(hash, ownLogs, requestDetails);
+      return null;
     }
 
     return await this.buildSyntheticReceiptFromBlockResults(
