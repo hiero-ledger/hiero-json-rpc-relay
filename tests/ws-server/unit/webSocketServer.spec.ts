@@ -9,7 +9,7 @@ import sinon from 'sinon';
 import WebSocket from 'ws';
 
 import { ConfigService } from '../../../src/config-service/services';
-import { Relay } from '../../../src/relay';
+import { Relay, WebSocketError } from '../../../src/relay';
 import { type RequestDetails } from '../../../src/relay/lib/types';
 import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcController';
 import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
@@ -558,6 +558,46 @@ describe('webSocketServer websocket handling', () => {
     await new Promise<void>((resolve) => testServer.close(() => resolve()));
 
     expect(closeCode).to.not.equal(1009);
+  });
+
+  it('should limit one client that rotates X-Forwarded-For per connection when REAL_IP_ADDRESS_MODE is DIRECT_PEER', async () => {
+    // Delegate to the real config for every other key, so only the IP mode and the per-IP cap change.
+    const originalGet = ConfigService.get.bind(ConfigService);
+    sinon.stub(ConfigService, 'get').callsFake((key) => {
+      if (key === 'REAL_IP_ADDRESS_MODE') return 'DIRECT_PEER';
+      if (key === 'WS_CONNECTION_LIMIT_PER_IP') return 2;
+      return originalGet(key);
+    });
+
+    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const { app: testApp } = await webSocketServer.initializeWsServer(
+      mockRelayInstance as unknown as Relay,
+      new Registry(),
+    );
+
+    const testServer: http.Server = await new Promise((resolve) => {
+      const s = testApp.listen(0, '127.0.0.1', () => resolve(s));
+    });
+
+    const connect = (forwardedIp: string): WebSocket => {
+      const ws = new WebSocket(wsUrl(testServer), { headers: { 'X-Forwarded-For': forwardedIp } });
+      sockets.push(ws);
+      return ws;
+    };
+
+    try {
+      const accepted = [connect('10.0.1.1'), connect('10.0.1.2')];
+      await Promise.all(accepted.map((ws) => new Promise((resolve) => ws.on('open', resolve))));
+
+      const rejected = connect('10.0.1.3');
+      const closeCode = await new Promise<number>((resolve) => rejected.on('close', (code) => resolve(code)));
+
+      expect(closeCode).to.equal(WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.code);
+      expect(accepted.map((ws) => ws.readyState)).to.deep.equal([WebSocket.OPEN, WebSocket.OPEN]);
+    } finally {
+      sockets.forEach((ws) => ws.terminate());
+      await new Promise<void>((resolve) => testServer.close(() => resolve()));
+    }
   });
 });
 
