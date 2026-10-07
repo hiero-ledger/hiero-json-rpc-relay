@@ -342,9 +342,11 @@ describe('webSocketServer websocket handling', () => {
   });
 
   it('should be able to execute batch request', async () => {
+    // Use the real ConfigService for other keys so unset envs still get their defaults (e.g. WS_MAX_INACTIVITY_TTL).
+    const originalGet = ConfigService.get.bind(ConfigService);
     sinon.stub(ConfigService, 'get').callsFake((key) => {
       if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
-      return process.env[key] as string;
+      return originalGet(key);
     });
     sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
     sinon.stub(utils, 'getBatchRequestsMaxSize').returns(2);
@@ -474,9 +476,11 @@ describe('webSocketServer websocket handling', () => {
   });
 
   it('should process WebSocket batch requests under payload limit', async () => {
+    // Use the real ConfigService for other keys so unset envs still get their defaults (e.g. WS_MAX_INACTIVITY_TTL).
+    const originalGet = ConfigService.get.bind(ConfigService);
     sinon.stub(ConfigService, 'get').callsFake((key) => {
       if (key === 'BATCH_REQUESTS_DISALLOWED_METHODS') return [];
-      return process.env[key] as string;
+      return originalGet(key);
     });
     sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
     sinon.stub(utils, 'getBatchRequestsMaxSize').returns(3);
