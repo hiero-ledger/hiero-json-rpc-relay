@@ -65,6 +65,15 @@ const createAccountFromCompressedPublicKey = async function (compressedPublicKey
   return { accountId };
 };
 
+// The relay checks the sender on the mirror node, which lags the consensus receipt, so wait until the account shows up.
+const waitForMirrorNodeAccount = async function (provider, address) {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    if ((await provider.getBalance(address)) > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`Account ${address} did not appear on the mirror node`);
+};
+
 const createHTSToken = async function () {
   const expiration = new Date();
   expiration.setDate(expiration.getDate() + 30);
@@ -185,6 +194,7 @@ const deployAndFundContractTransferTx = async function (wallet) {
     `Receiver wallet account private: ${receiverPrivateKeyString}, public: ${receiverCompressedKey}, id: ${receiverAccountId}`,
   );
 
+  await waitForMirrorNodeAccount(provider, mainWallet.address);
   const ContractTransferTxAddress = await deployAndFundContractTransferTx(mainWallet);
   console.log(`Contract Transfer Tx Address: ${ContractTransferTxAddress}`);
   const HTSContractAddress = await deployHederaTokenService(mainWallet);
