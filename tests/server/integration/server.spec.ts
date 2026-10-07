@@ -229,7 +229,9 @@ describe('RPC Server', function () {
     });
 
     it('should return the server config via /config endpoint', async function () {
-      const response = await testClient.get('/config');
+      // Stub the status.hedera.com call to fail, because it can be too slow, and the version falls back to 'local'.
+      const statusPageStub = sinon.stub(Axios, 'get').rejects(new Error('status page offline'));
+      const response = await testClient.get('/config').finally(() => statusPageStub.restore());
 
       expect(response.status).to.eq(200);
       expect(response.statusText).to.eq('OK');
