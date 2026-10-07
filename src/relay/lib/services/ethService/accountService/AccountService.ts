@@ -312,21 +312,30 @@ export class AccountService implements IAccountService {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
   public async getTransactionCounts(address: string, requestDetails: RequestDetails): Promise<IPendingPoolStatusInfo> {
-    const [confirmedCount, pendingCount] = await Promise.all([
+    const [cachedConfirmedCount, pendingCount] = await Promise.all([
       this.transactionPoolService.getConfirmedCount(address),
       this.transactionPoolService.getPendingCount(address),
     ]);
-    if (confirmedCount != null) return { pendingCount, confirmedCount, mirrorNodeArtifact: null };
-    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
-    const toResult = (confirmedCount: number): IPendingPoolStatusInfo => ({
-      pendingCount,
-      confirmedCount,
-      mirrorNodeArtifact: accountData,
-    });
+    if (cachedConfirmedCount != null)
+      return { pendingCount, confirmedCount: cachedConfirmedCount, mirrorNodeArtifact: null };
+    const { confirmedCount, accountData } = await this.getMirrorNodeConfirmedCount(address, requestDetails);
+    return { pendingCount, confirmedCount, mirrorNodeArtifact: accountData };
+  }
 
-    if (!accountData) return toResult(0);
-    if (accountData.ethereum_nonce == null) return toResult(1);
-    return toResult(Number(accountData.ethereum_nonce));
+  /**
+   * Reads the confirmed transaction count (ethereum nonce) of an account from the Mirror Node.
+   *
+   * @param {string} address The account address
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  private async getMirrorNodeConfirmedCount(
+    address: string,
+    requestDetails: RequestDetails,
+  ): Promise<{ confirmedCount: number; accountData: IPendingPoolStatusInfo['mirrorNodeArtifact'] }> {
+    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
+    if (!accountData) return { confirmedCount: 0, accountData };
+    if (accountData.ethereum_nonce == null) return { confirmedCount: 1, accountData };
+    return { confirmedCount: Number(accountData.ethereum_nonce), accountData };
   }
 
   /**
@@ -349,8 +358,14 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
-      return numberTo0x(blockNumOrTag === constants.BLOCK_PENDING ? confirmedCount + pendingCount : confirmedCount);
+      if (blockNumOrTag === constants.BLOCK_PENDING) {
+        const { confirmedCount, pendingCount } = await this.getTransactionCounts(address, requestDetails);
+        return numberTo0x(confirmedCount + pendingCount);
+      }
+      // Receipts come from the Mirror Node, so `latest` reads it directly too. The pool's cached baseline only
+      // advances once the relay's own watcher confirms a transaction, which can lag behind a visible receipt.
+      const { confirmedCount } = await this.getMirrorNodeConfirmedCount(address, requestDetails);
+      return numberTo0x(confirmedCount);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length !== constants.BLOCK_HASH_LENGTH && blockNum > 0) {

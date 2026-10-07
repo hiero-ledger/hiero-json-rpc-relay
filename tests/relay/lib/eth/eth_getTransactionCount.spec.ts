@@ -422,5 +422,23 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
 
       expect(result).to.equal(numberTo0x(ethereumNonce + pending));
     });
+
+    it('serves latest from MN even while the cached baseline lags behind a confirmed transaction', async () => {
+      const cachedConfirmed = 0;
+      const pending = 1;
+      const ethereumNonce = 1;
+
+      const getConfirmedStub = sinon.stub(transactionPoolService, 'getConfirmedCount').resolves(cachedConfirmed);
+      sinon.stub(transactionPoolService, 'getPendingCount').resolves(pending);
+
+      restMock.onGet(accountUrl).reply(200, JSON.stringify({ ...mockData.account, ethereum_nonce: ethereumNonce }));
+
+      const latest = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'latest', requestDetails);
+      const pendingNonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'pending', requestDetails);
+
+      expect(latest).to.equal(numberTo0x(ethereumNonce));
+      expect(pendingNonce).to.equal(numberTo0x(cachedConfirmed + pending));
+      expect(getConfirmedStub.calledOnce).to.be.true; // only the pending lookup consulted the pool
+    });
   });
 });
