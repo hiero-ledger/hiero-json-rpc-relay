@@ -32,6 +32,7 @@ import {
   setTransaction2930AndBlockHash,
   // WS_RELAY_URL,
 } from './data/conformity/utils/constants';
+import { findUnmatchedExclusions, getExclusionReason } from './data/conformity/utils/exclusions';
 // import { TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
@@ -178,13 +179,24 @@ describe('@api-conformity', async function () {
       ];
       for (const file of files) {
         const isCustom = fs.existsSync(path.join(overwritesDirectoryPath, directory, file));
-        it(`Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`, async () => {
+        const title = `Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`;
+        const exclusionReason = isCustom ? undefined : getExclusionReason(directory, file);
+        if (exclusionReason) {
+          it.skip(`${title} (excluded: ${exclusionReason})`);
+          continue;
+        }
+        it(title, async () => {
           const dir = isCustom ? overwritesDirectoryPath : directoryPath;
           const data = fs.readFileSync(path.resolve(dir, directory, file));
           const content = splitReqAndRes(data.toString('utf-8'));
           await processFileContent(RELAY_URL, directory, file, content);
         });
       }
+    }
+    for (const key of findUnmatchedExclusions(directoryPath)) {
+      it(`exclusion "${key}" matches an upstream fixture`, () => {
+        throw new Error(`"${key}" matches no fixture in ${directoryPath}; update EXCLUDED_FIXTURES`);
+      });
     }
   });
 
