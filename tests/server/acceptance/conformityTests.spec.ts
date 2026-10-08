@@ -48,7 +48,8 @@ import {
 } from './data/conformity/utils/utils';
 // import { hasResponseFormatIssues, isResponseValid } from './data/conformity/utils/validations';
 
-const directoryPath = path.resolve(__dirname, '../../../node_modules/execution-apis/tests');
+// Downloaded by `npm run conformity:fetch-spec`
+const directoryPath = path.resolve(__dirname, 'data/conformity/execution-apis');
 const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
 
 // let relayOpenRpcData: OpenrpcDocument;
@@ -114,6 +115,12 @@ const initGenesisData = async function (): Promise<void> {
 describe('@api-conformity', async function () {
   describe('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
+    if (!fs.existsSync(directoryPath)) {
+      it('has the execution-apis fixtures downloaded', () => {
+        throw new Error(`No fixtures at ${directoryPath}; run \`npm run conformity:fetch-spec\` first`);
+      });
+      return;
+    }
     before(async () => {
       setLegacyTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, legacyTransaction));
       setTransaction2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction2930));
