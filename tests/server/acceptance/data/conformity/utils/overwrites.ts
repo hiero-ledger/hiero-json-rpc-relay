@@ -140,6 +140,35 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
       '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
       '1': currentBlockHash,
     },
+    ['overwrites/eth_getBalance/get-balance-blocknumber-object.io']: {
+      '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
+    },
+    ['overwrites/eth_getBalance/get-balance-blockhash-object.io']: {
+      '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
+      '1': { blockHash: currentBlockHash },
+    },
+    ['overwrites/eth_getBalance/get-balance-blockhash-require-canonical.io']: {
+      '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
+      '1': { blockHash: currentBlockHash, requireCanonical: true },
+    },
+    ['overwrites/eth_getCode/get-code-blockhash-object.io']: {
+      '1': { blockHash: currentBlockHash },
+    },
+    ['overwrites/eth_getCode/get-code-blockhash-require-canonical.io']: {
+      '1': { blockHash: currentBlockHash, requireCanonical: true },
+    },
+    ['overwrites/eth_getTransactionCount/get-nonce-blockhash-object.io']: {
+      '1': { blockHash: currentBlockHash },
+    },
+    ['overwrites/eth_getTransactionCount/get-nonce-blockhash-require-canonical.io']: {
+      '1': { blockHash: currentBlockHash, requireCanonical: true },
+    },
+    ['overwrites/eth_getStorageAt/get-storage-blockhash-object.io']: {
+      '2': { blockHash: currentBlockHash },
+    },
+    ['overwrites/eth_getStorageAt/get-storage-blockhash-require-canonical.io']: {
+      '2': { blockHash: currentBlockHash, requireCanonical: true },
+    },
     ['overwrites/eth_getTransactionByBlockHashAndIndex/get-block-n.io']: {
       '0': legacyTransactionAndBlockHash.blockHash,
       '1': legacyTransactionAndBlockHash.transactionIndex,
