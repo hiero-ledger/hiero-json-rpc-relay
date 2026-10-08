@@ -29,6 +29,7 @@ import {
   type RequestDetails,
   type StateOverrideSet,
 } from '../../../types';
+import { isBlockHash } from '../../../utils/blockParam';
 import { isRequestAbortedError } from '../../../utils/requestAbort';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
@@ -39,6 +40,12 @@ import type { IContractService } from './IContractService';
  * Service responsible for handling contract-related operations.
  */
 export class ContractService implements IContractService {
+  /**
+   * The `detail` of the mirror node's 400 response to a contract call against a block it does not know.
+   * @private
+   */
+  private static readonly MIRROR_NODE_UNKNOWN_BLOCK_DETAIL = 'Unknown block number';
+
   /**
    * The cache service used for caching responses.
    * @private
@@ -118,23 +125,23 @@ export class ContractService implements IContractService {
    * Executes a new message call immediately without creating a transaction on the blockchain.
    *
    * @param {IContractCallRequest} call - The transaction object with call data
-   * @param {string | object | null} blockParam - Block number, tag, or object with blockHash/blockNumber
+   * @param {string | null} blockParam - Block number, tag or hash; EIP-1898 block objects are normalized by the caller
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the call
    * @returns {Promise<string>} The return value of the executed contract call
    */
   public async call(
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     requestDetails: RequestDetails,
     stateOverride?: StateOverrideSet,
   ): Promise<string> {
+    const blockNumberOrTag = blockParam || null;
     try {
       if (call.to && !isValidEthereumAddress(call.to)) {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
       }
 
-      const blockNumberOrTag = this.extractBlockParam(blockParam);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
@@ -148,7 +155,12 @@ export class ContractService implements IContractService {
       return result;
     } catch (e) {
       if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
-      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+      if (e instanceof MirrorNodeClientError) {
+        if (isBlockHash(blockNumberOrTag) && ContractService.isMirrorNodeUnknownBlock(e)) {
+          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`);
+        }
+        await this.handleMirrorNodeClientError(e);
+      }
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
       throw predefined.INTERNAL_ERROR((e as Error).message.toString());
@@ -194,7 +206,7 @@ export class ContractService implements IContractService {
    * Returns the compiled smart contract code at a given address.
    *
    * @param {string} address - The address to get code from
-   * @param {string | null} blockNumber - Block number or tag
+   * @param {string | null} blockNumber - Block number, tag or hash
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} The code at the given address
    */
@@ -203,6 +215,13 @@ export class ContractService implements IContractService {
       throw predefined.UNKNOWN_BLOCK(
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
+    }
+
+    if (
+      isBlockHash(blockNumber) &&
+      !(await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true))
+    ) {
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`);
     }
 
     // check for static precompile cases first before consulting nodes
@@ -514,44 +533,6 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Extracts the block number, hash or tag from a block parameter.
-   * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
-   *
-   * @param {string | object | null} blockParam - The block parameter (string, object, or null)
-   * @returns {string | null} The extracted block number, hash or tag, or null if not provided
-   * @private
-   */
-  private extractBlockParam(blockParam: string | object | null): string | null {
-    if (!blockParam) {
-      return null;
-    }
-
-    // is an object
-    if (typeof blockParam === 'object') {
-      // object has property blockNumber, example: { "blockNumber": "0x0" }
-      const { blockNumber, blockHash } = blockParam as { blockNumber?: string; blockHash?: string };
-
-      if (blockNumber != null) {
-        return blockNumber;
-      }
-
-      if (blockHash != null) {
-        return blockHash;
-      }
-
-      // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
-      throw predefined.INVALID_ARGUMENTS('neither block nor hash specified');
-    }
-
-    // if blockParam is a string, could be a blockNumber or blockTag or blockHash
-    if (blockParam.length > 0) {
-      return blockParam;
-    }
-
-    return null;
-  }
-
-  /**
    * Caps the block gas limit to a reasonable value.
    *
    * @param {string | undefined} gasString - The gas limit as a string
@@ -577,6 +558,16 @@ export class ContractService implements IContractService {
     }
 
     return gas;
+  }
+
+  /**
+   * Whether the mirror node rejected a contract call because the requested block does not exist.
+   *
+   * @param {MirrorNodeClientError} e - The mirror node error
+   * @returns {boolean} `true` for the mirror node's 400 "Unknown block number" response
+   */
+  private static isMirrorNodeUnknownBlock(e: MirrorNodeClientError): boolean {
+    return e.statusCode === 400 && e.detail === ContractService.MIRROR_NODE_UNKNOWN_BLOCK_DETAIL;
   }
 
   /**

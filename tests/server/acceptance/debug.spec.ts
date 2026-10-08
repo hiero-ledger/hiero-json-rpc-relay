@@ -950,7 +950,7 @@ describe('@debug API Acceptance Tests', function () {
           [invalidHash],
           predefined.INVALID_PARAMETER(
             0,
-            'Expected Expected 0x prefixed string representing the hash (32 bytes) of a transaction, value: 0xinvalidhash',
+            'Expected 0x prefixed string representing the hash (32 bytes) of a transaction, value: 0xinvalidhash',
           ),
         );
       });
@@ -1608,7 +1608,7 @@ describe('@debug API Acceptance Tests', function () {
         ['invalidBlockNumber'],
         predefined.INVALID_PARAMETER(
           '0',
-          `The value passed is not valid: invalidBlockNumber. ${BLOCK_NUMBER_ERROR} OR Expected ${HASH_ERROR} of a block`,
+          `The value passed is not valid: invalidBlockNumber. ${BLOCK_NUMBER_ERROR} OR ${HASH_ERROR} of a block`,
         ),
       );
     });
