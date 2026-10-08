@@ -3,6 +3,8 @@ import { signTransaction } from '../../../../../relay/helpers';
 import {
   createContractLegacyTransactionAndBlockHash,
   currentBlockHash,
+  EMIT_LOG_TOPICS,
+  emitLogTransactionAndBlockHash,
   EMPTY_TX_HASH,
   ETHEREUM_NETWORK_ACCOUNT_HASH,
   hapiTransactionHash,
@@ -127,6 +129,15 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
     ['overwrites/eth_getBalance/get-balance-blockhash.io']: {
       '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
       '1': currentBlockHash,
+    },
+    ['overwrites/eth_getLogs/filter-with-blockHash.io']: {
+      '0': { blockHash: emitLogTransactionAndBlockHash.blockHash },
+    },
+    ['overwrites/eth_getLogs/filter-with-blockHash-and-topics.io']: {
+      '0': {
+        blockHash: emitLogTransactionAndBlockHash.blockHash,
+        topics: EMIT_LOG_TOPICS.map((topic) => [topic]),
+      },
     },
     ['overwrites/eth_getTransactionByBlockHashAndIndex/get-block-n.io']: {
       '0': legacyTransactionAndBlockHash.blockHash,

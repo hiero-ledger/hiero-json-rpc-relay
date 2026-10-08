@@ -25,6 +25,7 @@ import {
   sendAccountAddress,
   setCreateContractLegacyTransactionAndBlockHash,
   setCurrentBlockHash,
+  setEmitLogTransactionAndBlockHash,
   setHapiTransactionHash,
   setLegacyTransactionAndBlockHash,
   setTransaction1559_2930AndBlockHash,
@@ -37,6 +38,7 @@ import { findUnmatchedExclusions, getExclusionReason } from './data/conformity/u
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
   createContractLegacyTransaction,
+  emitLogTransaction,
   legacyTransaction,
   transaction1559,
   transaction1559_2930,
@@ -131,6 +133,7 @@ describe('@api-conformity', async function () {
         await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
       );
       await initGenesisData();
+      setEmitLogTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, emitLogTransaction));
 
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
