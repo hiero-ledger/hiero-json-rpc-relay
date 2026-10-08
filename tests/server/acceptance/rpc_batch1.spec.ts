@@ -130,6 +130,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
       const defaultGasLimit = numberTo0x(3_000_000);
 
+      // The pool drops a tx once consensus accepts it, so 'pending' can briefly fall back to the stale mirror nonce.
+      const nextNonces = new Map<string, number>();
+      const nextNonce = async (signer: AliasAccount): Promise<number> => {
+        const pending = await relay.getAccountNonce(signer.address, 'pending');
+        const nonce = Math.max(pending, nextNonces.get(signer.address) ?? 0);
+        nextNonces.set(signer.address, nonce + 1);
+        return nonce;
+      };
+
       const sendTransactions = async (signer = accounts[1], count: number = 2): Promise<Map<string, string>> => {
         const transactionMap = new Map<string, string>();
         for (let i = 0; i < count; i++) {
@@ -141,7 +150,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             gasLimit: defaultGasLimit,
             type: 2,
             to: accounts[2].address,
-            nonce: await relay.getAccountNonce(signer.address, 'pending'),
+            nonce: await nextNonce(signer),
           };
           const signedTx = await signer.wallet.signTransaction(tx);
           const txHash = await relay.sendRawTransaction(signedTx);
@@ -161,7 +170,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           type: 2,
           value: 0,
           data: basicContract.bytecode,
-          nonce: await relay.getAccountNonce(signer.address, 'pending'),
+          nonce: await nextNonce(signer),
         });
         await relay.sendRawTransaction(signedTx);
 
