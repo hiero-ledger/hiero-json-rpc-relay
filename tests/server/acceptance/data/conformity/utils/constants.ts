@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '../../../../../../src/config-service/services';
-import { type TransactionResponse } from './interfaces';
+import { type SyntheticTransactionResponse, type TransactionResponse } from './interfaces';
 
 export const RELAY_URL = 'http://127.0.0.1:7546';
 export const WS_RELAY_URL = 'ws://127.0.0.1:8546';
@@ -22,7 +22,7 @@ export let transaction2930AndBlockHash: TransactionResponse;
 export let transaction1559AndBlockHash: TransactionResponse;
 export let createContractLegacyTransactionAndBlockHash: TransactionResponse;
 export let transaction1559_2930AndBlockHash: TransactionResponse;
-export let hapiTransactionHash: string;
+export let syntheticTransaction: SyntheticTransactionResponse;
 
 export function setCurrentBlockHash(value: string): void {
   currentBlockHash = value;
@@ -48,6 +48,6 @@ export function setCreateContractLegacyTransactionAndBlockHash(value: Transactio
   createContractLegacyTransactionAndBlockHash = value;
 }
 
-export function setHapiTransactionHash(value: string): void {
-  hapiTransactionHash = value;
+export function setSyntheticTransaction(value: SyntheticTransactionResponse): void {
+  syntheticTransaction = value;
 }
