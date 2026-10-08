@@ -5,11 +5,11 @@ import {
   currentBlockHash,
   EMPTY_TX_HASH,
   ETHEREUM_NETWORK_ACCOUNT_HASH,
-  hapiTransactionHash,
   legacyTransactionAndBlockHash,
   localNodeAccountPrivateKey,
   NONEXISTENT_TX_HASH,
   RELAY_URL,
+  syntheticTransaction,
   transaction1559AndBlockHash,
   transaction2930AndBlockHash,
 } from './constants';
@@ -78,6 +78,15 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
     ['overwrites/eth_getBlockByHash/get-block-by-hash.io']: {
       '0': transaction2930AndBlockHash.blockHash,
     },
+    ['overwrites/eth_getBlockByHash/get-synthetic-block.io']: {
+      '0': syntheticTransaction.blockHash,
+    },
+    ['overwrites/eth_getBlockByNumber/get-synthetic-block.io']: {
+      '0': syntheticTransaction.blockNumber,
+    },
+    ['overwrites/eth_getBlockReceipts/get-synthetic-receipts.io']: {
+      '0': syntheticTransaction.blockNumber,
+    },
     ['overwrites/eth_getTransactionByHash/get-access-list.io']: {
       '0': transaction2930AndBlockHash.transactionHash,
     },
@@ -99,6 +108,9 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
     ['overwrites/eth_getTransactionByHash/get-legacy-tx.io']: {
       '0': legacyTransactionAndBlockHash.transactionHash,
     },
+    ['overwrites/eth_getTransactionByHash/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.transactionHash,
+    },
     ['overwrites/eth_getTransactionByHash/get-notfound-tx.io']: {
       '0': NONEXISTENT_TX_HASH,
     },
@@ -118,7 +130,7 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
       '0': createContractLegacyTransactionAndBlockHash.transactionHash,
     },
     ['overwrites/eth_getTransactionReceipt/get-hapi-receipt.io']: {
-      '0': hapiTransactionHash,
+      '0': syntheticTransaction.transactionHash,
     },
     ['overwrites/eth_getBalance/get-balance.io']: {
       '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
@@ -132,9 +144,17 @@ function buildTransactionOverrides(): Record<string, Record<string, unknown>> {
       '0': legacyTransactionAndBlockHash.blockHash,
       '1': legacyTransactionAndBlockHash.transactionIndex,
     },
+    ['overwrites/eth_getTransactionByBlockHashAndIndex/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.blockHash,
+      '1': syntheticTransaction.transactionIndex,
+    },
     ['overwrites/eth_getTransactionByBlockNumberAndIndex/get-block-n.io']: {
       '0': legacyTransactionAndBlockHash.blockNumber,
       '1': legacyTransactionAndBlockHash.transactionIndex,
+    },
+    ['overwrites/eth_getTransactionByBlockNumberAndIndex/get-synthetic-tx.io']: {
+      '0': syntheticTransaction.blockNumber,
+      '1': syntheticTransaction.transactionIndex,
     },
     ['overwrites/eth_sendRawTransaction/send-legacy-transaction.io']: {
       '0': () => prepareTransaction(legacyTransaction, localNodeAccountPrivateKey),
