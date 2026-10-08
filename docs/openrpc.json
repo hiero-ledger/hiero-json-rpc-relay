@@ -717,7 +717,7 @@
     },
     {
       "name": "eth_getUncleCountByBlockNumber",
-      "summary": "Returns the number of transactions in a block matching the given block number.",
+      "summary": "Returns the number of uncles in a block matching the given block number.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
