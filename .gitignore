@@ -10,3 +10,7 @@ tsconfig.tsbuildinfo
 .DS_Store
 test-results.*.xml
 .standalone
+
+# Downloaded by `npm run conformity:fetch-spec`
+openrpc_exec_apis.json
+tests/server/acceptance/data/conformity/execution-apis/

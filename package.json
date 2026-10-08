@@ -7,6 +7,9 @@
   "redisMemoryServer": {
     "version": "8.10.1"
   },
+  "config": {
+    "executionApisVersion": "v1.0.0-beta.7"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@octokit/core": "6.1.6",
@@ -90,6 +93,7 @@
     "acceptancetest:precompile-calls": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@precompile-calls' --exit",
     "acceptancetest:cache-service": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@cache-service' --exit",
     "acceptancetest:rpc_api_schema_conformity": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@api-conformity' --exit",
+    "conformity:fetch-spec": "bash scripts/fetch-execution-apis.sh",
     "acceptancetest:serverconfig": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@server-config' --exit",
     "acceptancetest:send_raw_transaction_extension": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@sendRawTransactionExtension' --exit",
     "acceptancetest:json_rpc_compliance": "c8 ts-mocha tests/server/acceptance/index.spec.ts -g '@json-rpc-compliance' --exit",
