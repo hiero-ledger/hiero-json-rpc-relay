@@ -24,10 +24,10 @@ jobs:
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y make gcc g++
 
-      - name: Use Node.js TLS 22
+      - name: Use Node.js LTS 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,7 +64,7 @@ jobs:
 
       - name: Publish Test Report
         if: ${{ github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name && github.actor != 'dependabot[bot]' && github.actor != 'swirlds-automation' && !cancelled() && !failure() }}
-        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
+        uses: step-security/publish-unit-test-result-action@8cf946dca1a299ebf36dff640273fda13717050a # v2.24.0
         with:
           # check_name: Tests
           check_name: '' # Set to empty to disable check run

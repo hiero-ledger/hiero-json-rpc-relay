@@ -22,6 +22,7 @@ import {
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
+import { isBlockHash } from '../../../utils/blockParam';
 import { isRequestAbortedError, throwIfRequestAborted } from '../../../utils/requestAbort';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
@@ -738,7 +739,13 @@ export class CommonService implements ICommonService {
   };
 
   public isBlockParamValid = (tag: string | null): boolean => {
-    return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
+    return (
+      tag == null ||
+      this.isBlockTagEarliest(tag) ||
+      this.isBlockTagFinalized(tag) ||
+      this.isBlockNumValid(tag) ||
+      isBlockHash(tag)
+    );
   };
 
   /**

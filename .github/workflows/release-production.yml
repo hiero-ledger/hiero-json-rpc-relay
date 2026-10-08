@@ -39,7 +39,7 @@ jobs:
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: step-security/setup-buildx-action@a4709e2865773e1792246433e8eb922f9743a875 # v4.2.0
+        uses: step-security/setup-buildx-action@e50058a0fcd8d1a7d626c905502d010a468bf238 # v4.4.1
         with:
           version: v0.32.1
           driver-opts: network=host,image=ghcr.io/hashgraph/runner-images/buildkit:buildx-stable-1
@@ -48,7 +48,7 @@ jobs:
               mirrors = ["https://hub.mirror.docker.lat.ope.eng.hashgraph.io"]
 
       - name: Build and push images
-        uses: step-security/docker-build-push-action@144392094f7fc3199dda455efe3b70dbea4b72a0 # v7.3.0
+        uses: step-security/docker-build-push-action@b736dc8a921e02a288f956d3dd9111e276a4cfec # v7.4.0
         with:
           platforms: linux/amd64, linux/arm64
           push: true
@@ -69,7 +69,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install make
         run: sudo apt-get update; sudo apt-get install build-essential -y

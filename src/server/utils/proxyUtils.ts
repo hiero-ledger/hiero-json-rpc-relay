@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { BlockList, isIP } from 'node:net';
+
 import type Koa from 'koa';
+import type websockify from 'koa-websocket';
+import type { Logger } from 'pino';
+
+import { ConfigService } from '../../config-service/services';
+import { RealIpAddressMode } from '../../config-service/services/globalConfig';
 
 const MAX_FORWARDED_HEADER_LENGTH = 1000;
 const MAX_IP_LENGTH = 45; // Max IPv6 length
 const SAFE_IP_CHARS = /^[a-fA-F0-9:.]+$/;
 const HEADER_FORWARDED = 'forwarded';
 const HEADER_X_FORWARDED_FOR = 'x-forwarded-for';
+const IPV4_MAPPED_PREFIX = '::ffff:';
 
 /**
  * Extracts an IP address from a quoted `for=` value.
@@ -123,12 +131,105 @@ export function parseForwardedHeader(forwardedHeader: string): string | null {
   }
 }
 
+/** Unwraps an IPv4-mapped IPv6 address (e.g. `::ffff:10.0.0.5`) so a client keeps one identity on a dual-stack listener. */
+function normalizeIp(ip: string): string {
+  if (!ip.toLowerCase().startsWith(IPV4_MAPPED_PREFIX)) {
+    return ip;
+  }
+
+  const unmapped = ip.slice(IPV4_MAPPED_PREFIX.length);
+  // Node's isIP returns 4 for IPv4, 6 for IPv6 and 0 for anything else.
+  if (isIP(unmapped) !== 4) {
+    return ip;
+  }
+
+  return unmapped;
+}
+
+function ipFamily(ip: string): 'ipv4' | 'ipv6' {
+  // Node's isIP returns 4 for IPv4, 6 for IPv6 and 0 for anything else.
+  return isIP(ip) === 6 ? 'ipv6' : 'ipv4';
+}
+
 /**
- * Register proxy-related middleware on a Koa app:
- *   1. Sets `app.proxy = true` so `ctx.ip` reads from X-Forwarded-For.
- *   2. Parse RFC 7239 Forwarded headers and make it compatible with Koa's X-Forwarded-For parsing
+ * Reads the client IP a trusted proxy appended, which is the last entry because proxies append rather than replace.
  */
-export function applyProxyMiddleware(app: Koa): void {
+function lastForwardedIp(request: Koa.Request): string | null {
+  const xForwardedFor = request.get(HEADER_X_FORWARDED_FOR);
+  const header = xForwardedFor || request.get(HEADER_FORWARDED);
+  let ip: string | null = header.slice(header.lastIndexOf(',') + 1).trim();
+  if (!xForwardedFor) {
+    ip = parseForwardedHeader(ip);
+  }
+
+  if (!ip || !isIP(ip)) {
+    return null;
+  }
+
+  return normalizeIp(ip);
+}
+
+/**
+ * `TRUSTED_PROXIES` and `DIRECT_PEER` modes: sets `ctx.request.ip` once per request or connection to the TCP peer,
+ * or, when the peer is one of `trustedProxyIps`, to the client IP it forwarded.
+ */
+function useClientIp(app: Koa | websockify.App, trustedProxyIps: readonly string[] = []): void {
+  const trustedProxies = new BlockList();
+  trustedProxyIps.map(normalizeIp).forEach((ip) => trustedProxies.addAddress(ip, ipFamily(ip)));
+
+  // Keep Koa from reading forwarding headers itself, should anything read the IP before this middleware runs.
+  app.proxy = false;
+
+  const middleware = (ctx: Koa.Context, next: Koa.Next): Promise<void> => {
+    // The TCP peer is the only client identity a caller cannot forge with headers.
+    const peer = normalizeIp(ctx.request.socket.remoteAddress ?? '');
+    let forwardedIp: string | null = null;
+    if (trustedProxies.check(peer, ipFamily(peer))) {
+      forwardedIp = lastForwardedIp(ctx.request);
+    }
+
+    // Fall back to the peer when a trusted proxy sends no usable IP, e.g. on its own health checks.
+    ctx.request.ip = forwardedIp ?? peer;
+    return next();
+  };
+
+  app.use(middleware);
+  if ('ws' in app) {
+    app.ws.use(middleware);
+  }
+}
+
+/**
+ * Registers how the client IP is resolved, according to `REAL_IP_ADDRESS_MODE`, on a Koa app and,
+ * for the WS server, on its connection middleware too.
+ *
+ * @param app - The HTTP app, or the `koa-websocket` app whose connections need the same client IP.
+ * @param logger - Logger used to report the active mode once at startup.
+ */
+export function applyProxyMiddleware(app: Koa | websockify.App, logger: Logger): void {
+  const mode = ConfigService.get('REAL_IP_ADDRESS_MODE');
+
+  // Log the enum constants rather than `mode`, since CodeQL flags any env-derived value in a log as sensitive.
+  if (mode === RealIpAddressMode.TRUSTED_PROXIES) {
+    logger.info(
+      `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.TRUSTED_PROXIES}: client IP is read from forwarding headers only on requests from TRUSTED_PROXY_IPS`,
+    );
+    useClientIp(app, ConfigService.get('TRUSTED_PROXY_IPS'));
+    return;
+  }
+
+  if (mode === RealIpAddressMode.DIRECT_PEER) {
+    logger.info(
+      `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.DIRECT_PEER}: client IP is the network peer, forwarding headers are ignored`,
+    );
+    useClientIp(app);
+    return;
+  }
+
+  logger.info(
+    `REAL_IP_ADDRESS_MODE=${RealIpAddressMode.X_FORWARDED_FOR}: client IP is read from forwarding headers, which is only safe behind a proxy that overwrites them`,
+  );
+
   // enable proxy support to trust proxy-added headers for client IP detection
   app.proxy = true;
 

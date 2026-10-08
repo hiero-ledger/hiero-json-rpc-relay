@@ -90,7 +90,7 @@ export interface Eth {
 
   call(
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     stateOverride: StateOverrideSet | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError>;

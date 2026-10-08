@@ -8,6 +8,7 @@ import { ConfigService } from '../../src/config-service/services';
 import { type JsonRpcError, predefined } from '../../src/relay';
 import { numberTo0x, prepend0x } from '../../src/relay/formatters';
 import Constants from '../../src/relay/lib/constants';
+import { Constants as ValidatorConstants } from '../../src/relay/lib/validators';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
 import basicContractJson from '../server/contracts/Basic.json';
@@ -36,8 +37,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
   const PURE_METHOD_ERROR_MESSAGE = 'RevertReasonPure';
   const VIEW_METHOD_ERROR_MESSAGE = 'RevertReasonView';
   const ONE_THOUSAND_TINYBARS = Utils.add0xPrefix(Utils.toHex(Constants.TINYBAR_TO_WEIBAR_COEF * 1000));
-  const ERROR_MESSAGE_PREFIXED_STR =
-    'Expected 0x prefixed string representing the hash (32 bytes) in object, 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"';
+  const ERROR_MESSAGE_PREFIXED_STR = ValidatorConstants.BLOCK_PARAMS_ERROR;
 
   const INVALID_PARAMS: unknown[][] = [
     ['{}', false, '0x0'],
@@ -420,8 +420,8 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           data: BASIC_CONTRACT_PING_CALL_DATA,
         };
         const errorType = predefined.INVALID_PARAMETER(
-          `'blockHash' for BlockHashObject`,
-          'Expected 0x prefixed string representing the hash (32 bytes) of a block, value: 0x123',
+          1,
+          `'blockHash' in EIP-1898 block object: ${ValidatorConstants.BLOCK_HASH_ERROR}, value: {"blockHash":"0x123"}`,
         );
 
         const response = await client.callRaw(METHOD_NAME, [callData, { blockHash: '0x123' }]);
@@ -435,8 +435,8 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
           data: BASIC_CONTRACT_PING_CALL_DATA,
         };
         const errorType = predefined.INVALID_PARAMETER(
-          `'blockNumber' for BlockNumberObject`,
-          `Expected 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending", value: invalid_block_number`,
+          1,
+          `'blockNumber' in EIP-1898 block object: ${ValidatorConstants.BLOCK_NUMBER_ERROR}, value: {"blockNumber":"invalid_block_number"}`,
         );
 
         const response = await client.callRaw(METHOD_NAME, [callData, { blockNumber: 'invalid_block_number' }]);
