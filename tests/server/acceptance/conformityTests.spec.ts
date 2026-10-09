@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 
 // import WebSocket from 'ws';
-import openRpcData from '../../../docs/openrpc.json';
+// import openRpcData from '../../../docs/openrpc.json';
 import { Utils } from '../helpers/utils';
 import genesisData from './data/conformity/genesis.json';
 // import CallerContract from '../contracts/Caller.json';
@@ -25,6 +25,7 @@ import {
   sendAccountAddress,
   setCreateContractLegacyTransactionAndBlockHash,
   setCurrentBlockHash,
+  setEmitLogTransactionAndBlockHash,
   setLegacyTransactionAndBlockHash,
   setSyntheticTransaction,
   setTransaction1559_2930AndBlockHash,
@@ -32,10 +33,12 @@ import {
   setTransaction2930AndBlockHash,
   // WS_RELAY_URL,
 } from './data/conformity/utils/constants';
+import { findUnmatchedExclusions, getFixtureSkipReason, isRelayListedMethod } from './data/conformity/utils/exclusions';
 // import { TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
   createContractLegacyTransaction,
+  emitLogTransaction,
   legacyTransaction,
   transaction1559,
   transaction1559_2930,
@@ -49,7 +52,8 @@ import {
 } from './data/conformity/utils/utils';
 // import { hasResponseFormatIssues, isResponseValid } from './data/conformity/utils/validations';
 
-const directoryPath = path.resolve(__dirname, '../../../node_modules/execution-apis/tests');
+// Downloaded by `npm run conformity:fetch-spec`
+const directoryPath = path.resolve(__dirname, 'data/conformity/execution-apis');
 const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
 
 // let relayOpenRpcData: OpenrpcDocument;
@@ -115,6 +119,12 @@ const initGenesisData = async function (): Promise<void> {
 describe('@api-conformity', async function () {
   describe('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
+    if (!fs.existsSync(directoryPath)) {
+      it('has the execution-apis fixtures downloaded', () => {
+        throw new Error(`No fixtures at ${directoryPath}; run \`npm run conformity:fetch-spec\` first`);
+      });
+      return;
+    }
     before(async () => {
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
@@ -149,31 +159,44 @@ describe('@api-conformity', async function () {
         await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
       );
       await initGenesisData();
+      setEmitLogTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, emitLogTransaction));
 
       setCurrentBlockHash(await getLatestBlockHash(RELAY_URL));
     });
     //Reading the directories within the ethereum execution api repo
     //Adds tests for custom Hedera methods from the override directory to the list, even if they're not in the OpenRPC spec.
     let directories = [...new Set([...fs.readdirSync(directoryPath), ...fs.readdirSync(overwritesDirectoryPath)])];
-    const relaySupportedMethodNames = openRpcData.methods.map((method) => method.name);
-    //Filtering to use only the tests for methods we support in our relay
-    directories = directories.filter((directory) => relaySupportedMethodNames.includes(directory));
+    const isDirectory = (dir: string): boolean => fs.existsSync(dir) && fs.statSync(dir).isDirectory();
+    //Keeps the methods our relay lists, plus upstream methods it does not list (reported as pending below)
+    directories = directories.filter(
+      (directory) => isRelayListedMethod(directory) || isDirectory(path.join(directoryPath, directory)),
+    );
     for (const directory of directories) {
       //Lists all files (tests) in a directory (method). Returns an empty array for a non-existing directory.
-      const ls = (dir: string): string[] =>
-        fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? fs.readdirSync(dir) : [];
+      const ls = (dir: string): string[] => (isDirectory(dir) ? fs.readdirSync(dir) : []);
       const files = [
         ...new Set([...ls(path.join(directoryPath, directory)), ...ls(path.join(overwritesDirectoryPath, directory))]),
       ];
       for (const file of files) {
         const isCustom = fs.existsSync(path.join(overwritesDirectoryPath, directory, file));
-        it(`Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`, async () => {
+        const title = `Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`;
+        const exclusionReason = getFixtureSkipReason(directory, file, isCustom);
+        if (exclusionReason) {
+          it.skip(`${title} (excluded: ${exclusionReason})`);
+          continue;
+        }
+        it(title, async () => {
           const dir = isCustom ? overwritesDirectoryPath : directoryPath;
           const data = fs.readFileSync(path.resolve(dir, directory, file));
           const content = splitReqAndRes(data.toString('utf-8'));
           await processFileContent(RELAY_URL, directory, file, content);
         });
       }
+    }
+    for (const key of findUnmatchedExclusions(directoryPath)) {
+      it(`exclusion "${key}" matches an upstream fixture`, () => {
+        throw new Error(`"${key}" matches no fixture in ${directoryPath}; update EXCLUDED_FIXTURES`);
+      });
     }
   });
 

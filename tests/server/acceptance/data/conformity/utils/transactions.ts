@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { bytecode } from '../../../../contracts/Basic.json';
-import { chainId, gasLimit, gasPrice, receiveAccountAddress, sendAccountAddress, value } from './constants';
+import {
+  chainId,
+  EMIT_CONTRACT_ADDRESS,
+  EMIT_INPUT,
+  gasLimit,
+  gasPrice,
+  receiveAccountAddress,
+  sendAccountAddress,
+  value,
+} from './constants';
 
 export const legacyTransaction = {
   chainId,
@@ -56,4 +65,15 @@ export const createContractLegacyTransaction = {
   gasPrice: gasPrice,
   type: 0x0,
   data: bytecode,
+};
+
+export const emitLogTransaction = {
+  chainId,
+  to: EMIT_CONTRACT_ADDRESS,
+  from: sendAccountAddress,
+  maxPriorityFeePerGas: gasPrice,
+  maxFeePerGas: gasPrice,
+  gasLimit: gasLimit,
+  type: 0x2,
+  data: EMIT_INPUT,
 };
