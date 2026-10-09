@@ -747,16 +747,7 @@ export class TransactionService implements ITransactionService {
       const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
 
       if (Array.isArray(blockContractResults)) {
-        for (const cr of blockContractResults) {
-          if (cr.transaction_index == null || cr.gas_used == null) {
-            continue;
-          }
-
-          // Only sum gas for transactions that come up to this one in the block (inclusive)
-          if (cr.transaction_index <= receiptResponse.transaction_index) {
-            cumulativeGasUsed += cr.gas_used;
-          }
-        }
+        cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, receiptResponse.transaction_index);
       }
     } else {
       cumulativeGasUsed = receiptResponse.gas_used ?? 0;
@@ -846,7 +837,73 @@ export class TransactionService implements ITransactionService {
 
     this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
 
-    return await this.buildSyntheticReceipt(hash, ownLogs, requestDetails);
+    const blockNumber = Number(ownLogs[0].blockNumber);
+    const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, { blockNumber });
+
+    const contractResult = blockContractResults.find((result) => result.hash === hash);
+    if (!contractResult) {
+      return null;
+    }
+
+    return await this.buildSyntheticReceiptFromBlockResults(
+      contractResult,
+      blockContractResults,
+      ownLogs,
+      requestDetails,
+    );
+  }
+
+  /**
+   * Builds the receipt of a synthetic transaction out of its block's contract results, through the same
+   * factory every other receipt route uses, so the fields a log cannot supply - the payer, the gas totals,
+   * the status and type - match what those routes report for the same transaction.
+   *
+   * @param contractResult The transaction's own contract result
+   * @param blockContractResults Every contract result of the block, used for the running gas total
+   * @param logs The transaction's synthetic logs
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<ITransactionReceipt>} A promise that resolves to the transaction receipt
+   */
+  private async buildSyntheticReceiptFromBlockResults(
+    contractResult: MirrorNodeContractResult,
+    blockContractResults: MirrorNodeContractResult[],
+    logs: Log[],
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt> {
+    const [effectiveGas, from, to] = await Promise.all([
+      this.common.getCurrentGasPriceForBlock(contractResult.block_hash, requestDetails),
+      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+      this.common.resolveEvmAddress(contractResult.to, requestDetails),
+    ]);
+
+    const cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, contractResult.transaction_index ?? 0);
+
+    return TransactionReceiptFactory.createRegularReceipt({
+      effectiveGas,
+      from: from ?? contractResult.from,
+      logs,
+      receiptResponse: contractResult,
+      to,
+      cumulativeGasUsed,
+    });
+  }
+
+  /**
+   * Sums the gas used by every transaction of a block up to and including the given index, which is what a
+   * receipt reports as `cumulativeGasUsed`.
+   *
+   * @param blockContractResults The contract results of the block
+   * @param transactionIndex The index of the transaction whose receipt is being built
+   * @returns {number} The gas used by the block up to and including that transaction
+   */
+  private sumCumulativeGasUsed(blockContractResults: MirrorNodeContractResult[], transactionIndex: number): number {
+    return blockContractResults.reduce(
+      (total, result) =>
+        result.transaction_index != null && result.transaction_index <= transactionIndex
+          ? total + (result.gas_used ?? 0)
+          : total,
+      0,
+    );
   }
 
   /**
