@@ -7,6 +7,6 @@
     },
     "dependencies": {
         "@hiero-ledger/sdk": "2.89.1",
-        "dotenv": "18.0.4"
+        "dotenv": "18.0.5"
     }
 }
