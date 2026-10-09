@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 
 // import WebSocket from 'ws';
-import openRpcData from '../../../docs/openrpc.json';
+// import openRpcData from '../../../docs/openrpc.json';
 import { Utils } from '../helpers/utils';
 import genesisData from './data/conformity/genesis.json';
 // import CallerContract from '../contracts/Caller.json';
@@ -33,7 +33,7 @@ import {
   setTransaction2930AndBlockHash,
   // WS_RELAY_URL,
 } from './data/conformity/utils/constants';
-import { findUnmatchedExclusions, getExclusionReason } from './data/conformity/utils/exclusions';
+import { findUnmatchedExclusions, getFixtureSkipReason, isRelayListedMethod } from './data/conformity/utils/exclusions';
 // import { TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
@@ -166,20 +166,21 @@ describe('@api-conformity', async function () {
     //Reading the directories within the ethereum execution api repo
     //Adds tests for custom Hedera methods from the override directory to the list, even if they're not in the OpenRPC spec.
     let directories = [...new Set([...fs.readdirSync(directoryPath), ...fs.readdirSync(overwritesDirectoryPath)])];
-    const relaySupportedMethodNames = openRpcData.methods.map((method) => method.name);
-    //Filtering to use only the tests for methods we support in our relay
-    directories = directories.filter((directory) => relaySupportedMethodNames.includes(directory));
+    const isDirectory = (dir: string): boolean => fs.existsSync(dir) && fs.statSync(dir).isDirectory();
+    //Keeps the methods our relay lists, plus upstream methods it does not list (reported as pending below)
+    directories = directories.filter(
+      (directory) => isRelayListedMethod(directory) || isDirectory(path.join(directoryPath, directory)),
+    );
     for (const directory of directories) {
       //Lists all files (tests) in a directory (method). Returns an empty array for a non-existing directory.
-      const ls = (dir: string): string[] =>
-        fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? fs.readdirSync(dir) : [];
+      const ls = (dir: string): string[] => (isDirectory(dir) ? fs.readdirSync(dir) : []);
       const files = [
         ...new Set([...ls(path.join(directoryPath, directory)), ...ls(path.join(overwritesDirectoryPath, directory))]),
       ];
       for (const file of files) {
         const isCustom = fs.existsSync(path.join(overwritesDirectoryPath, directory, file));
         const title = `Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`;
-        const exclusionReason = isCustom ? undefined : getExclusionReason(directory, file);
+        const exclusionReason = getFixtureSkipReason(directory, file, isCustom);
         if (exclusionReason) {
           it.skip(`${title} (excluded: ${exclusionReason})`);
           continue;

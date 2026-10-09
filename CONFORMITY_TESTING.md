@@ -161,7 +161,7 @@ You should create an override when:
 
 ## Excluded Fixtures
 
-Upstream fixtures for methods or features the relay intentionally does not support are listed, each with a reason, in `tests/server/acceptance/data/conformity/utils/exclusions.ts`. They are reported as pending. Overrides are never excluded, and an entry that matches no fixture fails the run.
+Upstream fixtures for methods or features the relay intentionally does not support are listed, each with a reason, in `tests/server/acceptance/data/conformity/utils/exclusions.ts`. They are reported as pending, as are fixtures for methods missing from the relay's `docs/openrpc.json`. Overrides are never excluded, and an entry that matches no fixture fails the run.
 
 ## Test Execution
 
