@@ -103,6 +103,14 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
+      // Poll for the next block, because blocks take about 2s, or longer when the mirror node lags.
+      const waitForNextBlock = (blockNumber: string): Promise<void> =>
+        Utils.waitUntil(
+          async () =>
+            BigInt((await client.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [])) as string) > BigInt(blockNumber),
+          { intervalMs: 500, description: `a block after ${blockNumber}` },
+        );
+
       it('should execute "eth_getBlockByNumber", hydrated transactions = false', async () => {
         const blockResult = (await client.call(METHOD_NAME, [
           numberTo0x(mirrorBlock.number),
@@ -116,32 +124,32 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
       });
 
       it('should not cache "latest" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['latest', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['latest', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['latest', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "finalized" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['finalized', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['finalized', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['finalized', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "safe" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['safe', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['safe', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['safe', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "pending" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['pending', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['pending', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['pending', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);

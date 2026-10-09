@@ -169,14 +169,8 @@ export class HbarSpendingPlanRepository {
   async addToAmountSpent(id: string, amount: number, ttl: number): Promise<void> {
     await this.checkExistsAndActive(id);
 
-    const key = this.getAmountSpentKey(id);
-    if (!(await this.cache.getAsync(key, 'addToAmountSpent'))) {
-      this.logger.trace(`No spending yet for HbarSpendingPlan with ID %s, setting amountSpent to %s...`, id, amount);
-      await this.cache.set(key, amount, 'addToAmountSpent', ttl);
-    } else {
-      this.logger.debug(`Adding %s to amountSpent for HbarSpendingPlan with ID %s...`, amount, id);
-      await this.cache.incrBy(key, amount, 'addToAmountSpent');
-    }
+    this.logger.debug(`Adding %s to amountSpent for HbarSpendingPlan with ID %s...`, amount, id);
+    await this.cache.incrBy(this.getAmountSpentKey(id), amount, 'addToAmountSpent', ttl);
   }
 
   /**

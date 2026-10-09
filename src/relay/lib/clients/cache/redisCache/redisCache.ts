@@ -151,9 +151,14 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The value of the key after incrementing
    */
-  async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
+  async incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number> {
     const prefixedKey = this.prefixKey(key);
-    const result = await this.client.incrBy(prefixedKey, amount);
+    let result: number;
+    if (ttl) {
+      [result] = await this.client.multi().incrBy(prefixedKey, amount).pExpire(prefixedKey, ttl, 'NX').execTyped();
+    } else {
+      result = await this.client.incrBy(prefixedKey, amount);
+    }
     this.logger.trace(`incrementing %s by %s on %s call`, key, amount, callingMethod);
     return result;
   }
