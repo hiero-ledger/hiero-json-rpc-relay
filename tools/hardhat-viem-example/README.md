@@ -96,10 +96,8 @@ Contributions are welcome. Please see the
 to see how you can get involved.
 
 # Code of Conduct
-This project is governed by the
-[Contributor Covenant Code of Conduct](https://github.com/hashgraph/.github/blob/main/CODE_OF_CONDUCT.md). By
-participating, you are expected to uphold this code of conduct. Please report unacceptable behavior
-to [oss@hedera.com](mailto:oss@hedera.com).
+
+Hiero uses the Linux Foundation Decentralised Trust [Code of Conduct](https://www.lfdecentralizedtrust.org/code-of-conduct).
 
 # License
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
