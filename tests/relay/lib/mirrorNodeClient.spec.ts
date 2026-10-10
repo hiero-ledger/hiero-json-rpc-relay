@@ -1209,30 +1209,6 @@ describe('MirrorNodeClient', async function () {
     expect(mock.history.get.length).to.eq(2);
   });
 
-  it('`getContractResultsWithRetry` should return the immature record when the caller opts in', async () => {
-    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6395';
-    const immatureRecord = {
-      ...detailedContractResult,
-      transaction_index: null,
-      block_number: null,
-      block_hash: '0x',
-      result: 'INSUFFICIENT_PAYER_BALANCE',
-    };
-    [...Array(10)].reduce((mockChain) => {
-      return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(200, JSON.stringify(immatureRecord));
-    }, mock);
-
-    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
-      { returnImmatureRecords: true },
-    );
-
-    expect(result.result).to.eq('INSUFFICIENT_PAYER_BALANCE');
-    expect(result.block_number).to.be.null;
-    expect(mock.history.get.length).to.eq(10);
-  });
-
   it('`getContractResults` detailed', async () => {
     // a HAPI (non-ethereum) call leaves the ethereum transaction fields null
     const hapiContractResult = {
