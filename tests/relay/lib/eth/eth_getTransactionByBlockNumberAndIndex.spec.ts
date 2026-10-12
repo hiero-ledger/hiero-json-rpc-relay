@@ -25,6 +25,7 @@ import {
   DEFAULT_AUTHORIZATION_LIST,
   DEFAULT_BLOCK,
   DEFAULT_BLOCKS_RES,
+  DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
   DEFAULT_NETWORK_FEES,
   EMPTY_LOGS_RESPONSE,
   NO_SUCH_CONTRACT_RESULT,
@@ -277,7 +278,7 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
   it('eth_getTransactionByBlockNumberAndIndex returns 7702 transaction for type 4', async function () {
     const resultWith7702Transaction = structuredClone(defaultContractResults);
     resultWith7702Transaction.results[0].type = 4;
-    Object.assign(resultWith7702Transaction.results[0], { authorization_list: DEFAULT_AUTHORIZATION_LIST });
+    Object.assign(resultWith7702Transaction.results[0], { authorization_list: DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST });
     restMock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
     restMock
       .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))

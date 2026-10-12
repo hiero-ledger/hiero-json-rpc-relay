@@ -10,6 +10,7 @@ import { defaultDetailedContractResultByHash, defaultFromLongZeroAddress } from 
 import {
   DEFAULT_AUTHORIZATION_LIST,
   DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED,
+  DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
   DEFAULT_TRANSACTION,
   DEFAULT_TX_HASH,
   DETAILD_CONTRACT_RESULT_NOT_FOUND,
@@ -357,7 +358,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     const detailedResultsWithTransactionAuthorizationList = {
       ...defaultDetailedContractResultByHash,
       type: 4,
-      authorization_list: DEFAULT_AUTHORIZATION_LIST,
+      authorization_list: DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
     };
     const uniqueTxHash = '0x8f3c9a7b2d4e6f1a9c0b7d3e5f8a1c2e4d6b9f0a3c7e2d1f8b6a4c9e0d2f7a1';
 

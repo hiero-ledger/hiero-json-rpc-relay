@@ -16,9 +16,16 @@ export interface Transaction {
 export interface TransactionResponse {
   transactionHash: string;
   blockHash: string;
-  transactionIndex: number;
-  blockNumber: number;
+  transactionIndex: string;
+  blockNumber: string;
   contractAddress: string | null;
+}
+
+export interface SyntheticTransactionResponse {
+  transactionHash: string;
+  blockHash: string;
+  blockNumber: string;
+  transactionIndex: string;
 }
 
 export interface JsonRpcRequest {
@@ -43,6 +50,15 @@ export interface FileContent {
   request: string;
   response: string;
   wildcards?: string[];
+  containsPaths?: string[];
+}
+
+/** The relaxations a fixture declares for comparing its recorded response. */
+export interface ComparisonRules {
+  /** Paths whose value is not compared at all. */
+  wildcards: string[];
+  /** Paths whose array must contain the recorded entries rather than equal them. */
+  containsPaths: string[];
 }
 
 export interface ErrorResponse {

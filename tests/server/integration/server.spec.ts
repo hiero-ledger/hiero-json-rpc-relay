@@ -1092,6 +1092,47 @@ describe('RPC Server', function () {
       ).to.be.equal(true);
     });
 
+    it('should reject malformed EIP-1898 block objects per entry in batch request, like single requests', async function () {
+      const address = '0x0000000000000000000000000000000000000001';
+      const blockHash = '0x' + 'a'.repeat(64);
+      const malformed = [
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, params: [address, {}] },
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, params: [address, { blockHash, blockNumber: '0x1' }] },
+        {
+          method: RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
+          params: [address, { blockNumber: '0x1', requireCanonical: true }],
+        },
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, params: [address, '0x0', { blockNumber: null }] },
+        {
+          method: RelayCalls.ETH_ENDPOINTS.ETH_CALL,
+          params: [{ to: address }, { blockHash, requireCanonical: 'yes' }],
+        },
+      ];
+
+      const response = await testClient.post('/', [
+        getEthChainIdRequest(2),
+        ...malformed.map((request, i) => ({ id: `${i + 3}`, jsonrpc: '2.0', ...request })),
+      ]);
+
+      BaseTest.baseDefaultResponseChecks(response);
+      expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+
+      for (const [i, request] of malformed.entries()) {
+        const batchEntry = response.data[i + 1];
+        expect(batchEntry.id).to.be.equal(`${i + 3}`);
+        expect(batchEntry.error.code).to.be.equal(-32602);
+        expect(batchEntry.error.message).to.contain(
+          `Invalid parameter ${request.method === RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT ? 2 : 1}: `,
+        );
+
+        const single = await testClient
+          .post('/', { id: '2', jsonrpc: '2.0', ...request })
+          .catch((error) => axiosResponseOf(error));
+        expect(single.data.error.code).to.be.equal(batchEntry.error.code);
+        expect(single.data.error.message.split('] ').pop()).to.be.equal(batchEntry.error.message.split('] ').pop());
+      }
+    });
+
     it('should hit batch request limit', async function () {
       // prepare 101 requests chain id requests
       const requests: BatchRequest[] = [];
@@ -1447,7 +1488,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1466,7 +1507,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1536,7 +1577,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1555,7 +1596,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1784,7 +1825,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1803,7 +1844,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -2044,7 +2085,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 'blockHash' for BlockHashObject: ${Constants.BLOCK_HASH_ERROR}, value: 0x123`,
+            `Invalid parameter 1: 'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}, value: {"blockHash":"0x123"}`,
           );
         }
       });
@@ -2063,7 +2104,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 'blockNumber' for BlockNumberObject: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
+            `Invalid parameter 1: 'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}, value: {"blockNumber":"123"}`,
           );
         }
       });
@@ -2381,7 +2422,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 2: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 2: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -2400,7 +2441,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 2: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 2: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });

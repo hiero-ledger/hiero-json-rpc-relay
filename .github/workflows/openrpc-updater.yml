@@ -52,10 +52,10 @@ jobs:
           ref: main # We need to be up to date with the latest main branch
           path: execution-apis
 
-      - name: Use Node.js TLS 22
+      - name: Use Node.js LTS 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -102,7 +102,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         working-directory: scripts/openrpc-json-updater

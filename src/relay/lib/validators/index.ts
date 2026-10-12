@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { predefined } from '../errors/JsonRpcError';
-import { TYPES } from './types';
+import { type ParamTypeValidator, TYPES } from './types';
 import { requiredIsMissing } from './utils';
 
 /**
@@ -101,12 +101,23 @@ function validateParam(index: number | string, param: unknown, validation: IPara
     const results = paramType.map((validator) => validator.test(param));
     if (!results.includes(true)) {
       const errorMessages = paramType.map((validator) => validator.error).join(' OR ');
-      throw predefined.INVALID_PARAMETER(index, `The value passed is not valid: ${param}. ${errorMessages}`);
+      throw predefined.INVALID_PARAMETER(
+        index,
+        `The value passed is not valid: ${stringifyParam(param)}. ${errorMessages}`,
+      );
     }
   } else if (!paramType.test(param)) {
-    const paramString = typeof param === 'object' ? JSON.stringify(param) : param;
-    throw predefined.INVALID_PARAMETER(index, `${paramType.error}, value: ${paramString}`);
+    const validator: ParamTypeValidator = paramType;
+    const reason = validator.explain ? validator.explain(param) : validator.error;
+    throw predefined.INVALID_PARAMETER(index, `${reason}, value: ${stringifyParam(param)}`);
   }
+}
+
+/**
+ * Renders a parameter for an error message, serializing objects and arrays as JSON.
+ */
+function stringifyParam(param: unknown): unknown {
+  return typeof param === 'object' ? JSON.stringify(param) : param;
 }
 
 export { TYPES } from './types';

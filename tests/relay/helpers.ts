@@ -104,7 +104,7 @@ export const toHex = (num: number | bigint | string): string => {
 export const ethCallFailing = async <E>(
   contractService: Pick<ContractService, 'call'>,
   args: IContractCallRequest,
-  block: string | object | null,
+  block: string | null,
   requestDetails: RequestDetails,
   assertFunc: (error: E) => void,
 ): Promise<void> => {

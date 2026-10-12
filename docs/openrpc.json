@@ -369,7 +369,7 @@
           "name": "Block",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHashString"
           }
         }
       ],
@@ -1905,6 +1905,31 @@
         "additionalProperties": false
       },
       "BlockNumberOrTagOrHash": {
+        "title": "Block number, tag, block hash, or EIP-1898 block object",
+        "oneOf": [
+          {
+            "title": "Block number",
+            "$ref": "#/components/schemas/uint"
+          },
+          {
+            "title": "Block tag",
+            "$ref": "#/components/schemas/BlockTag"
+          },
+          {
+            "title": "Block hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          {
+            "title": "Block number object",
+            "$ref": "#/components/schemas/BlockNumberObject"
+          },
+          {
+            "title": "Block hash object",
+            "$ref": "#/components/schemas/BlockHashObject"
+          }
+        ]
+      },
+      "BlockNumberOrTagOrHashString": {
         "title": "Block number, tag, or block hash",
         "oneOf": [
           {
@@ -1920,6 +1945,33 @@
             "$ref": "#/components/schemas/hash32"
           }
         ]
+      },
+      "BlockNumberObject": {
+        "title": "EIP-1898 block number object",
+        "type": "object",
+        "required": ["blockNumber"],
+        "additionalProperties": false,
+        "properties": {
+          "blockNumber": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      },
+      "BlockHashObject": {
+        "title": "EIP-1898 block hash object",
+        "type": "object",
+        "required": ["blockHash"],
+        "additionalProperties": false,
+        "properties": {
+          "blockHash": {
+            "$ref": "#/components/schemas/hash32"
+          },
+          "requireCanonical": {
+            "title": "Require canonical",
+            "description": "Accepted for EIP-1898 compatibility. Every block on Hedera is final, so it is always canonical and this flag has no effect.",
+            "type": "boolean"
+          }
+        }
       },
       "CallTracerConfig": {
         "title": "CallTracer config",

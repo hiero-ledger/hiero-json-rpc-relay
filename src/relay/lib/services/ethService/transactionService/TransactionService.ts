@@ -1100,9 +1100,10 @@ export class TransactionService implements ITransactionService {
     const txHash = parsedTx.hash!;
     const maxAttempts = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS');
     const intervalMs = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS');
+    const waitTimeMs = ConfigService.get('SEND_RAW_TRANSACTION_WAIT_TIME');
 
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      await new Promise((resolve) => setTimeout(resolve, i === 0 ? waitTimeMs : intervalMs));
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result?.hash) {

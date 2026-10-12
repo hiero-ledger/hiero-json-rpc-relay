@@ -6,23 +6,26 @@ import { expect, use } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { type BaseContract, ethers } from 'ethers';
 
+import openRpcData from '../../../docs/openrpc.json';
 import { ConfigService } from '../../../src/config-service/services';
-import { predefined } from '../../../src/relay';
+import { type JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { TracerType } from '../../../src/relay/lib/constants';
 // Helper functions/constants from local resources
-import { TYPES } from '../../../src/relay/lib/validators';
+import { Constants as ValidatorConstants, TYPES } from '../../../src/relay/lib/validators';
 import RelayAssertions from '../../relay/assertions';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 import type MirrorClient from '../clients/mirrorClient';
 import type RelayClient from '../clients/relayClient';
 import type ServicesClient from '../clients/servicesClient';
 import DeployerContractJson from '../contracts/Deployer.json';
+import ERC20MockJson from '../contracts/ERC20Mock.json';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
 import LogsContractJson from '../contracts/Logs.json';
 // Contracts and JSON files from local resources
 import reverterContractJson from '../contracts/Reverter.json';
+import StorageContractJson from '../contracts/Storage.json';
 // Assertions and constants from local resources
 import Assertions, { requestIdRegex } from '../helpers/assertions';
 import RelayCall from '../helpers/constants';
@@ -1719,6 +1722,327 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     for (const [method, params] of Object.entries(TEST_SUITES)) {
       generateTest(method, params);
     }
+  });
+
+  describe('EIP-1898', function () {
+    type RpcOutcome = { result?: unknown; error?: { code: number; message: string } };
+
+    const outcome = async (method: string, params: unknown[]): Promise<RpcOutcome> => {
+      try {
+        return { result: await relay.call(method, params) };
+      } catch (e) {
+        const thrown = e as {
+          response?: { bodyJson?: { error?: RpcOutcome['error'] } };
+          info?: { error?: RpcOutcome['error'] };
+          error?: RpcOutcome['error'];
+        };
+        const error = thrown.response?.bodyJson?.error ?? thrown.info?.error ?? thrown.error;
+        if (!error) throw e;
+        return { error: { code: error.code, message: error.message.replace(/^\[Request ID: [^\]]+\] /, '') } };
+      }
+    };
+
+    const waitForChange = async <T>(read: () => Promise<T>, changed: (value: T) => boolean): Promise<T> => {
+      const timeoutMs = 60 * 1000;
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const value = await read();
+        if (changed(value)) return value;
+        if (Date.now() > deadline) throw new Error(`value did not change within ${timeoutMs} ms`);
+        await Utils.wait(1000);
+      }
+    };
+
+    const UNKNOWN_HASH = '0x' + '11'.repeat(32);
+    const BLOCK_TAGS = ['latest', 'earliest', 'pending', 'safe', 'finalized'];
+
+    let storageContract: ethers.Contract;
+    let storageAddress: string;
+    let erc20Contract: ethers.Contract;
+    let erc20Address: string;
+    let blockNumber: string;
+    let blockHash: string;
+
+    /** The five methods taking a default block parameter, each building its params around `blockParam`. */
+    const METHODS: Record<string, (blockParam: unknown) => unknown[]> = {
+      eth_getBalance: (blockParam) => [accounts[0].address, blockParam],
+      eth_getCode: (blockParam) => [storageAddress, blockParam],
+      eth_getTransactionCount: (blockParam) => [accounts[0].address, blockParam],
+      eth_getStorageAt: (blockParam) => [storageAddress, '0x0', blockParam],
+      eth_call: (blockParam) => [
+        { to: erc20Address, data: erc20Contract.interface.encodeFunctionData('balanceOf', [accounts[1].address]) },
+        blockParam,
+      ],
+    };
+    const STATE_GETTERS = ['eth_getBalance', 'eth_getCode', 'eth_getTransactionCount', 'eth_getStorageAt'];
+    const blockParamIndex = (method: string): number => (method === 'eth_getStorageAt' ? 2 : 1);
+
+    const call = (method: string, blockParam: unknown): Promise<unknown> =>
+      relay.call(method, METHODS[method](blockParam));
+    const callOutcome = (method: string, blockParam: unknown): Promise<RpcOutcome> =>
+      outcome(method, METHODS[method](blockParam));
+    const callFailing = (method: string, blockParam: unknown, expectedError: JsonRpcError): Promise<void> =>
+      relay.callFailing(method, METHODS[method](blockParam), expectedError);
+
+    before(async () => {
+      erc20Contract = await Utils.deployContractWithEthers(
+        ['EIP-1898', 'EIP', accounts[0].address, 1000],
+        ERC20MockJson,
+        accounts[0].wallet,
+        relay,
+      );
+      erc20Address = await erc20Contract.getAddress();
+
+      storageContract = await Utils.deployContract(
+        StorageContractJson.abi,
+        StorageContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      storageAddress = storageContract.target as string;
+
+      const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+        storageContract.deploymentTransaction()!.hash,
+      ]);
+      blockNumber = receipt.blockNumber;
+      blockHash = receipt.blockHash;
+    });
+
+    describe('object forms are accepted on all state getters', function () {
+      for (const method of STATE_GETTERS) {
+        it(`${method} answers {"blockNumber"}, {"blockHash"} and {"blockHash", "requireCanonical"} like the block number`, async function () {
+          const expected = await call(method, blockNumber);
+
+          for (const objectForm of [{ blockNumber }, { blockHash }, { blockHash, requireCanonical: true }]) {
+            expect(await call(method, objectForm), JSON.stringify(objectForm)).to.deep.equal(expected);
+          }
+        });
+      }
+    });
+
+    describe('tags inside blockNumber', function () {
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} answers {"blockNumber": <tag>} like the plain tag`, async function () {
+          for (const tag of BLOCK_TAGS) {
+            const stringForm = await callOutcome(method, tag);
+            expect(await callOutcome(method, { blockNumber: tag }), tag).to.deep.equal(stringForm);
+          }
+        });
+      }
+
+      it('eth_getTransactionCount with {"blockNumber": "pending"} matches "pending"', async function () {
+        const expected = await call('eth_getTransactionCount', 'pending');
+
+        expect(await call('eth_getTransactionCount', { blockNumber: 'pending' })).to.equal(expected);
+      });
+
+      it('eth_getTransactionCount with {"blockNumber": "0x0"} and {"blockNumber": "earliest"} match the string forms', async function () {
+        for (const blockParam of ['0x0', 'earliest']) {
+          const stringForm = await callOutcome('eth_getTransactionCount', blockParam);
+          expect(await callOutcome('eth_getTransactionCount', { blockNumber: blockParam }), blockParam).to.deep.equal(
+            stringForm,
+          );
+        }
+      });
+    });
+
+    describe('requireCanonical is accepted everywhere, including eth_call', function () {
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} answers requireCanonical true and false like {"blockHash"}, and rejects a non-boolean`, async function () {
+          const expected = await call(method, { blockHash });
+
+          for (const requireCanonical of [true, false]) {
+            expect(await call(method, { blockHash, requireCanonical }), String(requireCanonical)).to.deep.equal(
+              expected,
+            );
+          }
+
+          await callFailing(
+            method,
+            { blockHash, requireCanonical: 'yes' },
+            predefined.INVALID_PARAMETER(blockParamIndex(method), `'requireCanonical' in EIP-1898 block object`),
+          );
+        });
+      }
+    });
+
+    describe('malformed objects are rejected at validation time', function () {
+      const malformed = (): [unknown, string][] => [
+        [{}, ValidatorConstants.BLOCK_PARAM_OBJECT_NEITHER_ERROR],
+        [{ blockHash, blockNumber }, ValidatorConstants.BLOCK_PARAM_OBJECT_BOTH_ERROR],
+        [{ blockNumber, requireCanonical: true }, ValidatorConstants.BLOCK_PARAM_OBJECT_REQUIRE_CANONICAL_ERROR],
+        [{ blockHash: null }, `'blockHash' in EIP-1898 block object`],
+        [{ blockNumber: null }, `'blockNumber' in EIP-1898 block object`],
+        [{ blockHash: '0x1234' }, `'blockHash' in EIP-1898 block object`],
+        [[blockNumber], ValidatorConstants.BLOCK_PARAMS_ERROR],
+        [{ blockHash, foo: 'bar' }, ValidatorConstants.BLOCK_PARAM_OBJECT_UNKNOWN_KEY_ERROR('foo')],
+      ];
+
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} rejects every malformed block object with -32602 naming the rule and parameter ${blockParamIndex(method)}`, async function () {
+          for (const [blockParam, rule] of malformed()) {
+            await callFailing(method, blockParam, predefined.INVALID_PARAMETER(blockParamIndex(method), rule));
+          }
+        });
+      }
+    });
+
+    describe('block hash works on eth_getCode', function () {
+      it('returns the code at the block for a plain block hash string', async function () {
+        const byHash = await call('eth_getCode', blockHash);
+
+        expect(byHash).to.not.equal('0x');
+        expect(byHash).to.equal(await call('eth_getCode', blockNumber));
+      });
+    });
+
+    describe('an unknown block hash is a uniform "not found"', function () {
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} returns -32001 for an unknown hash in string and object form`, async function () {
+          for (const blockParam of [UNKNOWN_HASH, { blockHash: UNKNOWN_HASH }]) {
+            await callFailing(method, blockParam, predefined.RESOURCE_NOT_FOUND(`block '${UNKNOWN_HASH}'.`));
+          }
+        });
+      }
+    });
+
+    describe('error messages are readable', function () {
+      it('the hash and block parameter errors never say "Expected Expected"', function () {
+        for (const message of [ValidatorConstants.BLOCK_HASH_ERROR, ValidatorConstants.BLOCK_PARAMS_ERROR]) {
+          expect(message).to.not.contain('Expected Expected');
+        }
+      });
+
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} prints the offending value as JSON`, async function () {
+          const index = blockParamIndex(method);
+          const cases: [unknown, string][] = [
+            [
+              { blockNumber: 'newest' },
+              `'blockNumber' in EIP-1898 block object: ${ValidatorConstants.BLOCK_NUMBER_ERROR}, value: {"blockNumber":"newest"}`,
+            ],
+            [
+              { blockHash: '0x1234' },
+              `'blockHash' in EIP-1898 block object: ${ValidatorConstants.BLOCK_HASH_ERROR}, value: {"blockHash":"0x1234"}`,
+            ],
+            ['newest', `${ValidatorConstants.BLOCK_PARAMS_ERROR}, value: newest`],
+          ];
+
+          for (const [blockParam, message] of cases) {
+            await callFailing(method, blockParam, predefined.INVALID_PARAMETER(index, message));
+          }
+        });
+      }
+    });
+
+    describe('no regression for existing forms', function () {
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} still answers a block number, the tags and a raw block hash`, async function () {
+          for (const blockParam of [blockNumber, blockHash, ...BLOCK_TAGS.filter((tag) => tag !== 'earliest')]) {
+            expect(await call(method, blockParam), blockParam).to.exist;
+          }
+        });
+      }
+
+      it('eth_call with {"blockHash"} answers like the raw block hash string', async function () {
+        expect(await call('eth_call', { blockHash })).to.equal(await call('eth_call', blockHash));
+      });
+    });
+
+    describe('spec matches behavior', function () {
+      it('declares both EIP-1898 object forms in BlockNumberOrTagOrHash for the five methods', function () {
+        const schemas = openRpcData.components.schemas as Record<string, { oneOf?: { $ref?: string }[] }>;
+        const refs = schemas.BlockNumberOrTagOrHash.oneOf!.map((option) => option.$ref);
+        expect(refs).to.include.members([
+          '#/components/schemas/BlockNumberObject',
+          '#/components/schemas/BlockHashObject',
+        ]);
+
+        for (const method of Object.keys(METHODS)) {
+          const spec = openRpcData.methods.find((m: { name: string }) => m.name === method)!;
+          const blockParamSchema = (spec.params as { schema: { $ref?: string } }[])[blockParamIndex(method)].schema;
+          expect(blockParamSchema.$ref, method).to.equal('#/components/schemas/BlockNumberOrTagOrHash');
+        }
+      });
+    });
+
+    describe('non-cacheable tags stay uncached in object form', function () {
+      it('eth_getBalance, eth_getTransactionCount, eth_getStorageAt and eth_call with {"blockNumber": "latest"} follow state changes', async function () {
+        const latest = { blockNumber: 'latest' };
+        const readers: Record<string, () => Promise<unknown>> = {
+          eth_getBalance: () => relay.call('eth_getBalance', [accounts[1].address, latest]),
+          eth_getTransactionCount: () => call('eth_getTransactionCount', latest),
+          eth_getStorageAt: () => call('eth_getStorageAt', latest),
+          eth_call: () => call('eth_call', latest),
+        };
+
+        // read through the object form first, so a cached answer would be served back below
+        const before: Record<string, unknown> = {};
+        for (const [method, read] of Object.entries(readers)) {
+          before[method] = await read();
+        }
+
+        // change the state behind every reader: accounts[0] sends three transactions (nonce), one of which
+        // moves HBAR to accounts[1] (balance), one moves tokens to accounts[1] (eth_call) and one rewrites slot 0
+        await Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, relay, mirrorNode);
+        await (await erc20Contract.getFunction('transfer')(accounts[1].address, 1)).wait();
+        await (await storageContract.getFunction('updateStoredUInt')()).wait();
+
+        for (const [method, read] of Object.entries(readers)) {
+          const after = await waitForChange(read, (value) => value !== before[method]);
+          expect(after, method).to.not.equal(before[method]);
+        }
+      });
+    });
+
+    describe('object and string forms share one answer', function () {
+      for (const method of Object.keys(METHODS)) {
+        it(`${method} answers "N", {"blockNumber": N}, "H", {"blockHash": H} and requireCanonical identically`, async function () {
+          const forms = [blockNumber, { blockNumber }, blockHash, { blockHash }, { blockHash, requireCanonical: true }];
+          const expected = await call(method, forms[0]);
+
+          for (const blockParam of [...forms, ...[...forms].reverse()]) {
+            expect(await call(method, blockParam), JSON.stringify(blockParam)).to.deep.equal(expected);
+          }
+        });
+      }
+    });
+
+    describe('batch parity', function () {
+      overrideEnvsInMochaDescribe({ BATCH_REQUESTS_ENABLED: true });
+
+      it('answers object forms inside a batch like single requests, failing only the malformed entries', async function () {
+        const requests = [
+          ...Object.keys(METHODS).map((method) => ({
+            method,
+            params: METHODS[method]({ blockHash, requireCanonical: true }),
+          })),
+          ...Object.keys(METHODS).map((method) => ({ method, params: METHODS[method]({ blockNumber }) })),
+          { method: 'eth_getBalance', params: METHODS.eth_getBalance({}) },
+          { method: 'eth_getStorageAt', params: METHODS.eth_getStorageAt({ blockHash, blockNumber }) },
+          { method: 'eth_call', params: METHODS.eth_call({ blockHash: UNKNOWN_HASH }) },
+        ];
+
+        const batch = await relay.callBatch(requests.map((request, id) => ({ id, ...request })));
+
+        expect(batch.length).to.equal(requests.length);
+        for (const [i, entry] of batch.entries()) {
+          const single = await outcome(requests[i].method, requests[i].params);
+          expect(entry.id).to.equal(i);
+          if (single.error) {
+            expect(entry.error.code, requests[i].method).to.equal(single.error.code);
+            expect(entry.error.message, requests[i].method).to.match(requestIdRegex(single.error.message));
+          } else {
+            expect(entry.result, requests[i].method).to.deep.equal(single.result);
+          }
+        }
+
+        const valid = Object.keys(METHODS).length * 2;
+        expect(batch.slice(0, valid).every((entry: RpcOutcome) => !entry.error)).to.be.true;
+        expect(batch.slice(valid).map((entry: RpcOutcome) => entry.error?.code)).to.deep.equal([
+          -32602, -32602, -32001,
+        ]);
+      });
+    });
   });
 
   it('should return balance for eth_getBalance called with a block number within the last 15 minutes', async function () {

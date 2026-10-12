@@ -25,8 +25,8 @@ import {
   sendAccountAddress,
   setCreateContractLegacyTransactionAndBlockHash,
   setCurrentBlockHash,
-  setHapiTransactionHash,
   setLegacyTransactionAndBlockHash,
+  setSyntheticTransaction,
   setTransaction1559_2930AndBlockHash,
   setTransaction1559AndBlockHash,
   setTransaction2930AndBlockHash,
@@ -43,6 +43,7 @@ import {
 } from './data/conformity/utils/transactions';
 import {
   getLatestBlockHash,
+  pollForSyntheticTransaction,
   // sendRequestToRelay,
   signAndSendRawTransaction,
 } from './data/conformity/utils/utils';
@@ -115,15 +116,6 @@ describe('@api-conformity', async function () {
   describe('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
     before(async () => {
-      setLegacyTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, legacyTransaction));
-      setTransaction2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction2930));
-      setTransaction1559AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559));
-      setTransaction1559_2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559_2930));
-      setCreateContractLegacyTransactionAndBlockHash(
-        await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
-      );
-      await initGenesisData();
-
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
       const hapiTestAccount = await Utils.createAliasAccount(
@@ -146,13 +138,17 @@ describe('@api-conformity', async function () {
         .setTransactionMemo('Conformity test HAPI token transfer');
       const hapiResp = await hapiTransaction.execute(servicesNode.client);
       await hapiResp.getRecord(servicesNode.client);
-      // Wait for mirror node to index the transaction
-      await new Promise((r) => setTimeout(r, 3000));
-      // Get the transaction hash from mirror node logs
-      const logsRes = await global.mirrorNode.get(`/contracts/results/logs?limit=1`);
-      if (logsRes.logs && logsRes.logs.length > 0 && logsRes.logs[0].contract_id === tokenId.toString()) {
-        setHapiTransactionHash(logsRes.logs[0].transaction_hash);
-      }
+
+      setSyntheticTransaction(await pollForSyntheticTransaction(tokenId.toString()));
+
+      setLegacyTransactionAndBlockHash(await signAndSendRawTransaction(RELAY_URL, legacyTransaction));
+      setTransaction2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction2930));
+      setTransaction1559AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559));
+      setTransaction1559_2930AndBlockHash(await signAndSendRawTransaction(RELAY_URL, transaction1559_2930));
+      setCreateContractLegacyTransactionAndBlockHash(
+        await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
+      );
+      await initGenesisData();
 
       setCurrentBlockHash(await getLatestBlockHash(RELAY_URL));
     });

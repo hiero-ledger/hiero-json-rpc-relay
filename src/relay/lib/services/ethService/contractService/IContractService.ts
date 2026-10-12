@@ -14,7 +14,7 @@ export interface IContractService {
    */
   call: (
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     requestDetails: RequestDetails,
     stateOverride?: StateOverrideSet,
   ) => Promise<string>;

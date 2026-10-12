@@ -465,6 +465,41 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           saveStub.restore();
           removeStub.restore();
         });
+
+        withOverriddenEnvsInMochaTest(
+          { SEND_RAW_TRANSACTION_WAIT_TIME: 100, SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS: 10_000 },
+          () => {
+            it('should poll the mirror node for the first time after SEND_RAW_TRANSACTION_WAIT_TIME', async function () {
+              const signed = await signTransaction(transaction);
+              const txPool = transactionService['transactionPoolService'];
+
+              restMock
+                .onGet(`contracts/results/${ethereumHash}?hbar=false`)
+                .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+
+              const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+              const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
+              sinon.stub(txPool, 'getPendingCount').resolves(0);
+              sdkClientStub.submitEthereumTransaction.resolves({
+                txResponse: {
+                  transactionId: TransactionId.fromString(transactionIdServicesFormat),
+                } as unknown as TransactionResponse,
+                fileId: null,
+              });
+
+              await ethImpl.sendRawTransaction(signed, requestDetails);
+
+              // Well before the 10s polling interval, the first poll has already found the transaction.
+              await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+              sinon.assert.calledOnceWithExactly(removeStub, accountAddress, signed, 'confirmed');
+
+              saveStub.restore();
+              removeStub.restore();
+            });
+          },
+        );
       });
 
       withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: false }, () => {

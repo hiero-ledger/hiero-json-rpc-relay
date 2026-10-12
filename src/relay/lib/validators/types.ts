@@ -15,6 +15,50 @@ import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from
 import { validateStateOverrideSet } from './stateOverride';
 import { validateArray } from './utils';
 
+export interface ParamTypeValidator {
+  test: (param: unknown) => boolean;
+  error: string;
+  explain?: (param: unknown) => string;
+}
+
+const isPlainObject = (param: unknown): param is Record<string, unknown> =>
+  Object.prototype.toString.call(param) === '[object Object]';
+
+/**
+ * Checks an EIP-1898 block identifier object and describes the first rule it breaks.
+ *
+ * @param param - The block identifier object to check.
+ * @returns A description of the violated rule, or `undefined` when the object is a valid block identifier.
+ */
+function blockParamObjectViolation(param: Record<string, unknown>): string | undefined {
+  const unknownKey = Object.keys(param).find((key) => !Constants.BLOCK_PARAM_OBJECT_KEYS.includes(key));
+  if (unknownKey !== undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_UNKNOWN_KEY_ERROR(unknownKey);
+  }
+
+  const { blockHash, blockNumber, requireCanonical } = param;
+  if (blockHash !== undefined && blockNumber !== undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_BOTH_ERROR;
+  }
+  if (blockHash === undefined && blockNumber === undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_NEITHER_ERROR;
+  }
+  if (requireCanonical !== undefined && blockHash === undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_REQUIRE_CANONICAL_ERROR;
+  }
+  if (blockHash !== undefined && !(typeof blockHash === 'string' && TYPES.blockHash.test(blockHash))) {
+    return `'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}`;
+  }
+  if (blockNumber !== undefined && !(typeof blockNumber === 'string' && TYPES.blockNumber.test(blockNumber))) {
+    return `'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}`;
+  }
+  if (requireCanonical !== undefined && !TYPES.boolean.test(requireCanonical)) {
+    return `'requireCanonical' in EIP-1898 block object: ${TYPES.boolean.error}`;
+  }
+
+  return undefined;
+}
+
 export const TYPES = {
   address: {
     test: (param: unknown): boolean => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param as string),
@@ -50,20 +94,14 @@ export const TYPES = {
   },
   blockParams: {
     test: (param: unknown): boolean => {
-      if (Object.prototype.toString.call(param) === '[object Object]') {
-        if (Object.prototype.hasOwnProperty.call(param, 'blockHash')) {
-          return validateSchema(OBJECTS_VALIDATIONS.blockHashObject, param);
-        }
-        return validateSchema(OBJECTS_VALIDATIONS.blockNumberObject, param);
+      if (isPlainObject(param)) {
+        return blockParamObjectViolation(param) === undefined;
       }
-      return (
-        (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param as string) &&
-          Number.MAX_SAFE_INTEGER >= Number(param)) ||
-        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param as string) ||
-        new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string)
-      );
+      return typeof param === 'string' && (TYPES.blockNumber.test(param) || TYPES.blockHash.test(param));
     },
     error: Constants.BLOCK_PARAMS_ERROR,
+    explain: (param: unknown): string =>
+      (isPlainObject(param) && blockParamObjectViolation(param)) || Constants.BLOCK_PARAMS_ERROR,
   },
   filter: {
     test: (param: unknown): boolean => {
@@ -216,8 +254,5 @@ export const TYPES = {
     error: 'Expected valid AuthorizationListEntry object',
   },
 } satisfies {
-  [paramTypeName: string]: {
-    test: (param: unknown) => boolean;
-    error: string;
-  };
+  [paramTypeName: string]: ParamTypeValidator;
 };
