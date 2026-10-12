@@ -757,12 +757,17 @@ const _CONFIG = {
   SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS: {
     type: 'number',
     required: false,
-    defaultValue: 2000, // 2s
+    defaultValue: 100, // 100ms
   },
   SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS: {
     type: 'number',
     required: false,
-    defaultValue: 10, // 10 attempts
+    defaultValue: 200, // 200 attempts
+  },
+  SEND_RAW_TRANSACTION_WAIT_TIME: {
+    type: 'number',
+    required: false,
+    defaultValue: 500, // 500ms
   },
   SERVER_HOST: {
     type: 'string',
