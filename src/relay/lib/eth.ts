@@ -1017,14 +1017,15 @@ export class EthImpl implements Eth {
    *
    *   - If only `fromBlock` is provided:
    *     - Logs are retrieved from `fromBlock` to the latest block.
-   *     - If `fromBlock` does not exist, an empty array is returned.
+   *     - If `fromBlock` is beyond the latest block, a predefined error `REVERSED_BLOCK_RANGE` is thrown.
    *
    *   - If only `toBlock` is provided:
    *     - A predefined error `MISSING_FROM_BLOCK_PARAM` is thrown because `fromBlock` is required.
    *
    *   - If both `fromBlock` and `toBlock` are provided:
    *     - Logs are retrieved from `fromBlock` to `toBlock`.
-   *     - If `toBlock` does not exist, an empty array is returned.
+   *     - If `toBlock` is beyond the latest block, a predefined error `BLOCK_RANGE_BEYOND_HEAD` is thrown.
+   *     - If `fromBlock` is greater than `toBlock`, a predefined error `REVERSED_BLOCK_RANGE` is thrown.
    *     - If the timestamp range between `fromBlock` and `toBlock` exceeds 7 days, a predefined error `TIMESTAMP_RANGE_TOO_LARGE` is thrown.
    *
    * @rpcMethod Exposed as eth_getLogs RPC endpoint
@@ -1033,7 +1034,7 @@ export class EthImpl implements Eth {
    * @param {IGetLogsParams} params - The parameters for the getLogs method.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<Log[]>} A promise that resolves to an array of logs or an empty array if no logs are found.
-   * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
+   * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM`, `BLOCK_RANGE_BEYOND_HEAD`, `REVERSED_BLOCK_RANGE` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
    */
   @rpcMethod
   @rpcParamValidationRules({

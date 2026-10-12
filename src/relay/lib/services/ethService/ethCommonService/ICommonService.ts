@@ -40,6 +40,7 @@ export interface ICommonService {
     address: string | string[] | null,
     topics: LogTopic[] | null,
     requestDetails: RequestDetails,
+    strictBlockRange?: boolean,
   ): Promise<Log[]>;
 
   getLogsByAddress(
@@ -78,5 +79,6 @@ export interface ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountOutput?: { value: number },
+    strictBlockRange?: boolean,
   ): Promise<boolean>;
 }

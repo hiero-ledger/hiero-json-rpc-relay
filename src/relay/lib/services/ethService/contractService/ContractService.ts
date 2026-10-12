@@ -284,6 +284,7 @@ export class ContractService implements IContractService {
       params.address,
       params.topics,
       requestDetails,
+      true,
     );
   }
 

@@ -268,6 +268,14 @@ export const predefined = {
     code: -39013,
     message: 'Invalid block range',
   }),
+  BLOCK_RANGE_BEYOND_HEAD: new JsonRpcError({
+    code: -32602,
+    message: 'block range extends beyond current head block',
+  }),
+  REVERSED_BLOCK_RANGE: new JsonRpcError({
+    code: -32602,
+    message: 'invalid block range params',
+  }),
   RECEIVER_SIGNATURE_ENABLED: new JsonRpcError({
     code: -32000,
     message: "Operation is not supported when receiver's signature is enabled.",
