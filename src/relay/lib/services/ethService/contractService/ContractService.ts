@@ -141,6 +141,7 @@ export class ContractService implements IContractService {
       if (call.to && !isValidEthereumAddress(call.to)) {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
       }
+      this.rejectBlacklistedContract(call.to);
 
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
@@ -530,6 +531,24 @@ export class ContractService implements IContractService {
   private async executeMirrorNodeCall(callData: IContractCallRequest, requestDetails: RequestDetails): Promise<string> {
     const contractCallResponse = await this.mirrorNodeClient.postContractCall(callData, requestDetails);
     return contractCallResponse?.result ? prepend0x(contractCallResponse.result) : constants.EMPTY_HEX;
+  }
+
+  /**
+   * Rejects calls to contracts listed in `CONTRACT_CALL_BLACKLIST` without calling the mirror node.
+   * The mirror node rejects these calls with a 429, which would trigger the rate limit alert.
+   *
+   * @param {string | null | undefined} to - The target address of the call
+   * @throws {JsonRpcError} COULD_NOT_SIMULATE_TRANSACTION when the address is blacklisted
+   * @private
+   */
+  private rejectBlacklistedContract(to: string | null | undefined): void {
+    if (!to) return;
+
+    const blacklist = ConfigService.get('CONTRACT_CALL_BLACKLIST');
+    if (blacklist.some((address) => address.toLowerCase() === to.toLowerCase())) {
+      this.logger.info(`Rejected call to blacklisted contract: to=%s`, to);
+      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
+    }
   }
 
   /**
