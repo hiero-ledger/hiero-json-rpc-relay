@@ -160,7 +160,7 @@ export class ContractService implements IContractService {
         if (isBlockHash(blockNumberOrTag) && ContractService.isMirrorNodeUnknownBlock(e)) {
           throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`);
         }
-        await this.handleMirrorNodeClientError(e);
+        await this.handleMirrorNodeClientError(e, call.to);
       }
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
@@ -197,7 +197,7 @@ export class ContractService implements IContractService {
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e) {
       if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
-      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e, transaction.to);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
       throw predefined.INTERNAL_ERROR((e as Error).message.toString());
@@ -594,17 +594,27 @@ export class ContractService implements IContractService {
    * Handles specific mirror node client errors.
    *
    * @param {MirrorNodeClientError} e - The mirror node client error
+   * @param {string | null} [to] - The target address of the call, logged when the mirror node rejects it
    * @returns {Promise<never>}
    * @private
    */
-  private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<never> {
+  private async handleMirrorNodeClientError(e: MirrorNodeClientError, to?: string | null): Promise<never> {
     if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
     // For 400, treat it as an expected "could not simulate transaction" case and do not store additional logs.
     // For any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
-    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic
-    if (e.statusCode !== 400) this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
+    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic.
+    // A rejection by a mirror node request filter means the contract is missing from CONTRACT_CALL_BLACKLIST, so log its address
+    if (e.isInvalidRequestRateLimit()) {
+      this.logger.error(
+        e,
+        'Could not simulate transaction in the MirrorNode. Rejected by a mirror node request filter: to=%s',
+        to,
+      );
+    } else if (e.statusCode !== 400) {
+      this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
+    }
     throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
   }
 

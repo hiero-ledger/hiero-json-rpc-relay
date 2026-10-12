@@ -4,7 +4,7 @@ import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256, type Transaction } from 'ethers';
-import { createStubInstance, type SinonStub, type SinonStubbedInstance, spy, stub } from 'sinon';
+import { createStubInstance, type SinonSpyCall, type SinonStub, type SinonStubbedInstance, spy, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { type Eth, JsonRpcError } from '../../../../src/relay';
@@ -888,6 +888,39 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
       it('rejects eth_estimateGas to the blacklisted contract written in lowercase', async function () {
         await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+    });
+
+    describe('when the mirror node rejects a contract that is not in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+      const estimateWith429 = async (body: object): Promise<SinonSpyCall[]> => {
+        const callData = { from: FROM_ADDRESS, to: MIRROR_NODE_BLACKLISTED_ADDRESS };
+        await mockContractCall(callData, true, 429, body, requestDetails);
+        const errorSpy = spy(contractService['logger'], 'error');
+        try {
+          await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(JsonRpcError);
+        } finally {
+          errorSpy.restore();
+        }
+
+        return errorSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
+      };
+
+      it('logs the to address when the mirror node returns 429 with detail "Invalid request"', async function () {
+        const logCalls = await estimateWith429(mockData.requestRejected);
+
+        expect(logCalls).to.have.lengthOf(1);
+        expect(logCalls[0].args[1]).to.include('Rejected by a mirror node request filter');
+        expect(logCalls[0].args[2]).to.equal(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+
+      it('logs a rate limit 429 without the to address', async function () {
+        const logCalls = await estimateWith429(mockData.tooManyRequests);
+
+        expect(logCalls).to.have.lengthOf(1);
+        expect(logCalls[0].args).to.have.lengthOf(2);
+        expect(logCalls[0].args[1]).to.equal('Could not simulate transaction in the MirrorNode.');
       });
     });
 

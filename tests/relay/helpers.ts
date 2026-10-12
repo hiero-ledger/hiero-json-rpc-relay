@@ -352,6 +352,18 @@ const mockData = {
     },
   },
 
+  requestRejected: {
+    _status: {
+      messages: [
+        {
+          message: 'Too Many Requests',
+          detail: 'Invalid request',
+          data: '',
+        },
+      ],
+    },
+  },
+
   contractReverted: {
     _status: {
       messages: [
