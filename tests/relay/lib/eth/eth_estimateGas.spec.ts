@@ -4,7 +4,7 @@ import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256, type Transaction } from 'ethers';
-import { createStubInstance, type SinonStub, type SinonStubbedInstance, stub } from 'sinon';
+import { createStubInstance, type SinonStub, type SinonStubbedInstance, spy, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { type Eth, JsonRpcError } from '../../../../src/relay';
@@ -34,7 +34,12 @@ import {
   validateParams,
 } from '../../../../src/relay/lib/validators';
 import { Utils } from '../../../../src/relay/utils';
-import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
+import {
+  MIRROR_NODE_BLACKLISTED_ADDRESS,
+  mockData,
+  overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
+} from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -822,6 +827,75 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails))
           .to.be.rejectedWith(JsonRpcError, expectedError.message)
           .and.eventually.have.property('code', expectedError.code);
+      });
+    });
+  });
+
+  describe('CONTRACT_CALL_BLACKLIST', () => {
+    const FROM_ADDRESS = '0x05fba803be258049a27b820088bab1cad2058871';
+    const BLACKLISTED_UPPERCASE = `0x${MIRROR_NODE_BLACKLISTED_ADDRESS.slice(2).toUpperCase()}`;
+    const GAS_ESTIMATE = '0x5208';
+
+    const expectRejectedWithoutMirrorNodeCall = async (to: string): Promise<void> => {
+      web3Mock.onPost('contracts/call').reply(200, JSON.stringify({ result: GAS_ESTIMATE }));
+      web3Mock.resetHistory();
+      const infoSpy = spy(contractService['logger'], 'info');
+
+      try {
+        const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
+        await expect(ethImpl.estimateGas({ from: FROM_ADDRESS, to }, null, undefined, requestDetails))
+          .to.be.rejectedWith(JsonRpcError, expectedError.message)
+          .and.eventually.have.property('code', expectedError.code);
+        expect(web3Mock.history.post).to.have.lengthOf(0);
+        expect(infoSpy.calledOnce).to.be.true;
+      } finally {
+        infoSpy.restore();
+      }
+    };
+
+    const expectMirrorNodeCalled = async (callData: IContractCallRequest): Promise<void> => {
+      await mockContractCall(callData, true, 200, { result: GAS_ESTIMATE }, requestDetails);
+      web3Mock.resetHistory();
+
+      const result = await ethImpl.estimateGas(callData, null, undefined, requestDetails);
+
+      expect(result).to.equal(GAS_ESTIMATE);
+      expect(web3Mock.history.post).to.have.lengthOf(1);
+    };
+
+    describe('with a lowercase address in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [MIRROR_NODE_BLACKLISTED_ADDRESS] });
+
+      it('rejects eth_estimateGas to a blacklisted contract without calling the mirror node', async function () {
+        await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+
+      it('rejects eth_estimateGas to a blacklisted contract written in uppercase', async function () {
+        await expectRejectedWithoutMirrorNodeCall(BLACKLISTED_UPPERCASE);
+      });
+
+      it('still calls the mirror node for a contract that is not blacklisted', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, to: RECEIVER_ADDRESS });
+      });
+
+      it('still calls the mirror node for a call without a to address', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, data: transaction.data });
+      });
+    });
+
+    describe('with an uppercase address in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [BLACKLISTED_UPPERCASE] });
+
+      it('rejects eth_estimateGas to the blacklisted contract written in lowercase', async function () {
+        await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+    });
+
+    describe('with an empty list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+      it('calls the mirror node for every contract', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, to: MIRROR_NODE_BLACKLISTED_ADDRESS });
       });
     });
   });

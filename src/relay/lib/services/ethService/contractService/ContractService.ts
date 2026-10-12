@@ -184,6 +184,7 @@ export class ContractService implements IContractService {
     stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
+      this.rejectBlacklistedContract(transaction.to);
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails, stateOverride);
 
       if (!response?.result) {
