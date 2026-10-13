@@ -13,7 +13,7 @@ The conformity tests ensure that the Hedera JSON-RPC Relay correctly implements 
 
 ## Test Structure
 
-The conformity tests are organized into 5 batches, each focusing on different aspects of the JSON-RPC API:
+The conformity tests are organized into 5 batches, each focusing on different aspects of the JSON-RPC API. Batches 2–5 are currently disabled pending a refactor; only batch 1 runs.
 
 ### Batch 1: Core Ethereum Execution API Tests
 
@@ -104,11 +104,25 @@ This batch tests various utility methods and methods related to Ethereum's minin
 - `eth_gasPrice`
 - `eth_getUncleByBlockHashAndIndex`
 - `eth_getUncleByBlockNumberAndIndex`
-- `eth_getUncleCountByBlockHash`
-- `eth_getUncleCountByBlockNumber`
 - `eth_hashrate`
 - `eth_maxPriorityFeePerGas`
 - `eth_mining`
+
+## Spec Version
+
+The schema and fixtures come from [`ethereum/execution-apis`](https://github.com/ethereum/execution-apis) at the version set in `package.json` (`config.executionApisVersion`). `npm run conformity:fetch-spec` downloads them (both git-ignored):
+
+- the release's `openrpc.json` → `openrpc_exec_apis.json`
+- the tag's `tests/` → `tests/server/acceptance/data/conformity/execution-apis/`
+
+CI runs it before the tests. Locally:
+
+```bash
+npm run conformity:fetch-spec
+npm run acceptancetest:rpc_api_schema_conformity
+```
+
+To bump the spec, change the version, re-fetch, run the suite, and resolve each new failure with a relay fix, an override, or an exclusion.
 
 ## Test Overrides
 
@@ -144,6 +158,10 @@ You should create an override when:
 * A test in the upstream suite fails or must be modified due to Hedera-specific limitations (e.g., unsupported chain id)
 * You want to define a custom behavior or scenario that applies specifically to Hedera's implementation
 * You need to test features not currently supported in the standard Ethereum Execution APIs
+
+## Excluded Fixtures
+
+Upstream fixtures for methods or features the relay intentionally does not support are listed, each with a reason, in `tests/server/acceptance/data/conformity/utils/exclusions.ts`. They are reported as pending, as are fixtures for methods missing from the relay's `docs/openrpc.json`. Overrides are never excluded, and an entry that matches no fixture fails the run.
 
 ## Test Execution
 
