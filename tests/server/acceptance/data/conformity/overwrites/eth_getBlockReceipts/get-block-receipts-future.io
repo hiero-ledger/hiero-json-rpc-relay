@@ -1,5 +1,5 @@
 // gets receipts of future block
-// Reason for override: The original test asks for block 0x15, which is in the future on the chain.rlp chain but
+// Reason for override: The original test asks for a block that is in the future on the chain.rlp chain but
 // already exists on our test network by the time the suite runs, so the relay returns that block's receipts.
 //
 // Note: This is the original test file, modified for our test purposes:
