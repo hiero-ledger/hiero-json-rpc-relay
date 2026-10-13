@@ -81,6 +81,7 @@ config:
   # ========== ETH CALL CONFIGURATION ==========
   # ETH_CALL_CACHE_TTL:
   # ETH_CALL_ACCEPTED_ERRORS:
+  # CONTRACT_CALL_BLACKLIST:
 
   # ========== FEE & GAS CONFIGURATION ==========
   # GAS_PRICE_TINY_BAR_BUFFER:

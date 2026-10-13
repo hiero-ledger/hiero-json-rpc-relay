@@ -150,6 +150,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 10000,
   },
+  CONTRACT_CALL_BLACKLIST: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     type: 'number',
     required: false,
