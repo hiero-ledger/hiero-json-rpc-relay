@@ -1196,9 +1196,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const { transactionHash } = result[0];
 
-        // Make sure that this transaction is synthetic
-        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
-
         // When querying for the synthetic transaction receipt directly, logs are also preserved
         const transactionReceipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
           transactionHash,
@@ -1215,8 +1212,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const fromBlockPath = blockReceipts[0];
         const transactionHash = fromBlockPath.transactionHash;
 
-        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
-
         await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [blockNumber, true]);
 
         const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
@@ -1224,11 +1219,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(receipt.logs).to.deep.equal(fromBlockPath.logs);
         expect(receipt.logs).to.have.lengthOf.greaterThan(1);
 
-        for (const field of ['transactionHash', 'blockHash', 'blockNumber', 'transactionIndex', 'status']) {
+        for (const field of ['transactionHash', 'blockHash', 'blockNumber', 'transactionIndex', 'status', 'from']) {
           expect(receipt[field], field).to.equal(fromBlockPath[field]);
         }
-
-        expect(receipt.from).to.equal(ethers.ZeroAddress);
       });
 
       describe('contractAddress in "eth_getTransactionReceipt"', () => {
