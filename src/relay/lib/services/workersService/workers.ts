@@ -29,6 +29,7 @@ interface GetLogsTask {
   address: string | string[] | null;
   topics: LogTopic[] | null;
   requestDetails: RequestDetails;
+  strictBlockRange?: boolean;
 }
 
 interface GetRawReceiptsTask {
@@ -79,6 +80,7 @@ export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext)
         task.address,
         task.topics,
         task.requestDetails,
+        task.strictBlockRange,
       );
     case 'getBalance':
       return await getBalance(ctx, task.account, task.blockNumberOrTagOrHash, task.requestDetails);
