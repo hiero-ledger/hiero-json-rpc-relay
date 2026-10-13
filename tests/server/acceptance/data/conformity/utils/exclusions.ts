@@ -18,8 +18,6 @@ export const EXCLUDED_FIXTURES: Readonly<Record<string, string>> = {
   'eth_blobBaseFee/get-current-blobfee.io': 'not implemented, Hedera has no blobs',
   'eth_estimateGas/estimate-with-eip4844.io': 'blob transaction fields are not supported on Hedera',
   'eth_estimateGas/estimate-with-eip7702.io': 'EIP-7702 is not yet supported on Hedera',
-  'eth_getLogs/filter-error-future-block-range.io':
-    'the relay returns [] instead of -32602 for a range beyond head, see https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5846',
 };
 
 /**

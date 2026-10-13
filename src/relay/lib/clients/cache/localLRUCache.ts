@@ -277,11 +277,18 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The value of the key after incrementing
    */
-  public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    const value = (await this.get<number>(key, callingMethod)) ?? 0;
-    const newValue = value + amount;
-    const remainingTtl = await this.getRemainingTtl(key, callingMethod);
-    await this.set(key, newValue, callingMethod, remainingTtl);
+  public async incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number> {
+    // Read and write without awaiting in between, so concurrent increments cannot interleave.
+    const prefixedKey = this.prefixKey(key);
+    const cache = this.getCacheInstance(key);
+    const value = cache.get(prefixedKey) as number | undefined;
+    const newValue = (value ?? 0) + amount;
+    let resolvedTtl = ttl ?? 0;
+    if (value !== undefined) {
+      resolvedTtl = cache.getRemainingTTL(prefixedKey);
+    }
+    cache.set(prefixedKey, newValue, { ttl: resolvedTtl });
+    this.logger.trace(`incrementing %s by %s on %s call`, key, amount, callingMethod);
     return newValue;
   }
 

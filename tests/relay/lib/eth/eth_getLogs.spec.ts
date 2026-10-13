@@ -467,41 +467,81 @@ describe('@ethGetLogs using MirrorNode', async function () {
     expectLogData2(result[1]);
   });
 
-  it('with non-existing fromBlock filter', async function () {
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
-
-    restMock.onGet('blocks/5').reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet('blocks/16').reply(404, JSON.stringify(NOT_FOUND_RES));
-
-    const result = await ethImpl.getLogs(
-      { blockHash: null, fromBlock: '0x10', toBlock: '0x5', address: null, topics: null },
-      requestDetails,
-    );
-
-    expect(result).to.exist;
-    expect(result).to.be.empty;
-  });
-
-  it('should return empty response if toBlock is not existed', async function () {
+  it('should accept a fromBlock at the head block with toBlock latest, as the WebSocket logs poller sends', async function () {
     const filteredLogs = {
       logs: [DEFAULT_LOGS.logs[0]],
     };
 
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
-    restMock.onGet('blocks/5').reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet('blocks/16').reply(404, JSON.stringify(NOT_FOUND_RES));
+    restMock.onGet('blocks/17').reply(200, JSON.stringify(latestBlock));
     restMock
-      .onGet(`contracts/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`)
+      .onGet(
+        `contracts/results/logs?timestamp=gte:${latestBlock.timestamp.from}&timestamp=lte:${latestBlock.timestamp.to}&limit=100&order=asc`,
+      )
       .reply(200, JSON.stringify(filteredLogs));
     restMock.onGet(`contracts/${filteredLogs.logs[0].address}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
 
     const result = await ethImpl.getLogs(
-      { blockHash: null, fromBlock: '0x5', toBlock: '0x10', address: null, topics: null },
+      { blockHash: null, fromBlock: '0x11', toBlock: 'latest', address: null, topics: null },
       requestDetails,
     );
 
-    expect(result).to.exist;
-    expect(result).to.be.empty;
+    expectLogData1(result[0]);
+    // Both latest-block requests come from the existing block lookups, so the strict check adds none.
+    expect(restMock.history.get.filter((req) => req.url === BLOCKS_LIMIT_ORDER_URL)).to.have.lengthOf(2);
+  });
+
+  it('should reject a fromBlock beyond the head block when toBlock is latest', async function () {
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+    restMock.onGet('blocks/18').reply(404, JSON.stringify(NOT_FOUND_RES));
+
+    await ethGetLogsFailing(
+      ethImpl,
+      [{ blockHash: null, fromBlock: '0x12', toBlock: 'latest', address: null, topics: null }, requestDetails],
+      (error: JsonRpcError) => {
+        expect(error.code).to.equal(-32602);
+        expect(error.message).to.equal(predefined.REVERSED_BLOCK_RANGE.message);
+      },
+    );
+  });
+
+  it('should return an empty result when the mirror node is missing a fromBlock below the head block', async function () {
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+    restMock.onGet('blocks/5').reply(404, JSON.stringify(NOT_FOUND_RES));
+
+    const result = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: '0x5', toBlock: 'latest', address: null, topics: null },
+      requestDetails,
+    );
+
+    expect(result).to.deep.equal([]);
+  });
+
+  it('should reject a toBlock beyond the head block rather than return a partial result', async function () {
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+    restMock.onGet('blocks/5').reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+    await ethGetLogsFailing(
+      ethImpl,
+      [{ blockHash: null, fromBlock: '0x5', toBlock: '0x12', address: null, topics: null }, requestDetails],
+      (error: JsonRpcError) => {
+        expect(error.code).to.equal(-32602);
+        expect(error.message).to.equal(predefined.BLOCK_RANGE_BEYOND_HEAD.message);
+      },
+    );
+  });
+
+  it('should reject a block range entirely beyond the head block', async function () {
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+
+    await ethGetLogsFailing(
+      ethImpl,
+      [{ blockHash: null, fromBlock: '0x12', toBlock: '0x14', address: null, topics: null }, requestDetails],
+      (error: JsonRpcError) => {
+        expect(error.code).to.equal(-32602);
+        expect(error.message).to.equal(predefined.BLOCK_RANGE_BEYOND_HEAD.message);
+      },
+    );
   });
 
   it('when fromBlock > toBlock', async function () {
@@ -518,12 +558,14 @@ describe('@ethGetLogs using MirrorNode', async function () {
     restMock.onGet('blocks/16').reply(200, JSON.stringify(fromBlock));
     restMock.onGet('blocks/5').reply(200, JSON.stringify(DEFAULT_BLOCK));
 
-    await expect(
-      ethImpl.getLogs(
-        { blockHash: null, fromBlock: '0x10', toBlock: '0x5', address: null, topics: null },
-        requestDetails,
-      ),
-    ).to.be.rejectedWith(predefined.INVALID_BLOCK_RANGE.message);
+    await ethGetLogsFailing(
+      ethImpl,
+      [{ blockHash: null, fromBlock: '0x10', toBlock: '0x5', address: null, topics: null }, requestDetails],
+      (error: JsonRpcError) => {
+        expect(error.code).to.equal(-32602);
+        expect(error.message).to.equal(predefined.REVERSED_BLOCK_RANGE.message);
+      },
+    );
   });
 
   it('with only toBlock', async function () {

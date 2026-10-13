@@ -149,6 +149,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountWrapper?: { value: number },
+    strictBlockRange: boolean = false,
   ): Promise<boolean> {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
@@ -162,6 +163,11 @@ export class CommonService implements ICommonService {
       if (Number(toBlock) !== Number(latestBlockNumber) && !fromBlock) {
         throw predefined.MISSING_FROM_BLOCK_PARAM;
       }
+
+      // Only eth_getLogs rejects a range past the head, since filter polling starts one block past it on purpose.
+      if (strictBlockRange && Number(toBlock) > Number(latestBlockNumber)) {
+        throw predefined.BLOCK_RANGE_BEYOND_HEAD;
+      }
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
@@ -174,6 +180,10 @@ export class CommonService implements ICommonService {
 
     const fromBlockResponse = await this.getHistoricalBlockResponse(requestDetails, fromBlock, true);
     if (!fromBlockResponse) {
+      // A missing fromBlock past the head means fromBlock > toBlock, since toBlock can't be past the head.
+      if (strictBlockRange && Number(fromBlock) > Number(await this.getLatestBlockNumber(requestDetails))) {
+        throw predefined.REVERSED_BLOCK_RANGE;
+      }
       return false;
     }
 
@@ -218,7 +228,7 @@ export class CommonService implements ICommonService {
       }
 
       if (fromBlockNum > toBlockNum) {
-        throw predefined.INVALID_BLOCK_RANGE;
+        throw strictBlockRange ? predefined.REVERSED_BLOCK_RANGE : predefined.INVALID_BLOCK_RANGE;
       }
 
       const blockRangeLimit = CommonService.getLogsBlockRangeLimit();
@@ -614,6 +624,7 @@ export class CommonService implements ICommonService {
     address: string | string[] | null,
     topics: LogTopic[] | null,
     requestDetails: RequestDetails,
+    strictBlockRange: boolean = false,
   ): Promise<Log[]> {
     // Bound the address fan-out before dispatching to the worker, so an oversized array is rejected up front.
     assertAddressCountWithinLimit(address);
@@ -627,6 +638,7 @@ export class CommonService implements ICommonService {
         address,
         topics,
         requestDetails,
+        strictBlockRange,
       },
       this.mirrorNodeClient,
       this.cacheService,

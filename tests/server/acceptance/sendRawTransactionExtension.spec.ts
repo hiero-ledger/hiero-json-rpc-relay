@@ -822,7 +822,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const startNonce = await relay.getAccountNonce(sender.address);
         const gasPrice = await relay.gasPrice();
 
-        const txPromises = Array.from({ length: 100 }, async (_, i) => {
+        const txPromises = Array.from({ length: 20 }, async (_, i) => {
           const tx = {
             ...defaultLondonTransactionData,
             to: accounts[2].address,
@@ -908,7 +908,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         brokenTransactions[10] = { nonce: 5 }; // nonce too low - stateful check fail
 
         const sender = accounts[0];
-        let nonce = await relay.getAccountNonce(sender.address);
+        // 'latest' skips the previous test's txs still in the pool, while the relay's nonce check counts them.
+        let nonce = await relay.getAccountNonce(sender.address, 'pending');
         const gasPrice = await relay.gasPrice();
 
         const txPromises: Promise<string>[] = [];

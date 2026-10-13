@@ -1,9 +1,9 @@
 // checks that an error is returned if `fromBlock` is larger than `toBlock`
 //
 // Reason for override: The original test uses blocks 0x29 and 0x26 of the chain.rlp block data:
-// https://github.com/ethereum/execution-apis/blob/main/tests/chain.rlp. On a fresh test node block 0x29 may not
-// exist yet, in which case the relay returns [] for a range beyond head (tracked in
-// https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5846) and the result depends on timing.
+// https://github.com/ethereum/execution-apis/blob/main/tests/chain.rlp. On a fresh test node block 0x26 may not
+// exist yet, in which case the relay rejects the range as beyond the head rather than as reversed, so the error
+// depends on timing.
 //
 // Blocks 0x2 and 0x1 always exist, so the reversed range is tested deterministically. All other fields, and the
 // expected response, are unchanged.
