@@ -224,6 +224,30 @@ describe('RedisCache Test Suite', async function () {
       const newValue = await redisCache.incrBy(key, amount, callingMethod);
       expect(newValue).equal(initialValue + amount);
     });
+
+    it('should keep the existing expiry when a later increment passes a longer TTL', async function () {
+      const key = 'increment-keeps-ttl';
+      const ttl = 60_000;
+
+      await redisCache.incrBy(key, 1, callingMethod, ttl);
+      const newValue = await redisCache.incrBy(key, 2, callingMethod, ttl * 10);
+
+      expect(newValue).equal(3);
+      expect(await redisClient.pTTL(`cache:${key}`)).to.be.within(1, ttl);
+    });
+
+    it('should set an expiry when incrementing a key that has none', async function () {
+      const key = 'increment-sets-missing-ttl';
+      const ttl = 60_000;
+
+      await redisCache.set(key, 5, callingMethod, -1);
+      expect(await redisClient.pTTL(`cache:${key}`)).equal(-1);
+
+      const newValue = await redisCache.incrBy(key, 1, callingMethod, ttl);
+
+      expect(newValue).equal(6);
+      expect(await redisClient.pTTL(`cache:${key}`)).to.be.within(1, ttl);
+    });
   });
 
   describe('RPUSH Test Suite', async function () {
