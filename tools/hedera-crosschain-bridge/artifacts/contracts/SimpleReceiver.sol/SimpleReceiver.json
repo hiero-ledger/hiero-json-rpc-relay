@@ -1,0 +1,19 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SimpleReceiver",
+  "sourceName": "contracts/SimpleReceiver.sol",
+  "abi": [
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b50604280601d6000396000f3fe608060405236600a57005b00fea26469706673582212206299ae985880198fff91944d9b7a3289e61dce8b054d30f04b5b5ac2a0ab518b64736f6c63430008160033",
+  "deployedBytecode": "0x608060405236600a57005b00fea26469706673582212206299ae985880198fff91944d9b7a3289e61dce8b054d30f04b5b5ac2a0ab518b64736f6c63430008160033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,123 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICreditMessaging",
+  "sourceName": "@stargatefinance/stg-evm-v2/src/interfaces/ICreditMessaging.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "_dstEid",
+          "type": "uint32"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint16",
+              "name": "assetId",
+              "type": "uint16"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint32",
+                  "name": "srcEid",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "amount",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "minAmount",
+                  "type": "uint64"
+                }
+              ],
+              "internalType": "struct TargetCredit[]",
+              "name": "credits",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct TargetCreditBatch[]",
+          "name": "_creditBatches",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "quoteSendCredits",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "nativeFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lzTokenFee",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct MessagingFee",
+          "name": "fee",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "_dstEid",
+          "type": "uint32"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint16",
+              "name": "assetId",
+              "type": "uint16"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint32",
+                  "name": "srcEid",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "amount",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "minAmount",
+                  "type": "uint64"
+                }
+              ],
+              "internalType": "struct TargetCredit[]",
+              "name": "credits",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct TargetCreditBatch[]",
+          "name": "_creditBatches",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "sendCredits",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,161 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SafeHTS",
+  "sourceName": "@hashgraph/smart-contracts/contracts/safe-hts-precompile/SafeHTS.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ApproveFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BurnFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CreateFungibleTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CreateFungibleTokenWithCustomFeesFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CreateNonFungibleTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CreateNonFungibleTokenWithCustomFeesFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CryptoTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FreezeTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "GrantTokenKYCFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MintFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MultipleAssociationsFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MultipleDissociationsFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NFTApproveFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NFTTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NFTsTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PauseTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RevokeTokenKYCFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SetTokenApprovalForAllFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SingleAssociationFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SingleDissociationFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenDeleteFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokensTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnfreezeTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnpauseTokenFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UpdateTokenExpiryInfoFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UpdateTokenInfoFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UpdateTokenKeysFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WipeTokenAccountFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WipeTokenAccountNFTFailed",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
