@@ -31,6 +31,7 @@ import {
   defaultErrorMessageHex,
   defaultErrorMessageText,
   ethCallFailing,
+  MIRROR_NODE_BLACKLISTED_ADDRESS,
   mockData,
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
@@ -605,6 +606,118 @@ describe('@ethCall Eth Call spec', async function () {
       await expect(contractService.call(callData, 'latest', requestDetails))
         .to.be.rejectedWith(JsonRpcError, expectedError.message)
         .and.to.eventually.have.property('code', expectedError.code);
+    });
+
+    describe('CONTRACT_CALL_BLACKLIST', () => {
+      const BLACKLISTED_UPPERCASE = `0x${MIRROR_NODE_BLACKLISTED_ADDRESS.slice(2).toUpperCase()}`;
+
+      const expectRejectedWithoutMirrorNodeCall = async (to: string): Promise<void> => {
+        web3Mock.onPost('contracts/call').reply(200, JSON.stringify({ result: '0x00' }));
+        web3Mock.resetHistory();
+        const infoSpy = sinon.spy(contractService['logger'], 'info');
+
+        try {
+          const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
+          await expect(
+            contractService.call({ ...defaultCallData, to, data: CONTRACT_CALL_DATA }, 'latest', requestDetails),
+          )
+            .to.be.rejectedWith(JsonRpcError, expectedError.message)
+            .and.to.eventually.have.property('code', expectedError.code);
+          expect(web3Mock.history.post).to.have.lengthOf(0);
+          expect(infoSpy.calledOnce).to.be.true;
+        } finally {
+          infoSpy.restore();
+        }
+      };
+
+      describe('with a lowercase address in the list', () => {
+        overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [MIRROR_NODE_BLACKLISTED_ADDRESS] });
+
+        it('rejects eth_call to a blacklisted contract without calling the mirror node', async function () {
+          await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+        });
+
+        it('rejects eth_call to a blacklisted contract written in uppercase', async function () {
+          await expectRejectedWithoutMirrorNodeCall(BLACKLISTED_UPPERCASE);
+        });
+
+        it('still calls the mirror node for a contract that is not blacklisted', async function () {
+          const callData = { ...defaultCallData, to: CONTRACT_ADDRESS_2, data: CONTRACT_CALL_DATA };
+          await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+          web3Mock.resetHistory();
+
+          const result = await contractService.call(callData, 'latest', requestDetails);
+
+          expect(result).to.equal('0x00');
+          expect(web3Mock.history.post).to.have.lengthOf(1);
+        });
+        it('still calls the mirror node for a call without a to address', async function () {
+          const callData = { ...defaultCallData, data: CONTRACT_CALL_DATA };
+          await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+          web3Mock.resetHistory();
+
+          const result = await contractService.call(callData, 'latest', requestDetails);
+
+          expect(result).to.equal('0x00');
+          expect(web3Mock.history.post).to.have.lengthOf(1);
+        });
+      });
+
+      describe('with an uppercase address in the list', () => {
+        overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [BLACKLISTED_UPPERCASE] });
+
+        it('rejects eth_call to the blacklisted contract written in lowercase', async function () {
+          await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+        });
+      });
+
+      describe('when the mirror node rejects a contract that is not in the list', () => {
+        overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+        const callWith429 = async (body: object): Promise<sinon.SinonSpyCall[]> => {
+          const callData = { ...defaultCallData, to: MIRROR_NODE_BLACKLISTED_ADDRESS, data: CONTRACT_CALL_DATA };
+          await mockContractCall({ ...callData, block: 'latest' }, false, 429, body, requestDetails);
+          const errorSpy = sinon.spy(contractService['logger'], 'error');
+          try {
+            await expect(contractService.call(callData, 'latest', requestDetails)).to.be.rejectedWith(JsonRpcError);
+          } finally {
+            errorSpy.restore();
+          }
+
+          return errorSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
+        };
+
+        it('logs the to address when the mirror node returns 429 with detail "Invalid request"', async function () {
+          const logCalls = await callWith429(mockData.requestRejected);
+
+          expect(logCalls).to.have.lengthOf(1);
+          expect(logCalls[0].args[1]).to.include('Rejected by a mirror node request filter');
+          expect(logCalls[0].args[2]).to.equal(MIRROR_NODE_BLACKLISTED_ADDRESS);
+        });
+
+        it('logs a rate limit 429 without the to address', async function () {
+          const logCalls = await callWith429(mockData.tooManyRequests);
+
+          expect(logCalls).to.have.lengthOf(1);
+          expect(logCalls[0].args).to.have.lengthOf(2);
+          expect(logCalls[0].args[1]).to.equal('Could not simulate transaction in the MirrorNode.');
+        });
+      });
+
+      describe('with an empty list', () => {
+        overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+        it('calls the mirror node for every contract', async function () {
+          const callData = { ...defaultCallData, to: MIRROR_NODE_BLACKLISTED_ADDRESS, data: CONTRACT_CALL_DATA };
+          await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+          web3Mock.resetHistory();
+
+          const result = await contractService.call(callData, 'latest', requestDetails);
+
+          expect(result).to.equal('0x00');
+          expect(web3Mock.history.post).to.have.lengthOf(1);
+        });
+      });
     });
 
     it('eth_call with all fields but mirrorNode throws 400', async function () {
