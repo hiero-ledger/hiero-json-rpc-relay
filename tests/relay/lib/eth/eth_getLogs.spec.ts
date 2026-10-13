@@ -505,6 +505,18 @@ describe('@ethGetLogs using MirrorNode', async function () {
     );
   });
 
+  it('should return an empty result when the mirror node is missing a fromBlock below the head block', async function () {
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+    restMock.onGet('blocks/5').reply(404, JSON.stringify(NOT_FOUND_RES));
+
+    const result = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: '0x5', toBlock: 'latest', address: null, topics: null },
+      requestDetails,
+    );
+
+    expect(result).to.deep.equal([]);
+  });
+
   it('should reject a toBlock beyond the head block rather than return a partial result', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
     restMock.onGet('blocks/5').reply(200, JSON.stringify(DEFAULT_BLOCK));

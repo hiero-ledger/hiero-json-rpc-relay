@@ -180,8 +180,8 @@ export class CommonService implements ICommonService {
 
     const fromBlockResponse = await this.getHistoricalBlockResponse(requestDetails, fromBlock, true);
     if (!fromBlockResponse) {
-      // No fromBlockResponse means fromBlock is past the head, and toBlock can't be, so fromBlock > toBlock.
-      if (strictBlockRange) {
+      // A missing fromBlock past the head means fromBlock > toBlock, since toBlock can't be past the head.
+      if (strictBlockRange && Number(fromBlock) > Number(await this.getLatestBlockNumber(requestDetails))) {
         throw predefined.REVERSED_BLOCK_RANGE;
       }
       return false;
