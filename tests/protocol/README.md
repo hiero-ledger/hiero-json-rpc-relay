@@ -37,6 +37,14 @@ describe('@release @protocol-acceptance eth_yourMethod', async function () {
 
 `ALL_PROTOCOL_CLIENTS` contains one HTTP client and one WebSocket client. Both normalize the response to return the result directly and throw on RPC error.
 
+## Parity checks
+
+`parity.spec.ts` checks that HTTP and WebSocket return the same response. Each row in `CASES` sends one request over both and fails if the result or error differs. To cover a new case, add a row:
+
+```typescript
+{ method: 'eth_getBlockByNumber', description: 'pinned block', params: () => [txBlockNumber, false] },
+```
+
 ## Migration
 
 Existing tests in `tests/server/acceptance/` and `tests/ws-server/acceptance/` that cover the same method with duplicate assertions are candidates for migration here. When migrating, delete both originals and replace with a single file in this directory.
