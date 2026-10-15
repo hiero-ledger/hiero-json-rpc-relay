@@ -16,7 +16,7 @@ import { Utils } from '../server/helpers/utils';
 import { type AliasAccount } from '../server/types/AliasAccount';
 import { assertSameJsonRpcResultAcrossTransports } from './helpers/protocolClient';
 
-interface ParityCase {
+interface TransportParityCase {
   method: string;
   description: string;
   // A function that returns the params array, so rows can use values that `before()` sets up after the table is built.
@@ -36,7 +36,7 @@ const METHODS_WITHOUT_RATE_LIMIT_ENTRY = [
   'txpool_status',
 ];
 
-describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocket parity', async function () {
+describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocket transport parity', async function () {
   this.timeout(240 * 1000);
 
   let account: AliasAccount;
@@ -119,14 +119,14 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
     }
   });
 
-  const CASES: ParityCase[] = [
+  const CASES: TransportParityCase[] = [
     {
       method: 'eth_chainId',
       description: 'chain id',
       params: () => [],
     },
     {
-      method: 'eth_parityUnknownMethod',
+      method: 'eth_transportParityUnknownMethod',
       description: 'unknown method',
       params: () => [],
     },

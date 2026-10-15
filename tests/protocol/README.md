@@ -37,13 +37,13 @@ describe('@release @protocol-acceptance eth_yourMethod', async function () {
 
 `ALL_PROTOCOL_CLIENTS` contains one HTTP client and one WebSocket client. Both normalize the response to return the result directly and throw on RPC error.
 
-## Parity checks
+## Transport parity checks
 
 `assertSameJsonRpcResultAcrossTransports(method, params)` in `helpers/protocolClient.ts` sends one request over HTTP and WebSocket and fails if the responses differ. Use it to check that HTTP and WebSocket return the same response.
 
 The per-client loop `for (const client of ALL_PROTOCOL_CLIENTS)` runs your assertions once per transport. Use it to check each transport's response against an expected value, e.g. data from the mirror node.
 
-`parity.spec.ts` tests HTTP/WebSocket parity for each relay endpoint. To cover a new case, add a row to the `CASES` const:
+`transportParity.spec.ts` tests HTTP/WebSocket transport parity for each relay endpoint. To cover a new case, add a row to the `CASES` const:
 
 ```typescript
 {
