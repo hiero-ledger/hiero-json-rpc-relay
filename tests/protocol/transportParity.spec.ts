@@ -55,17 +55,12 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
 
   before(async () => {
     // WebSocket's rate limiter throws and never replies for methods missing from methodConfiguration, so add the default limit.
-    if (global.relayIsLocal) {
-      sandbox.replace(methodConfigModule, 'methodConfiguration', {
-        ...methodConfigModule.getMethodConfiguration(),
-        ...Object.fromEntries(
-          METHODS_WITHOUT_RATE_LIMIT_ENTRY.map((method) => [
-            method,
-            { total: ConfigService.get('DEFAULT_RATE_LIMIT') },
-          ]),
-        ),
-      });
-    }
+    sandbox.replace(methodConfigModule, 'methodConfiguration', {
+      ...methodConfigModule.getMethodConfiguration(),
+      ...Object.fromEntries(
+        METHODS_WITHOUT_RATE_LIMIT_ENTRY.map((method) => [method, { total: ConfigService.get('DEFAULT_RATE_LIMIT') }]),
+      ),
+    });
 
     [account] = await Utils.createMultipleAliasAccounts(
       global.mirrorNode,

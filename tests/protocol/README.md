@@ -43,7 +43,7 @@ describe('@release @protocol-acceptance eth_yourMethod', async function () {
 
 The per-client loop `for (const client of ALL_PROTOCOL_CLIENTS)` runs your assertions once per transport. Use it to check each transport's response against an expected value, e.g. data from the mirror node.
 
-`transportParity.spec.ts` tests HTTP/WebSocket transport parity for each relay endpoint. To cover a new case, add a row to the `CASES` const:
+`transportParity.spec.ts` tests HTTP/WebSocket transport parity for every method whose result can match exactly. To cover a new case, add a row to the `CASES` const:
 
 ```typescript
 {
@@ -52,6 +52,13 @@ The per-client loop `for (const client of ALL_PROTOCOL_CLIENTS)` runs your asser
   params: () => [txBlockNumber, false],
 },
 ```
+
+Pin block numbers or hashes instead of using `latest`, since the head can move between the two calls. The spec leaves out cases that can't match exactly:
+
+- `eth_blockNumber` follows the head, so `blockNumber.spec.ts` checks each transport against the mirror node instead.
+- `eth_sendRawTransaction`, `eth_newFilter`, `eth_getFilterChanges` and `eth_uninstallFilter` only cover cases that fail before changing state, because filter ids are random and the second call would see the first call's change. `eth_newBlockFilter` has no such case, so it's skipped.
+- The `debug_traceTransaction` opcode logger is skipped because the mirror node rate-limits `/opcodes`, so one of the two concurrent calls gets a 429.
+- Methods that return `UNSUPPORTED_METHOD` are skipped because they take the same path as the invalid-param cases.
 
 ## Migration
 
