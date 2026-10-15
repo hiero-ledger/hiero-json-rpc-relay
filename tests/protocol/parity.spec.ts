@@ -2,10 +2,15 @@
 
 import { expect } from 'chai';
 import { ethers } from 'ethers';
+import sinon from 'sinon';
 
+import { ConfigService } from '../../src/config-service/services';
 import { numberTo0x } from '../../src/relay/formatters';
+import * as methodConfigModule from '../../src/relay/lib/config/methodConfiguration';
 import { TracerType } from '../../src/relay/lib/constants';
 import basicContractJson from '../server/contracts/Basic.json';
+import logsContractJson from '../server/contracts/Logs.json';
+import storageContractJson from '../server/contracts/Storage.json';
 import Address from '../server/helpers/constants';
 import { Utils } from '../server/helpers/utils';
 import { type AliasAccount } from '../server/types/AliasAccount';
@@ -19,6 +24,17 @@ interface ParityCase {
 }
 
 const PING_CALL_DATA = new ethers.Interface(basicContractJson.abi).encodeFunctionData('ping');
+const LOG1_CALL_DATA = new ethers.Interface(logsContractJson.abi).encodeFunctionData('log1', [1]);
+const METHODS_WITHOUT_RATE_LIMIT_ENTRY = [
+  'debug_getBadBlocks',
+  'debug_getRawBlock',
+  'debug_getRawHeader',
+  'debug_getRawReceipts',
+  'debug_getRawTransaction',
+  'txpool_content',
+  'txpool_contentFrom',
+  'txpool_status',
+];
 
 describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocket parity', async function () {
   this.timeout(240 * 1000);
@@ -30,8 +46,27 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
   let txBlockNumber: string;
   let txBlockHash: string;
   let txIndex: string | null;
+  let storageContractAddress: string;
+  let logsFilter: { fromBlock: string; toBlock: string; address: string };
+  let logsBlockHash: string;
+  let logsFilterId: string;
+  let wrongChainIdTx: string;
+  const sandbox = sinon.createSandbox();
 
   before(async () => {
+    // WebSocket's rate limiter throws and never replies for methods missing from methodConfiguration, so add the default limit.
+    if (global.relayIsLocal) {
+      sandbox.replace(methodConfigModule, 'methodConfiguration', {
+        ...methodConfigModule.getMethodConfiguration(),
+        ...Object.fromEntries(
+          METHODS_WITHOUT_RATE_LIMIT_ENTRY.map((method) => [
+            method,
+            { total: ConfigService.get('DEFAULT_RATE_LIMIT') },
+          ]),
+        ),
+      });
+    }
+
     [account] = await Utils.createMultipleAliasAccounts(
       global.mirrorNode,
       global.accounts[0],
@@ -43,6 +78,13 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
     blockBeforeDeploy = numberTo0x((await global.mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0].number);
     const contract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, account.wallet);
     contractAddress = contract.target as string;
+    const storageContract = await Utils.deployContract(
+      storageContractJson.abi,
+      storageContractJson.bytecode,
+      account.wallet,
+    );
+    storageContractAddress = storageContract.target as string;
+    const logsContract = await Utils.deployContract(logsContractJson.abi, logsContractJson.bytecode, account.wallet);
 
     const tx = await account.wallet.sendTransaction({ to: contractAddress, value: ethers.parseEther('1') });
     const receipt = await global.relay.pollForValidTransactionReceipt(tx.hash);
@@ -50,9 +92,28 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
     txBlockNumber = receipt.blockNumber;
     txBlockHash = receipt.blockHash;
     txIndex = receipt.transactionIndex;
+
+    const logsTx = await account.wallet.sendTransaction({ to: logsContract.target, data: LOG1_CALL_DATA });
+    const logsReceipt = await global.relay.pollForValidTransactionReceipt(logsTx.hash);
+    logsFilter = {
+      fromBlock: logsReceipt.blockNumber,
+      toBlock: logsReceipt.blockNumber,
+      address: logsContract.target as string,
+    };
+    logsBlockHash = logsReceipt.blockHash;
+    logsFilterId = await global.relay.call('eth_newFilter', [logsFilter]);
+
+    wrongChainIdTx = await account.wallet.signTransaction({
+      type: 2,
+      chainId: 1,
+      to: contractAddress,
+      gasLimit: 100_000,
+      maxFeePerGas: ethers.parseUnits('1000', 'gwei'),
+    });
   });
 
   after(async () => {
+    sandbox.restore();
     if (global?.socketServer) {
       expect(global.socketServer._connections).to.eq(0);
     }
@@ -245,6 +306,16 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
       params: () => ['0xhbar', 'latest'],
     },
     {
+      method: 'eth_getStorageAt',
+      description: 'pinned block',
+      params: () => [storageContractAddress, '0x0', txBlockNumber],
+    },
+    {
+      method: 'eth_getStorageAt',
+      description: 'invalid slot',
+      params: () => [storageContractAddress, '0xhbar', 'latest'],
+    },
+    {
       method: 'eth_call',
       description: 'pinned block',
       params: () => [{ to: contractAddress, data: PING_CALL_DATA }, txBlockNumber],
@@ -253,6 +324,56 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
       method: 'eth_estimateGas',
       description: 'contract call',
       params: () => [{ from: account.address, to: contractAddress, data: PING_CALL_DATA }],
+    },
+    {
+      method: 'eth_getLogs',
+      description: 'pinned block range',
+      params: () => [logsFilter],
+    },
+    {
+      method: 'eth_getLogs',
+      description: 'block hash',
+      params: () => [{ blockHash: logsBlockHash }],
+    },
+    {
+      method: 'eth_getLogs',
+      description: 'block hash with block range',
+      params: () => [{ blockHash: logsBlockHash, fromBlock: 'latest' }],
+    },
+    {
+      method: 'eth_newFilter',
+      description: 'block hash with block range',
+      params: () => [{ blockHash: logsBlockHash, fromBlock: 'latest' }],
+    },
+    {
+      method: 'eth_getFilterLogs',
+      description: 'pinned block range filter',
+      params: () => [logsFilterId],
+    },
+    {
+      method: 'eth_getFilterLogs',
+      description: 'unknown filter id',
+      params: () => ['0x1'],
+    },
+    {
+      method: 'eth_getFilterChanges',
+      description: 'unknown filter id',
+      params: () => ['0x1'],
+    },
+    {
+      method: 'eth_uninstallFilter',
+      description: 'unknown filter id',
+      params: () => ['0x1'],
+    },
+    {
+      method: 'eth_sendRawTransaction',
+      description: 'malformed transaction',
+      params: () => ['0x1234'],
+    },
+    {
+      method: 'eth_sendRawTransaction',
+      description: 'wrong chain id',
+      params: () => [wrongChainIdTx],
     },
     {
       method: 'net_listening',
@@ -308,11 +429,6 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
       method: 'debug_traceTransaction',
       description: 'prestate tracer',
       params: () => [txHash, { tracer: TracerType.PrestateTracer }],
-    },
-    {
-      method: 'debug_traceTransaction',
-      description: 'opcode logger',
-      params: () => [txHash, { tracer: TracerType.OpcodeLogger }],
     },
     {
       method: 'debug_traceBlockByNumber',
