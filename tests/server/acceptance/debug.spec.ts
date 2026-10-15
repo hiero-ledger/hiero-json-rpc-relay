@@ -1494,8 +1494,9 @@ describe('@debug API Acceptance Tests', function () {
         expect(result).to.have.property('input', '0x');
         expect(result).to.have.property('output', '0x');
         expect(result).to.have.property('calls').that.is.an('array').and.is.empty;
-        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
-        expect(result.to.toLowerCase()).to.equal(accounts[1].address.toLowerCase());
+        const receipt = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [htsTransferTxHash]);
+        expect(result.from.toLowerCase()).to.equal(receipt.from.toLowerCase());
+        expect(result.to.toLowerCase()).to.equal(receipt.to.toLowerCase());
       });
 
       it('@release should trace a synthetic HTS transfer with PrestateTracer', async function () {
