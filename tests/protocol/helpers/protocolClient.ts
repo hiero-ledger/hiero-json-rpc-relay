@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { expect } from 'chai';
+
 import { WsTestHelper } from '../../ws-server/helper';
 
 export interface CallRawOptions {
@@ -77,3 +79,29 @@ class WsProtocolClient implements RpcProtocolClient {
 }
 
 export const ALL_PROTOCOL_CLIENTS: RpcProtocolClient[] = [new HttpProtocolClient(), new WsProtocolClient()];
+
+// Every error message carries a per-request ID, so it never matches across two requests.
+const REQUEST_ID_PREFIX = /^\[Request ID: [^\]]+\] /;
+
+const toComparable = ({ result, error }: RpcRawResponse): Pick<RpcRawResponse, 'result' | 'error'> =>
+  error
+    ? { error: { code: error.code, message: error.message.replace(REQUEST_ID_PREFIX, ''), data: error.data } }
+    : { result };
+
+/**
+ * Sends the same request over HTTP and WebSocket and asserts both return the same result or error.
+ *
+ * @param method - JSON-RPC method name.
+ * @param params - JSON-RPC params, sent unchanged on both transports.
+ * @param options - Optional raw-call options applied to both transports.
+ */
+export async function assertSameJsonRpcResultAcrossTransports(
+  method: string,
+  params: unknown,
+  options?: CallRawOptions,
+): Promise<void> {
+  const [http, ws] = (
+    await Promise.all(ALL_PROTOCOL_CLIENTS.map((client) => client.callRaw(method, params, options)))
+  ).map(toComparable);
+  expect(ws, `${method} returned a different response over WebSocket than over HTTP`).to.deep.equal(http);
+}

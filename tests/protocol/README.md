@@ -39,10 +39,18 @@ describe('@release @protocol-acceptance eth_yourMethod', async function () {
 
 ## Parity checks
 
-`parity.spec.ts` checks that HTTP and WebSocket return the same response. Each row in `CASES` sends one request over both and fails if the result or error differs. To cover a new case, add a row:
+`assertSameJsonRpcResultAcrossTransports(method, params)` in `helpers/protocolClient.ts` sends one request over HTTP and WebSocket and fails if the responses differ. Use it to check that HTTP and WebSocket return the same response.
+
+The per-client loop `for (const client of ALL_PROTOCOL_CLIENTS)` runs your assertions once per transport. Use it to check each transport's response against an expected value, e.g. data from the mirror node.
+
+`parity.spec.ts` tests HTTP/WebSocket parity for each relay endpoint. To cover a new case, add a row to the `CASES` const:
 
 ```typescript
-{ method: 'eth_getBlockByNumber', description: 'pinned block', params: () => [txBlockNumber, false] },
+{
+  method: 'eth_getBlockByNumber',
+  description: 'pinned block',
+  params: () => [txBlockNumber, false],
+},
 ```
 
 ## Migration
