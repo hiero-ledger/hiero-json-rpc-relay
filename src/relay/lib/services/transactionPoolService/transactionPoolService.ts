@@ -144,10 +144,18 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
 
     try {
-      if (status === 'confirmed') {
-        await this.storage.removeFromListAndIncrementConfirmedCount(addressLowerCased, rlpHex);
-      } else {
-        await this.storage.removeFromList(addressLowerCased, rlpHex);
+      const removed =
+        status === 'confirmed'
+          ? await this.storage.removeFromListAndIncrementConfirmedCount(addressLowerCased, rlpHex)
+          : await this.storage.removeFromList(addressLowerCased, rlpHex);
+      // The same transaction can be removed more than once (e.g. by the receipt path and the Mirror Node poll),
+      // only the call that actually removed it counts.
+      if (!removed) {
+        this.logger.debug(
+          { address, rlpHex: rlpHex.substring(0, 20) + '...' },
+          'Transaction already removed from pool, skipping',
+        );
+        return;
       }
       this.pendingCountGauge.dec();
       this.operationsCounter.labels('remove').inc();
