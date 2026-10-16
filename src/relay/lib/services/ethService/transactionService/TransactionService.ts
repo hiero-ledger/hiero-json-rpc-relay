@@ -260,9 +260,7 @@ export class TransactionService implements ITransactionService {
       : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
-    if (contractResult.block_number != null) {
-      await this.confirmPendingPoolTransaction(fromAddress, toHash32(contractResult.hash || hash));
-    }
+    await this.confirmPendingPoolTransaction(fromAddress, toHash32(contractResult.hash || hash));
 
     return createTransactionFromContractResult({
       ...contractResult,
