@@ -2,11 +2,8 @@
 
 import { expect } from 'chai';
 import { ethers } from 'ethers';
-import sinon from 'sinon';
 
-import { ConfigService } from '../../src/config-service/services';
 import { numberTo0x } from '../../src/relay/formatters';
-import * as methodConfigModule from '../../src/relay/lib/config/methodConfiguration';
 import { TracerType } from '../../src/relay/lib/constants';
 import basicContractJson from '../server/contracts/Basic.json';
 import logsContractJson from '../server/contracts/Logs.json';
@@ -25,16 +22,6 @@ interface TransportParityCase {
 
 const PING_CALL_DATA = new ethers.Interface(basicContractJson.abi).encodeFunctionData('ping');
 const LOG1_CALL_DATA = new ethers.Interface(logsContractJson.abi).encodeFunctionData('log1', [1]);
-const METHODS_WITHOUT_RATE_LIMIT_ENTRY = [
-  'debug_getBadBlocks',
-  'debug_getRawBlock',
-  'debug_getRawHeader',
-  'debug_getRawReceipts',
-  'debug_getRawTransaction',
-  'txpool_content',
-  'txpool_contentFrom',
-  'txpool_status',
-];
 
 describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocket transport parity', async function () {
   this.timeout(240 * 1000);
@@ -51,17 +38,8 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
   let logsBlockHash: string;
   let logsFilterId: string;
   let wrongChainIdTx: string;
-  const sandbox = sinon.createSandbox();
 
   before(async () => {
-    // WebSocket's rate limiter throws and never replies for methods missing from methodConfiguration, so add the default limit.
-    sandbox.replace(methodConfigModule, 'methodConfiguration', {
-      ...methodConfigModule.getMethodConfiguration(),
-      ...Object.fromEntries(
-        METHODS_WITHOUT_RATE_LIMIT_ENTRY.map((method) => [method, { total: ConfigService.get('DEFAULT_RATE_LIMIT') }]),
-      ),
-    });
-
     [account] = await Utils.createMultipleAliasAccounts(
       global.mirrorNode,
       global.accounts[0],
@@ -108,7 +86,6 @@ describe('@protocol-acceptance @protocol-acceptance-common-service HTTP/WebSocke
   });
 
   after(async () => {
-    sandbox.restore();
     if (global?.socketServer) {
       expect(global.socketServer._connections).to.eq(0);
     }
