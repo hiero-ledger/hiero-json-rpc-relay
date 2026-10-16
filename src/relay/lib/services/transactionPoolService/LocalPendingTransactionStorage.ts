@@ -72,12 +72,14 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - The account address whose transaction should be removed
    * @param rlpHex - The RLP-encoded transaction as a hex string
+   * @returns true if the transaction was in the pending list of the address and got removed
    */
-  async removeFromList(address: string, rlpHex: string): Promise<void> {
+  async removeFromList(address: string, rlpHex: string): Promise<boolean> {
     const addressTransactions = this.pendingTransactions.get(address);
+    let removed = false;
 
     if (addressTransactions) {
-      addressTransactions.delete(rlpHex);
+      removed = addressTransactions.delete(rlpHex);
 
       // Clean up empty sets to prevent memory leaks
       if (addressTransactions.size === 0) {
@@ -87,17 +89,26 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
     // Remove from global index
     this.globalTransactionIndex.delete(rlpHex);
+
+    return removed;
   }
 
   /**
-   * Removes a transaction from the pending list of the given address.
+   * Removes a transaction from the pending list of the given address and increments the confirmed count,
+   * but only if the transaction was actually removed - removing the same transaction twice
+   * (e.g. by the receipt path and the Mirror Node poll) must not count it twice.
    *
    * @param address - The account address whose transaction should be removed
    * @param rlpHex - The RLP-encoded transaction as a hex string
+   * @returns true if the transaction was in the pending list of the address and got removed
    */
-  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
-    await this.removeFromList(address, rlpHex);
-    this.confirmedCount.set(address, (this.confirmedCount.get(address) ?? 0) + 1);
+  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<boolean> {
+    // Set#delete is synchronous, so of two concurrent callers only one sees removed === true
+    const removed = await this.removeFromList(address, rlpHex);
+    if (removed) {
+      this.confirmedCount.set(address, (this.confirmedCount.get(address) ?? 0) + 1);
+    }
+    return removed;
   }
 
   /**
