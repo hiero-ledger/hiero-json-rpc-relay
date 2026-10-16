@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type FileId } from '@hiero-ledger/sdk';
+import { keccak256 } from 'ethers/crypto';
 import { type Transaction as EthersTransaction } from 'ethers/transaction';
 import type EventEmitter from 'events';
 import { type Logger } from 'pino';
@@ -259,6 +260,8 @@ export class TransactionService implements ITransactionService {
       : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
+    await this.confirmPendingPoolTransaction(fromAddress, toHash32(contractResult.hash || hash));
+
     return createTransactionFromContractResult({
       ...contractResult,
       from: fromAddress!,
@@ -327,7 +330,37 @@ export class TransactionService implements ITransactionService {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
       this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
+      await this.confirmPendingPoolTransaction(receipt.from, receipt.transactionHash);
+
       return receipt;
+    }
+  }
+
+  /**
+   * Removes a transaction the Mirror Node already reflects in a block from its sender's pending pool, as confirmed.
+   *
+   * @param from The sender's EVM address
+   * @param txHash The transaction hash
+   */
+  private async confirmPendingPoolTransaction(from: string | null, txHash: string): Promise<void> {
+    if (!ConfigService.get('ENABLE_TX_POOL') || !from) return;
+
+    try {
+      const normalizedTxHash = txHash.toLowerCase();
+      const pendingTransactions = await this.transactionPoolService.getTransactions(from);
+      for (const rlpHex of pendingTransactions) {
+        if (keccak256(rlpHex) === normalizedTxHash) {
+          await this.transactionPoolService.removeTransaction(from, rlpHex, 'confirmed');
+          return;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to confirm transaction %s in the pending pool of %s: %s`,
+        txHash,
+        from,
+        (error as Error).message,
+      );
     }
   }
 
@@ -969,7 +1002,11 @@ export class TransactionService implements ITransactionService {
 
     if (shouldPollAndCleanup) {
       if (ConfigService.get('ENABLE_NONCE_ORDERING') && ConfigService.get('ENABLE_TX_POOL')) {
-        void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        if (ConfigService.get('USE_ASYNC_TX_PROCESSING') || submissionError) {
+          void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        } else {
+          await this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        }
       } else {
         await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
       }

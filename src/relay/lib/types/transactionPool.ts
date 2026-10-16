@@ -98,17 +98,24 @@ export interface PendingTransactionStorage {
    *
    * @param address - The account address whose transaction should be removed.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @returns A promise that resolves to true if the transaction was in the pending list and got removed,
+   *          false if it was not there (e.g. already removed by another caller).
    */
-  removeFromList(address: string, rlpHex: string): Promise<void>;
+  removeFromList(address: string, rlpHex: string): Promise<boolean>;
 
   /**
-   * Removes a transaction from the pending list of the given address.
-   * If the transaction is confirmed, it should increase the confirmed count by 1.
+   * Removes a transaction from the pending list of the given address and increases the confirmed count by 1.
+   *
+   * Must be idempotent: the confirmed count is incremented only when this call actually removed the
+   * transaction, so of several (possibly concurrent) callers removing the same transaction exactly one
+   * increments it.
    *
    * @param address - The account address whose transaction should be removed.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @returns A promise that resolves to true if the transaction was in the pending list and got removed,
+   *          false if it was not there (e.g. already removed by another caller).
    */
-  removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void>;
+  removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<boolean>;
 
   /**
    * Removes all pending transactions across all addresses.
