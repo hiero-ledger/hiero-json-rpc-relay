@@ -78,6 +78,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     lockService: LockService;
     logger: Logger;
     mirrorNodeClient: MirrorNodeClient;
+    pollMirrorNodeAndCleanup: TransactionService['pollMirrorNodeAndCleanup'];
     precheck: Omit<Precheck, 'transactionPoolService'> & { transactionPoolService: TransactionPoolService };
     sendRawTransactionProcessor: TransactionService['sendRawTransactionProcessor'];
     transactionPoolService: TransactionPoolService;
@@ -1195,6 +1196,36 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
             // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
             expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: true }, () => {
+          const UNKNOWN_OUTCOME_ERRORS: Array<{ name: string; error: () => Error }> = [
+            ...SDK_TIMEOUT_ERRORS.map(({ name, statusCode, message }) => ({
+              name,
+              error: () =>
+                new SDKClientError({ status: { _code: statusCode }, message }, message, transactionIdServicesFormat),
+            })),
+            { name: 'non-SDKClientError', error: () => new Error('Generic network failure') },
+          ];
+
+          UNKNOWN_OUTCOME_ERRORS.forEach(({ name, error }) => {
+            it(`should throw ${name} without awaiting the Mirror Node poll, which keeps running in the background`, async function () {
+              const signed = await signTransaction(transaction);
+              const submissionError = error();
+              sdkClientStub.submitEthereumTransaction.throws(submissionError);
+
+              const pollStub = sinon
+                .stub(transactionService, 'pollMirrorNodeAndCleanup')
+                .returns(new Promise<void>(() => {}));
+
+              await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+                submissionError.constructor as typeof Error,
+                submissionError.message,
+              );
+
+              sinon.assert.calledOnce(pollStub);
+            });
           });
         });
 
