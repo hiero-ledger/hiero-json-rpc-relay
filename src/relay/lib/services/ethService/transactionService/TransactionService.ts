@@ -341,18 +341,6 @@ export class TransactionService implements ITransactionService {
   /**
    * Removes a transaction the Mirror Node already reflects in a block from its sender's pending pool, as confirmed.
    *
-   * Called by `eth_getTransactionReceipt` (for a receipt built from a Mirror Node contract result) and by
-   * `eth_getTransactionByHash` (for a transaction built from a mature Mirror Node contract result) - clients
-   * wait for inclusion with either of them, some only by polling `eth_getTransactionByHash` until `blockNumber`
-   * is set. Without this the pool keeps the transaction until `pollMirrorNodeAndCleanup` finds it, and until then
-   * `eth_getTransactionCount(addr, "latest")` (served from the pool's confirmed count) returns the old nonce to
-   * a client that has already seen the transaction mined, so its next transaction fails with "Nonce too low".
-   * Failed transactions (`status: 0x0`) consumed their nonce too, so they are confirmed as well.
-   *
-   * Awaited, so the nonce is up to date by the time the client has the response, but best-effort: any pool error
-   * is logged and swallowed and never affects the response. The pool removal is idempotent, so the other caller or
-   * the poll removing the same transaction later (or first) is harmless.
-   *
    * @param from The sender's EVM address
    * @param txHash The transaction hash
    */
