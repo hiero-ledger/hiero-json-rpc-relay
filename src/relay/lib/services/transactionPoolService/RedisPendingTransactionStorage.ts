@@ -44,6 +44,32 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly extraPerPendingStorageTtl: number;
 
   /**
+   * Lua script that atomically removes a transaction from the pending pool and, only if it was actually
+   * removed, increments the address' confirmed count.
+   *
+   * - `KEYS[1]`: the per-address pending set.
+   * - `KEYS[2]`: the global pending set.
+   * - `KEYS[3]`: the per-address confirmed count.
+   * - `ARGV[1]`: the RLP-encoded transaction.
+   * - `ARGV[2]`: the TTL (in seconds) to refresh on the confirmed count.
+   *
+   * The per-address SREM result decides whether this caller is the one that removed the transaction, so of
+   * several (possibly concurrent) callers removing the same transaction exactly one increments the count.
+   * A missing confirmed count key means it expired way too early - it is not recreated then.
+   *
+   * Returns 1 if the transaction was removed, 0 otherwise.
+   */
+  private static readonly REMOVE_AND_INCREMENT_CONFIRMED_SCRIPT = `
+    local removed = redis.call('SREM', KEYS[1], ARGV[1])
+    redis.call('SREM', KEYS[2], ARGV[1])
+    if removed == 1 and redis.call('EXISTS', KEYS[3]) == 1 then
+      redis.call('INCR', KEYS[3])
+      redis.call('EXPIRE', KEYS[3], ARGV[2])
+    end
+    return removed
+  `;
+
+  /**
    * Creates a new Redis-backed pending transaction storage.
    *
    * @param redisClient - A connected {@link RedisClientType} instance.
@@ -96,34 +122,35 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - Account address whose pending list should be modified.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @returns true if the transaction was in the pending list of the address and got removed.
    */
-  async removeFromList(address: string, rlpHex: string): Promise<void> {
+  async removeFromList(address: string, rlpHex: string): Promise<boolean> {
     const key = this.keyFor(address);
 
-    await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex).exec();
+    const [removedFromAddress] = await this.redisClient
+      .multi()
+      .sRem(key, rlpHex)
+      .sRem(this.globalPendingTxsKey, rlpHex)
+      .exec();
+    return Number(removedFromAddress) === 1;
   }
 
   /**
-   * Removes a transaction from the pending list of the given address.
-   * If the transaction is confirmed, it should increase the confirmed count by 1.
+   * Removes a transaction from the pending list of the given address and increments its confirmed count,
+   * atomically and only if the transaction was actually removed - removing the same transaction twice
+   * (e.g. by the receipt path and the Mirror Node poll, possibly from different relay instances) must not
+   * count it twice. See {@link REMOVE_AND_INCREMENT_CONFIRMED_SCRIPT}.
    *
    * @param address - Account address whose pending list should be modified.
    * @param rlpHex - The RLP-encoded transaction as a hex string.
+   * @returns true if the transaction was in the pending list of the address and got removed.
    */
-  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<void> {
-    const confirmedKey = this.keyFor(address, this.confirmedTxCountKey);
-
-    // MULTI will still execute even if the pending tx set already expired.
-    // This is expected behavior.
-    //
-    // If the tx is no longer in the pending pool, SREM becomes a no-op.
-    // We still attempt to increment the confirmed count if that key exists.
-    const multi = this.redisClient.multi().sRem(this.keyFor(address), rlpHex).sRem(this.globalPendingTxsKey, rlpHex);
-
-    // If the key is missing it means that confirmed count expired way too early, we shouldn't set it then
-    const confirmedCountExists = await this.redisClient.exists(confirmedKey);
-    if (confirmedCountExists) multi.incr(confirmedKey).expire(confirmedKey, this.confirmedCountTtl);
-    await multi.exec();
+  async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<boolean> {
+    const result = await this.redisClient.eval(RedisPendingTransactionStorage.REMOVE_AND_INCREMENT_CONFIRMED_SCRIPT, {
+      keys: [this.keyFor(address), this.globalPendingTxsKey, this.keyFor(address, this.confirmedTxCountKey)],
+      arguments: [rlpHex, String(this.confirmedCountTtl)],
+    });
+    return Number(result) === 1;
   }
 
   /**
