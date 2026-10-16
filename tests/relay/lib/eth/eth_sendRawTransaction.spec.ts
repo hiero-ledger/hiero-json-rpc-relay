@@ -427,11 +427,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
       withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true, ENABLE_NONCE_ORDERING: true }, () => {
-        it('should save and remove transaction from transaction pool on success path', async function () {
+        it('should save and remove transaction from transaction pool on success path before returning', async function () {
           const signed = await signTransaction(transaction);
           const txPool = transactionService['transactionPoolService'];
 
-          restMock.onGet(`contracts/results/${ethereumHash}?hbar=false`).reply(404);
+          restMock
+            .onGet(`contracts/results/${ethereumHash}?hbar=false`)
+            .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -450,17 +452,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledOnce(saveStub);
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
-          // Too soon for the transaction to be removed from the pool. It must be indexed by the mirror node first.
-          sinon.assert.notCalled(removeStub);
-
-          // Wait a few ticks for the poller to fetch the transaction's data from the mirror node.
-          restMock
-            .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-            .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
-          await new Promise((resolve) => setTimeout(resolve, 5_000));
-
           sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, signed);
+          sinon.assert.calledWith(removeStub, accountAddress, signed, 'confirmed');
 
           saveStub.restore();
           removeStub.restore();
@@ -1034,6 +1027,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
             restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
+            restMock
+              .onGet(`contracts/results/${ethereumHash}?hbar=false`)
+              .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+
             const currentTime = process.hrtime.bigint();
             lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
             lockServiceStub.releaseLock.resolves();
@@ -1047,9 +1044,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
             const result = await ethImpl.sendRawTransaction(signed, requestDetails);
 
-            // Hash should be computed, not fetched from the mirror node
             expect(result).to.equal(ethereumHash);
-            expect(wasContractResultEndpointCalled()).to.be.false;
+            expect(wasContractResultEndpointCalled()).to.be.true;
             sinon.assert.calledOnce(computeHashSpy);
 
             // Verify lock was released during synchronous execution (no need to tick clock)
