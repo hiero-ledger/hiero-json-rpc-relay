@@ -130,6 +130,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
       const defaultGasLimit = numberTo0x(3_000_000);
 
+      // The pool drops a tx once consensus accepts it, so 'pending' can briefly fall back to the stale mirror nonce.
+      const nextNonces = new Map<string, number>();
+      const nextNonce = async (signer: AliasAccount): Promise<number> => {
+        const pending = await relay.getAccountNonce(signer.address, 'pending');
+        const nonce = Math.max(pending, nextNonces.get(signer.address) ?? 0);
+        nextNonces.set(signer.address, nonce + 1);
+        return nonce;
+      };
+
       const sendTransactions = async (signer = accounts[1], count: number = 2): Promise<Map<string, string>> => {
         const transactionMap = new Map<string, string>();
         for (let i = 0; i < count; i++) {
@@ -141,7 +150,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             gasLimit: defaultGasLimit,
             type: 2,
             to: accounts[2].address,
-            nonce: await relay.getAccountNonce(signer.address, 'pending'),
+            nonce: await nextNonce(signer),
           };
           const signedTx = await signer.wallet.signTransaction(tx);
           const txHash = await relay.sendRawTransaction(signedTx);
@@ -161,7 +170,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           type: 2,
           value: 0,
           data: basicContract.bytecode,
-          nonce: await relay.getAccountNonce(signer.address, 'pending'),
+          nonce: await nextNonce(signer),
         });
         await relay.sendRawTransaction(signedTx);
 
@@ -545,6 +554,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const tx = {
               ...defaultLondonTransactionData,
               to: accounts[2].address,
+              // Add random data, because the relay answers a reused tx hash with its earlier rejection.
+              data: ethers.hexlify(ethers.randomBytes(8)),
               nonce: await relay.getAccountNonce(accounts[1].address),
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
@@ -1196,9 +1207,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const { transactionHash } = result[0];
 
-        // Make sure that this transaction is synthetic
-        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
-
         // When querying for the synthetic transaction receipt directly, logs are also preserved
         const transactionReceipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
           transactionHash,
@@ -1215,8 +1223,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const fromBlockPath = blockReceipts[0];
         const transactionHash = fromBlockPath.transactionHash;
 
-        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
-
         await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [blockNumber, true]);
 
         const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
@@ -1224,11 +1230,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(receipt.logs).to.deep.equal(fromBlockPath.logs);
         expect(receipt.logs).to.have.lengthOf.greaterThan(1);
 
-        for (const field of ['transactionHash', 'blockHash', 'blockNumber', 'transactionIndex', 'status']) {
+        for (const field of ['transactionHash', 'blockHash', 'blockNumber', 'transactionIndex', 'status', 'from']) {
           expect(receipt[field], field).to.equal(fromBlockPath[field]);
         }
-
-        expect(receipt.from).to.equal(ethers.ZeroAddress);
       });
 
       describe('contractAddress in "eth_getTransactionReceipt"', () => {

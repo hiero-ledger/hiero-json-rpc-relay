@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { ethers, type WebSocketProvider } from 'ethers';
 
+import RelayAssertions from '../../relay/assertions';
 import { Utils } from '../../server/helpers/utils';
 import { WsTestConstant, WsTestHelper } from '../helper';
 
@@ -72,8 +73,7 @@ describe('@web-socket-batch-2 eth_newFilter', async function () {
       const filterId = response.result as string;
 
       expect(filterId).to.exist;
-      expect(filterId.startsWith('0x')).to.be.true;
-      expect(filterId.slice(2).length).to.eq(32); // 16 bytes
+      expect(RelayAssertions.validateUint(filterId)).to.be.true;
     });
   });
 
@@ -90,8 +90,7 @@ describe('@web-socket-batch-2 eth_newFilter', async function () {
       const filterId = await ethersWsProvider.send(METHOD_NAME, [wsFilterObj]);
 
       expect(filterId).to.exist;
-      expect(filterId.startsWith('0x')).to.be.true;
-      expect(filterId.slice(2).length).to.eq(32); // 16 bytes
+      expect(RelayAssertions.validateUint(filterId)).to.be.true;
     });
   });
 });

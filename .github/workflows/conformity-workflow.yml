@@ -25,44 +25,8 @@ permissions:
   contents: read
 
 jobs:
-  clone-and-build-execution-apis:
-    runs-on: hiero-smart-contracts-linux-medium
-
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
-
-      - name: Checkout execution-apis repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: 7907424db935b93c2fe6a3c0faab943adebe8557
-          repository: 'ethereum/execution-apis'
-          path: 'execution-apis'
-
-      - name: Use Node.js LTS 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Install dependencies
-        run: npm install
-        working-directory: ./execution-apis
-
-      - name: Build project
-        run: npm run build
-        working-directory: ./execution-apis
-
-      - name: Upload openrpc.json as an artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: openrpc
-          path: ./execution-apis/openrpc.json
-
   build-and-test:
     runs-on: hiero-smart-contracts-linux-medium
-    needs: clone-and-build-execution-apis
 
     steps:
       - name: Harden Runner
@@ -86,6 +50,9 @@ jobs:
 
       - name: Install packages
         run: npm ci
+
+      - name: Download execution-apis spec and fixtures
+        run: npm run conformity:fetch-spec
 
       - name: Create .env file
         run: cp ./tests/server/localAcceptance.env .env
@@ -139,14 +106,6 @@ jobs:
 
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
-
-      - name: Download openrpc.json artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: openrpc
-
-      - name: Rename file
-        run: mv openrpc.json openrpc_exec_apis.json
 
       - name: Add ws specific env variables
         run: |

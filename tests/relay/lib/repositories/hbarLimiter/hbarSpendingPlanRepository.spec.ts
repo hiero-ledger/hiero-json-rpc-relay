@@ -230,6 +230,22 @@ describe('HbarSpendingPlanRepository', function () {
     });
 
     describe('addToAmountSpent', () => {
+      it('keeps both amounts when two expenses for a new plan arrive at once', async () => {
+        const createdPlan = await repository.create(SubscriptionTier.BASIC, ttl);
+
+        await Promise.all([
+          repository.addToAmountSpent(createdPlan.id, 100, ttl),
+          repository.addToAmountSpent(createdPlan.id, 50, ttl),
+        ]);
+
+        await expect(repository.getAmountSpent(createdPlan.id)).to.eventually.equal(150);
+        if (redisClient) {
+          // The increment that creates the key must also set its expiry, or the plan would never reset.
+          const amountSpentKey = `cache:${HbarSpendingPlanRepository.collectionKey}:${createdPlan.id}:amountSpent`;
+          expect(await redisClient.pTTL(amountSpentKey)).to.be.greaterThan(0);
+        }
+      });
+
       it('adds amount to amountSpent', async () => {
         const subscriptionTier = SubscriptionTier.BASIC;
         const createdPlan = await repository.create(subscriptionTier, ttl);
@@ -241,7 +257,7 @@ describe('HbarSpendingPlanRepository', function () {
         expect(plan).to.not.be.null;
         expect(plan!.amountSpent).to.equal(amount);
         sinon.assert.calledWithMatch(
-          cacheServiceSpy.set,
+          cacheServiceSpy.incrBy,
           `${HbarSpendingPlanRepository.collectionKey}:${createdPlan.id}:amountSpent`,
           amount,
           'addToAmountSpent',

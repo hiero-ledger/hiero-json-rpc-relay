@@ -87,8 +87,8 @@ export class SafeRedisCache extends RedisCache {
    * @param callingMethod - Name of the calling method.
    * @returns The incremented value or the fallback (amount) if Redis fails.
    */
-  async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    return await this.safeCall(() => super.incrBy(key, amount, callingMethod), amount);
+  async incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number> {
+    return await this.safeCall(() => super.incrBy(key, amount, callingMethod, ttl), amount);
   }
 
   /**

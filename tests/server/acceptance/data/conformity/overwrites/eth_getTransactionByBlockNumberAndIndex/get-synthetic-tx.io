@@ -5,9 +5,6 @@
 //
 // The block number and the index are substituted at runtime with the block that actually holds the
 // synthetic transaction, since neither is known until the test network has run.
-//
-// This route builds the transaction from the mirror node's contract result, not from the log, so
-// gas, input, r and s differ from what eth_getTransactionByHash returns for the same hash.
 
 ## wildcard: result.blockHash, result.blockNumber, result.transactionIndex, result.hash, result.from, result.to, result.chainId, result.gasPrice
 

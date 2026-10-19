@@ -137,19 +137,52 @@ describe('TransactionPoolService Test Suite', function () {
   describe('removeTransaction', () => {
     withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
       it(`should not execute .removeFromList if ENABLE_TX_POOL is set to false`, async function () {
-        mockStorage.removeFromList.resolves();
+        mockStorage.removeFromList.resolves(true);
         await transactionPoolService.removeTransaction(testAddress, testTxHash);
         expect(mockStorage.removeFromList.notCalled).to.be.true;
       });
     });
 
     it('should successfully remove transaction from pool', async () => {
-      mockStorage.removeFromList.resolves();
+      mockStorage.removeFromList.resolves(true);
 
       await transactionPoolService.removeTransaction(testAddress, testRlpHex);
 
       expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
+
+    const getRemoveOperationsCount = async (): Promise<number> => {
+      const metric = await register.getSingleMetric('rpc_relay_txpool_operations_total');
+      if (!metric) throw new Error('Expected metric to be registered');
+      const metricValues = await metric.get();
+      return metricValues.values.find((v) => v.labels.operation === 'remove')?.value ?? 0;
+    };
+
+    it('should count the removal when the storage actually removed the transaction', async () => {
+      mockStorage.removeFromListAndIncrementConfirmedCount.resolves(true);
+      const gaugeDecSpy = sinon.spy(transactionPoolService['pendingCountGauge'], 'dec');
+
+      await transactionPoolService.removeTransaction(testAddress, testRlpHex, 'confirmed');
+
+      expect(mockStorage.removeFromListAndIncrementConfirmedCount.calledOnceWith(testAddress.toLowerCase(), testRlpHex))
+        .to.be.true;
+      expect(mockStorage.removeFromList.notCalled).to.be.true;
+      expect(gaugeDecSpy.calledOnce).to.be.true;
+      expect(await getRemoveOperationsCount()).to.equal(1);
+    });
+
+    for (const status of ['confirmed', 'rejected', undefined] as const) {
+      it(`should not count the removal when the transaction was already removed (status: ${status})`, async () => {
+        mockStorage.removeFromList.resolves(false);
+        mockStorage.removeFromListAndIncrementConfirmedCount.resolves(false);
+        const gaugeDecSpy = sinon.spy(transactionPoolService['pendingCountGauge'], 'dec');
+
+        await transactionPoolService.removeTransaction(testAddress, testRlpHex, status);
+
+        expect(gaugeDecSpy.notCalled).to.be.true;
+        expect(await getRemoveOperationsCount()).to.equal(0);
+      });
+    }
 
     it('should log error and rethrow when storage fails', async () => {
       const storageError = new Error('Storage removal failed');
@@ -256,7 +289,7 @@ describe('TransactionPoolService Test Suite', function () {
       // Setup initial state
       mockStorage.getList.resolves(0);
       mockStorage.addToListAndSetConfirmedCount.resolves();
-      mockStorage.removeFromList.resolves();
+      mockStorage.removeFromList.resolves(true);
 
       // Save transaction
       await transactionPoolService.saveTransaction(testAddress, testTransaction, testTransaction.nonce);
@@ -398,7 +431,7 @@ describe('TransactionPoolService Test Suite', function () {
     });
 
     it('should atomically remove address index and payload in single storage call', async () => {
-      mockStorage.removeFromList.resolves();
+      mockStorage.removeFromList.resolves(true);
 
       await transactionPoolService.removeTransaction(testAddress, testRlpHex);
 
