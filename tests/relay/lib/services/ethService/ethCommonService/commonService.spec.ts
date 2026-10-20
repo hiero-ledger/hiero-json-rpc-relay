@@ -12,13 +12,19 @@ chai.use(chaiAsPromised);
 import { ConfigService } from '../../../../../../src/config-service/services';
 import { prepend0x } from '../../../../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
+import constants from '../../../../../../src/relay/lib/constants';
 import { predefined } from '../../../../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService, type PaymasterAccount } from '../../../../../../src/relay/lib/services';
 import { getLogs as runGetLogsWorker } from '../../../../../../src/relay/lib/services/ethService/ethCommonService/commonWorker';
 import { type IWorkerContext } from '../../../../../../src/relay/lib/services/workersService/workerContext';
 import { WorkersPool } from '../../../../../../src/relay/lib/services/workersService/WorkersPool';
-import { type MirrorNodeContractLog, RequestDetails } from '../../../../../../src/relay/lib/types';
+import {
+  type IMirrorNodeTransactionRecord,
+  type MirrorNodeContractLog,
+  type MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../../../../src/relay/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../../helpers';
 
 interface PaymasterStatics {
@@ -220,6 +226,116 @@ describe('CommonService', () => {
       await expect(commonService.getLatestBlockNumber(requestDetails)).to.be.rejectedWith(
         predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK.message,
       );
+    });
+  });
+
+  describe('isContractDeployment', () => {
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+    const CONTRACT_ID = '0.0.1234';
+    const TIMESTAMP = '1700000000.000000100';
+    const TRANSACTION_ID = '0.0.2-1699999990-000000000';
+
+    let commonService: CommonService;
+    let restMock: MockAdapter;
+
+    beforeEach(() => {
+      const logger = pino({ level: 'silent' });
+      const registry = new Registry();
+      const cacheService = CacheClientFactory.create(logger, registry);
+      const mirrorNodeClient = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: 'mirror-node' }),
+        registry,
+        cacheService,
+      );
+      restMock = new MockAdapter(mirrorNodeClient.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+    });
+
+    afterEach(() => {
+      restMock.restore();
+    });
+
+    const contractResult = (overrides: Partial<MirrorNodeContractResult> = {}): MirrorNodeContractResult =>
+      ({
+        contract_id: CONTRACT_ID,
+        created_contract_ids: [],
+        status: constants.ONE_HEX,
+        timestamp: TIMESTAMP,
+        to: '0x00000000000000000000000000000000000004d2',
+        ...overrides,
+      }) as MirrorNodeContractResult;
+
+    const record = (name: string, nonce: number, entityId: string): Partial<IMirrorNodeTransactionRecord> => ({
+      name,
+      nonce,
+      entity_id: entityId,
+      transaction_id: TRANSACTION_ID,
+    });
+
+    const mockRecords = (records: Partial<IMirrorNodeTransactionRecord>[]): void => {
+      restMock.onGet(`transactions?timestamp=${TIMESTAMP}`).reply(200, JSON.stringify({ transactions: [records[0]] }));
+      restMock.onGet(`transactions/${TRANSACTION_ID}`).reply(200, JSON.stringify({ transactions: records }));
+    };
+
+    it('trusts created_contract_ids when the record stream filled it in', async () => {
+      const result = contractResult({ created_contract_ids: [CONTRACT_ID] });
+
+      expect(await commonService.isContractDeployment(result, requestDetails)).to.be.true;
+    });
+
+    it('is false when created_contract_ids lists only contracts created through a callee', async () => {
+      const result = contractResult({ created_contract_ids: ['0.0.5678'] });
+
+      expect(await commonService.isContractDeployment(result, requestDetails)).to.be.false;
+    });
+
+    it('is true for an Ethereum deployment, whose child record creates the contract', async () => {
+      mockRecords([record('ETHEREUMTRANSACTION', 0, CONTRACT_ID), record('CONTRACTCREATEINSTANCE', 1, CONTRACT_ID)]);
+
+      expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.true;
+    });
+
+    it('is true for a HAPI ContractCreate, whose own record creates the contract', async () => {
+      mockRecords([record('CONTRACTCREATEINSTANCE', 0, CONTRACT_ID)]);
+
+      expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.true;
+    });
+
+    it('is false for a call that only creates other contracts', async () => {
+      mockRecords([record('ETHEREUMTRANSACTION', 0, CONTRACT_ID), record('CONTRACTCREATEINSTANCE', 1, '0.0.5678')]);
+
+      expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.false;
+    });
+
+    it('is false for a plain call', async () => {
+      mockRecords([record('ETHEREUMTRANSACTION', 0, CONTRACT_ID)]);
+
+      expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.false;
+    });
+
+    it('is false for a failed transaction without querying the mirror node', async () => {
+      const result = contractResult({ status: constants.ZERO_HEX });
+
+      expect(await commonService.isContractDeployment(result, requestDetails)).to.be.false;
+    });
+
+    it('is false for a synthetic record without querying the mirror node', async () => {
+      const result = contractResult({ gas_limit: 0 });
+
+      expect(await commonService.isContractDeployment(result, requestDetails)).to.be.false;
+    });
+
+    it('is false for a call to an EVM address without querying the mirror node', async () => {
+      const result = contractResult({ to: '0x' + 'ab'.repeat(20) });
+
+      expect(await commonService.isContractDeployment(result, requestDetails)).to.be.false;
+    });
+
+    it('still checks the records when to is null', async () => {
+      mockRecords([record('ETHEREUMTRANSACTION', 0, CONTRACT_ID), record('CONTRACTCREATEINSTANCE', 1, CONTRACT_ID)]);
+
+      expect(await commonService.isContractDeployment(contractResult({ to: null }), requestDetails)).to.be.true;
     });
   });
 

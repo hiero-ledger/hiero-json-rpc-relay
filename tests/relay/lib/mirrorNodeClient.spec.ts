@@ -2082,6 +2082,33 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('getTransactionRecordsByTimestamp', async () => {
+    const timestamp = '1681130077.127938923';
+    const transactionId = '0.0.2-1681130064-409933500';
+    const parent = {
+      consensus_timestamp: timestamp,
+      name: 'ETHEREUMTRANSACTION',
+      nonce: 0,
+      transaction_id: transactionId,
+    };
+    const child = { ...parent, consensus_timestamp: '1681130077.127938924', name: 'CONTRACTCREATEINSTANCE', nonce: 1 };
+
+    it('should fetch every record of the transaction at the timestamp, children included', async () => {
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [parent] }));
+      mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify({ transactions: [parent, child] }));
+
+      const records = await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails);
+
+      expect(records).to.deep.equal([parent, child]);
+    });
+
+    it('should return an empty array when no transaction is recorded at the timestamp', async () => {
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [] }));
+
+      expect(await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails)).to.deep.equal([]);
+    });
+  });
+
   describe('getPaginatedResults', async () => {
     const mockPages = (pages: number): { foo: string }[] => {
       let mockedResults: { foo: string }[] = [];

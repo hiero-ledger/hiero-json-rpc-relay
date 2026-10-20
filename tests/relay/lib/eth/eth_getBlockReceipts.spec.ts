@@ -19,6 +19,7 @@ import {
   defaultContractResultsOnlyHash2,
   defaultLogs1,
   mockWorkersPool,
+  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -30,6 +31,7 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
   CONTRACT_RESULTS_WITH_FILTER_URL_2,
+  CONTRACT_TIMESTAMP_2,
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
@@ -48,6 +50,8 @@ const DEFAULTS: Record<string, unknown> = {
   [`blocks/${BLOCK_NUMBER}`]: DEFAULT_BLOCK,
   [`blocks/${BLOCK_HASH}`]: DEFAULT_BLOCK,
   [`network/fees?timestamp=${BLOCK_TIMESTAMP}`]: DEFAULT_NETWORK_FEES,
+  // a successful result with empty created_contract_ids is checked against its transaction's records
+  [`transactions?timestamp=${CONTRACT_TIMESTAMP_2}`]: { transactions: [] },
 };
 
 describe('@ethGetBlockReceipts using MirrorNode', async function () {
@@ -351,6 +355,32 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       resolveEvmAddressStub.restore();
     });
+
+    it('should report the deployed contract for a deployment imported from the block stream', async function () {
+      // block-stream mirror nodes leave created_contract_ids empty, so the deployment is read off the transaction's records
+      const transactionId = '0.0.2-1651560380-000000000';
+      const deployedAddress = '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9';
+      const deployment = { ...results[0], created_contract_ids: [], address: deployedAddress };
+
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: { results: [deployment], links: { next: null } },
+      });
+      restMock
+        .onGet(`transactions?timestamp=${deployment.timestamp}`)
+        .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }] }));
+      restMock.onGet(`transactions/${transactionId}`).reply(
+        200,
+        JSON.stringify({
+          transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: deployment.contract_id }],
+        }),
+      );
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      assertExists(receipts);
+      expect(receipts[0].contractAddress).to.equal(deployedAddress);
+      expect(receipts[0].to).to.be.null;
+    });
   });
 
   describe('Address deduplication', () => {
@@ -411,6 +441,36 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts[2].to).to.equal(`${sharedTo}-resolved`);
 
       resolveEvmAddressStub.restore();
+    });
+  });
+
+  describe('Deployment checks', () => {
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_HTTP_MAX_SOCKETS: 1 }, () => {
+      it('should share the MIRROR_NODE_HTTP_MAX_SOCKETS cap between address lookups and deployment checks', async function () {
+        setupStandardResponses();
+        let inFlight = 0;
+        let maxInFlight = 0;
+        const track = async <T>(value: T): Promise<T> => {
+          maxInFlight = Math.max(maxInFlight, ++inFlight);
+          await new Promise((resolve) => setImmediate(resolve));
+          inFlight--;
+          return value;
+        };
+        const isContractDeploymentStub = sinon
+          .stub(commonService, 'isContractDeployment')
+          .callsFake(() => track(false));
+        const resolveEvmAddressStub = sinon
+          .stub(commonService, 'resolveEvmAddress')
+          .callsFake((address) => track(address));
+
+        await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+        expect(isContractDeploymentStub.callCount).to.equal(results.length);
+        expect(resolveEvmAddressStub.called).to.be.true;
+        expect(maxInFlight).to.equal(1);
+        isContractDeploymentStub.restore();
+        resolveEvmAddressStub.restore();
+      });
     });
   });
 

@@ -1797,6 +1797,39 @@ export class MirrorNodeClient {
   }
 
   /**
+   * Gets every record of the transaction at a consensus timestamp, children included, since contract results don't
+   * carry their transaction ID.
+   *
+   * @param timestamp - The consensus timestamp of the transaction.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns The transaction's records, or an empty array when none is recorded at that timestamp.
+   */
+  public async getTransactionRecordsByTimestamp(
+    timestamp: string,
+    requestDetails: RequestDetails,
+  ): Promise<IMirrorNodeTransactionRecord[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    const page = await this.get<ITransactionsPage>(
+      `${MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT}${this.getQueryParams(queryParamObject)}`,
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT,
+      requestDetails,
+    );
+    const transactionId = page?.transactions?.[0]?.transaction_id;
+    if (!transactionId) return [];
+
+    const records = await this.get<ITransactionsPage>(
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID.replace(
+        MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
+        transactionId,
+      ),
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID,
+      requestDetails,
+    );
+    return records?.transactions ?? [];
+  }
+
+  /**
    * Check if transaction fail is because of contract revert and try to fetch and log the reason.
    *
    * @param e - The error object.

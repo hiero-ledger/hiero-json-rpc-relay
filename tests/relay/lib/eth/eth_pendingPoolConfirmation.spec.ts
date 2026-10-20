@@ -129,6 +129,7 @@ describe('pending pool confirmation from eth_getTransactionReceipt and eth_getTr
     sandbox = sinon.createSandbox();
     poolService = localTransactionPoolService;
     sandbox.stub(ethImpl['common'], 'resolveEvmAddress').callsFake(async (address) => address);
+    sandbox.stub(ethImpl['common'], 'isContractDeployment').resolves(false);
     sandbox.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
   });
 

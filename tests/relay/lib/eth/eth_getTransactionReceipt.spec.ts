@@ -650,4 +650,27 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       expect(receipt.cumulativeGasUsed).to.equal(expectedCumulativeHex);
     });
   });
+
+  it('reports the deployed contract for a deployment imported from the block stream', async function () {
+    // block-stream mirror nodes leave created_contract_ids empty, so the deployment is read off the transaction's records
+    const deployment = { ...defaultDetailedContractResultByHash, created_contract_ids: [] };
+    const transactionId = '0.0.2-167650-000000000';
+
+    restMock.onGet(`contracts/results/${defaultTxHash}?hbar=false`).reply(200, JSON.stringify(deployment));
+    restMock
+      .onGet(`transactions?timestamp=${deployment.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }] }));
+    restMock.onGet(`transactions/${transactionId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: deployment.contract_id }],
+      }),
+    );
+    stubBlockAndFeesFunc(sandbox);
+
+    const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
+
+    expect(receipt?.contractAddress).to.equal(deployment.address);
+    expect(receipt?.to).to.be.null;
+  });
 });
