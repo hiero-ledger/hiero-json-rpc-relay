@@ -14,7 +14,7 @@
 
 </div>
 
-## Overview
+## Overview.
 
 Implementation of an Ethereum JSON RPC APIs for Hedera Hashgraph. Utilises both Hedera Consensus Nodes and Mirror nodes
 to support RPC queries as defined in
