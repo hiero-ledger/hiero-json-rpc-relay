@@ -705,6 +705,13 @@ export class CommonService implements ICommonService {
       return false;
     }
 
+    // Record files list deployments in created_contract_ids (on mainnet since late 2021), so trust an empty list there
+    // as the relay always has.
+    const block = await this.mirrorNodeClient.getBlock(contractResult.block_hash, requestDetails);
+    if (block?.name?.includes('.rcd')) {
+      return false;
+    }
+
     // A deployment has a contract-create record for its contract, either the transaction itself or one of its children.
     const records = await this.mirrorNodeClient.getTransactionRecordsByTimestamp(
       contractResult.timestamp,

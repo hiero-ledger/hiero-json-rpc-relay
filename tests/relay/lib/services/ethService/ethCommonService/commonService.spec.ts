@@ -234,6 +234,7 @@ describe('CommonService', () => {
     const CONTRACT_ID = '0.0.1234';
     const TIMESTAMP = '1700000000.000000100';
     const TRANSACTION_ID = '0.0.2-1699999990-000000000';
+    const BLOCK_HASH = '0x' + 'cd'.repeat(48);
 
     let commonService: CommonService;
     let restMock: MockAdapter;
@@ -258,6 +259,7 @@ describe('CommonService', () => {
 
     const contractResult = (overrides: Partial<MirrorNodeContractResult> = {}): MirrorNodeContractResult =>
       ({
+        block_hash: BLOCK_HASH,
         contract_id: CONTRACT_ID,
         created_contract_ids: [],
         status: constants.ONE_HEX,
@@ -273,8 +275,18 @@ describe('CommonService', () => {
       transaction_id: TRANSACTION_ID,
     });
 
+    const mockBlockName = (name: string): void => {
+      restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify({ hash: BLOCK_HASH, name }));
+    };
+
+    // Mocks a block-stream block, so the lookup runs, and leaves child records unmocked so fetching them throws.
+    const mockRecordAtTimestamp = (record: Partial<IMirrorNodeTransactionRecord>): void => {
+      mockBlockName('0000000000000001234.blk.zstd');
+      restMock.onGet(`transactions?timestamp=${TIMESTAMP}`).reply(200, JSON.stringify({ transactions: [record] }));
+    };
+
     const mockRecords = (records: Partial<IMirrorNodeTransactionRecord>[]): void => {
-      restMock.onGet(`transactions?timestamp=${TIMESTAMP}`).reply(200, JSON.stringify({ transactions: [records[0]] }));
+      mockRecordAtTimestamp(records[0]);
       restMock.onGet(`transactions/${TRANSACTION_ID}`).reply(200, JSON.stringify({ transactions: records }));
     };
 
@@ -297,10 +309,24 @@ describe('CommonService', () => {
     });
 
     it('is true for a HAPI ContractCreate, whose own record creates the contract', async () => {
-      mockRecords([record('CONTRACTCREATEINSTANCE', 0, CONTRACT_ID)]);
+      mockRecordAtTimestamp(record('CONTRACTCREATEINSTANCE', 0, CONTRACT_ID));
 
       expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.true;
     });
+
+    it('is false for a HAPI ContractCall without fetching its child records', async () => {
+      mockRecordAtTimestamp(record('CONTRACTCALL', 0, CONTRACT_ID));
+
+      expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.false;
+    });
+
+    for (const name of ['2019-09-13T21_53_51.396440Z.rcd', '2022-11-08T03_41_48.147950773Z.rcd.gz']) {
+      it(`trusts an empty created_contract_ids on a ${name.slice(name.indexOf('.rcd'))} block without a lookup`, async () => {
+        mockBlockName(name);
+
+        expect(await commonService.isContractDeployment(contractResult(), requestDetails)).to.be.false;
+      });
+    }
 
     it('is false for a call that only creates other contracts', async () => {
       mockRecords([record('ETHEREUMTRANSACTION', 0, CONTRACT_ID), record('CONTRACTCREATEINSTANCE', 1, '0.0.5678')]);

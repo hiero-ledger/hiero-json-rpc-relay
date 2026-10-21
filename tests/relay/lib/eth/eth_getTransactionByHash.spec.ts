@@ -9,6 +9,7 @@ import RelayAssertions from '../../assertions';
 import { defaultDetailedContractResultByHash, defaultFromLongZeroAddress } from '../../helpers';
 import {
   DEFAULT_AUTHORIZATION_LIST,
+  DEFAULT_BLOCK,
   DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED,
   DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
   DEFAULT_TRANSACTION,
@@ -63,10 +64,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
 
   this.beforeEach(function () {
     restMock.reset();
-    // a successful result with empty created_contract_ids is checked against its transaction's records
-    restMock
-      .onGet(`transactions?timestamp=${contractResultMock.timestamp}`)
-      .reply(200, JSON.stringify({ transactions: [] }));
+    // record-file blocks fill created_contract_ids, so the deployment check trusts an empty list without a lookup
+    restMock.onGet(`blocks/${contractResultMock.block_hash}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(`accounts/${defaultFromLongZeroAddress}${NO_TRANSACTIONS}`).reply(
       200,
       JSON.stringify({
@@ -362,13 +361,18 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     // block-stream mirror nodes leave created_contract_ids empty, so the deployment is read off the transaction's records
     const uniqueTxHash = '0x16aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
     const transactionId = '0.0.2-1692959180-000000000';
+    // a block hash no other test caches as a record-file block
+    const blockHash = '0x' + 'b1'.repeat(48);
 
     restMock
       .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
-      .reply(200, JSON.stringify({ ...contractResultMock, type: 0 }));
+      .reply(200, JSON.stringify({ ...contractResultMock, type: 0, block_hash: blockHash }));
+    restMock
+      .onGet(`blocks/${blockHash}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
     restMock
       .onGet(`transactions?timestamp=${contractResultMock.timestamp}`)
-      .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }] }));
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
     restMock.onGet(`transactions/${transactionId}`).reply(
       200,
       JSON.stringify({

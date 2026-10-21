@@ -658,8 +658,11 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
     restMock.onGet(`contracts/results/${defaultTxHash}?hbar=false`).reply(200, JSON.stringify(deployment));
     restMock
+      .onGet(`blocks/${deployment.block_hash}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
+    restMock
       .onGet(`transactions?timestamp=${deployment.timestamp}`)
-      .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }] }));
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
     restMock.onGet(`transactions/${transactionId}`).reply(
       200,
       JSON.stringify({

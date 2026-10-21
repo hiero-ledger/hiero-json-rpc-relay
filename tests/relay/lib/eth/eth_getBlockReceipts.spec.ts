@@ -31,7 +31,6 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
   CONTRACT_RESULTS_WITH_FILTER_URL_2,
-  CONTRACT_TIMESTAMP_2,
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
@@ -50,8 +49,6 @@ const DEFAULTS: Record<string, unknown> = {
   [`blocks/${BLOCK_NUMBER}`]: DEFAULT_BLOCK,
   [`blocks/${BLOCK_HASH}`]: DEFAULT_BLOCK,
   [`network/fees?timestamp=${BLOCK_TIMESTAMP}`]: DEFAULT_NETWORK_FEES,
-  // a successful result with empty created_contract_ids is checked against its transaction's records
-  [`transactions?timestamp=${CONTRACT_TIMESTAMP_2}`]: { transactions: [] },
 };
 
 describe('@ethGetBlockReceipts using MirrorNode', async function () {
@@ -364,10 +361,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       setupStandardResponses({
         [CONTRACT_RESULTS_WITH_FILTER_URL_2]: { results: [deployment], links: { next: null } },
+        [`blocks/${BLOCK_HASH}`]: { ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' },
       });
       restMock
         .onGet(`transactions?timestamp=${deployment.timestamp}`)
-        .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }] }));
+        .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
       restMock.onGet(`transactions/${transactionId}`).reply(
         200,
         JSON.stringify({

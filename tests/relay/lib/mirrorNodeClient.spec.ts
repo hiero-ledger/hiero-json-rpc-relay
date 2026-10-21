@@ -2093,13 +2093,23 @@ describe('MirrorNodeClient', async function () {
     };
     const child = { ...parent, consensus_timestamp: '1681130077.127938924', name: 'CONTRACTCREATEINSTANCE', nonce: 1 };
 
-    it('should fetch every record of the transaction at the timestamp, children included', async () => {
+    it('should fetch the child records of an Ethereum transaction at the timestamp', async () => {
       mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [parent] }));
       mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify({ transactions: [parent, child] }));
 
       const records = await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails);
 
       expect(records).to.deep.equal([parent, child]);
+    });
+
+    it('should return only the record at the timestamp for any other transaction', async () => {
+      const contractCall = { ...parent, name: 'CONTRACTCALL' };
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [contractCall] }));
+
+      const records = await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails);
+
+      expect(records).to.deep.equal([contractCall]);
+      expect(mock.history.get.length).to.eq(1);
     });
 
     it('should return an empty array when no transaction is recorded at the timestamp', async () => {
