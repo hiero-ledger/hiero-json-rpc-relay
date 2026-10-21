@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ContractId } from '@hiero-ledger/sdk';
 import * as _ from 'lodash';
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { type MirrorNodeClient } from '../../../clients';
+import { isSyntheticContractRecord, type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -18,6 +19,7 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
+  type MirrorNodeContractResult,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
@@ -669,6 +671,56 @@ export class CommonService implements ICommonService {
     }
 
     return resolvedAddress;
+  }
+
+  /**
+   * Tells whether a contract result deployed the contract it executed, since block-stream mirror nodes leave
+   * `created_contract_ids` empty.
+   *
+   * @param contractResult - The contract result to check.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns True when the transaction deployed the contract in `contract_id`.
+   */
+  public async isContractDeployment(
+    contractResult: MirrorNodeContractResult,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
+    // Record-stream imports list the created contracts, so trust the list whenever it is filled.
+    if (contractResult.created_contract_ids?.length) {
+      return contractResult.created_contract_ids.includes(contractResult.contract_id);
+    }
+
+    // A failed, synthetic or contract-less transaction deployed nothing, so skip the lookup.
+    if (
+      contractResult.status !== constants.ONE_HEX ||
+      !contractResult.contract_id ||
+      isSyntheticContractRecord(contractResult)
+    ) {
+      return false;
+    }
+
+    // The mirror node reports a deployment's `to` as its contract's long-zero address, so any other `to` is a call.
+    const longZeroAddress = prepend0x(ContractId.fromString(contractResult.contract_id).toEvmAddress());
+    if (contractResult.to && contractResult.to.toLowerCase() !== longZeroAddress) {
+      return false;
+    }
+
+    // Record files list deployments in created_contract_ids (on mainnet since late 2021), so trust an empty list there
+    // as the relay always has.
+    const block = await this.mirrorNodeClient.getBlock(contractResult.block_hash, requestDetails);
+    if (block?.name?.includes('.rcd')) {
+      return false;
+    }
+
+    // A deployment has a contract-create record for its contract, either the transaction itself or one of its children.
+    const records = await this.mirrorNodeClient.getTransactionRecordsByTimestamp(
+      contractResult.timestamp,
+      requestDetails,
+    );
+    return records.some(
+      (record) =>
+        record.name === constants.CONTRACT_CREATE_TRANSACTION_NAME && record.entity_id === contractResult.contract_id,
+    );
   }
 
   /**
