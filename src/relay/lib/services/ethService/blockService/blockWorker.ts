@@ -216,23 +216,29 @@ async function getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
  * by up to `MIRROR_NODE_HTTP_MAX_SOCKETS` concurrent async functions. Using a shared queue ensures
  * the cap applies globally across both address types: as soon as any function finishes it picks
  * the next address immediately, keeping throughput maximised without ever exceeding the connection pool limit.
+ * When `checkDeployments` is set, each contract result's deployment check joins the same queue and cap.
  *
  * @param ctx - The shared worker context providing the clients and services
  * @param contractResults - Array of contract results whose addresses to resolve
  * @param requestDetails - Request details for logging and tracking
- * @returns A tuple of [fromAddressMap, toAddressMap], each mapping original address to its resolved EVM address
+ * @param checkDeployments - If true, also checks which contract results deployed their contract
+ * @returns A tuple of [fromAddressMap, toAddressMap, deploymentHashes], the maps taking each original address to its
+ * resolved EVM address and the set holding the hashes of the deployments found
  */
 async function resolveContractResultAddresses(
   ctx: IWorkerContext,
   contractResults: MirrorNodeContractResult[],
   requestDetails: RequestDetails,
-): Promise<[Map<string, string>, Map<string, string>]> {
+  checkDeployments = false,
+): Promise<[Map<string, string>, Map<string, string>, Set<string>]> {
   const { commonService } = ctx;
   const concurrencyLimit = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS');
 
   const seenFrom = new Set<string>();
   const seenTo = new Set<string>();
-  const queue: { address: string; type: 'from' | 'to' }[] = [];
+  const queue: (
+    { address: string; type: 'from' | 'to' } | { contractResult: MirrorNodeContractResult; type: 'deployment' }
+  )[] = [];
   for (const contractResult of contractResults) {
     if (contractResult.from && !seenFrom.has(contractResult.from)) {
       seenFrom.add(contractResult.from);
@@ -242,14 +248,24 @@ async function resolveContractResultAddresses(
       seenTo.add(contractResult.to);
       queue.push({ address: contractResult.to, type: 'to' });
     }
+    if (checkDeployments) {
+      queue.push({ contractResult, type: 'deployment' });
+    }
   }
 
   const fromResolved = new Map<string, string>();
   const toResolved = new Map<string, string>();
+  const deploymentHashes = new Set<string>();
 
   async function processNext(): Promise<void> {
     while (queue.length > 0) {
       const job = queue.shift()!;
+      if (job.type === 'deployment') {
+        if (await commonService.isContractDeployment(job.contractResult, requestDetails)) {
+          deploymentHashes.add(job.contractResult.hash);
+        }
+        continue;
+      }
       const resolved =
         job.type === 'from'
           ? await commonService.resolveEvmAddress(job.address, requestDetails, [constants.TYPE_ACCOUNT])
@@ -263,7 +279,7 @@ async function resolveContractResultAddresses(
   const workerCount = Math.min(concurrencyLimit, queue.length);
   await Promise.all(Array.from({ length: workerCount }, processNext));
 
-  return [fromResolved, toResolved];
+  return [fromResolved, toResolved, deploymentHashes];
 }
 
 /**
@@ -475,13 +491,18 @@ export async function getBlockReceipts(
       await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
-    const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(ctx, contractResults, requestDetails);
+    const [fromAddressMap, toAddressMap, deploymentHashes] = await resolveContractResultAddresses(
+      ctx,
+      contractResults,
+      requestDetails,
+      true,
+    );
 
     const resolved = contractResults.map((contractResult) => {
       const logs = logsByHash.get(contractResult.hash) || [];
       const from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
       const to = contractResult.to !== null ? (toAddressMap.get(contractResult.to) ?? contractResult.to) : null;
-      return { contractResult, logs, from, to };
+      return { contractResult, logs, from, to, isDeployment: deploymentHashes.has(contractResult.hash) };
     });
 
     const receipts: ITransactionReceipt[] = [];
@@ -490,7 +511,7 @@ export async function getBlockReceipts(
     for (const item of resolved) {
       if (!item) continue;
 
-      const { contractResult, logs, from, to } = item;
+      const { contractResult, logs, from, to, isDeployment } = item;
 
       cumulativeGasUsed += contractResult.gas_used ?? 0;
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
@@ -500,6 +521,7 @@ export async function getBlockReceipts(
         receiptResponse: contractResult,
         to,
         cumulativeGasUsed,
+        isDeployment,
       };
 
       const receipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
