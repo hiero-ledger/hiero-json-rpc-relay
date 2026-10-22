@@ -206,7 +206,9 @@ export default class KoaJsonRpc {
       return this.getRequestResult(item, ctx.ip, requestId, abortSignal).then((res) => {
         const ms = Date.now() - startTime;
         const code = 'error' in res ? res.error.code : 200;
-        this.methodResponseHistogram?.labels(item.method, `${code}`, 'true').observe(ms);
+        this.methodResponseHistogram
+          ?.labels(this.relay.methodMetricLabeler(item.method), `${code}`, 'true')
+          .observe(ms);
         return res;
       });
     });
@@ -234,8 +236,9 @@ export default class KoaJsonRpc {
     try {
       const requestDetails = new RequestDetails({ requestId, ipAddress, abortSignal });
       // check rate limit for method and ip
-      const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
-      if (await this.rateLimiter.shouldRateLimit(ipAddress, request.method, methodTotalLimit, requestDetails)) {
+      const rateLimitMethod = this.relay.methodMetricLabeler(request.method);
+      const methodTotalLimit = this.methodConfig[rateLimitMethod]?.total ?? this.defaultRateLimit;
+      if (await this.rateLimiter.shouldRateLimit(ipAddress, rateLimitMethod, methodTotalLimit, requestDetails)) {
         return jsonRespError(request.id, spec.IPRateLimitExceeded(request.method), requestId);
       }
 

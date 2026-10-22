@@ -6,6 +6,7 @@ import chaiAsPromised from 'chai-as-promised';
 import type { ConfigKey, ConfigProperty, ConfigValue } from '../../../../src/config-service/services/globalConfig';
 import { GlobalConfig } from '../../../../src/config-service/services/globalConfig';
 import { ValidationService } from '../../../../src/config-service/services/validationService';
+import { UNKNOWN_METHOD_LABELS_CEILING } from '../../../../src/metrics/methodMetricLabel';
 import { overrideEnvsInMochaDescribe } from '../../../relay/helpers';
 
 chai.use(chaiAsPromised);
@@ -311,6 +312,11 @@ describe('ValidationService tests', async function () {
         reject: [0, -1, 1.5, NaN],
       },
       {
+        key: 'METRICS_UNKNOWN_METHOD_LABELS_MAX',
+        accept: [0, 1, 100, UNKNOWN_METHOD_LABELS_CEILING - 1],
+        reject: [-1, -5, NaN, UNKNOWN_METHOD_LABELS_CEILING, UNKNOWN_METHOD_LABELS_CEILING + 1],
+      },
+      {
         key: 'REAL_IP_ADDRESS_MODE',
         accept: ['X_FORWARDED_FOR', 'TRUSTED_PROXIES', 'DIRECT_PEER'],
         reject: ['direct_peer', ''],
@@ -357,6 +363,12 @@ describe('ValidationService tests', async function () {
           ).to.throw(`Configuration error: ${key}`),
         );
       });
+    });
+
+    it('ships a default METRICS_UNKNOWN_METHOD_LABELS_MAX strictly below the cardinality ceiling', () => {
+      // Warns us if a future change raises the default to or past the memory-safety ceiling.
+      const defaultValue = GlobalConfig.ENTRIES.METRICS_UNKNOWN_METHOD_LABELS_MAX.defaultValue as number;
+      expect(defaultValue).to.be.a('number').and.be.below(UNKNOWN_METHOD_LABELS_CEILING);
     });
 
     it('should list the valid modes when REAL_IP_ADDRESS_MODE is unknown', async () => {
