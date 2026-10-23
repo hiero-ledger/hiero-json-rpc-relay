@@ -266,19 +266,18 @@ describe('Connection Limiter', function () {
       sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
 
-    it('should handle methods not in methodConfiguration', async function () {
+    it('should use the default rate limit for methods not in methodConfiguration', async function () {
       const ip = '127.0.0.1';
-      const methodName = 'unknown_method';
+      const methodName = 'debug_getBadBlocks';
       const requestDetails = { requestId: 'test-request' } as RequestDetails;
+      const expectedLimit = 200;
+      configServiceStub.withArgs('DEFAULT_RATE_LIMIT').returns(expectedLimit);
 
       rateLimiterStub.resolves(false);
 
-      try {
-        await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
-        expect.fail('Should have thrown an error for unknown method');
-      } catch (error) {
-        expect(error).to.be.an('error');
-      }
+      await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
+
+      sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
   });
 
