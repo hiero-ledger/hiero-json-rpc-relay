@@ -448,7 +448,12 @@ export class Relay {
     // Track real methods and the HTTP/WS synthetic labels as-is; collapse everything else to
     // `unknown` past the configured limit, so the per-method metric keeps a bounded set of labels.
     this.methodMetricLabeler = createMethodMetricLabeler(
-      [...this.rpcMethodRegistry.keys(), 'batch_request', 'eth_subscribe', 'eth_unsubscribe'],
+      [
+        ...this.rpcMethodRegistry.keys(),
+        constants.METHODS.BATCH_REQUEST,
+        constants.METHODS.ETH_SUBSCRIBE,
+        constants.METHODS.ETH_UNSUBSCRIBE,
+      ],
       ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX'),
     );
 

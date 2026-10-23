@@ -49,9 +49,9 @@ describe('createMethodMetricLabeler', function () {
       emitted.add(label(`eth_invented${i}`));
     }
 
-    // Distinct label values can never exceed the known methods seen plus the unknown limit (the
-    // overflow all collapses to the single `unknown` label).
-    expect(emitted.size).to.be.at.most(known.length + limit);
+    // Distinct label values can never exceed the known methods plus the unknown limit plus the single
+    // `unknown` label that the overflow collapses to.
+    expect(emitted.size).to.be.at.most(known.length + limit + 1);
     expect(emitted.has(UNKNOWN_METHOD_LABEL)).to.be.true;
   });
 });

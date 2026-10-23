@@ -197,6 +197,7 @@ export default {
     ETH_UNSUBSCRIBE: 'eth_unsubscribe',
     ETH_CHAIN_ID: 'eth_chainId',
     ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
+    BATCH_REQUEST: 'batch_request',
   },
 
   SUBSCRIBE_EVENTS: {
