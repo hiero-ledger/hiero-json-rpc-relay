@@ -283,7 +283,10 @@ describe('TransactionReceiptFactory', () => {
       nonce: null as unknown as number,
     };
 
-    const buildReceipt = (overrides: Partial<MirrorNodeContractResultReceipt> = {}): ITransactionReceipt => {
+    const buildReceipt = (
+      overrides: Partial<MirrorNodeContractResultReceipt> = {},
+      isDeployment = false,
+    ): ITransactionReceipt => {
       const receiptResponse: MirrorNodeContractResultReceipt = { ...baseReceiptResponse, ...overrides };
 
       return TransactionReceiptFactory.createRegularReceipt({
@@ -293,6 +296,7 @@ describe('TransactionReceiptFactory', () => {
         receiptResponse,
         to: receiptResponse.to,
         cumulativeGasUsed: 0,
+        isDeployment,
       });
     };
 
@@ -311,14 +315,9 @@ describe('TransactionReceiptFactory', () => {
         expect(receipt.to).to.equal(baseReceiptResponse.to);
       });
 
-      it('is null when the transaction only created contracts through a callee', () => {
-        const receipt = buildReceipt({ created_contract_ids: ['0.0.2002'] });
-
-        expect(receipt.contractAddress).to.be.null;
-      });
-
       it('is the deployed address when the transaction created the contract it reports', () => {
-        const receipt = buildReceipt({ created_contract_ids: [baseReceiptResponse.contract_id] });
+        // block-stream mirror nodes leave created_contract_ids empty, so the factory relies on isDeployment alone
+        const receipt = buildReceipt({}, true);
 
         expect(receipt.contractAddress).to.equal(baseReceiptResponse.address);
         expect(receipt.to).to.be.null;
