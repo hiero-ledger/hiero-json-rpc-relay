@@ -252,12 +252,12 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
-    const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
-      constants.TYPE_ACCOUNT,
+    const [fromAddress, to, isDeployment] = await Promise.all([
+      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+      this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      this.common.isContractDeployment(contractResult, requestDetails),
     ]);
-    const toAddress = contractResult.created_contract_ids.includes(contractResult.contract_id)
-      ? null
-      : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
+    const toAddress = isDeployment ? null : to;
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
     await this.confirmPendingPoolTransaction(fromAddress, toHash32(contractResult.hash || hash));
@@ -766,9 +766,10 @@ export class TransactionService implements ITransactionService {
         transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
       });
     });
-    const [from, to] = await Promise.all([
+    const [from, to, isDeployment] = await Promise.all([
       this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
+      this.common.isContractDeployment(receiptResponse, requestDetails),
     ]);
 
     let cumulativeGasUsed = 0;
@@ -793,6 +794,7 @@ export class TransactionService implements ITransactionService {
       receiptResponse,
       to,
       cumulativeGasUsed,
+      isDeployment,
     });
   }
 
@@ -903,10 +905,11 @@ export class TransactionService implements ITransactionService {
     logs: Log[],
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt> {
-    const [effectiveGas, from, to] = await Promise.all([
+    const [effectiveGas, from, to, isDeployment] = await Promise.all([
       this.common.getCurrentGasPriceForBlock(contractResult.block_hash, requestDetails),
       this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
       this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      this.common.isContractDeployment(contractResult, requestDetails),
     ]);
 
     const cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, contractResult.transaction_index ?? 0);
@@ -918,6 +921,7 @@ export class TransactionService implements ITransactionService {
       receiptResponse: contractResult,
       to,
       cumulativeGasUsed,
+      isDeployment,
     });
   }
 

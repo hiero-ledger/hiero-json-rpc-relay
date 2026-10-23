@@ -1797,6 +1797,40 @@ export class MirrorNodeClient {
   }
 
   /**
+   * Gets the record of the transaction at a consensus timestamp, plus its child records when it is an Ethereum
+   * transaction, since an Ethereum deployment records its contract creation as a child.
+   *
+   * @param timestamp - The consensus timestamp of the transaction.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns The transaction's records, or an empty array when none is recorded at that timestamp.
+   */
+  public async getTransactionRecordsByTimestamp(
+    timestamp: string,
+    requestDetails: RequestDetails,
+  ): Promise<IMirrorNodeTransactionRecord[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    const page = await this.get<ITransactionsPage>(
+      `${MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT}${this.getQueryParams(queryParamObject)}`,
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT,
+      requestDetails,
+    );
+    const transaction = page?.transactions?.[0];
+    if (!transaction) return [];
+    if (transaction.name !== MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE) return [transaction];
+
+    const records = await this.get<ITransactionsPage>(
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID.replace(
+        MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
+        transaction.transaction_id,
+      ),
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID,
+      requestDetails,
+    );
+    return records?.transactions ?? [];
+  }
+
+  /**
    * Check if transaction fail is because of contract revert and try to fetch and log the reason.
    *
    * @param e - The error object.

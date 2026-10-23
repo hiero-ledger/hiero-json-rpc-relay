@@ -6,6 +6,7 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
+  type MirrorNodeContractResult,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
@@ -58,6 +59,8 @@ export interface ICommonService {
   ): Promise<Log[]>;
 
   isBlockParamValid(tag: string | null): boolean;
+
+  isContractDeployment(contractResult: MirrorNodeContractResult, requestDetails: RequestDetails): Promise<boolean>;
 
   resolveEvmAddress(address: string | null, requestDetails: RequestDetails, types?: string[]): Promise<string | null>;
 
