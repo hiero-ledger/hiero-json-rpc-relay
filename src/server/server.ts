@@ -113,7 +113,7 @@ export async function initializeServer(
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
       const statusCode = ctx.state.clientDisconnected ? HTTP_STATUS.CLIENT_CLOSED_REQUEST : ctx.status;
-      methodResponseHistogram.labels(ctx.state.methodName, `${statusCode}`).observe(ms);
+      methodResponseHistogram.labels(relay.methodMetricLabeler(ctx.state.methodName), `${statusCode}`).observe(ms);
     }
   });
 
