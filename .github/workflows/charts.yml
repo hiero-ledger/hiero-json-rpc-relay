@@ -35,7 +35,7 @@ jobs:
         uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Install envsubst Dependency for Cosign
-        run: sudo apt-get update && sudo apt-get install -y gettext-base
+        run: sudo apt-get update && sudo apt-get install -y gettext-base=0.21-4ubuntu4
 
       - name: Install ct
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
@@ -98,7 +98,7 @@ jobs:
           tags: localhost:5001/${{ github.repository }}:test
 
       - name: Install envsubst Dependency for Cosign
-        run: sudo apt-get update && sudo apt-get install -y gettext-base
+        run: sudo apt-get update && sudo apt-get install -y gettext-base=0.21-4ubuntu4
 
       - name: Install ct
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
