@@ -104,10 +104,10 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.6' }}"
+            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.2' }}"
             --node-aliases: "node1"
           setup:
-            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.0-rc.6' }}"
+            --consensus-node-version: "${{ inputs.networkTag || 'v0.77.2' }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
