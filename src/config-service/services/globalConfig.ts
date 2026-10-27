@@ -122,6 +122,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 100,
   },
+  BLOCK_GAS_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 150_000_000,
+  },
   CACHE_MAX: {
     type: 'number',
     required: false,
