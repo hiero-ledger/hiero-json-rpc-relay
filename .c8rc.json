@@ -1,5 +1,9 @@
 {
   "all": true,
+  "include": [
+    "bin/**",
+    "src/**"
+  ],
   "reporter": [
     "text",
     "html",

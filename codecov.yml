@@ -1,25 +1,25 @@
-# Always comment on PRs
+# Coverage is collected from unit tests only (see .github/workflows/test.yml).
+# Acceptance tests are not uploaded: they depend on a live network, are split across many
+# jobs and are flaky, which made the reported coverage changes non-deterministic.
+codecov:
+  # Don't wait for unrelated checks (e.g. acceptance tests) before reporting.
+  require_ci_to_pass: false
+  notify:
+    # The unit test job uploads a single report per commit.
+    after_n_builds: 1
+
 comment:
-  layout: "diff, flags, files"
-  behavior: new # deletes old comment and posts a new one
+  layout: "diff, files"
+  behavior: default # edit the existing comment instead of posting a new one
   require_changes: false
+  after_n_builds: 1
 
 coverage:
   status:
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
     patch:
       default:
         target: 80%
-        threshold: 1%
-    project:
-      default:
-        target: 80%
-        threshold: 1%
-
-ignore:
-  - "packages/*/dist"
-  - ".github"
-  - "dapp-example"
-  - "docs"
-  - "k6"
-  - "scripts"
-  - "tools"

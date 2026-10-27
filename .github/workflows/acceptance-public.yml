@@ -33,7 +33,6 @@ jobs:
       operator_id: ${{ inputs.operator_id }}
     secrets:
       operator_key: ${{ inputs.operator_key }}
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish_results:
     name: Publish Results
