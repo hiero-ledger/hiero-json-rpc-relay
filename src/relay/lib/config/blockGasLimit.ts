@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
 import { Utils } from '../../utils';
 import constants from '../constants';
 
@@ -9,11 +10,11 @@ export interface VersionGasLimit {
 }
 
 /**
- * Block gas limit configuration by HAPI version.
+ * Block gas limit configuration by HAPI version, built per call so BLOCK_GAS_LIMIT overrides take effect.
  * MUST be sorted in descending order by version number (e.g., 1.0.0, 0.69.0, 0.0.0) - see blockGasLimit.spec.ts
  */
-export const BLOCK_GAS_LIMIT_BY_HAPI_VERSION: ReadonlyArray<VersionGasLimit> = [
-  { version: '0.69.0', gasLimit: 150_000_000 },
+export const getBlockGasLimitByHapiVersion = (): ReadonlyArray<VersionGasLimit> => [
+  { version: '0.69.0', gasLimit: ConfigService.get('BLOCK_GAS_LIMIT') },
   { version: '0.0.0', gasLimit: 30_000_000 },
 ];
 
@@ -52,7 +53,7 @@ export function isHapiVersionAtLeast(candidateVersion: string, minimumVersion: s
 
 export const obtainBlockGasLimit = (
   hapiVersion?: string,
-  config: ReadonlyArray<VersionGasLimit> = BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
+  config: ReadonlyArray<VersionGasLimit> = getBlockGasLimitByHapiVersion(),
 ): number => {
   const normalizedHapiVersion = hapiVersion?.split(/[-+]/)[0];
   if (!normalizedHapiVersion || !Utils.VERSION_REGEX.test(normalizedHapiVersion)) {

@@ -2,6 +2,8 @@
 
 import { isIP } from 'node:net';
 
+import { UNKNOWN_METHOD_LABELS_CEILING } from '../../metrics/methodMetricLabel';
+
 /**
  * Extracts the type string associated with a specific key in the `_CONFIG` object.
  * If the key `K` exists in `_CONFIG`, it retrieves the 'type' property; otherwise, it resolves to `never`.
@@ -119,6 +121,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 100,
+  },
+  BLOCK_GAS_LIMIT: {
+    type: 'number',
+    required: false,
+    defaultValue: 150_000_000,
   },
   CACHE_MAX: {
     type: 'number',
@@ -465,6 +472,14 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: null,
+  },
+  METRICS_UNKNOWN_METHOD_LABELS_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+    validation: (value: number) =>
+      (value >= 0 && value < UNKNOWN_METHOD_LABELS_CEILING) ||
+      `METRICS_UNKNOWN_METHOD_LABELS_MAX must be a non-negative number below ${UNKNOWN_METHOD_LABELS_CEILING}.`,
   },
   MIRROR_NODE_ACCOUNT_TXS_PG_MAX: {
     type: 'number',

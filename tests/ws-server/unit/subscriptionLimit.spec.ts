@@ -62,6 +62,9 @@ describe('Subscription limit enforcement', function () {
   beforeEach(() => {
     stubRelay = sinon.createStubInstance(Relay);
     stubRelay.rpcMethodRegistry = new Map();
+    stubRelay.methodMetricLabeler = sinon
+      .stub<[unknown], string>()
+      .callsFake((method) => (typeof method === 'string' ? method : 'unknown'));
     stubMirrorNodeClient = sinon.createStubInstance(MirrorNodeClient);
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
     stubWsMetricRegistry.getCounter.returns({

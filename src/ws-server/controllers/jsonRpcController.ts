@@ -108,9 +108,10 @@ export const getRequestResult = async (
   // support go-ethereum client by turning undefined into empty array
   if (!params) params = [];
 
-  // Increment metrics for the received method
-  wsMetricRegistry.getCounter('methodsCounter').labels(method).inc();
-  wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, method).inc();
+  // Increment metrics for the received method, mapping it through the labeler to a bounded set of label values
+  const methodLabel = relay.methodMetricLabeler(method);
+  wsMetricRegistry.getCounter('methodsCounter').labels(methodLabel).inc();
+  wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, methodLabel).inc();
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger)) {
