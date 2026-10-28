@@ -62,10 +62,9 @@ describe('mapPrestateResponse', function () {
   });
 
   it('defaults absent storage to an empty object', function () {
-    const trace = { ...accountTrace } as IPrestateAccountTrace & { storage?: Record<string, string> };
-    delete trace.storage;
+    const { storage: _storage, ...withoutStorage } = accountTrace;
 
-    const result = mapPrestateResponse({ pre: [trace as IPrestateAccountTrace] });
+    const result = mapPrestateResponse({ pre: [withoutStorage as IPrestateAccountTrace] });
 
     expect(result[accountAddress].storage).to.deep.equal({});
   });
