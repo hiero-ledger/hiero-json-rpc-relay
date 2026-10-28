@@ -4,6 +4,7 @@ import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
+import { createMethodMetricLabeler, UNKNOWN_METHOD_LABEL } from '../../../../src/metrics';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { Relay } from '../../../../src/relay/lib/relay';
@@ -67,6 +68,9 @@ describe('JSON Rpc Controller', function () {
     } as unknown as Counter);
     stubRelay = sinon.createStubInstance(Relay);
     stubRelay.rpcMethodRegistry = new Map([['eth_chainId', sinon.stub()]]);
+    stubRelay.methodMetricLabeler = sinon
+      .stub<[unknown], string>()
+      .callsFake((method) => (typeof method === 'string' ? method : 'unknown'));
     stubConnectionLimiter = sinon.createStubInstance(ConnectionLimiter);
     stubMirrorNodeClient = sinon.createStubInstance(MirrorNodeClient);
     stubSubscriptionService = sinon.createStubInstance(SubscriptionService);
@@ -223,6 +227,31 @@ describe('JSON Rpc Controller', function () {
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32603);
+    });
+
+    it('bounds the "method" counter label when unknown method names flood in', async function () {
+      // Drive the real labeler (not the passthrough stub) so this guards the WS wiring against regressions.
+      const cap = 2;
+      const realLabeler = createMethodMetricLabeler(['eth_chainId'], cap);
+      stubRelay.methodMetricLabeler = sinon.stub<[unknown], string>().callsFake(realLabeler);
+
+      const seenLabels: string[] = [];
+      stubWsMetricRegistry.getCounter.returns({
+        labels: (...labelValues: string[]) => {
+          seenLabels.push(labelValues[labelValues.length - 1]);
+          return { inc: sinon.stub() };
+        },
+      } as unknown as Counter);
+
+      for (let i = 0; i < cap + 5; i++) {
+        defaultRequestParams[3] = { id: `${i}`, method: `eth_invented${i}`, jsonrpc: '2.0' } as IJsonRpcRequest;
+        await getRequestResult(...defaultRequestParams);
+      }
+
+      // Distinct method labels stay within the cap; the overflow collapses to the "unknown" label.
+      const distinct = new Set(seenLabels);
+      expect(distinct.size).to.be.at.most(cap + 1);
+      expect(distinct.has(UNKNOWN_METHOD_LABEL)).to.be.true;
     });
   });
 });

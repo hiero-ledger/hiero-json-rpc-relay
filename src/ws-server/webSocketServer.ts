@@ -305,8 +305,10 @@ export async function initializeWsServer(
           const msgEndTime = process.hrtime(msgStartTime);
           const msgDurationInMiliSeconds = (msgEndTime[0] + msgEndTime[1] / 1e9) * 1000; // Convert duration to miliseconds
 
-          // Update the connection duration histogram with the calculated duration
-          const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
+          // Update the connection duration histogram, mapping the raw method through the labeler so the
+          // metric keeps a bounded set of label values
+          const rawMethodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
+          const methodLabel = relay.methodMetricLabeler(rawMethodLabel);
           wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
         });
       } catch (error) {

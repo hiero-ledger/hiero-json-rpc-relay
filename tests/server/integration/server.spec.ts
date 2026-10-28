@@ -200,6 +200,66 @@ describe('RPC Server', function () {
       expect(response.statusText).to.eq('OK');
     });
 
+    // Unknown method names must not each become their own Prometheus series: distinct unknowns are
+    // capped and the rest collapse to the "unknown" label (see createMethodMetricLabeler).
+    it('bounds the number of distinct "method" metric labels from invented method names', async function () {
+      const cap = ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX');
+      const batchMax = ConfigService.get('BATCH_REQUESTS_MAX_SIZE');
+      const prefix = `eth_mlc${Date.now().toString(36)}_`;
+      const oversizedMethod = 'eth_' + 'z'.repeat(70); // > 64 chars, must collapse to "unknown"
+
+      // Send more distinct invented names than the cap, plus one oversized name, in batch requests.
+      const requests = [
+        ...Array.from({ length: cap + 5 }, (_, i) => ({
+          jsonrpc: '2.0',
+          id: `${i}`,
+          method: `${prefix}${i}`,
+          params: [],
+        })),
+        { jsonrpc: '2.0', id: 'oversized', method: oversizedMethod, params: [] },
+      ];
+      for (let i = 0; i < requests.length; i += batchMax) {
+        await testClient.post('/', requests.slice(i, i + batchMax));
+      }
+
+      const metrics: string = (await testClient.get('/metrics')).data;
+      const resultSeries = metrics.split('\n').filter((line) => line.startsWith('rpc_relay_method_result_count{'));
+      const methodLabels = resultSeries.map((line) => /method="([^"]*)"/.exec(line)?.[1]);
+
+      const invented = new Set(methodLabels.filter((m) => m?.startsWith(prefix)));
+      expect(invented.size, 'distinct invented labels must not exceed the cap').to.be.at.most(cap);
+      expect(methodLabels, 'overflow names collapse to the "unknown" label').to.include('unknown');
+      expect(methodLabels, 'oversized names are never retained verbatim').to.not.include(oversizedMethod);
+    });
+
+    // The per-request path records its own histogram, so it must bound the "method" label the same way.
+    it('bounds the "method" labels on the single-request histogram from invented method names', async function () {
+      const cap = ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX');
+      const prefix = `eth_smlc${Date.now().toString(36)}_`;
+      const oversizedMethod = 'eth_' + 'z'.repeat(70); // > 64 chars, must collapse to "unknown"
+
+      const requests = [
+        ...Array.from({ length: cap + 5 }, (_, i) => ({
+          jsonrpc: '2.0',
+          id: `${i}`,
+          method: `${prefix}${i}`,
+          params: [],
+        })),
+        { jsonrpc: '2.0', id: 'oversized', method: oversizedMethod, params: [] },
+      ];
+      // Each invented method answers 400 (method not found); only that the request was recorded matters here.
+      await Promise.all(requests.map((request) => testClient.post('/', request, { validateStatus: () => true })));
+
+      const metrics: string = (await testClient.get('/metrics')).data;
+      const responseSeries = metrics.split('\n').filter((line) => line.startsWith('rpc_relay_method_response_count{'));
+      const methodLabels = responseSeries.map((line) => /method="([^"]*)"/.exec(line)?.[1]);
+
+      const invented = new Set(methodLabels.filter((m) => m?.startsWith(prefix)));
+      expect(invented.size, 'distinct invented labels must not exceed the cap').to.be.at.most(cap);
+      expect(methodLabels, 'overflow names collapse to the "unknown" label').to.include('unknown');
+      expect(methodLabels, 'oversized names are never retained verbatim').to.not.include(oversizedMethod);
+    });
+
     it('should execute successful health readiness check', async function () {
       const response = await testClient.get('/health/readiness');
 
