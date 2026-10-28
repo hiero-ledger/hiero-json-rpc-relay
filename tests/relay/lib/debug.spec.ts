@@ -1237,7 +1237,7 @@ describe('Debug API Test Suite', async function () {
             // Non-synthetic contract result present
             restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
 
-            const result = await debugService.prestateTracer(transactionHash, requestDetails);
+            const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
 
             expect(result).to.deep.equal({});
             expect(result).to.be.an('object');
@@ -1268,7 +1268,7 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
 
-            const result = await debugService.prestateTracer(syntheticTxHash, requestDetails);
+            const result = await debugService.prestateFromContractState(syntheticTxHash, requestDetails);
 
             expect(result).to.deep.equal({});
             expect(result).to.be.an('object');
@@ -1280,7 +1280,7 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
 
-            await expect(debugService.prestateTracer(syntheticTxHash, requestDetails)).to.be.rejectedWith(
+            await expect(debugService.prestateFromContractState(syntheticTxHash, requestDetails)).to.be.rejectedWith(
               'Failed to retrieve transaction information',
             );
           });
@@ -1855,7 +1855,7 @@ describe('Debug API Test Suite', async function () {
             .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
 
           sinon
-            .stub(debugService, 'prestateTracer')
+            .stub(debugService, 'prestateFromContractState')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1)
             .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any)
@@ -1941,7 +1941,7 @@ describe('Debug API Test Suite', async function () {
 
           // Mock prestateTracer for both EVM and synthetic transactions
           sinon
-            .stub(debugService, 'prestateTracer')
+            .stub(debugService, 'prestateFromContractState')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1)
             .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
@@ -2000,7 +2000,7 @@ describe('Debug API Test Suite', async function () {
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResultWrongNonce, syntheticContractResult]);
 
-          const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
+          const prestateTracerStub = sinon.stub(debugService, 'prestateFromContractState');
           prestateTracerStub
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1);
@@ -2372,7 +2372,7 @@ describe('Debug API Test Suite', async function () {
         it('should trace all transactions in a block using prestateTracer', async function () {
           sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
 
-          const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
+          const prestateTracerStub = sinon.stub(debugService, 'prestateFromContractState');
           prestateTracerStub.onFirstCall().resolves(prestateTracerResult1);
           prestateTracerStub.onSecondCall().resolves(prestateTracerResult2);
 
@@ -2447,7 +2447,7 @@ describe('Debug API Test Suite', async function () {
             .resolves([contractResult1, syntheticContractResult]);
 
           sinon
-            .stub(debugService, 'prestateTracer')
+            .stub(debugService, 'prestateFromContractState')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1)
             .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
@@ -2740,7 +2740,7 @@ describe('Debug API Test Suite', async function () {
     });
   });
 
-  describe('prestateTracer', async function () {
+  describe('prestateFromContractState', async function () {
     const mockTimestamp = '1696438011.462526383';
     const contractId = '0.0.1033';
     const accountId = '0.0.1016';
@@ -2869,7 +2869,7 @@ describe('Debug API Test Suite', async function () {
           .withArgs(contractId, sinon.match.any, sinon.match.any)
           .resolves(contractStateMock);
 
-        const result = await debugService.prestateTracer(transactionHash, requestDetails);
+        const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
         expect(result).to.deep.equal(expectedResult);
       });
 
@@ -2903,7 +2903,7 @@ describe('Debug API Test Suite', async function () {
           .resolves(contractStateMock);
 
         // First call should fetch from API
-        const firstResult = await debugService.prestateTracer(transactionHash, requestDetails);
+        const firstResult = await debugService.prestateFromContractState(transactionHash, requestDetails);
 
         // Verify the first result is correct
         expect(firstResult).to.deep.equal(expectedResult);
@@ -2919,7 +2919,7 @@ describe('Debug API Test Suite', async function () {
         getContractStateStub.resetHistory();
 
         // Second call should use cache
-        const secondResult = await debugService.prestateTracer(transactionHash, requestDetails);
+        const secondResult = await debugService.prestateFromContractState(transactionHash, requestDetails);
 
         // Results should be identical
         expect(secondResult).to.deep.equal(firstResult);
@@ -2946,7 +2946,9 @@ describe('Debug API Test Suite', async function () {
           .onGet(`contracts/results/logs?transaction.hash=${transactionHash}&limit=100&order=asc`)
           .reply(200, JSON.stringify({ logs: [] }));
 
-        await expect(await debugService.prestateTracer(transactionHash, requestDetails)).to.deep.equal({});
+        const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal({});
       });
 
       it('should return empty array when the transaction hash is not found', async function () {
@@ -2993,7 +2995,7 @@ describe('Debug API Test Suite', async function () {
 
         // The test should now properly throw the expected error
         await expect(
-          isolatedDebugService.prestateTracer(nonExistentTransactionHash, requestDetails),
+          isolatedDebugService.prestateFromContractState(nonExistentTransactionHash, requestDetails),
         ).to.be.rejectedWith('Failed to retrieve transaction information');
       });
 
@@ -3020,7 +3022,7 @@ describe('Debug API Test Suite', async function () {
           .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
           .resolves(contractBalanceMock);
 
-        const result = await debugService.prestateTracer(transactionHash, requestDetails);
+        const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
 
         expect(Object.keys(result)).to.have.lengthOf(1);
         expect(result).to.have.property(accountEvmAddress);
@@ -3059,7 +3061,7 @@ describe('Debug API Test Suite', async function () {
           .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
           .resolves(contractBalanceMock);
 
-        const result = await debugService.prestateTracer(transactionHash, requestDetails);
+        const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
 
         expect(Object.keys(result)).to.have.lengthOf(1);
         expect(result).to.have.property(accountEvmAddress);
@@ -3070,6 +3072,154 @@ describe('Debug API Test Suite', async function () {
           code: '0x',
           storage: {},
         });
+      });
+    });
+  });
+
+  describe('prestate endpoint and fallback', async function () {
+    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true`;
+    const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
+    const slot = '0x0000000000000000000000000000000000000000000000000000000000000001';
+    const value = '0x0000000000000000000000000000000000000000000000000000000000000024';
+
+    const prestateResponse = {
+      pre: [
+        {
+          address: contractEvmAddress,
+          balance: '0xe8d4a51000',
+          code: '0x6080604052',
+          nonce: 3,
+          storage: { [slot]: value },
+        },
+      ],
+    };
+
+    const mappedPrestate = {
+      [contractEvmAddress]: {
+        balance: '0xe8d4a51000',
+        nonce: 3,
+        code: '0x6080604052',
+        storage: { [slot]: value },
+      },
+    };
+
+    beforeEach(() => {
+      sinon.restore();
+      web3Mock.reset();
+      restMock.reset();
+    });
+
+    describe('prestateFromEndpoint', async function () {
+      it('should map and return the touched state', async function () {
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
+
+        const result = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal(mappedPrestate);
+      });
+
+      it('should serve a repeated trace from the cache', async function () {
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
+
+        await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+        await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+        expect(web3Mock.history.get.filter((call) => call.url === prestatePath)).to.have.lengthOf(1);
+      });
+
+      it('should return null when the transaction has no prestate', async function () {
+        web3Mock.onGet(prestatePath).reply(404, JSON.stringify({ _status: { messages: [{ message: 'Not found' }] } }));
+
+        const result = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+        expect(result).to.be.null;
+      });
+
+      // A disabled endpoint stays disabled until someone changes the mirror node config, so it is remembered.
+      it('should stop requesting the endpoint after a 501', async function () {
+        web3Mock.onGet(prestatePath).reply(501, JSON.stringify({ _status: { messages: [{ message: 'Disabled' }] } }));
+
+        const first = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+        const second = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+        expect(first).to.be.null;
+        expect(second).to.be.null;
+        expect(web3Mock.history.get.filter((call) => call.url === prestatePath)).to.have.lengthOf(1);
+      });
+
+      // Anything else is transient - remembering it would hold the relay on the fallback after a recovery.
+      [429, 503].forEach((statusCode) => {
+        it(`should keep requesting the endpoint after a ${statusCode}`, async function () {
+          web3Mock
+            .onGet(prestatePath)
+            .reply(statusCode, JSON.stringify({ _status: { messages: [{ message: 'Transient' }] } }));
+
+          const first = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+          const second = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+          expect(first).to.be.null;
+          expect(second).to.be.null;
+          expect(web3Mock.history.get.filter((call) => call.url === prestatePath)).to.have.lengthOf(2);
+        });
+      });
+    });
+
+    describe('prestateTracer', async function () {
+      it('should return the endpoint result without touching the fallback', async function () {
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
+        const fallbackStub = sinon.stub(debugService, 'prestateFromContractState');
+
+        const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal(mappedPrestate);
+        expect(fallbackStub.called).to.be.false;
+      });
+
+      it('should return an empty endpoint result rather than falling back', async function () {
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify({ pre: [] }));
+        const fallbackStub = sinon.stub(debugService, 'prestateFromContractState');
+
+        const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal({});
+        expect(fallbackStub.called).to.be.false;
+      });
+
+      [501, 404].forEach((statusCode) => {
+        it(`should fall back to the contract state on a ${statusCode}`, async function () {
+          web3Mock.onGet(prestatePath).reply(statusCode, JSON.stringify({ _status: { messages: [] } }));
+          const fallbackStub = sinon.stub(debugService, 'prestateFromContractState').resolves(mappedPrestate);
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+          expect(result).to.deep.equal(mappedPrestate);
+          expect(fallbackStub.calledOnceWithExactly(transactionHash, requestDetails)).to.be.true;
+        });
+      });
+
+      // The two sources return different storage, so neither may read what the other cached.
+      it('should ignore a cached fallback result when reading the endpoint', async function () {
+        const fallbackResult = { [contractEvmAddress]: { balance: '0x1', nonce: 1, code: '0x', storage: {} } };
+        await cacheService.set(`${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}`, fallbackResult, 'test');
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
+
+        const result = await debugService.prestateFromEndpoint(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal(mappedPrestate);
+      });
+
+      it('should ignore a cached endpoint result when reading the fallback', async function () {
+        await cacheService.set(
+          `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}`,
+          mappedPrestate,
+          'test',
+        );
+        sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
+
+        const result = await debugService.prestateFromContractState(transactionHash, requestDetails);
+
+        expect(result).to.deep.equal({});
       });
     });
   });
