@@ -308,8 +308,7 @@ export class DebugImpl implements Debug {
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const onlyTopCall = (tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
-        return await this.prestateTracer(transactionIdOrHash, onlyTopCall, requestDetails);
+        return await this.prestateTracer(transactionIdOrHash, requestDetails);
       }
 
       if (!ConfigService.get('OPCODELOGGER_ENABLED')) {
@@ -776,7 +775,6 @@ export class DebugImpl implements Debug {
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
-   * @param {boolean} onlyTopCall - When true, only includes accounts involved in top-level calls.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
    * @param {ContractAction[]} preFetchedActionsResponse - Optional pre-fetched actions data.
    * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
@@ -785,13 +783,12 @@ export class DebugImpl implements Debug {
    */
   async prestateTracer(
     transactionHash: string,
-    onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
     preFetchedActionsResponse?: ContractAction[],
     preFetchedContractResult?: MirrorNodeContractResult,
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
-    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}`;
 
     const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(cacheKey, this.prestateTracer.name);
     if (cachedResult) {
@@ -824,12 +821,9 @@ export class DebugImpl implements Debug {
       )) as EntityTraceStateMap;
     }
 
-    // Filter by call_depth if onlyTopCall is true
-    const filteredActions = onlyTopCall ? actionsResponse.filter((action) => action.call_depth === 0) : actionsResponse;
-
     // Extract unique addresses involved in the transaction with their metadata
     const addressMap = new Map();
-    filteredActions.forEach((action) => {
+    actionsResponse.forEach((action) => {
       if (action.from) {
         addressMap.set(action.from, {
           address: action.from,
@@ -1184,7 +1178,6 @@ export class DebugImpl implements Debug {
             txHash,
             result: await this.prestateTracer(
               txHash,
-              onlyTopCall,
               requestDetails,
               preFetchedData.txHashMap[txHash]?.actions,
               preFetchedData.txHashMap[txHash]?.contractResult,

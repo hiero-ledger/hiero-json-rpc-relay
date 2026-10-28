@@ -1202,28 +1202,15 @@ describe('Debug API Test Suite', async function () {
           }
         });
 
-        it('should trace transaction with prestateTracer and onlyTopCall=true', async function () {
+        // Geth's prestate tracer has no onlyTopCall option, so the field is accepted and ignored.
+        it('should accept onlyTopCall for prestateTracer without forwarding it', async function () {
           const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: true } };
           const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
 
           expect(result).to.deep.equal(mockPrestateResult);
 
-          // Verify that prestateTracer was called with onlyTopCall=true
           const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
-          expect(prestateTracerStub.calledOnce).to.be.true;
-          expect(prestateTracerStub.calledWith(transactionHash, true, requestDetails)).to.be.true;
-        });
-
-        it('should trace transaction with prestateTracer and onlyTopCall=false (default)', async function () {
-          const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: false } };
-          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
-
-          expect(result).to.deep.equal(mockPrestateResult);
-
-          // Verify that prestateTracer was called with onlyTopCall=false
-          const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
-          expect(prestateTracerStub.calledOnce).to.be.true;
-          expect(prestateTracerStub.calledWith(transactionHash, false, requestDetails)).to.be.true;
+          expect(prestateTracerStub.calledOnceWithExactly(transactionHash, requestDetails)).to.be.true;
         });
 
         it('should handle empty prestate result', async function () {
@@ -1250,7 +1237,7 @@ describe('Debug API Test Suite', async function () {
             // Non-synthetic contract result present
             restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
 
-            const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+            const result = await debugService.prestateTracer(transactionHash, requestDetails);
 
             expect(result).to.deep.equal({});
             expect(result).to.be.an('object');
@@ -1281,7 +1268,7 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
 
-            const result = await debugService.prestateTracer(syntheticTxHash, false, requestDetails);
+            const result = await debugService.prestateTracer(syntheticTxHash, requestDetails);
 
             expect(result).to.deep.equal({});
             expect(result).to.be.an('object');
@@ -1293,7 +1280,7 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
 
-            await expect(debugService.prestateTracer(syntheticTxHash, false, requestDetails)).to.be.rejectedWith(
+            await expect(debugService.prestateTracer(syntheticTxHash, requestDetails)).to.be.rejectedWith(
               'Failed to retrieve transaction information',
             );
           });
@@ -1869,16 +1856,16 @@ describe('Debug API Test Suite', async function () {
 
           sinon
             .stub(debugService, 'prestateTracer')
-            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1)
-            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult2)
-            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves({});
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -1962,7 +1949,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -2015,20 +2002,18 @@ describe('Debug API Test Suite', async function () {
 
           const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
           prestateTracerStub
-            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1);
           prestateTracerStub
-            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves({});
-          prestateTracerStub
-            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
-            .resolves({});
+          prestateTracerStub.withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any).resolves({});
 
           const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -2084,7 +2069,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -2393,7 +2378,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceBlockByHash(
             blockHash,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -2470,7 +2455,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceBlockByHash(
             blockHash,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            { tracer: TracerType.PrestateTracer },
             requestDetails,
           );
 
@@ -2884,50 +2869,8 @@ describe('Debug API Test Suite', async function () {
           .withArgs(contractId, sinon.match.any, sinon.match.any)
           .resolves(contractStateMock);
 
-        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        const result = await debugService.prestateTracer(transactionHash, requestDetails);
         expect(result).to.deep.equal(expectedResult);
-      });
-
-      it('should filter actions based on onlyTopCall=true parameter', async function () {
-        // Set up stubs
-        sinon
-          .stub(mirrorNodeInstance, 'getContractsResultsActions')
-          .withArgs(transactionHash, sinon.match.any)
-          .resolves(actionsResponseMock);
-
-        // Mock contract result (returns SUCCESS so not a pre-execution failure)
-        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
-
-        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
-          if (address === contractAddress) {
-            return contractEntityMock;
-          } else if (address === accountAddress) {
-            return accountEntityMock;
-          }
-          return null;
-        });
-
-        sinon
-          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
-          .withArgs(contractId, sinon.match.any, sinon.match.any)
-          .resolves(contractBalanceMock);
-
-        sinon
-          .stub(mirrorNodeInstance, 'getContractState')
-          .withArgs(contractId, sinon.match.any, sinon.match.any)
-          .resolves(contractStateMock);
-
-        // With onlyTopCall=true, it should only include top-level actions (call_depth=0)
-        const result = await debugService.prestateTracer(transactionHash, true, requestDetails);
-
-        expect(Object.keys(result).length).to.be.at.least(1);
-        expect(result).to.have.property(accountEvmAddress);
-        expect(result[accountEvmAddress]).to.deep.equal({
-          balance: '0x100000000',
-          nonce: 2,
-          code: '0x',
-          storage: {},
-        });
       });
 
       it('should return cached results when available', async function () {
@@ -2960,7 +2903,7 @@ describe('Debug API Test Suite', async function () {
           .resolves(contractStateMock);
 
         // First call should fetch from API
-        const firstResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        const firstResult = await debugService.prestateTracer(transactionHash, requestDetails);
 
         // Verify the first result is correct
         expect(firstResult).to.deep.equal(expectedResult);
@@ -2976,7 +2919,7 @@ describe('Debug API Test Suite', async function () {
         getContractStateStub.resetHistory();
 
         // Second call should use cache
-        const secondResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        const secondResult = await debugService.prestateTracer(transactionHash, requestDetails);
 
         // Results should be identical
         expect(secondResult).to.deep.equal(firstResult);
@@ -3003,7 +2946,7 @@ describe('Debug API Test Suite', async function () {
           .onGet(`contracts/results/logs?transaction.hash=${transactionHash}&limit=100&order=asc`)
           .reply(200, JSON.stringify({ logs: [] }));
 
-        await expect(await debugService.prestateTracer(transactionHash, false, requestDetails)).to.deep.equal({});
+        await expect(await debugService.prestateTracer(transactionHash, requestDetails)).to.deep.equal({});
       });
 
       it('should return empty array when the transaction hash is not found', async function () {
@@ -3050,7 +2993,7 @@ describe('Debug API Test Suite', async function () {
 
         // The test should now properly throw the expected error
         await expect(
-          isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails),
+          isolatedDebugService.prestateTracer(nonExistentTransactionHash, requestDetails),
         ).to.be.rejectedWith('Failed to retrieve transaction information');
       });
 
@@ -3077,7 +3020,7 @@ describe('Debug API Test Suite', async function () {
           .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
           .resolves(contractBalanceMock);
 
-        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        const result = await debugService.prestateTracer(transactionHash, requestDetails);
 
         expect(Object.keys(result)).to.have.lengthOf(1);
         expect(result).to.have.property(accountEvmAddress);
@@ -3116,7 +3059,7 @@ describe('Debug API Test Suite', async function () {
           .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
           .resolves(contractBalanceMock);
 
-        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        const result = await debugService.prestateTracer(transactionHash, requestDetails);
 
         expect(Object.keys(result)).to.have.lengthOf(1);
         expect(result).to.have.property(accountEvmAddress);
