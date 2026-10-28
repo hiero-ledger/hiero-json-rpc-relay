@@ -2,9 +2,11 @@
 
 export interface IPrestateAccountTrace {
   address: string;
+  // Hex quantity in weibars, not tinybars.
   balance: string;
-  code: string;
-  nonce: number;
+  // Null for accounts and for contracts with no runtime bytecode.
+  code: string | null;
+  nonce: number | null;
   storage: Record<string, string>;
 }
 
