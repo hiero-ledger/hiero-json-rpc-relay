@@ -6,7 +6,7 @@ import { ConfigService } from '../../../src/config-service/services';
 import { type GitHubContext } from '../types/GitHubContext';
 
 interface PullRequestComments {
-  data: Array<{ id: number; body?: string | null }>;
+  data: Array<{ id: number | bigint; body?: string | null }>;
 }
 
 /**
@@ -67,10 +67,10 @@ export class GitHubClient {
   /**
    * Updates a comment on a pull request.
    * @param {string} commentBody - The body of the comment.
-   * @param {number} commentId - The ID of the comment to update.
+   * @param {number | bigint} commentId - The ID of the comment to update.
    * @returns {Promise<void>} A promise that resolves when the comment is successfully updated.
    */
-  async updateCommentOnPullRequest(commentBody: string, commentId: number): Promise<void> {
+  async updateCommentOnPullRequest(commentBody: string, commentId: number | bigint): Promise<void> {
     try {
       const context = GitHubClient.getContext();
       await this.octokit.request(GitHubClient.UPDATE_COMMENT_ENDPOINT, {
