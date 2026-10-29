@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The acceptance, conformity, and tool-integration test suites run against a local Hedera network deployed with [Solo](https://github.com/hiero-ledger/solo). That network has three moving parts, each pinned to a specific version:
+The acceptance and conformity test suites run against a local Hedera network deployed with [Solo](https://github.com/hiero-ledger/solo). That network has three moving parts, each pinned to a specific version:
 
 - **Solo** — the CLI that deploys the local network
 - **Consensus node** — the [hiero-consensus-node](https://github.com/hiero-ledger/hiero-consensus-node) release
@@ -38,24 +38,15 @@ Every workflow that deploys the local network loads the file into the job's envi
   run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
 ```
 
-This strips comment and blank lines and appends the `KEY=value` lines to `$GITHUB_ENV`, making `env.SOLO_VERSION`, `env.NETWORK_TAG`, and `env.MIRROR_NODE_TAG` available to later steps. The deploy steps then reference those variables in two shapes:
-
-- **Reusable workflows** (`workflow_call` / `workflow_dispatch` with inputs) keep a caller override:
-  `"${{ inputs.networkTag || env.NETWORK_TAG }}"` — a caller may pass an explicit version (for example `manual-testing.yml`), otherwise the pinned value is used.
-- **Standalone workflows** reference the pinned value directly:
-  `"${{ env.NETWORK_TAG }}"`.
+This strips comment and blank lines and appends the `KEY=value` lines to `$GITHUB_ENV`, making `env.SOLO_VERSION`, `env.NETWORK_TAG`, and `env.MIRROR_NODE_TAG` available to later steps. The deploy steps then reference those variables while keeping a caller override (all of these are reusable workflows, `workflow_call` / `workflow_dispatch` with inputs):
+`"${{ inputs.networkTag || env.NETWORK_TAG }}"` — a caller may pass an explicit version (for example `manual-testing.yml`), otherwise the pinned value is used.
 
 The workflows that deploy the network and load this file:
 
-| Workflow                  | Shape                                                |
-| ------------------------- | ---------------------------------------------------- |
-| `acceptance-workflow.yml` | reusable                                             |
-| `conformity-workflow.yml` | reusable                                             |
-| `hoppscotch.yml`          | reusable                                             |
-| `dev-tool-workflow.yml`   | reusable                                             |
-| `release-acceptance.yml`  | reusable                                             |
-| `subgraph.yml`            | standalone (`working-directory: .` on the load step) |
-| `dapp.yml`                | standalone                                           |
+- `acceptance-workflow.yml`
+- `conformity-workflow.yml`
+- `hoppscotch.yml`
+- `release-acceptance.yml`
 
 ## The weekly bump workflow
 

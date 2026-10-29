@@ -14,9 +14,7 @@
 ###############################
 ##### Tools and Examples ######
 ###############################
-/dapp-example/                                  @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
 /k6/                                            @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
-/tools/                                         @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
 
 ########################
 #####  Core Files  ######

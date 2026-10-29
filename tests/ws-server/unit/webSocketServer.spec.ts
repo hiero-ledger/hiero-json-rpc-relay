@@ -46,6 +46,7 @@ type WsApp = Koa & {
 interface MockRelay {
   eth: sinon.SinonStub;
   mirrorClient: sinon.SinonStub;
+  methodMetricLabeler: (method: unknown) => string;
 }
 
 function wsUrl(server: http.Server): string {
@@ -66,6 +67,7 @@ describe('webSocketServer http endpoints', () => {
     mockRelay = {
       eth: sinon.stub().returns({ chainId: () => '0x12a' }),
       mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
     };
     sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
 
@@ -147,6 +149,7 @@ describe('webSocketServer websocket handling', () => {
     const mockRelay = {
       eth: sinon.stub().returns({ chainId: () => '0x12a' }),
       mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
     };
     sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
     const { app } = await webSocketServer.initializeWsServer();
@@ -518,7 +521,11 @@ describe('webSocketServer websocket handling', () => {
       .stub(ConfigService, 'get')
       .callsFake((key) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as string)));
 
-    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const mockRelayInstance = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
+    };
     const { app: testApp } = await webSocketServer.initializeWsServer(
       mockRelayInstance as unknown as Relay,
       new Registry(),
@@ -541,7 +548,11 @@ describe('webSocketServer websocket handling', () => {
       .stub(ConfigService, 'get')
       .callsFake((key) => (key === 'WS_INPUT_SIZE_LIMIT' ? -1 : (process.env[key] as string)));
 
-    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const mockRelayInstance = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
+    };
     const { app: testApp } = await webSocketServer.initializeWsServer(
       mockRelayInstance as unknown as Relay,
       new Registry(),
@@ -573,7 +584,11 @@ describe('webSocketServer websocket handling', () => {
       return originalGet(key);
     });
 
-    const mockRelayInstance = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const mockRelayInstance = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
+    };
     const { app: testApp } = await webSocketServer.initializeWsServer(
       mockRelayInstance as unknown as Relay,
       new Registry(),
@@ -624,7 +639,11 @@ describe('webSocketServer origin allowlist', () => {
   }
 
   beforeEach(async function () {
-    const mockRelay = { eth: sinon.stub().returns({ chainId: () => '0x12a' }), mirrorClient: sinon.stub() };
+    const mockRelay = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+      methodMetricLabeler: (method: unknown): string => (typeof method === 'string' ? method : 'unknown'),
+    };
     sinon.stub(Relay, 'init').resolves(mockRelay as unknown as Relay);
     const { app } = await webSocketServer.initializeWsServer();
 
