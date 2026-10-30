@@ -3,7 +3,7 @@
 # ── Build ─────────────────────────────────────────────────────────────────────
 # Use bookworm-slim (glibc) for the build stage to avoid QEMU/musl crashes
 # when cross-compiling for linux/arm64 on amd64 CI runners.
-FROM node:24-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS build
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS build
 
 WORKDIR /home/node/app
 
@@ -35,7 +35,7 @@ RUN node scripts/build-standalone.js
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 # Base image: node:24-alpine for a secure, minimal footprint and fast downloads.
-FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runtime
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4 AS runtime
 
 # Standard security headers and runtime-only variables.
 ENV NODE_ENV=production
