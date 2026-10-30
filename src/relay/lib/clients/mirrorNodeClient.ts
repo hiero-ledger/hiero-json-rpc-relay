@@ -61,6 +61,7 @@ import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
+import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
 /**
@@ -144,11 +145,18 @@ export class MirrorNodeClient {
   private static readonly GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID = `transactions/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}`;
   private static readonly GET_CONTRACTS_RESULTS_ACTIONS = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/actions`;
   private static readonly GET_CONTRACTS_RESULTS_OPCODES = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/opcodes`;
+  private static readonly GET_CONTRACTS_RESULTS_PRESTATE = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/prestate`;
   private static readonly GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT = `contracts/${MirrorNodeClient.ADDRESS_PLACEHOLDER}/results/logs`;
   private static readonly GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT = `contracts/${MirrorNodeClient.CONTRACT_ID_PLACEHOLDER}/results/${MirrorNodeClient.TIMESTAMP_PLACEHOLDER}`;
   private static readonly GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT = `contracts/${MirrorNodeClient.ADDRESS_PLACEHOLDER}/results/${MirrorNodeClient.TIMESTAMP_PLACEHOLDER}`;
   private readonly MIRROR_NODE_RETRY_DELAY = ConfigService.get('MIRROR_NODE_RETRY_DELAY');
   private readonly MIRROR_NODE_REQUEST_RETRY_COUNT = ConfigService.get('MIRROR_NODE_REQUEST_RETRY_COUNT');
+
+  // GET endpoints served by the mirror node web3 module rather than the REST one, despite their REST-looking paths.
+  private static readonly WEB3_GET_PATH_LABELS: ReadonlySet<string> = new Set([
+    MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES,
+    MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE,
+  ]);
 
   static acceptedErrorStatusesResponsePerRequestPathMap: Map<string, Array<number>> = new Map([
     [MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT, [404]],
@@ -165,6 +173,7 @@ export class MirrorNodeClient {
     [MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT, [404]],
     [MirrorNodeClient.GET_CONTRACTS_RESULTS_ACTIONS, [404]],
     [MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES, [404]],
+    [MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE, [404]],
     [MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT, [404]],
     [MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TOKENS_ENDPOINT, [404]],
@@ -508,7 +517,7 @@ export class MirrorNodeClient {
 
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
-        if (pathLabel === MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
+        if (MirrorNodeClient.WEB3_GET_PATH_LABELS.has(pathLabel)) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
@@ -1300,6 +1309,30 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Retrieves the state a transaction touched, as recorded by the mirror node.
+   *
+   * Unlike `/contracts/{id}/state`, the returned storage holds only the slots the transaction read or wrote.
+   * Available from mirror node v0.165.0 and gated behind `hiero.mirror.web3.api.prestate.enabled`, so a 501
+   * is expected wherever the flag is off.
+   *
+   * @param transactionIdOrHash - The transaction to trace.
+   * @param requestDetails - Details for request tracking and logging.
+   * @returns The prestate response, or null when the transaction has none.
+   */
+  public async getContractResultPrestate(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<IPrestateResponse | null> {
+    const queryParams = this.getQueryParams({ code: true, storage: true });
+
+    return this.get<IPrestateResponse>(
+      `${this.getContractResultsPrestateByTransactionIdPath(transactionIdOrHash)}${queryParams}`,
+      MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE,
+      requestDetails,
+    );
+  }
+
   public async getContractResultsByAddress(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
@@ -1666,6 +1699,13 @@ export class MirrorNodeClient {
 
   private getContractResultsOpcodesByTransactionIdPath(transactionIdOrHash: string): string {
     return MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES.replace(
+      MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
+      transactionIdOrHash,
+    );
+  }
+
+  private getContractResultsPrestateByTransactionIdPath(transactionIdOrHash: string): string {
+    return MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE.replace(
       MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
       transactionIdOrHash,
     );

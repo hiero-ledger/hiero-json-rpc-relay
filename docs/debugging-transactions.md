@@ -14,6 +14,7 @@
     - [Examples of Using `debug_traceTransaction`](#examples-of-using-debug_traceTransaction)
         - [With `callTracer`](#1-with-callTracer)
         - [With `opcodeLogger`](#2-with-opcodeLogger)
+        - [With `prestateTracer`](#3-with-prestateTracer)
 5. [Transaction Status Tracing](#4-transaction-status-tracing)
     - [Enabling Tracing](#enabling-tracing)
     - [Receipt Fallback](#receipt-fallback)
@@ -550,6 +551,80 @@ It contains the following fields:
   }
 }
 ```
+
+#### 3. With `prestateTracer`:
+
+The `prestateTracer` tracer type reports the state the transaction read, as it was **before** the transaction ran. It is
+what you load into an empty EVM to replay the transaction, since a transaction only ever depends on the accounts and
+storage slots it touched.
+
+##### Example Code:
+
+```javascript
+const Web3 = require('web3');
+const web3 = new Web3('http://localhost:7546'); // Connect to your local node
+
+// Function to trace a transaction using debug_traceTransaction with prestateTracer
+async function traceTransaction(txHash) {
+  return web3.currentProvider.send({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'debug_traceTransaction',
+    params: [
+      txHash,
+      {
+        tracer: 'prestateTracer'
+      }
+    ]
+  });
+}
+
+// Example usage
+const txHash = '0x8fc90a6c3ee3001cdcbbb685b4fbe67b1fa2bec575b15b0395fea5540d0901ae';
+traceTransaction(txHash).then(result => console.log(result));
+```
+
+##### Response Schema:
+
+The response is an object keyed by the EVM address of every account the transaction touched. Each entry contains:
+
+- `balance`: **string** - hex-encoded balance in weibars.
+- `nonce`: **number** - the account nonce.
+- `code`: **string** - the runtime bytecode, or `0x` for an account that has none.
+- `storage`: **object** - the storage slots the transaction read or wrote, as 32-byte hex keys and values.
+
+##### Example Response:
+
+```json
+{
+  "0x637a6a8e5a69c087c24983b05261f63f64ed7e9b": {
+    "balance": "0xe8d4a51000",
+    "nonce": 3,
+    "code": "0x6080604052",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000024"
+    }
+  },
+  "0xc37f417fa09933335240fca72dd257bfbde9c275": {
+    "balance": "0x100000000",
+    "nonce": 2,
+    "code": "0x",
+    "storage": {}
+  }
+}
+```
+
+##### Hedera specifics
+
+- **Touched slots require mirror node v0.165.0 with `hiero.mirror.web3.api.prestate.enabled`.** Without it the relay
+  falls back to reporting the contract's full storage at the transaction's timestamp, which is correct state but not a
+  statement about what the transaction accessed.
+- **A slot whose value was zero before the transaction is omitted**, including the first write to a slot. Absence from
+  `storage` therefore does not distinguish "untouched" from "was zero".
+- **`debug_traceBlockByNumber` and `debug_traceBlockByHash` always report full storage**, even where the single
+  transaction endpoint reports touched slots.
+- **`onlyTopCall` is accepted and ignored**, as in geth, whose prestate tracer has no such option.
+- **`diffMode`, `disableCode`, `disableStorage` and `includeEmpty` are not supported** and are rejected.
 
 ## 4. Transaction Status Tracing
 

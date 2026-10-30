@@ -26,6 +26,7 @@ import type { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { BlockFactory } from './factories/blockFactory';
 import type { Block, Log } from './model';
 import {
@@ -59,6 +60,7 @@ import type {
   MirrorNodeContractResult,
   MirrorNodeContractResultDetails,
 } from './types/mirrorNode';
+import { mapPrestateResponse } from './utils/prestate';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -308,8 +310,7 @@ export class DebugImpl implements Debug {
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const onlyTopCall = (tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
-        return await this.prestateTracer(transactionIdOrHash, onlyTopCall, requestDetails);
+        return await this.prestateTracer(transactionIdOrHash, requestDetails);
       }
 
       if (!ConfigService.get('OPCODELOGGER_ENABLED')) {
@@ -770,30 +771,34 @@ export class DebugImpl implements Debug {
   }
 
   /**
-   * Retrieves the pre-state information for contracts and accounts involved in a transaction.
-   * This tracer collects the state (balance, nonce, code, and storage) of all accounts and
-   * contracts just before the transaction execution.
+   * Rebuilds the pre-state of a transaction out of the actions and the contract state endpoints.
+   *
+   * The storage it returns is the contract's FULL storage at the transaction's timestamp, not only the
+   * slots the transaction touched. It stays as the fallback for as long as the mirror node
+   * prestate endpoint is disabled, and serves the block tracers, which cannot afford one throttled
+   * endpoint call per transaction.
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
-   * @param {boolean} onlyTopCall - When true, only includes accounts involved in top-level calls.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
    * @param {ContractAction[]} preFetchedActionsResponse - Optional pre-fetched actions data.
    * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
    *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
    * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
    */
-  async prestateTracer(
+  async prestateFromContractState(
     transactionHash: string,
-    onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
     preFetchedActionsResponse?: ContractAction[],
     preFetchedContractResult?: MirrorNodeContractResult,
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
-    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}`;
 
-    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(cacheKey, this.prestateTracer.name);
+    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(
+      cacheKey,
+      this.prestateFromContractState.name,
+    );
     if (cachedResult) {
       return cachedResult;
     }
@@ -824,12 +829,9 @@ export class DebugImpl implements Debug {
       )) as EntityTraceStateMap;
     }
 
-    // Filter by call_depth if onlyTopCall is true
-    const filteredActions = onlyTopCall ? actionsResponse.filter((action) => action.call_depth === 0) : actionsResponse;
-
     // Extract unique addresses involved in the transaction with their metadata
     const addressMap = new Map();
-    filteredActions.forEach((action) => {
+    actionsResponse.forEach((action) => {
       if (action.from) {
         addressMap.set(action.from, {
           address: action.from,
@@ -916,8 +918,117 @@ export class DebugImpl implements Debug {
     );
 
     // Cache the result before returning
-    await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
+    await this.cacheService.set(cacheKey, result, this.prestateFromContractState.name);
     return result;
+  }
+
+  /**
+   * Reads the pre-state of a transaction from the mirror node prestate endpoint.
+   *
+   * Unlike {@link prestateFromContractState}, the storage it returns holds only the slots the
+   * transaction touched. The endpoint is gated behind `hiero.mirror.web3.api.prestate.enabled` and
+   * answers 501 wherever that flag is off, so this returns null whenever it cannot produce an answer
+   * and leaves the caller to fall back.
+   *
+   * @async
+   * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @returns {Promise<EntityTraceStateMap | null>} The touched state, or null when the endpoint gave no answer.
+   */
+  async prestateFromEndpoint(
+    transactionHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<EntityTraceStateMap | null> {
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}`;
+
+    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(
+      cacheKey,
+      this.prestateFromEndpoint.name,
+    );
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    const unsupported = await this.cacheService.getAsync<boolean>(
+      constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED,
+      this.prestateFromEndpoint.name,
+    );
+
+    if (unsupported) {
+      return null;
+    }
+
+    try {
+      const response = await this.mirrorNodeClient.getContractResultPrestate(transactionHash, requestDetails);
+
+      if (!response) {
+        return null;
+      }
+
+      const result = mapPrestateResponse(response);
+      await this.cacheService.set(cacheKey, result, this.prestateFromEndpoint.name);
+
+      return result;
+    } catch (error) {
+      await this.handlePrestateEndpointError(error, transactionHash);
+
+      return null;
+    }
+  }
+
+  /**
+   * Remembers a disabled prestate endpoint so every later trace skips straight to the fallback.
+   *
+   * Only a 501 is remembered. Everything else - a throttle, a query timeout, a restarting pod - is
+   * transient, and remembering it would hold the relay on the fallback long after the mirror node recovered.
+   *
+   * @private
+   * @param error - The error raised by the prestate endpoint.
+   * @param transactionHash - The hash being traced, for logging.
+   */
+  private async handlePrestateEndpointError(error: unknown, transactionHash: string): Promise<void> {
+    if (error instanceof MirrorNodeClientError && error.isNotSupported()) {
+      this.logger.info(
+        `Prestate endpoint is disabled on the mirror node, falling back to the contract state for the next %s ms`,
+        constants.CACHE_TTL.FIFTEEN_MINUTES,
+      );
+
+      await this.cacheService.set(
+        constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED,
+        true,
+        this.prestateFromEndpoint.name,
+        constants.CACHE_TTL.FIFTEEN_MINUTES,
+      );
+
+      return;
+    }
+
+    this.logger.warn(
+      `Prestate endpoint failed for transaction %s, falling back to the contract state: %s`,
+      transactionHash,
+      error,
+    );
+  }
+
+  /**
+   * Retrieves the pre-state information for contracts and accounts involved in a transaction.
+   * This tracer collects the state (balance, nonce, code, and storage) of all accounts and
+   * contracts just before the transaction execution.
+   *
+   * @async
+   * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @returns {Promise<EntityTraceStateMap>} The state the transaction touched, keyed by EVM address.
+   */
+  async prestateTracer(transactionHash: string, requestDetails: RequestDetails): Promise<EntityTraceStateMap> {
+    const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails);
+
+    if (fromEndpoint) {
+      return fromEndpoint;
+    }
+
+    return this.prestateFromContractState(transactionHash, requestDetails);
   }
 
   /**
@@ -1182,9 +1293,8 @@ export class DebugImpl implements Debug {
         return await Promise.all(
           transactionHashes.map(async (txHash) => ({
             txHash,
-            result: await this.prestateTracer(
+            result: await this.prestateFromContractState(
               txHash,
-              onlyTopCall,
               requestDetails,
               preFetchedData.txHashMap[txHash]?.actions,
               preFetchedData.txHashMap[txHash]?.contractResult,
