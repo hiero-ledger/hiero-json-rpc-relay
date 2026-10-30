@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import { Signature } from 'ethers/crypto';
 
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
@@ -149,8 +150,8 @@ describe('TransactionFactory', () => {
       expect(tx).to.have.property('maxFeePerGas').that.equals(constants.ZERO_HEX);
       expect(tx.nonce).to.equal(numberTo0x(0));
 
-      expect(tx.r).to.equal(constants.EMPTY_HEX);
-      expect(tx.s).to.equal(constants.EMPTY_HEX);
+      expect(tx.r).to.equal(constants.ZERO_HEX);
+      expect(tx.s).to.equal(constants.ZERO_HEX);
       expect(tx.v).to.equal(constants.ZERO_HEX);
       expect(tx.value).to.equal(constants.ZERO_HEX);
     };
@@ -159,6 +160,16 @@ describe('TransactionFactory', () => {
       const tx = TransactionFactory.createTransactionFromLog(chainId, log);
       expectTxFromLog(tx!, log, chainId);
     });
+
+    for (const type of [0, 2]) {
+      it(`produces an ethers-parseable absent signature for synthetic type ${type}`, () => {
+        const tx = TransactionFactory.createTransactionFromLog(chainId, log, type)!;
+        const signature = Signature.from({ r: tx.r!, s: tx.s!, v: tx.v! });
+        expect(signature.r).to.equal(`0x${'00'.repeat(32)}`);
+        expect(signature.s).to.equal(`0x${'00'.repeat(32)}`);
+        expect(signature.yParity).to.equal(0);
+      });
+    }
 
     it('should mirror the log address to both from and to', () => {
       const anotherLog = {
