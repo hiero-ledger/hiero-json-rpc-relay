@@ -77,8 +77,10 @@ export class TransactionFactory {
       maxPriorityFeePerGas: constants.ZERO_HEX,
       maxFeePerGas: constants.ZERO_HEX,
       nonce: nanOrNumberTo0x(0),
-      r: constants.EMPTY_HEX,
-      s: constants.EMPTY_HEX,
+      // Synthetic transactions have no Ethereum signature. Use parseable zero quantities, as the
+      // contract-result factory does for absent signatures; "0x" makes ethers Signature.from throw.
+      r: constants.ZERO_HEX,
+      s: constants.ZERO_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
       type: numberTo0x(type),
