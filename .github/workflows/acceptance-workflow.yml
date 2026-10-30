@@ -41,9 +41,6 @@ on:
       operator_key:
         description: 'The ED25519, ECDSA, or DER encoded private key of the operator'
         required: false
-      CODECOV_TOKEN:
-        description: 'Codecov upload token'
-        required: true
 
 permissions:
   contents: read
@@ -196,12 +193,6 @@ jobs:
         with:
           name: Test Results (${{ inputs.testfilter }}) ${{ inputs.on_valid_json_rpc_http_response_status_code}}
           path: test-*.xml
-
-      - name: Upload coverage report
-        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
-        run: bash .github/scripts/codecov-upload.sh
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish Test Report
         uses: step-security/publish-unit-test-result-action@8cf946dca1a299ebf36dff640273fda13717050a # v2.24.0
