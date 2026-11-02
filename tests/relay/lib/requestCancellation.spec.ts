@@ -180,6 +180,45 @@ describe('Request cancellation', function () {
       }
     });
 
+    it('does not leave an unhandled rejection behind when the caller abandons a sliced logs query', async () => {
+      const unhandled: unknown[] = [];
+      const onUnhandledRejection = (reason: unknown): void => {
+        unhandled.push(reason);
+      };
+      process.prependListener('unhandledRejection', onUnhandledRejection);
+
+      const controller = new AbortController();
+      const requestDetails = new RequestDetails({
+        requestId: 'test-request-id',
+        ipAddress: '0.0.0.0',
+        abortSignal: controller.signal,
+      });
+      restMock
+        .onGet(/contracts\/results\/logs/)
+        .reply(() => new Promise((resolve) => setTimeout(() => resolve([200, JSON.stringify({ logs: [] })]), 50)));
+
+      try {
+        const pending = mirrorNodeClient.getContractResultsLogsWithRetry(
+          requestDetails,
+          4,
+          { timestamp: ['gte:1707944548.000000000', 'lte:1707944552.000000000'] },
+          undefined,
+        );
+        setTimeout(() => controller.abort(requestAbortReason('client gone')), 10);
+
+        const error = await pending.then(
+          () => null,
+          (err: unknown) => err,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(isRequestAbortedError(error)).to.equal(true);
+        expect(unhandled).to.deep.equal([]);
+      } finally {
+        process.removeListener('unhandledRejection', onUnhandledRejection);
+      }
+    });
+
     it('leaves a request without a signal unaffected', async () => {
       const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
       restMock.onGet(LOGS_QUERY_REGEX).reply(200, JSON.stringify({ logs: [] }));

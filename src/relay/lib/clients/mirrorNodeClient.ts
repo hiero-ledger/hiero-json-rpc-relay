@@ -2111,8 +2111,11 @@ export class MirrorNodeClient {
       })();
 
       // Add the activeRequest to the pool and set up self-cleanup
+      const cleanup = (): void => {
+        activeRequestsPool.delete(activeRequest);
+      };
       activeRequestsPool.add(activeRequest);
-      void activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
+      activeRequest.then(cleanup, cleanup);
 
       // Throttle: pause iteration when concurrency limit is reached
       // Resume and add new requests to the pool when any active request completes
