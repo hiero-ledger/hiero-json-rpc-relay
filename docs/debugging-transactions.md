@@ -590,8 +590,27 @@ The response is an object keyed by the EVM address of every account the transact
 
 - `balance`: **string** - hex-encoded balance in weibars.
 - `nonce`: **number** - the account nonce.
-- `code`: **string** - the runtime bytecode, or `0x` for an account that has none.
-- `storage`: **object** - the storage slots the transaction read or wrote, as 32-byte hex keys and values.
+- `code`: **string** - the runtime bytecode, or `0x` for an account that has none. Omitted with `disableCode`.
+- `storage`: **object** - the storage slots the transaction read or wrote, as 32-byte hex keys and values. Omitted
+  with `disableStorage`.
+
+##### Options:
+
+Pass options in `tracerConfig`, as in geth. They apply to `debug_traceTransaction`, `debug_traceBlockByNumber` and
+`debug_traceBlockByHash`.
+
+| Option           | Default | Effect                                                                                                         |
+| ---------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `disableCode`    | `false` | Omits `code` from every account.                                                                               |
+| `disableStorage` | `false` | Omits `storage` from every account.                                                                            |
+| `includeEmpty`   | `false` | Keeps accounts that had no nonce, no code and no balance before the transaction, which are dropped by default. |
+
+```json
+{
+  "tracer": "prestateTracer",
+  "tracerConfig": { "disableCode": true, "disableStorage": true }
+}
+```
 
 ##### Example Response:
 
@@ -624,7 +643,7 @@ The response is an object keyed by the EVM address of every account the transact
 - **`debug_traceBlockByNumber` and `debug_traceBlockByHash` always report full storage**, even where the single
   transaction endpoint reports touched slots.
 - **`onlyTopCall` is accepted and ignored**, as in geth, whose prestate tracer has no such option.
-- **`diffMode`, `disableCode`, `disableStorage` and `includeEmpty` are not supported** and are rejected.
+- **`diffMode` is not supported.**
 
 ## 4. Transaction Status Tracing
 
