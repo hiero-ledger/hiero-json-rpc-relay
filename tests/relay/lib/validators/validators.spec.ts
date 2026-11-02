@@ -947,6 +947,93 @@ describe('Validator', async () => {
     });
   });
 
+  describe('validates prestateTracer config in tracerConfigWrapper', async () => {
+    const validation: Record<number, IParamValidation> = { 0: { type: 'tracerConfigWrapper', required: true } };
+    const prestateTracer = Constants.TracerType.PrestateTracer;
+    const prestateOnlyError = expectInvalidParam(
+      1,
+      'prestateTracer config properties for TracerConfigWrapper are only valid when tracer=prestateTracer',
+    );
+
+    const validate = (param: unknown) => (): void => validateParams([param], validation);
+
+    it('accepts each prestateTracer option', async () => {
+      expect(validate({ tracer: prestateTracer, tracerConfig: { disableCode: true } })).to.not.throw();
+      expect(validate({ tracer: prestateTracer, tracerConfig: { disableStorage: true } })).to.not.throw();
+      expect(validate({ tracer: prestateTracer, tracerConfig: { includeEmpty: true } })).to.not.throw();
+    });
+
+    it('accepts all prestateTracer options together', async () => {
+      const tracerConfig = { disableCode: true, disableStorage: false, includeEmpty: true };
+
+      expect(validate({ tracer: prestateTracer, tracerConfig })).to.not.throw();
+    });
+
+    it('accepts onlyTopCall for prestateTracer', async () => {
+      expect(validate({ tracer: prestateTracer, tracerConfig: { onlyTopCall: true } })).to.not.throw();
+      expect(
+        validate({ tracer: prestateTracer, tracerConfig: { onlyTopCall: true, disableCode: true } }),
+      ).to.not.throw();
+    });
+
+    it('still accepts disableStorage for opcodeLogger', async () => {
+      const tracer = Constants.TracerType.OpcodeLogger;
+
+      expect(validate({ tracer, tracerConfig: { disableStorage: true } })).to.not.throw();
+    });
+
+    it('rejects prestateTracer-only options for callTracer', async () => {
+      const tracer = Constants.TracerType.CallTracer;
+
+      expect(validate({ tracer, tracerConfig: { disableCode: true } })).to.throw(prestateOnlyError);
+      expect(validate({ tracer, tracerConfig: { includeEmpty: true } })).to.throw(prestateOnlyError);
+    });
+
+    it('rejects prestateTracer-only options for opcodeLogger', async () => {
+      const tracer = Constants.TracerType.OpcodeLogger;
+
+      expect(validate({ tracer, tracerConfig: { disableCode: true } })).to.throw(prestateOnlyError);
+      expect(validate({ tracer, tracerConfig: { includeEmpty: true } })).to.throw(prestateOnlyError);
+    });
+
+    it('rejects prestateTracer-only options without an explicit tracer', async () => {
+      expect(validate({ tracerConfig: { disableCode: true } })).to.throw(prestateOnlyError);
+    });
+
+    it('names both tracers when disableStorage is used with callTracer', async () => {
+      const tracer = Constants.TracerType.CallTracer;
+      const error = expectInvalidParam(
+        1,
+        'opcodeLogger/prestateTracer config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger or tracer=prestateTracer',
+      );
+
+      expect(validate({ tracer, tracerConfig: { disableStorage: true } })).to.throw(error);
+    });
+
+    it('rejects opcodeLogger-only options for prestateTracer', async () => {
+      const error = expectInvalidParam(
+        1,
+        'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+      );
+
+      expect(validate({ tracer: prestateTracer, tracerConfig: { enableMemory: true } })).to.throw(error);
+    });
+
+    it('rejects non-boolean prestateTracer options', async () => {
+      const invalidConfigs = [{ disableCode: 'yes' }, { includeEmpty: 1 }, { onlyTopCall: true, includeEmpty: 'yes' }];
+
+      for (const tracerConfig of invalidConfigs) {
+        const error = expectInvalidParam(
+          "'tracerConfig' for TracerConfigWrapper",
+          TYPES.tracerConfig.error,
+          JSON.stringify(tracerConfig),
+        );
+
+        expect(validate({ tracer: prestateTracer, tracerConfig })).to.throw(error);
+      }
+    });
+  });
+
   describe('Other error cases', async () => {
     it('throws an error if validation type is wrong', async () => {
       const validation = { 0: { type: 'wrongType' } } as unknown as Record<number, IParamValidation>;
@@ -1345,6 +1432,11 @@ describe('Validator', async () => {
       expect(TYPES.tracerConfig.test({ disableMemory: true })).to.be.true;
       expect(TYPES.tracerConfig.test({ disableStack: true })).to.be.true;
       expect(TYPES.tracerConfig.test({ disableStorage: true })).to.be.true;
+    });
+
+    it('returns true for a valid prestate tracer config', () => {
+      expect(TYPES.tracerConfig.test({ disableCode: true })).to.be.true;
+      expect(TYPES.tracerConfig.test({ includeEmpty: false })).to.be.true;
     });
 
     it('returns false for an invalid config', () => {
