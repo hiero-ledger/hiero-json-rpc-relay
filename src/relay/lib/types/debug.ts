@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type TracerType } from '../constants';
-import { type ICallTracerConfig, type ITracerConfig } from './ITracerConfig';
+import { type ICallTracerConfig, type IPrestateTracerConfig, type ITracerConfig } from './ITracerConfig';
 import { type ContractAction, type MirrorNodeContractResult } from './mirrorNode';
 
 /**
@@ -15,7 +15,7 @@ interface TracerConfig<T extends ITracerConfig = ITracerConfig> {
 }
 
 // Public exports
-export type BlockTracerConfig = TracerConfig<ICallTracerConfig>;
+export type BlockTracerConfig = TracerConfig<ICallTracerConfig | IPrestateTracerConfig>;
 export type TransactionTracerConfig = TracerConfig<ITracerConfig>;
 
 /**
@@ -26,10 +26,10 @@ export interface EntityTraceState {
   balance: string;
   /** The nonce of the entity. */
   nonce: number;
-  /** The code associated with the entity, typically in hexadecimal format. */
-  code: string;
-  /** A mapping of storage keys to their corresponding values for the entity. */
-  storage: Record<string, string>;
+  /** The code associated with the entity, typically in hexadecimal format. Omitted with `disableCode`. */
+  code?: string;
+  /** A mapping of storage keys to their corresponding values for the entity. Omitted with `disableStorage`. */
+  storage?: Record<string, string>;
 }
 
 /**

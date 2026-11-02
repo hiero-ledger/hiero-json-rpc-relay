@@ -47,6 +47,7 @@ import type {
   EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
+  IPrestateTracerConfig,
   OpcodeLoggerResult,
   RequestDetails,
   TraceBlockTxResult,
@@ -60,7 +61,7 @@ import type {
   MirrorNodeContractResult,
   MirrorNodeContractResultDetails,
 } from './types/mirrorNode';
-import { mapPrestateResponse } from './utils/prestate';
+import { applyPrestateTracerConfig, mapPrestateResponse } from './utils/prestate';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -310,7 +311,7 @@ export class DebugImpl implements Debug {
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        return await this.prestateTracer(transactionIdOrHash, requestDetails);
+        return await this.prestateTracer(transactionIdOrHash, tracerConfig as IPrestateTracerConfig, requestDetails);
       }
 
       if (!ConfigService.get('OPCODELOGGER_ENABLED')) {
@@ -933,13 +934,15 @@ export class DebugImpl implements Debug {
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @param params - Whether the endpoint should include each account's code and storage.
    * @returns {Promise<EntityTraceStateMap | null>} The touched state, or null when the endpoint gave no answer.
    */
   async prestateFromEndpoint(
     transactionHash: string,
     requestDetails: RequestDetails,
+    params: { code: boolean; storage: boolean },
   ): Promise<EntityTraceStateMap | null> {
-    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}`;
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}_${params.code}_${params.storage}`;
 
     const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(
       cacheKey,
@@ -960,7 +963,7 @@ export class DebugImpl implements Debug {
     }
 
     try {
-      const response = await this.mirrorNodeClient.getContractResultPrestate(transactionHash, requestDetails);
+      const response = await this.mirrorNodeClient.getContractResultPrestate(transactionHash, requestDetails, params);
 
       if (!response) {
         return null;
@@ -1018,17 +1021,30 @@ export class DebugImpl implements Debug {
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {IPrestateTracerConfig} tracerConfig - The prestateTracer options.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
    * @returns {Promise<EntityTraceStateMap>} The state the transaction touched, keyed by EVM address.
    */
-  async prestateTracer(transactionHash: string, requestDetails: RequestDetails): Promise<EntityTraceStateMap> {
-    const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails);
+  async prestateTracer(
+    transactionHash: string,
+    tracerConfig: IPrestateTracerConfig,
+    requestDetails: RequestDetails,
+  ): Promise<EntityTraceStateMap> {
+    // The empty-account check needs the code, so it is only left out when empty accounts are kept
+    const endpointParams = {
+      code: !tracerConfig.disableCode || !tracerConfig.includeEmpty,
+      storage: !tracerConfig.disableStorage,
+    };
+
+    const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails, endpointParams);
 
     if (fromEndpoint) {
-      return fromEndpoint;
+      return applyPrestateTracerConfig(fromEndpoint, tracerConfig);
     }
 
-    return this.prestateFromContractState(transactionHash, requestDetails);
+    const fromContractState = await this.prestateFromContractState(transactionHash, requestDetails);
+
+    return applyPrestateTracerConfig(fromContractState, tracerConfig);
   }
 
   /**
@@ -1271,7 +1287,8 @@ export class DebugImpl implements Debug {
       }
 
       const tracer = tracerObject?.tracer ?? TracerType.CallTracer;
-      const onlyTopCall = tracerObject?.tracerConfig?.onlyTopCall;
+      const tracerConfig = tracerObject?.tracerConfig ?? {};
+      const onlyTopCall = (tracerConfig as ICallTracerConfig).onlyTopCall;
 
       // Trace all transactions using existing tracer methods with pre-fetched data
       if (tracer === TracerType.CallTracer) {
@@ -1291,15 +1308,16 @@ export class DebugImpl implements Debug {
 
       if (tracer === TracerType.PrestateTracer) {
         return await Promise.all(
-          transactionHashes.map(async (txHash) => ({
-            txHash,
-            result: await this.prestateFromContractState(
+          transactionHashes.map(async (txHash) => {
+            const prestate = await this.prestateFromContractState(
               txHash,
               requestDetails,
               preFetchedData.txHashMap[txHash]?.actions,
               preFetchedData.txHashMap[txHash]?.contractResult,
-            ),
-          })),
+            );
+
+            return { txHash, result: applyPrestateTracerConfig(prestate, tracerConfig as IPrestateTracerConfig) };
+          }),
         );
       }
 

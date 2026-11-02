@@ -9,6 +9,7 @@ import {
   formatTransactionId,
   formatTransactionIdWithoutQueryParams,
   hexToASCII,
+  isEmptyAccount,
   isHex,
   isValidEthereumAddress,
   mapKeysAndValues,
@@ -469,6 +470,31 @@ describe('Formatters', () => {
 
     it('should return true for a known gasPrice', () => {
       expect(isHex('0x58')).to.be.true;
+    });
+  });
+
+  describe('isEmptyAccount', () => {
+    it('should return true for an account with no nonce, no code and no balance', () => {
+      expect(isEmptyAccount({ balance: '0x0', nonce: 0, code: '0x' })).to.be.true;
+    });
+
+    // The mirror node reports a missing nonce or code as null.
+    it('should treat a null nonce and a null code as absent', () => {
+      expect(isEmptyAccount({ balance: '0x0', nonce: null, code: null })).to.be.true;
+      expect(isEmptyAccount({ balance: '0x0' })).to.be.true;
+    });
+
+    it('should return false for an account with a nonce', () => {
+      expect(isEmptyAccount({ balance: '0x0', nonce: 1, code: '0x' })).to.be.false;
+    });
+
+    it('should return false for an account with a balance', () => {
+      expect(isEmptyAccount({ balance: '0x1', nonce: 0, code: '0x' })).to.be.false;
+    });
+
+    // Contracts created before contract nonces existed report no nonce, and many hold no balance.
+    it('should return false for a contract with code but no nonce and no balance', () => {
+      expect(isEmptyAccount({ balance: '0x0', nonce: null, code: '0x6080604052' })).to.be.false;
     });
   });
 

@@ -6,7 +6,8 @@ import type {
   IPrestateAccountTrace,
   IPrestateResponse,
 } from '../../../../src/relay/lib/clients/models/IPrestateResponse';
-import { mapPrestateResponse } from '../../../../src/relay/lib/utils/prestate';
+import type { EntityTraceState, EntityTraceStateMap } from '../../../../src/relay/lib/types';
+import { applyPrestateTracerConfig, mapPrestateResponse } from '../../../../src/relay/lib/utils/prestate';
 
 describe('mapPrestateResponse', function () {
   const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
@@ -96,5 +97,84 @@ describe('mapPrestateResponse', function () {
 
     expect(Object.keys(result)).to.have.lengthOf(1);
     expect(result[contractAddress].nonce).to.equal(9);
+  });
+});
+
+describe('applyPrestateTracerConfig', function () {
+  const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+  const accountAddress = '0x00000000000000000000000000000000000003f6';
+  const emptyAddress = '0x00000000000000000000000000000000000004d2';
+  const slot = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const value = '0x0000000000000000000000000000000000000000000000000000000000000024';
+
+  const contract: EntityTraceState = {
+    balance: '0xe8d4a51000',
+    nonce: 1,
+    code: '0x6080604052',
+    storage: { [slot]: value },
+  };
+  const account: EntityTraceState = { balance: '0x15d3ef79800', nonce: 7, code: '0x', storage: {} };
+  const empty: EntityTraceState = { balance: '0x0', nonce: 0, code: '0x', storage: {} };
+
+  const prestate: EntityTraceStateMap = {
+    [contractAddress]: contract,
+    [accountAddress]: account,
+    [emptyAddress]: empty,
+  };
+
+  it('drops empty accounts and keeps the rest unchanged by default', function () {
+    const result = applyPrestateTracerConfig(prestate);
+
+    expect(result).to.deep.equal({ [contractAddress]: contract, [accountAddress]: account });
+  });
+
+  it('keeps empty accounts with includeEmpty', function () {
+    const result = applyPrestateTracerConfig(prestate, { includeEmpty: true });
+
+    expect(result).to.deep.equal(prestate);
+  });
+
+  it('omits the code of every account with disableCode', function () {
+    const result = applyPrestateTracerConfig(prestate, { disableCode: true });
+
+    expect(result).to.deep.equal({
+      [contractAddress]: { balance: '0xe8d4a51000', nonce: 1, storage: { [slot]: value } },
+      [accountAddress]: { balance: '0x15d3ef79800', nonce: 7, storage: {} },
+    });
+  });
+
+  it('omits the storage of every account with disableStorage', function () {
+    const result = applyPrestateTracerConfig(prestate, { disableStorage: true });
+
+    expect(result).to.deep.equal({
+      [contractAddress]: { balance: '0xe8d4a51000', nonce: 1, code: '0x6080604052' },
+      [accountAddress]: { balance: '0x15d3ef79800', nonce: 7, code: '0x' },
+    });
+  });
+
+  it('applies all options together', function () {
+    const result = applyPrestateTracerConfig(prestate, { disableCode: true, disableStorage: true, includeEmpty: true });
+
+    expect(result).to.deep.equal({
+      [contractAddress]: { balance: '0xe8d4a51000', nonce: 1 },
+      [accountAddress]: { balance: '0x15d3ef79800', nonce: 7 },
+      [emptyAddress]: { balance: '0x0', nonce: 0 },
+    });
+  });
+
+  it('checks emptiness before disableCode strips the code', function () {
+    const legacyContract = { balance: '0x0', nonce: 0, code: '0x6080604052', storage: {} };
+
+    const result = applyPrestateTracerConfig({ [contractAddress]: legacyContract }, { disableCode: true });
+
+    expect(result).to.deep.equal({ [contractAddress]: { balance: '0x0', nonce: 0, storage: {} } });
+  });
+
+  it('does not modify its input', function () {
+    const input = structuredClone(prestate);
+
+    applyPrestateTracerConfig(input, { disableCode: true, disableStorage: true });
+
+    expect(input).to.deep.equal(prestate);
   });
 });
