@@ -64,6 +64,9 @@ export class TxPoolImpl implements TxPool {
    */
   private readonly txPoolService: TransactionPoolService;
 
+  // The poller re-reads the whole pool every interval, so keep each pooled transaction decoded until it leaves.
+  private decodedPendingTxs = new Map<string, TxPoolTransaction>();
+
   /**
    * Creates a new instance of TxPoolImpl.
    *
@@ -153,6 +156,18 @@ export class TxPoolImpl implements TxPool {
       acc[Number(item.nonce)] = item;
       return acc;
     }, {});
+  }
+
+  async pendingTransactions(): Promise<TxPoolTransaction[]> {
+    const decoded = new Map<string, TxPoolTransaction>();
+    for (const rlpTx of await this.txPoolService.getAllTransactions()) {
+      decoded.set(
+        rlpTx,
+        this.decodedPendingTxs.get(rlpTx) ?? this.convertRlpEncodedTxToTransactionPoolTx(new Set([rlpTx]))[0],
+      );
+    }
+    this.decodedPendingTxs = decoded;
+    return [...decoded.values()];
   }
 
   @rpcMethod

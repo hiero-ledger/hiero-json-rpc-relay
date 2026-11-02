@@ -146,6 +146,51 @@ describe('Subscribe Controller', function () {
       expect(resp.result).to.equal(subscriptionId);
     });
 
+    for (const [name, value] of [
+      ['ENABLE_TX_POOL', false],
+      ['ENABLE_NONCE_ORDERING', false],
+      ['DISABLE_MN_PRECHECKS_ON_TX_SENDING', true],
+    ] as const) {
+      it(`should not be able to subscribe to new pending transactions if ${name} is ${value}`, async function () {
+        stubConfigService.withArgs('ENABLE_TX_POOL').returns(true);
+        stubConfigService.withArgs('ENABLE_NONCE_ORDERING').returns(true);
+        stubConfigService.withArgs(name).returns(value);
+
+        await expect(
+          handleEthSubscribe({ ...defaultParams, params: [constants.SUBSCRIBE_EVENTS.NEW_PENDING_TRANSACTIONS] }),
+        ).to.be.eventually.rejected.and.have.property('code', -32601);
+        sinon.assert.notCalled(stubSubscriptionService.subscribe);
+      });
+    }
+
+    for (const [includeTransactions, filters] of [
+      [undefined, { includeTransactions: false }],
+      [false, { includeTransactions: false }],
+      [true, { includeTransactions: true }],
+    ]) {
+      it(`should subscribe to new pending transactions with ${JSON.stringify(includeTransactions)}`, async function () {
+        stubSubscriptionService.subscribe.returns(subscriptionId);
+        stubConfigService.withArgs('ENABLE_TX_POOL').returns(true);
+        stubConfigService.withArgs('ENABLE_NONCE_ORDERING').returns(true);
+        const ctx = createMockContext();
+        const resp = await handleEthSubscribe({
+          ...defaultParams,
+          ctx,
+          params: [constants.SUBSCRIBE_EVENTS.NEW_PENDING_TRANSACTIONS, includeTransactions],
+        });
+
+        assertJsonRpcResult(resp);
+
+        expect(resp.result).to.equal(subscriptionId);
+        sinon.assert.calledOnceWithExactly(
+          stubSubscriptionService.subscribe,
+          ctx.websocket,
+          constants.SUBSCRIBE_EVENTS.NEW_PENDING_TRANSACTIONS,
+          filters,
+        );
+      });
+    }
+
     it('should throw unsupported method for non-existing method', async function () {
       await expect(
         handleEthSubscribe({
