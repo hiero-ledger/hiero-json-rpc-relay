@@ -10,6 +10,7 @@ import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
 import { EthImpl } from '../../../src/relay/lib/eth';
 import { type Block } from '../../../src/relay/lib/model';
+import { TxPoolImpl, type TxPoolTransaction } from '../../../src/relay/lib/txpool';
 import { PollerService } from '../../../src/ws-server/service/pollerService';
 
 const logger = pino({ level: 'trace' });
@@ -42,9 +43,11 @@ describe('PollerService', async function () {
     transactions: [],
     baseFeePerGas: '0x',
   } as unknown as Block;
+  const pendingTx = { hash: '0xabc' } as TxPoolTransaction;
 
   let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
+  let txpoolStub: sinon.SinonStubbedInstance<TxPoolImpl>;
   let poller: PollerService;
   let pollSpy: sinon.SinonSpy;
   let sandbox: sinon.SinonSandbox;
@@ -66,6 +69,9 @@ describe('PollerService', async function () {
     ethImplStub.blockNumber.resolves('0x1b177b');
     ethImplStub.getLogs.resolves(logsArray);
     ethImplStub.getBlockByNumber.resolves(mockBlock);
+    txpoolStub = sandbox.createStubInstance(TxPoolImpl);
+    relayImplStub.txpool.returns(txpoolStub);
+    txpoolStub.pendingTransactions.resolves([pendingTx]);
 
     configServiceStub = sandbox.stub(ConfigService, 'get');
     configServiceStub.withArgs('WS_POLLING_INTERVAL').returns(1000);
@@ -139,6 +145,27 @@ describe('PollerService', async function () {
       expect(callback.notCalled).to.be.true;
       expect(loggerWarnSpy.calledWith(`Poller: No block returned for tag: ${newHeadsTag}, skipping notification`)).to.be
         .true;
+    });
+
+    it('should poll the transaction pool for newPendingTransactions hashes or full transactions', async () => {
+      const hashesCallback = sinon.stub();
+      const transactionsCallback = sinon.stub();
+      poller.add('{"event":"newPendingTransactions","filters":{"includeTransactions":false}}', hashesCallback);
+      poller.add('{"event":"newPendingTransactions","filters":{"includeTransactions":true}}', transactionsCallback);
+      await clock.tickAsync(2000);
+
+      expect(hashesCallback.calledWith(pendingTx.hash)).to.be.true;
+      expect(transactionsCallback.calledWith(pendingTx)).to.be.true;
+    });
+
+    it('should send each pending transaction once while it stays in the pool', async () => {
+      const callback = sinon.stub();
+      poller.add('{"event":"newPendingTransactions","filters":{"includeTransactions":false}}', callback);
+      await clock.tickAsync(2000);
+      txpoolStub.pendingTransactions.resolves([pendingTx, { hash: '0xdef' } as TxPoolTransaction]);
+      await clock.tickAsync(1000);
+
+      expect(callback.args).to.deep.equal([[pendingTx.hash], ['0xdef']]);
     });
 
     it('should not add a poll if it already exists', () => {

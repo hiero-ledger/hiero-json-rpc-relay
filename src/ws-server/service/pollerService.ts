@@ -5,6 +5,8 @@ import { type Gauge, type Registry } from 'prom-client';
 import { ConfigService } from '../../config-service/services';
 import { METRICS, MetricsFactory } from '../../metrics';
 import { type Eth, type Relay } from '../../relay';
+import constants from '../../relay/lib/constants';
+import { type TxPoolImpl } from '../../relay/lib/txpool';
 import { RequestDetails } from '../../relay/lib/types';
 import { Utils } from '../../relay/utils';
 
@@ -12,11 +14,13 @@ export interface Poll {
   tag: string;
   callback: (...args: unknown[]) => unknown;
   lastPolled?: string;
+  pendingTxHashes?: Set<string>;
 }
 
 const LOGGER_PREFIX = 'Poller:';
 
 export class PollerService {
+  private readonly relay: Relay;
   private readonly eth: Eth;
   private readonly logger: Logger;
   private polls: Poll[];
@@ -30,6 +34,7 @@ export class PollerService {
   private NEW_HEADS_EVENT = 'newHeads';
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
+    this.relay = relay;
     this.eth = relay.eth();
     this.logger = logger;
     this.polls = [];
@@ -82,6 +87,12 @@ export class PollerService {
 
           data = { ...block, jsonrpc: '2.0' };
           poll.lastPolled = this.latestBlock;
+        } else if (event === constants.SUBSCRIBE_EVENTS.NEW_PENDING_TRANSACTIONS) {
+          const txs = await (this.relay.txpool() as TxPoolImpl).pendingTransactions();
+          // Transactions can stay pooled past the subscription cache's TTL, so only send the ones the last poll didn't see.
+          const fresh = txs.filter((tx) => !poll.pendingTxHashes?.has(tx.hash));
+          poll.pendingTxHashes = new Set(txs.map((tx) => tx.hash));
+          data = filters?.includeTransactions ? fresh : fresh.map((tx) => tx.hash);
         } else {
           this.logger.error(`${LOGGER_PREFIX} Polling for unsupported event: ${event}. Tag: ${poll.tag}`);
         }

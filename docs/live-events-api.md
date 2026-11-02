@@ -68,6 +68,7 @@ When calling the `eth_subscribe` method 2 parameters should be specified:
 1. `params[0]` is used to specify the type of event. Possible values are:
 - `logs` - subscribes to newly created Logs from specified Contracts. The result data is in the [Log](https://besu.hyperledger.org/en/stable/Reference/API-Objects/#log-object) format.
 - `newHeads` - subscribes to newly created blocks. The result data is a [Block](https://besu.hyperledger.org/23.4.0/public-networks/how-to/use-besu-api/rpc-pubsub#new-headers).
+- `newPendingTransactions` - subscribes to transactions in the relay's pending pool. The result data is the transaction hash, or the full transaction when `params[1]` is `true`. Best effort. Requires `ENABLE_TX_POOL`, `ENABLE_NONCE_ORDERING` and `DISABLE_MN_PRECHECKS_ON_TX_SENDING=false`.
 
 2.  `params[1]` is used to specify filters. Logs can be filtered by `address` and/or `topics`:
 
@@ -111,6 +112,16 @@ Terminates an active subscription. Expects `params[0]` to have the value of the 
     "jsonrpc":"2.0",
     "method":"eth_subscribe",
     "params":["newHeads"]
+  }
+```
+
+### newPendingTransactions
+```js
+  {
+    "id":1,
+    "jsonrpc":"2.0",
+    "method":"eth_subscribe",
+    "params":["newPendingTransactions", true]
   }
 ```
 
