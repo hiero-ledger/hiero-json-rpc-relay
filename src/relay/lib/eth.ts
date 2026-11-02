@@ -963,8 +963,15 @@ export class EthImpl implements Eth {
   ): Promise<string> {
     const callData = call.data ? call.data : call.input;
     // log request
-    this.logger.info(
-      `call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
+    this.logger.debug(
+      `call({to=%s, from=%s, data=%s, gas=%s, gasPrice=%s blockParam=%s, estimate=%s})`,
+      call.to,
+      call.from,
+      callData,
+      call.gas,
+      call.gasPrice,
+      blockParam,
+      call.estimate,
     );
     // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
