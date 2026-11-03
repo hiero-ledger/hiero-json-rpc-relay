@@ -3,35 +3,19 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/"
+      - "/k6"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     open-pull-requests-limit: 10
     cooldown:
       default-days: 1
       include:
         - "*"
     groups:
-      minor-and-patch-npm-daily:
+      npm-weekly:
         applies-to: version-updates
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
-
-  - package-ecosystem: "npm"
-    directories:
-      - "/k6"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    groups:
-      minor-and-patch-npm-weekly:
-        applies-to: version-updates
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -39,13 +23,10 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
-      minor-and-patch-actions-weekly:
+      actions-weekly:
         applies-to: version-updates
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -53,10 +34,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
-      minor-and-patch-docker-weekly:
+      docker-weekly:
         applies-to: version-updates
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
