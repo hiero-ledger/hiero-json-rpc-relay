@@ -4,6 +4,7 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { createSandbox } from 'sinon';
 
+import type { Transaction } from '../../../../src/relay/lib/model';
 import { type ITransactionReceipt, RequestDetails } from '../../../../src/relay/lib/types';
 import { defaultDetailedContractResultByHash } from '../../helpers';
 import { DEFAULT_LOGS_3 } from './eth-config';
@@ -11,9 +12,9 @@ import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
-// `eth_getTransactionByHash` serves no synthetic transactions, so only the receipt lookup can race the
-// mirror import: a missing contract result followed by visible logs does not imply a synthetic transaction.
-describe('eth_getTransactionReceipt racing mirror ingestion', function () {
+// A missing contract result followed by visible logs does not imply a synthetic transaction: the two mirror
+// requests can straddle an import commit.
+describe('transaction lookups racing mirror ingestion', function () {
   const { restMock, ethImpl, mirrorNodeInstance, cacheService } = generateEthTestEnv();
   const sandbox = createSandbox();
   const hash = `0x${'93'.repeat(32)}`;
@@ -41,7 +42,6 @@ describe('eth_getTransactionReceipt racing mirror ingestion', function () {
     block_hash: record.block_hash,
     block_number: record.block_number,
   }));
-  const lookup = (): Promise<ITransactionReceipt | null> => ethImpl.getTransactionReceipt(hash, requestDetails);
   const requestedUrls = (): (string | undefined)[] => restMock.history.get.map(({ url }) => url);
 
   beforeEach(async () => {
@@ -54,80 +54,101 @@ describe('eth_getTransactionReceipt racing mirror ingestion', function () {
 
   afterEach(() => sandbox.restore());
 
-  for (const initialResponse of [404, 200]) {
-    it(`uses the real receipt when the result appears between a ${initialResponse} missing-result response and logs`, async () => {
-      const requests: string[] = [];
-      let logsVisible = false;
-      restMock.onGet(resultUrl).reply(() => {
-        requests.push('result');
-        return logsVisible ? [200, record] : [initialResponse, {}];
-      });
-      restMock.onGet(logsUrl).reply(() => {
-        requests.push('logs');
-        // The importer commits after the first request and before the logs request.
-        logsVisible = true;
-        return [200, { logs }];
+  for (const method of ['getTransactionByHash', 'getTransactionReceipt'] as const) {
+    describe(method, () => {
+      const lookup = (): Promise<Transaction | ITransactionReceipt | null> => ethImpl[method](hash, requestDetails);
+
+      for (const initialResponse of [404, 200]) {
+        it(`uses the real transaction when it appears between a ${initialResponse} missing-result response and logs`, async () => {
+          const requests: string[] = [];
+          let logsVisible = false;
+          restMock.onGet(resultUrl).reply(() => {
+            requests.push('result');
+            return logsVisible ? [200, record] : [initialResponse, {}];
+          });
+          restMock.onGet(logsUrl).reply(() => {
+            requests.push('logs');
+            // The importer commits after the first request and before the logs request.
+            logsVisible = true;
+            return [200, { logs }];
+          });
+
+          const result = await lookup();
+          expect(result).to.include({ from: record.from, to: record.to, type: '0x2' });
+          if (method === 'getTransactionByHash') {
+            expect(result).to.include({
+              hash,
+              input: record.function_parameters,
+              nonce: '0x7',
+              gas: '0x1e240',
+              r: record.r,
+              s: record.s,
+            });
+          } else {
+            expect(result).to.include({ transactionHash: hash, gasUsed: '0xff98' });
+          }
+          expect(requests).to.deep.equal(['result', 'logs', 'result']);
+          // A synthetic result must not poison the outer RPC cache either.
+          expect(await lookup()).to.deep.equal(result);
+          expect(requests).to.deep.equal(['result', 'logs', 'result']);
+        });
+      }
+
+      it('does not add a lookup when the first result is already available', async () => {
+        restMock.onGet(resultUrl).reply(200, record);
+        expect(await lookup()).to.include({ from: record.from, type: '0x2' });
+        expect(requestedUrls()).to.deep.equal([resultUrl]);
       });
 
-      const receipt = await lookup();
-      expect(receipt).to.include({ transactionHash: hash, from: record.from, to: record.to, gasUsed: '0xff98' });
-      expect(receipt).to.include({ type: '0x2' });
-      expect(requests).to.deep.equal(['result', 'logs', 'result']);
-      // A synthetic receipt must not poison the outer RPC cache either.
-      expect(await lookup()).to.deep.equal(receipt);
-      expect(requests).to.deep.equal(['result', 'logs', 'result']);
+      it('returns null without rechecking when neither the result nor logs exist', async () => {
+        restMock.onGet(resultUrl).reply(404, {});
+        restMock.onGet(logsUrl).reply(200, { logs: [] });
+        expect(await lookup()).to.be.null;
+        expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl]);
+      });
+
+      it('retains the synthetic fallback when the result is still absent after logs are visible', async () => {
+        restMock.onGet(resultUrl).reply(404, {});
+        restMock.onGet(logsUrl).reply(200, { logs });
+        expect(await lookup()).to.have.property(method === 'getTransactionByHash' ? 'hash' : 'transactionHash', hash);
+        expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
+      });
+
+      it('honors rejection handling when the recheck finds a rejected record without block linkage', async () => {
+        restMock.onGet(resultUrl).replyOnce(404, {});
+        restMock.onGet(resultUrl).reply(200, {
+          ...record,
+          result: 'WRONG_NONCE',
+          block_hash: '0x',
+          block_number: null,
+          transaction_index: null,
+        });
+        restMock.onGet(logsUrl).reply(200, { logs });
+        if (method === 'getTransactionByHash') {
+          expect(await lookup()).to.be.null;
+        } else {
+          await expect(lookup()).to.be.rejected.and.eventually.have.property('code', -32003);
+        }
+        expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
+      });
+
+      it('honors child handling when the recheck finds a child record', async () => {
+        restMock.onGet(resultUrl).replyOnce(404, {});
+        restMock.onGet(resultUrl).reply(200, { ...record, nonce: null, v: null, child: true });
+        restMock.onGet(logsUrl).reply(200, { logs });
+        expect(await lookup()).to.be.null;
+        expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
+      });
+
+      it('propagates a failed recheck instead of manufacturing a synthetic transaction', async () => {
+        const failure = new Error('mirror lookup failed');
+        const getResult = sandbox.stub(mirrorNodeInstance, 'getContractResult');
+        getResult.onFirstCall().resolves(null);
+        getResult.onSecondCall().rejects(failure);
+        restMock.onGet(logsUrl).reply(200, { logs });
+        await expect(lookup()).to.be.rejectedWith(failure.message);
+        expect(getResult.callCount).to.equal(2);
+      });
     });
   }
-
-  it('does not add a lookup when the first result is already available', async () => {
-    restMock.onGet(resultUrl).reply(200, record);
-    expect(await lookup()).to.include({ from: record.from, type: '0x2' });
-    expect(requestedUrls()).to.deep.equal([resultUrl]);
-  });
-
-  it('returns null without rechecking when neither the result nor logs exist', async () => {
-    restMock.onGet(resultUrl).reply(404, {});
-    restMock.onGet(logsUrl).reply(200, { logs: [] });
-    expect(await lookup()).to.be.null;
-    expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl]);
-  });
-
-  it('retains the synthetic fallback when the result is still absent after logs are visible', async () => {
-    restMock.onGet(resultUrl).reply(404, {});
-    restMock.onGet(logsUrl).reply(200, { logs });
-    expect(await lookup()).to.have.property('transactionHash', hash);
-    expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
-  });
-
-  it('honors rejection handling when the recheck finds a rejected record without block linkage', async () => {
-    restMock.onGet(resultUrl).replyOnce(404, {});
-    restMock.onGet(resultUrl).reply(200, {
-      ...record,
-      result: 'WRONG_NONCE',
-      block_hash: '0x',
-      block_number: null,
-      transaction_index: null,
-    });
-    restMock.onGet(logsUrl).reply(200, { logs });
-    await expect(lookup()).to.be.rejected.and.eventually.have.property('code', -32003);
-    expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
-  });
-
-  it('honors child handling when the recheck finds a child record', async () => {
-    restMock.onGet(resultUrl).replyOnce(404, {});
-    restMock.onGet(resultUrl).reply(200, { ...record, nonce: null, v: null, child: true });
-    restMock.onGet(logsUrl).reply(200, { logs });
-    expect(await lookup()).to.be.null;
-    expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
-  });
-
-  it('propagates a failed recheck instead of manufacturing a synthetic receipt', async () => {
-    const failure = new Error('mirror lookup failed');
-    const getResult = sandbox.stub(mirrorNodeInstance, 'getContractResult');
-    getResult.onFirstCall().resolves(null);
-    getResult.onSecondCall().rejects(failure);
-    restMock.onGet(logsUrl).reply(200, { logs });
-    await expect(lookup()).to.be.rejectedWith(failure.message);
-    expect(getResult.callCount).to.equal(2);
-  });
 });

@@ -337,7 +337,7 @@ describe('pending pool confirmation from eth_getTransactionReceipt and eth_getTr
 
         const tx = await ethImpl.getTransactionByHash(syntheticHash, requestDetails);
 
-        expect(tx).to.be.null;
+        expect(tx).to.not.be.null;
         expect(getTransactionsSpy.notCalled).to.be.true;
         await expectPool(1, confirmedBaseline);
       });

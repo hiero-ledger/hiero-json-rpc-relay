@@ -218,10 +218,11 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+    const { contractResult, syntheticLogs } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
 
     if (contractResult === null) {
-      return null;
+      // handle synthetic transactions
+      return syntheticLogs.length ? TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0) : null;
     }
 
     // A child record is not an ethereum transaction of its own: it is part of its parent's execution.
@@ -261,15 +262,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    try {
-      const receiptByTimestamp = await this.resolveSyntheticReceiptByRecordedTimestamp(hash, requestDetails);
-      if (receiptByTimestamp) {
-        return receiptByTimestamp;
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to resolve %s by recorded consensus timestamp: %s`, hash, error);
-    }
-
     const { contractResult: receiptResponse, syntheticLogs } = await this.getContractResultOrSyntheticLogs(
       hash,
       requestDetails,
@@ -811,7 +803,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (!syntheticLogs.length) {
-      this.logger.trace(`no receipt for %s`, hash);
+      this.logger.trace(`no contract result or logs for %s`, hash);
       return { contractResult: null, syntheticLogs };
     }
 
@@ -846,80 +838,6 @@ export class TransactionService implements ITransactionService {
     }
 
     return receipt;
-  }
-
-  /**
-   * Resolves a synthetic transaction by the consensus timestamp recorded while its block was served,
-   * bypassing the by-hash routes the Mirror Node cannot answer until its hash index catches up.
-   */
-  private async resolveSyntheticReceiptByRecordedTimestamp(
-    hash: string,
-    requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt | null> {
-    const consensusTimestamp = await this.mirrorNodeClient.transactionTimestampIndex.get(hash);
-    if (!consensusTimestamp) {
-      return null;
-    }
-
-    const logs = await this.common.getLogsWithParams(null, { timestamp: `eq:${consensusTimestamp}` }, requestDetails);
-    const ownLogs = logs.filter((log) => log.transactionHash === hash);
-    if (!ownLogs.length) {
-      return null;
-    }
-
-    this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
-
-    const blockNumber = Number(ownLogs[0].blockNumber);
-    const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, { blockNumber });
-
-    const contractResult = blockContractResults.find((result) => result.hash === hash);
-    if (!contractResult) {
-      return null;
-    }
-
-    return await this.buildSyntheticReceiptFromBlockResults(
-      contractResult,
-      blockContractResults,
-      ownLogs,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Builds the receipt of a synthetic transaction out of its block's contract results, through the same
-   * factory every other receipt route uses, so the fields a log cannot supply - the payer, the gas totals,
-   * the status and type - match what those routes report for the same transaction.
-   *
-   * @param contractResult The transaction's own contract result
-   * @param blockContractResults Every contract result of the block, used for the running gas total
-   * @param logs The transaction's synthetic logs
-   * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<ITransactionReceipt>} A promise that resolves to the transaction receipt
-   */
-  private async buildSyntheticReceiptFromBlockResults(
-    contractResult: MirrorNodeContractResult,
-    blockContractResults: MirrorNodeContractResult[],
-    logs: Log[],
-    requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt> {
-    const [effectiveGas, from, to, isDeployment] = await Promise.all([
-      this.common.getCurrentGasPriceForBlock(contractResult.block_hash, requestDetails),
-      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      this.common.resolveEvmAddress(contractResult.to, requestDetails),
-      this.common.isContractDeployment(contractResult, requestDetails),
-    ]);
-
-    const cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, contractResult.transaction_index ?? 0);
-
-    return TransactionReceiptFactory.createRegularReceipt({
-      effectiveGas,
-      from: from ?? contractResult.from,
-      logs,
-      receiptResponse: contractResult,
-      to,
-      cumulativeGasUsed,
-      isDeployment,
-    });
   }
 
   /**
