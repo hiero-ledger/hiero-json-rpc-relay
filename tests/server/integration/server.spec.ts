@@ -3458,7 +3458,7 @@ describe('RPC Server', function () {
           logs_bloom: '0x',
         });
         callTracer = sinon.stub(DebugImpl.prototype, 'callTracer').resolves(callTracerResult);
-        prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateTracer').resolves(prestateTracerResult);
+        prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateFromContractState').resolves(prestateTracerResult);
         cacheGetAsync = sinon.stub(MeasurableCache.prototype, 'getAsync').resolves(null);
         cacheSet = sinon.stub(MeasurableCache.prototype, 'set').resolves();
         requireDebugAPIEnabled = sinon.stub(DebugImpl, 'requireDebugAPIEnabled').returns();

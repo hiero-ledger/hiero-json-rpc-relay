@@ -2610,6 +2610,91 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('getContractResultPrestate', async () => {
+    const transactionHash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392';
+    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true`;
+
+    const mockPrestate = {
+      pre: [
+        {
+          address: '0x305a8e76ac38fc088132fb780b2171950ff023f7',
+          balance: '0x3e8',
+          code: '0x6080604052',
+          nonce: 1,
+          storage: {
+            '0x0000000000000000000000000000000000000000000000000000000000000000':
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+          },
+        },
+        {
+          address: '0x00000000000000000000000000000000000003f6',
+          balance: '0x2540be400',
+          code: '0x',
+          nonce: 7,
+          storage: {},
+        },
+      ],
+    };
+
+    it('should fetch the prestate of a transaction', async () => {
+      mock.onGet(prestatePath).reply(200, JSON.stringify(mockPrestate));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result).to.exist;
+      expect(result!.pre.length).to.equal(2);
+      expect(result!.pre[0].address).to.equal(mockPrestate.pre[0].address);
+      expect(result!.pre[0].storage).to.deep.equal(mockPrestate.pre[0].storage);
+      expect(result!.pre[1].storage).to.deep.equal({});
+    });
+
+    it('should return null when the transaction has no prestate', async () => {
+      mock.onGet(prestatePath).reply(404, JSON.stringify(mockData.notFound));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result).to.be.null;
+    });
+
+    // Only 404 is swallowed into null. Every other status must reach the caller with its code intact,
+    // so the prestate fallback can tell 501 (endpoint disabled, remember it) from anything transient.
+    [501, 503].forEach((statusCode) => {
+      it(`should throw with the status code on ${statusCode}`, async () => {
+        mock.onGet(prestatePath).reply(statusCode, JSON.stringify({ _status: { messages: [{ message: 'nope' }] } }));
+
+        await expect(
+          mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails),
+        ).to.eventually.be.rejected.and.have.property('statusCode', statusCode);
+      });
+    });
+
+    it('should be served by the web3 client, not the rest one', async () => {
+      const restInstance = axios.create({ baseURL: 'https://localhost:5551/api/v1' });
+      const web3Instance = axios.create({ baseURL: 'https://localhost:8545/api/v1' });
+      const restMock = new MockAdapter(restInstance);
+      const web3Mock = new MockAdapter(web3Instance);
+
+      const client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: `mirror-node` }),
+        registry,
+        cacheService,
+        restInstance,
+        'https://localhost:8545/api/v1',
+        web3Instance,
+      );
+
+      restMock.onGet(prestatePath).reply(200, JSON.stringify({ pre: [] }));
+      web3Mock.onGet(prestatePath).reply(200, JSON.stringify(mockPrestate));
+
+      const result = await client.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result!.pre.length).to.equal(2);
+      expect(web3Mock.history.get.length).to.equal(1);
+      expect(restMock.history.get.length).to.equal(0);
+    });
+  });
+
   describe('getContractState', async () => {
     const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
     const contractStatePath = `contracts/${contractAddress}/state?limit=100&order=desc`;

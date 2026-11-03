@@ -345,8 +345,7 @@ describe('@debug API Acceptance Tests', function () {
       }
     });
 
-    it('should trace a block using PrestateTracer with onlyTopCall=true', async function () {
-      // Create a transaction that calls a contract which might make internal calls
+    it('should ignore onlyTopCall when tracing a block with PrestateTracer', async function () {
       const transaction = await Utils.buildTransaction(
         relay,
         basicContractAddress,
@@ -357,47 +356,24 @@ describe('@debug API Acceptance Tests', function () {
 
       const blockNumber = receipt.blockNumber;
 
-      // First trace with onlyTopCall=false (default)
-      const fullResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+      const topCallOnly = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
         blockNumber,
         TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
       ]);
-
-      // Then trace with onlyTopCall=true
-      const topCallResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+      const allCalls = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
         blockNumber,
-        TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
+        TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE,
       ]);
 
-      // Both should return results
-      expect(fullResult).to.be.an('array');
-      expect(topCallResult).to.be.an('array');
+      expect(topCallOnly).to.deep.equal(allCalls);
 
-      // Find our transaction in both results
-      const fullTxTrace = fullResult.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
-      const topCallTxTrace = topCallResult.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
+      const txTrace = topCallOnly.find((trace: BlockTrace) => trace.txHash === receipt.transactionHash);
 
-      expect(fullTxTrace).to.exist;
-      expect(topCallTxTrace).to.exist;
+      expect(txTrace).to.exist;
+      expect(Object.keys(txTrace.result).length).to.be.at.least(2);
 
-      // Both should contain at least the contract address and sender address
-      expect(Object.keys(fullTxTrace.result).length).to.be.at.least(2);
-      expect(Object.keys(topCallTxTrace.result).length).to.be.at.least(2);
-
-      // The addresses in topCallResult should be a subset of those in fullResult
-      // or equal if there are no nested calls
-      const fullAddresses = Object.keys(fullTxTrace.result);
-      const topCallAddresses = Object.keys(topCallTxTrace.result);
-
-      // Every address in topCallAddresses should be in fullAddresses
-      topCallAddresses.forEach((address) => {
-        expect(fullAddresses).to.include(address);
-      });
-
-      // Each address should have the standard fields
-      for (const address of topCallAddresses) {
-        const state = topCallTxTrace.result[address];
-        Assertions.validatePrestateTracerResult(state);
+      for (const address of Object.keys(txTrace.result)) {
+        Assertions.validatePrestateTracerResult(txTrace.result[address]);
       }
     });
 
@@ -814,44 +790,68 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('@release should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+      it('@release should ignore onlyTopCall when tracing with PrestateTracer', async function () {
+        const topCallOnly = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
         ]);
-
-        expect(result).to.be.an('object');
-        expect(Object.keys(result).length).to.be.at.least(1);
-
-        // Check that the result contains prestate information for at least the contract and sender
-        const keys = Object.keys(result);
-        expect(keys.length).to.be.at.least(2);
-
-        // For each address in the result, check it has the expected fields
-        for (const address of keys) {
-          const state = result[address];
-          Assertions.validatePrestateTracerResult(state);
-        }
-      });
-
-      it('@release should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+        const allCalls = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE,
         ]);
 
-        expect(result).to.be.an('object');
-        expect(Object.keys(result).length).to.be.at.least(1);
+        expect(topCallOnly).to.deep.equal(allCalls);
+      });
 
-        // Check that the result contains prestate information for at least the contract and sender
-        const keys = Object.keys(result);
-        expect(keys.length).to.be.at.least(2);
+      // Touched slots need mirror node v0.165.0 with `hiero.mirror.web3.api.prestate.enabled`. Without it the
+      // relay falls back to the contract's full storage, so probe the endpoint directly and skip when it is off.
+      describe('touched storage slots', () => {
+        const COUNTER_SLOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        const SALT_SLOT = '0x0000000000000000000000000000000000000000000000000000000000000001';
 
-        // For each address in the result, check it has the expected fields
-        for (const address of keys) {
-          const state = result[address];
-          Assertions.validatePrestateTracerResult(state);
-        }
+        let updateCounterTxHash: string;
+        let prestateEndpointUnavailable = false;
+
+        before(async function () {
+          // `counter` lives in slot 0 and holds 1, so the write survives the mirror node's zero value filter,
+          // while `salt` and `salt2` stay untouched.
+          const updateCounter = deployerContract.getFunction('updateCounter');
+          const updateCounterTx = await updateCounter(7);
+
+          await relay.pollForValidTransactionReceipt(updateCounterTx.hash);
+          updateCounterTxHash = updateCounterTx.hash;
+
+          try {
+            await mirrorNode.get(`/contracts/results/${updateCounterTxHash}/prestate?code=true&storage=true`);
+          } catch (error) {
+            const status = (error as { response?: { status?: number } }).response?.status;
+
+            if (status === 404 || status === 501) {
+              prestateEndpointUnavailable = true;
+            } else {
+              throw error;
+            }
+          }
+        });
+
+        beforeEach(function () {
+          if (prestateEndpointUnavailable) {
+            this.skip();
+          }
+        });
+
+        it('@release should return only the slots the transaction touched', async function () {
+          const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+            updateCounterTxHash,
+            TRACER_CONFIGS.PRESTATE_TRACER,
+          ]);
+
+          const deployerState = result[deployerContractAddress.toLowerCase()];
+
+          expect(deployerState).to.exist;
+          expect(Object.keys(deployerState.storage)).to.deep.equal([COUNTER_SLOT]);
+          expect(deployerState.storage).to.not.have.property(SALT_SLOT);
+        });
       });
     });
 
