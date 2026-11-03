@@ -893,14 +893,14 @@ export class DebugImpl implements Debug {
 
             // Add contract data to result
             result[evmAddress] = {
-              balance: numberTo0x(balanceResponse!.balances[0]?.balance ?? 0),
+              balance: numberTo0x(tinybarsToWeibars(balanceResponse!.balances[0]?.balance ?? 0) ?? 0),
               nonce: entityObject.entity.nonce!,
               code: entityObject.entity.runtime_bytecode!,
               storage: storageMap,
             };
           } else if (entityObject.type === constants.TYPE_ACCOUNT) {
             result[evmAddress] = {
-              balance: numberTo0x(entityObject.entity.balance?.balance ?? 0),
+              balance: numberTo0x(tinybarsToWeibars(entityObject.entity.balance?.balance ?? 0) ?? 0),
               nonce: entityObject.entity.ethereum_nonce!,
               code: '0x',
               storage: {},

@@ -2787,7 +2787,7 @@ describe('Debug API Test Suite', async function () {
         evm_address: accountEvmAddress,
         ethereum_nonce: 2,
         balance: {
-          balance: '100000000',
+          balance: 100_000_000,
         },
       },
     } as unknown as { type: string; entity: IMirrorNodeEntity };
@@ -2796,7 +2796,7 @@ describe('Debug API Test Suite', async function () {
       balances: [
         {
           account: contractId,
-          balance: '200000000',
+          balance: 200_000_000,
         },
       ],
     } as unknown as IAccountBalancesPage;
@@ -2816,7 +2816,7 @@ describe('Debug API Test Suite', async function () {
 
     const expectedResult = {
       [contractEvmAddress]: {
-        balance: '0x200000000',
+        balance: '0x1bc16d674ec80000', // 2 hbar in weibars
         nonce: 1,
         code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
         storage: {
@@ -2825,7 +2825,7 @@ describe('Debug API Test Suite', async function () {
         },
       },
       [accountEvmAddress]: {
-        balance: '0x100000000',
+        balance: '0xde0b6b3a7640000', // 1 hbar in weibars
         nonce: 2,
         code: '0x',
         storage: {},
@@ -3067,7 +3067,7 @@ describe('Debug API Test Suite', async function () {
         expect(result).to.have.property(accountEvmAddress);
 
         expect(result[accountEvmAddress]).to.deep.equal({
-          balance: '0x100000000',
+          balance: '0xde0b6b3a7640000',
           nonce: 2,
           code: '0x',
           storage: {},
