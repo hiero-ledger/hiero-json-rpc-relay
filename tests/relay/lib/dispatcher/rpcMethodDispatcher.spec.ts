@@ -25,7 +25,7 @@ interface DispatcherInternals {
     rpcMethodParams: unknown[],
     requestDetails: RequestDetails,
   ): Promise<unknown>;
-  handleRpcMethodError(error: unknown, rpcMethodName: string): JsonRpcError;
+  handleRpcMethodError(error: unknown, rpcMethodName: string, rpcMethodParams: unknown[]): JsonRpcError;
   throwUnregisteredRpcMethods(methodName: string): never;
 }
 
@@ -123,7 +123,7 @@ describe('RpcMethodDispatcher', () => {
 
       // Verify error handling flow
       expect(errorHandlerSpy.calledOnce).to.be.true;
-      expect(errorHandlerSpy.calledWith(testError, TEST_METHOD_NAME)).to.be.true;
+      expect(errorHandlerSpy.calledWith(testError, TEST_METHOD_NAME, TEST_PARAMS)).to.be.true;
 
       // Verify the error result
       expect(result).to.be.instanceOf(JsonRpcError);
@@ -229,6 +229,21 @@ describe('RpcMethodDispatcher', () => {
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(-32000);
       expect(result.message).to.equal(`Test error`);
+    });
+
+    it('should log the method params so a failed request can be reproduced', () => {
+      const errorLogSpy = sinon.spy(logger, 'error');
+
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      dispatcher.handleRpcMethodError(new Error('Test error'), TEST_METHOD_NAME, TEST_PARAMS);
+
+      sinon.assert.calledOnceWithExactly(
+        errorLogSpy,
+        sinon.match.string,
+        TEST_METHOD_NAME,
+        JSON.stringify(TEST_PARAMS),
+        'Test error',
+      );
     });
 
     it('should return non time out SDKClientError as consensus error', () => {

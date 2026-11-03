@@ -204,6 +204,30 @@ describe('Txpool', async function () {
     });
   });
 
+  describe('pendingTransactions', async () => {
+    it('should return pool transactions even when the txpool API is disabled', async () => {
+      (ConfigService.get as sinon.SinonStub).withArgs('TXPOOL_API_ENABLED').returns(false);
+      txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
+
+      const txs = await txPool.pendingTransactions();
+      expect(txs.map((tx) => tx.hash)).to.deep.equal([parsedTx.hash]);
+    });
+
+    it('should decode each pooled transaction once and forget it after it leaves the pool', async () => {
+      const convertSpy = sandbox.spy(txPoolInternals, 'convertRlpEncodedTxToTransactionPoolTx');
+      txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
+      await txPool.pendingTransactions();
+      await txPool.pendingTransactions();
+      expect(convertSpy.calledOnce).to.be.true;
+
+      txPoolServiceMock.getAllTransactions.resolves(new Set());
+      expect(await txPool.pendingTransactions()).to.be.empty;
+      txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
+      await txPool.pendingTransactions();
+      expect(convertSpy.calledTwice).to.be.true;
+    });
+  });
+
   describe('content', async () => {
     it('should return grouped pending transactions', async () => {
       txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
