@@ -56,11 +56,16 @@ jobs:
           path: '**/*.heapsnapshot'
           if-no-files-found: ignore
 
+      # Upload only when the tests pass: a partial report from a failed run would show as a coverage drop.
       - name: Upload coverage report
-        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
-        run: bash .github/scripts/codecov-upload.sh
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          disable_search: true
+          flags: unit
+          fail_ci_if_error: true
 
       - name: Publish Test Report
         if: ${{ github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name && github.actor != 'dependabot[bot]' && github.actor != 'swirlds-automation' && !cancelled() && !failure() }}
