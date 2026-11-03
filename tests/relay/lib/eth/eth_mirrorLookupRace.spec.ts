@@ -107,10 +107,10 @@ describe('transaction lookups racing mirror ingestion', function () {
         expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl]);
       });
 
-      it('retains the synthetic fallback when the result is still absent after logs are visible', async () => {
+      it('returns null when the result is still absent after logs are visible', async () => {
         restMock.onGet(resultUrl).reply(404, {});
         restMock.onGet(logsUrl).reply(200, { logs });
-        expect(await lookup()).to.have.property(method === 'getTransactionByHash' ? 'hash' : 'transactionHash', hash);
+        expect(await lookup()).to.be.null;
         expect(requestedUrls()).to.deep.equal([resultUrl, logsUrl, resultUrl]);
       });
 

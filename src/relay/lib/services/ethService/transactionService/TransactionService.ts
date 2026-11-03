@@ -218,11 +218,10 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const { contractResult, syntheticLogs } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
+    const { contractResult } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
 
     if (contractResult === null) {
-      // handle synthetic transactions
-      return syntheticLogs.length ? TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0) : null;
+      return null;
     }
 
     // A child record is not an ethereum transaction of its own: it is part of its parent's execution.
@@ -262,17 +261,9 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    const { contractResult: receiptResponse, syntheticLogs } = await this.getContractResultOrSyntheticLogs(
-      hash,
-      requestDetails,
-    );
+    const { contractResult: receiptResponse } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
 
     if (receiptResponse === null) {
-      // handle synthetic transactions
-      if (syntheticLogs.length) {
-        return await this.buildSyntheticReceipt(hash, syntheticLogs, requestDetails);
-      }
-
       // Mirror Node has nothing for this hash. When tracing is enabled, consult the store: a recorded
       // rejected/timedout outcome surfaces as a -32003 error instead of an indistinguishable null.
       const fallbackError = await this.transactionTracingService.getReceiptFallbackError(hash);

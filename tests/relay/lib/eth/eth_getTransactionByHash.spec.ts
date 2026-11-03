@@ -139,7 +139,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     expect(result).to.equal(null);
   });
 
-  it('returns a valid transaction for synthetic transactions', async function () {
+  it('returns null when only logs exist without a contract result', async function () {
     const uniqueTxHash = '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5';
     const logs = {
       logs: [
@@ -173,24 +173,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       .reply(200, JSON.stringify(logs));
 
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.be.deep.equal({
-      blockHash: '0x730c1d0263e78303b189d778a75451113162547b4b466cb8c1796deef3a8a5e4',
-      blockNumber: '0x1633918',
-      chainId: '0x12a',
-      from: '0x00000000000000000000000000000000006390e6',
-      gas: '0x61a80',
-      gasPrice: '0xfe',
-      hash: '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5',
-      input: '0x0000000000000000',
-      nonce: '0x0',
-      r: '0x0',
-      s: '0x0',
-      to: '0x00000000000000000000000000000000006390e6',
-      transactionIndex: '0x7',
-      type: '0x0',
-      v: '0x0',
-      value: '0x0',
-    });
+    expect(result).to.be.null;
   });
 
   it('account should be cached', async function () {

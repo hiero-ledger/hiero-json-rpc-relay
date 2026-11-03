@@ -158,7 +158,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   // Mirror Node has no contract result for the hash, but synthetic logs exist: a synthetic receipt is
   // returned rather than falling through to the tracing fallback / null.
-  it('returns a synthetic receipt when no contract result exists but synthetic logs do', async function () {
+  it('returns null when only logs exist without a contract result', async function () {
     const txHash = '0x0000000000000000000000000000000000000000000000000000000000000002';
     restMock
       .onGet(`contracts/results/${txHash}?hbar=false`)
@@ -166,15 +166,10 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     restMock
       .onGet(`contracts/results/logs?transaction.hash=${txHash}&limit=100&order=asc`)
       .reply(200, JSON.stringify({ logs: DEFAULT_LOGS_3 }));
-    sandbox.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
 
     const receipt = await ethImpl.getTransactionReceipt(txHash, requestDetails);
 
-    expect(receipt).to.not.be.null;
-    expect(receipt!.logs).to.be.an('array').with.lengthOf(DEFAULT_LOGS_3.length);
-    expect(receipt!.transactionHash).to.equal(DEFAULT_LOGS_3[0].transaction_hash);
-    expect(receipt!.effectiveGasPrice).to.equal('0xad78ebc5ac620000');
-    expect(receipt!.status).to.equal(constants.ONE_HEX);
+    expect(receipt).to.be.null;
   });
 
   it('valid receipt on match', async function () {
