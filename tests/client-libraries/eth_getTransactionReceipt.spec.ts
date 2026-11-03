@@ -12,6 +12,7 @@ import { Web3 } from 'web3';
 import { ConfigService } from '../../src/config-service/services';
 import { Relay } from '../../src/relay';
 import { MirrorNodeClient } from '../../src/relay/lib/clients';
+import { CommonService } from '../../src/relay/lib/services/ethService/ethCommonService/CommonService';
 import { TransactionService } from '../../src/relay/lib/services/ethService/transactionService/TransactionService';
 import { type TransactionTracingService } from '../../src/relay/lib/services/transactionTracingService/transactionTracingService';
 import { type MirrorNodeContractResultDetails } from '../../src/relay/lib/types';
@@ -66,7 +67,6 @@ interface RpcErrorLike {
 }
 
 interface TransactionServiceInternals {
-  handleSyntheticTransactionReceipt(): Promise<unknown>;
   handleRegularTransactionReceipt(): Promise<unknown>;
 }
 
@@ -176,7 +176,7 @@ describe('client-libraries: eth_getTransactionReceipt tracing decode', function 
           (contractResults[hash.toLowerCase()] as MirrorNodeContractResultDetails | undefined) ?? null,
       );
     const transactionServiceInternals = TransactionService.prototype as unknown as TransactionServiceInternals;
-    sinon.stub(transactionServiceInternals, 'handleSyntheticTransactionReceipt').resolves(null);
+    sinon.stub(CommonService.prototype, 'getLogsWithParams').resolves([]);
     sinon.stub(transactionServiceInternals, 'handleRegularTransactionReceipt').resolves(RECEIPT);
 
     const tracing = (relay.eth() as unknown as EthInternals).transactionService.transactionTracingService;

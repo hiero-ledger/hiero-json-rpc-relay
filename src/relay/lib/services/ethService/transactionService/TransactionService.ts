@@ -270,13 +270,15 @@ export class TransactionService implements ITransactionService {
       this.logger.warn(`Failed to resolve %s by recorded consensus timestamp: %s`, hash, error);
     }
 
-    const receiptResponse = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+    const { contractResult: receiptResponse, syntheticLogs } = await this.getContractResultOrSyntheticLogs(
+      hash,
+      requestDetails,
+    );
 
-    if (receiptResponse === null || receiptResponse.hash === undefined) {
+    if (receiptResponse === null) {
       // handle synthetic transactions
-      const syntheticReceipt = await this.handleSyntheticTransactionReceipt(hash, requestDetails);
-      if (syntheticReceipt) {
-        return syntheticReceipt;
+      if (syntheticLogs.length) {
+        return await this.buildSyntheticReceipt(hash, syntheticLogs, requestDetails);
       }
 
       // Mirror Node has nothing for this hash. When tracing is enabled, consult the store: a recorded
@@ -782,15 +784,24 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Handles the processing of a synthetic transaction receipt
+   * Looks up a contract result, checking again after logs become visible before falling back to a synthetic
+   * receipt. The two mirror requests can straddle an import commit: a missing result followed by existing logs
+   * does not imply a synthetic transaction. Only the fallback with logs pays for the additional lookup; regular
+   * results and unknown hashes with no logs keep their existing request counts.
+   *
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
+   * @returns The contract result when found, otherwise the logs available for the synthetic fallback
    */
-  private async handleSyntheticTransactionReceipt(
+  private async getContractResultOrSyntheticLogs(
     hash: string,
     requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt | null> {
+  ): Promise<{ contractResult: MirrorNodeContractResultDetails | null; syntheticLogs: Log[] }> {
+    let contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+    if (contractResult?.hash !== undefined) {
+      return { contractResult, syntheticLogs: [] };
+    }
+
     const syntheticLogs = await this.common.getLogsWithParams(
       null,
       {
@@ -799,13 +810,16 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
-    // no tx found
     if (!syntheticLogs.length) {
       this.logger.trace(`no receipt for %s`, hash);
-      return null;
+      return { contractResult: null, syntheticLogs };
     }
 
-    return await this.buildSyntheticReceipt(hash, syntheticLogs, requestDetails);
+    // Recheck AFTER the log query, not concurrently with it. A result visible now goes through the regular
+    // child/rejection/receipt handling, and a failed lookup propagates rather than guessing a synthetic receipt.
+    contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+
+    return { contractResult: contractResult?.hash !== undefined ? contractResult : null, syntheticLogs };
   }
 
   /**
