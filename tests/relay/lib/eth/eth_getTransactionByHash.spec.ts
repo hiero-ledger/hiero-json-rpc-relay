@@ -139,7 +139,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     expect(result).to.equal(null);
   });
 
-  it('returns a valid transaction for synthetic transactions', async function () {
+  it('returns null when only logs exist without a contract result', async function () {
     const uniqueTxHash = '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5';
     const logs = {
       logs: [
@@ -173,24 +173,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       .reply(200, JSON.stringify(logs));
 
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.be.deep.equal({
-      blockHash: '0x730c1d0263e78303b189d778a75451113162547b4b466cb8c1796deef3a8a5e4',
-      blockNumber: '0x1633918',
-      chainId: '0x12a',
-      from: '0x00000000000000000000000000000000006390e6',
-      gas: '0x61a80',
-      gasPrice: '0xfe',
-      hash: '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5',
-      input: '0x0000000000000000',
-      nonce: '0x0',
-      r: '0x',
-      s: '0x',
-      to: '0x00000000000000000000000000000000006390e6',
-      transactionIndex: '0x7',
-      type: '0x0',
-      v: '0x0',
-      value: '0x0',
-    });
+    expect(result).to.be.null;
   });
 
   it('account should be cached', async function () {
@@ -313,7 +296,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     });
   });
 
-  it('should filter out the transaction if it stays immature for the whole polling window', async function () {
+  it('should filter out a transaction rejected before consensus', async function () {
     const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640513';
 
     restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
@@ -327,6 +310,42 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     );
 
     expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
+  });
+
+  it('should filter out a record the mirror node flags as a child', async function () {
+    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640514';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        hash: uniqueTxHash,
+        nonce: null,
+        v: null,
+        child: true,
+      }),
+    );
+
+    expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
+  });
+
+  it('returns a HAPI-submitted contract call the mirror node does not flag as a child', async function () {
+    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640515';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        hash: uniqueTxHash,
+        nonce: null,
+        v: null,
+        child: false,
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
+    expect(result).to.not.be.null;
+    expect(result!.hash).to.eq(uniqueTxHash);
   });
 
   it('returns reverted transactions', async function () {

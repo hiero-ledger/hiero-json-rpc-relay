@@ -218,37 +218,22 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const contractResult =
-      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
-        this.mirrorNodeClient.getContractResult.name,
-        [hash, requestDetails],
-        { returnImmatureRecords: true },
-      );
+    const { contractResult } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
 
-    if (contractResult === null || contractResult.hash === undefined) {
-      // handle synthetic transactions
-      const syntheticLogs = await this.common.getLogsWithParams(
-        null,
-        {
-          'transaction.hash': hash,
-        },
-        requestDetails,
-      );
-
-      // no tx found
-      if (!syntheticLogs.length) {
-        this.logger.trace(`no tx for %s`, hash);
-        return null;
-      }
-
-      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
+    if (contractResult === null) {
+      return null;
     }
 
-    // A record still immature after the full polling window belongs to a transaction rejected before
-    // execution: it will never be part of a block. Filter it out rather than serve a transaction whose
-    // block fields can never be filled in - `eth_getTransactionReceipt` carries the rejection detail.
-    if (isImmatureContractRecord(contractResult)) {
-      this.logger.trace(`immature (rejected) contract result filtered out for %s`, hash);
+    // A child record is not an ethereum transaction of its own: it is part of its parent's execution.
+    if (isChildContractRecord(contractResult)) {
+      this.logger.trace(`child record is not a transaction of its own for %s`, hash);
+      return null;
+    }
+
+    // A record with no block linkage belongs to a transaction rejected before consensus: it will never be
+    // part of a block. Filter it out rather than serve a transaction whose block fields can never be
+    // filled in - `eth_getTransactionReceipt` carries the rejection detail.
+    if (isImmatureContractRecord(contractResult, this.logger)) {
       return null;
     }
 
@@ -276,29 +261,9 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    try {
-      const receiptByTimestamp = await this.resolveSyntheticReceiptByRecordedTimestamp(hash, requestDetails);
-      if (receiptByTimestamp) {
-        return receiptByTimestamp;
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to resolve %s by recorded consensus timestamp: %s`, hash, error);
-    }
+    const { contractResult: receiptResponse } = await this.getContractResultOrSyntheticLogs(hash, requestDetails);
 
-    const receiptResponse =
-      await this.mirrorNodeClient.getContractResultWithRetry<MirrorNodeContractResultDetails | null>(
-        this.mirrorNodeClient.getContractResult.name,
-        [hash, requestDetails],
-        { returnImmatureRecords: true },
-      );
-
-    if (receiptResponse === null || receiptResponse.hash === undefined) {
-      // handle synthetic transactions
-      const syntheticReceipt = await this.handleSyntheticTransactionReceipt(hash, requestDetails);
-      if (syntheticReceipt) {
-        return syntheticReceipt;
-      }
-
+    if (receiptResponse === null) {
       // Mirror Node has nothing for this hash. When tracing is enabled, consult the store: a recorded
       // rejected/timedout outcome surfaces as a -32003 error instead of an indistinguishable null.
       const fallbackError = await this.transactionTracingService.getReceiptFallbackError(hash);
@@ -308,19 +273,22 @@ export class TransactionService implements ITransactionService {
 
       return null;
     } else {
-      // A record still immature after the full polling window belongs to a transaction rejected before
-      // execution: no block linkage will ever be filled in, so no receipt can be built. Surface the
-      // rejection with its details instead of a half-populated receipt.
-      if (isImmatureContractRecord(receiptResponse)) {
-        // A child record lacks an index too, but it is no rejection: it is not an ethereum
-        // transaction at all, so it has no receipt of its own. Report it as not found, the way
-        // `eth_getTransactionByHash` already does for the same record.
-        if (isChildContractRecord(receiptResponse)) {
-          this.logger.trace(`child (synthetic) record has no receipt of its own for %s`, hash);
-          return null;
+      // A child record is no rejection: it is not an ethereum transaction at all, so it has no receipt of
+      // its own. Report it as not found, the way `eth_getTransactionByHash` does for the same record.
+      if (isChildContractRecord(receiptResponse)) {
+        this.logger.trace(`child record has no receipt of its own for %s`, hash);
+        return null;
+      }
+
+      // A record with no block linkage is not part of a block, so no receipt can be built. A non-SUCCESS
+      // result means it was rejected before consensus (e.g. `INVALID_SIGNATURE`, `WRONG_NONCE`): surface the
+      // rejection with its details. Otherwise report it as not found.
+      if (isImmatureContractRecord(receiptResponse, this.logger)) {
+        if (receiptResponse.result !== constants.SUCCESS) {
+          throw await this.buildRejectedRecordError(hash, receiptResponse);
         }
 
-        throw await this.buildRejectedRecordError(hash, receiptResponse);
+        return null;
       }
 
       // Mirror Node reflected a receipt - upgrade any traced record to validated (admin-inspection only).
@@ -365,13 +333,13 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Builds the `-32003` error for a transaction the Mirror Node reflects as a permanently immature record,
-   * i.e. one rejected before execution. The Mirror Node record is authoritative for the Hedera status
+   * Builds the `-32003` error for a transaction the Mirror Node reflects without block linkage,
+   * i.e. one rejected before consensus. The Mirror Node record is authoritative for the Hedera status
    * (`result`) and failure detail (`error_message`); a traced record, when the relay submitted the
    * transaction itself, fills in whatever the record leaves blank plus the Hedera transaction id.
    *
    * @param hash The transaction hash
-   * @param record The immature contract result returned by the Mirror Node
+   * @param record The contract result without block linkage returned by the Mirror Node
    * @returns {Promise<JsonRpcError>} A promise that resolves to the `-32003` rejection error
    */
   private async buildRejectedRecordError(hash: string, record: MirrorNodeContractResultDetails): Promise<JsonRpcError> {
@@ -799,15 +767,24 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Handles the processing of a synthetic transaction receipt
+   * Looks up a contract result, checking again after logs become visible before falling back to a synthetic
+   * receipt. The two mirror requests can straddle an import commit: a missing result followed by existing logs
+   * does not imply a synthetic transaction. Only the fallback with logs pays for the additional lookup; regular
+   * results and unknown hashes with no logs keep their existing request counts.
+   *
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
+   * @returns The contract result when found, otherwise the logs available for the synthetic fallback
    */
-  private async handleSyntheticTransactionReceipt(
+  private async getContractResultOrSyntheticLogs(
     hash: string,
     requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt | null> {
+  ): Promise<{ contractResult: MirrorNodeContractResultDetails | null; syntheticLogs: Log[] }> {
+    let contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+    if (contractResult?.hash !== undefined) {
+      return { contractResult, syntheticLogs: [] };
+    }
+
     const syntheticLogs = await this.common.getLogsWithParams(
       null,
       {
@@ -816,13 +793,16 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
-    // no tx found
     if (!syntheticLogs.length) {
-      this.logger.trace(`no receipt for %s`, hash);
-      return null;
+      this.logger.trace(`no contract result or logs for %s`, hash);
+      return { contractResult: null, syntheticLogs };
     }
 
-    return await this.buildSyntheticReceipt(hash, syntheticLogs, requestDetails);
+    // Recheck AFTER the log query, not concurrently with it. A result visible now goes through the regular
+    // child/rejection/receipt handling, and a failed lookup propagates rather than guessing a synthetic receipt.
+    contractResult = await this.mirrorNodeClient.getContractResult(hash, requestDetails);
+
+    return { contractResult: contractResult?.hash !== undefined ? contractResult : null, syntheticLogs };
   }
 
   /**
@@ -849,80 +829,6 @@ export class TransactionService implements ITransactionService {
     }
 
     return receipt;
-  }
-
-  /**
-   * Resolves a synthetic transaction by the consensus timestamp recorded while its block was served,
-   * bypassing the by-hash routes the Mirror Node cannot answer until its hash index catches up.
-   */
-  private async resolveSyntheticReceiptByRecordedTimestamp(
-    hash: string,
-    requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt | null> {
-    const consensusTimestamp = await this.mirrorNodeClient.transactionTimestampIndex.get(hash);
-    if (!consensusTimestamp) {
-      return null;
-    }
-
-    const logs = await this.common.getLogsWithParams(null, { timestamp: `eq:${consensusTimestamp}` }, requestDetails);
-    const ownLogs = logs.filter((log) => log.transactionHash === hash);
-    if (!ownLogs.length) {
-      return null;
-    }
-
-    this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
-
-    const blockNumber = Number(ownLogs[0].blockNumber);
-    const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, { blockNumber });
-
-    const contractResult = blockContractResults.find((result) => result.hash === hash);
-    if (!contractResult) {
-      return null;
-    }
-
-    return await this.buildSyntheticReceiptFromBlockResults(
-      contractResult,
-      blockContractResults,
-      ownLogs,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Builds the receipt of a synthetic transaction out of its block's contract results, through the same
-   * factory every other receipt route uses, so the fields a log cannot supply - the payer, the gas totals,
-   * the status and type - match what those routes report for the same transaction.
-   *
-   * @param contractResult The transaction's own contract result
-   * @param blockContractResults Every contract result of the block, used for the running gas total
-   * @param logs The transaction's synthetic logs
-   * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<ITransactionReceipt>} A promise that resolves to the transaction receipt
-   */
-  private async buildSyntheticReceiptFromBlockResults(
-    contractResult: MirrorNodeContractResult,
-    blockContractResults: MirrorNodeContractResult[],
-    logs: Log[],
-    requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt> {
-    const [effectiveGas, from, to, isDeployment] = await Promise.all([
-      this.common.getCurrentGasPriceForBlock(contractResult.block_hash, requestDetails),
-      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      this.common.resolveEvmAddress(contractResult.to, requestDetails),
-      this.common.isContractDeployment(contractResult, requestDetails),
-    ]);
-
-    const cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, contractResult.transaction_index ?? 0);
-
-    return TransactionReceiptFactory.createRegularReceipt({
-      effectiveGas,
-      from: from ?? contractResult.from,
-      logs,
-      receiptResponse: contractResult,
-      to,
-      cumulativeGasUsed,
-      isDeployment,
-    });
   }
 
   /**

@@ -215,9 +215,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
         };
         expect(blockResult.transactions.map((tx) => tx.hash)).to.not.contain(txHash);
 
-        // TODO: edit it when https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5804 is merged
-        const receipt = await client.call('eth_getTransactionReceipt', [txHash]);
-        expect(receipt).to.be.null;
+        const response = await client.callRaw('eth_getTransactionReceipt', [txHash]);
+        expect(response.error).to.exist;
+        expect(response.error!.code).to.eq(-32003);
+        expect(response.error!.message).to.contain('CONTRACT_NEGATIVE_VALUE');
       });
 
       for (const params of INVALID_PARAMS) {

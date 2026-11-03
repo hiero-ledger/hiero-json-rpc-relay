@@ -107,44 +107,10 @@ describe('@ethGetTransactionReceipt timestamp index fallback', function () {
     return paths;
   };
 
-  const byHashPaths = (paths: string[]): string[] =>
-    paths.filter((p) => p.includes('transaction.hash') || p.includes(`results/${HASH}`));
-
   beforeEach(async () => {
     await cacheService.clear();
     restMock.reset();
     sinon.restore();
-  });
-
-  it('resolves the receipt from the recorded timestamp without using either by-hash route', async () => {
-    recordedTimestamp(TS);
-    const paths = stubMirrorNode([syntheticLog(HASH)], [contractResult({ transaction_index: 0 })]);
-
-    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
-
-    expect(receipt).to.not.be.null;
-    expect(receipt!.transactionHash).to.equal(HASH);
-    expect(receipt!.blockNumber).to.equal('0x258a26b');
-    expect(byHashPaths(paths), `by-hash routes must not be used, saw ${byHashPaths(paths)}`).to.deep.equal([]);
-  });
-
-  it('reports the payer and the block gas total from the block results, not the log-only defaults', async () => {
-    recordedTimestamp(TS);
-    const paths = stubMirrorNode(
-      [syntheticLog(HASH)],
-      [
-        contractResult({ hash: PRIOR_HASH, transaction_index: 0, gas_used: 100, gas_limit: 50000 }),
-        contractResult({ transaction_index: 1 }),
-      ],
-    );
-
-    const receipt = await ethImpl.getTransactionReceipt(HASH, requestDetails);
-
-    expect(receipt!.from).to.equal(PAYER);
-    expect(receipt!.cumulativeGasUsed).to.equal('0x64');
-    expect(receipt!.gasUsed).to.equal('0x0');
-    expect(receipt!.status).to.equal('0x1');
-    expect(byHashPaths(paths), `by-hash routes must not be used, saw ${byHashPaths(paths)}`).to.deep.equal([]);
   });
 
   it('falls through to the existing path when the block results do not contain the hash', async () => {

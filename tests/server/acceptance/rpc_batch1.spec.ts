@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
+import { ContractCreateTransaction, PrivateKey, type TokenId, TransferTransaction } from '@hiero-ledger/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -830,6 +830,135 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               });
             });
           });
+        });
+      });
+
+      describe('Transaction rejected before consensus', async () => {
+        it('should return a -32003 error from "eth_getTransactionReceipt" for an INVALID_SIGNATURE via SDK contract create', async () => {
+          const response = await servicesNode.executeTransaction(
+            new ContractCreateTransaction()
+              .setBytecode(ethers.getBytes(basicContract.bytecode))
+              .setGas(100_000)
+              .setAdminKey(PrivateKey.generateECDSA().publicKey),
+          );
+          const receipt = await response.getReceiptQuery().setValidateStatus(false).execute(servicesNode.client);
+          expect(receipt.status.toString()).to.equal('INVALID_SIGNATURE');
+
+          await new Promise((r) => setTimeout(r, 2100));
+          const [payer, validStart] = response.transactionId.toString().split('@');
+          const mnResult = await mirrorNode.get(`/contracts/results/${payer}-${validStart.replace('.', '-')}`);
+          expect(mnResult.result).to.equal('INVALID_SIGNATURE');
+          expect(mnResult.transaction_index).to.be.null;
+          const txHash: string = mnResult.hash;
+
+          const expectedError = predefined.TRANSACTION_REJECTED_DETAILED({ txHash, hederaStatus: 'INVALID_SIGNATURE' });
+          try {
+            await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash]);
+            Assertions.expectedError();
+          } catch (e) {
+            const error = (e as { response?: { bodyJson?: { error?: { data?: Record<string, unknown> } } } })?.response
+              ?.bodyJson?.error;
+            Assertions.jsonRpcError(error, expectedError);
+            expect(error?.data?.txHash).to.equal(txHash.toLowerCase());
+            expect(error?.data?.hederaStatus).to.equal('INVALID_SIGNATURE');
+          }
+        });
+      });
+
+      describe('Child and HAPI-submitted contract records', async () => {
+        interface MirrorContractRecord {
+          hash: string;
+          timestamp: string;
+          block_number: number;
+          transaction_index: number | null;
+          nonce: number | null;
+          child?: boolean;
+        }
+
+        const toNanos = (timestamp: string): bigint => BigInt(timestamp.replace('.', ''));
+
+        let parentTxHash: string;
+        let childRecord: MirrorContractRecord | undefined;
+
+        before(async () => {
+          await servicesNode.executeAndGetTransactionReceipt(
+            new TransferTransaction()
+              .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+              .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
+              .setTransactionMemo('Relay test child record funding'),
+          );
+          await accounts[3].client.associateToken(htsTokenId);
+
+          const token = new ethers.Contract(
+            Utils.idToEvmAddress(htsTokenId.toString()),
+            ['function transfer(address to, uint256 amount) returns (bool)'],
+            accounts[2].wallet,
+          );
+          const tx = await token.transfer(accounts[3].address, 1, {
+            gasLimit: 1_000_000,
+          });
+          parentTxHash = tx.hash;
+          const parentReceipt = await relay.pollForValidTransactionReceipt(parentTxHash);
+          expect(parentReceipt.status).to.equal('0x1');
+
+          const parent: MirrorContractRecord = await mirrorNode.get(`/contracts/results/${parentTxHash}`);
+          const { results }: { results: MirrorContractRecord[] } = await mirrorNode.get(
+            `/contracts/results?internal=true&block.number=${parent.block_number}&limit=100`,
+          );
+          childRecord = results.find(
+            (record) =>
+              record.child === true &&
+              toNanos(record.timestamp) > toNanos(parent.timestamp) &&
+              toNanos(record.timestamp) - toNanos(parent.timestamp) < BigInt(1_000_000),
+          );
+        });
+
+        it('should have the mirror node flag the HTS dispatch as a child carrying an index and no nonce', async () => {
+          assertExists(childRecord);
+          expect(childRecord.hash).to.not.equal(parentTxHash);
+          expect(childRecord.transaction_index).to.not.be.null;
+          expect(childRecord.nonce).to.be.null;
+        });
+
+        it('should return null from "eth_getTransactionReceipt" for a child record', async () => {
+          assertExists(childRecord);
+          const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [childRecord.hash]);
+          expect(receipt).to.be.null;
+        });
+
+        it('should return null from "eth_getTransactionByHash" for a child record', async () => {
+          assertExists(childRecord);
+          const transaction = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [
+            childRecord.hash,
+          ]);
+          expect(transaction).to.be.null;
+        });
+
+        it('should still serve the parent ethereum transaction of a child record', async () => {
+          const transaction = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [parentTxHash]);
+          expect(transaction).to.not.be.null;
+          expect(transaction.hash).to.equal(parentTxHash);
+        });
+
+        it('should return a receipt for an SDK contract create, which the mirror node does not flag as a child', async () => {
+          const response = await servicesNode.executeTransaction(
+            new ContractCreateTransaction().setBytecode(ethers.getBytes(basicContract.bytecode)).setGas(1_000_000),
+          );
+          const sdkReceipt = await response.getReceipt(servicesNode.client);
+          expect(sdkReceipt.status.toString()).to.equal('SUCCESS');
+
+          const [payer, validStart] = response.transactionId.toString().split('@');
+          const mnResult: MirrorContractRecord = await mirrorNode.get(
+            `/contracts/results/${payer}-${validStart.replace('.', '-')}`,
+          );
+          expect(mnResult.child).to.equal(false);
+          expect(mnResult.nonce).to.be.null;
+          expect(mnResult.transaction_index).to.not.be.null;
+
+          const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [mnResult.hash]);
+          expect(receipt).to.not.be.null;
+          expect(receipt.transactionHash).to.equal(mnResult.hash);
+          expect(receipt.status).to.equal('0x1');
         });
       });
 
