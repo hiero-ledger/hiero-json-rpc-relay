@@ -9,7 +9,9 @@ import RelayAssertions from '../../assertions';
 import { defaultDetailedContractResultByHash, defaultFromLongZeroAddress } from '../../helpers';
 import {
   DEFAULT_AUTHORIZATION_LIST,
+  DEFAULT_BLOCK,
   DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED,
+  DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
   DEFAULT_TRANSACTION,
   DEFAULT_TX_HASH,
   DETAILD_CONTRACT_RESULT_NOT_FOUND,
@@ -61,6 +63,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
 
   this.beforeEach(function () {
     restMock.reset();
+    // record-file blocks fill created_contract_ids, so the deployment check trusts an empty list without a lookup
+    restMock.onGet(`blocks/${contractResultMock.block_hash}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(`accounts/${defaultFromLongZeroAddress}${NO_TRANSACTIONS}`).reply(
       200,
       JSON.stringify({
@@ -267,6 +271,42 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
   });
 
+  it('should filter out a record the mirror node flags as a child', async function () {
+    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640514';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        hash: uniqueTxHash,
+        nonce: null,
+        v: null,
+        child: true,
+      }),
+    );
+
+    expect(await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails)).to.be.null;
+  });
+
+  it('returns a HAPI-submitted contract call the mirror node does not flag as a child', async function () {
+    const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52d1a53ec640515';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        hash: uniqueTxHash,
+        nonce: null,
+        v: null,
+        child: false,
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
+    expect(result).to.not.be.null;
+    expect(result!.hash).to.eq(uniqueTxHash);
+  });
+
   it('returns reverted transactions', async function () {
     restMock
       .onGet(`contracts/results/${DEFAULT_TX_HASH}?hbar=false`)
@@ -295,11 +335,38 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     expect(result?.to).to.eq(null);
   });
 
+  it('returns a null to field for a deployment imported from the block stream', async function () {
+    // block-stream mirror nodes leave created_contract_ids empty, so the deployment is read off the transaction's records
+    const uniqueTxHash = '0x16aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+    const transactionId = '0.0.2-1692959180-000000000';
+    // a block hash no other test caches as a record-file block
+    const blockHash = '0x' + 'b1'.repeat(48);
+
+    restMock
+      .onGet(`contracts/results/${uniqueTxHash}?hbar=false`)
+      .reply(200, JSON.stringify({ ...contractResultMock, type: 0, block_hash: blockHash }));
+    restMock
+      .onGet(`blocks/${blockHash}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
+    restMock
+      .onGet(`transactions?timestamp=${contractResultMock.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
+    restMock.onGet(`transactions/${transactionId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: contractResultMock.contract_id }],
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
+    expect(result?.to).to.be.null;
+  });
+
   it('handles EIP-7702 transactions with type 4', async function () {
     const detailedResultsWithTransactionAuthorizationList = {
       ...defaultDetailedContractResultByHash,
       type: 4,
-      authorization_list: DEFAULT_AUTHORIZATION_LIST,
+      authorization_list: DEFAULT_MIRROR_NODE_AUTHORIZATION_LIST,
     };
     const uniqueTxHash = '0x8f3c9a7b2d4e6f1a9c0b7d3e5f8a1c2e4d6b9f0a3c7e2d1f8b6a4c9e0d2f7a1';
 

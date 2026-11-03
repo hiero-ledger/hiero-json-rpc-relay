@@ -6,7 +6,7 @@ import { type Gauge, type Registry } from 'prom-client';
 import { type RedisClientType } from 'redis';
 
 import { ConfigService } from '../../config-service/services';
-import { METRICS, MetricsFactory } from '../../metrics';
+import { createMethodMetricLabeler, METRICS, MetricsFactory } from '../../metrics';
 import type { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
@@ -133,6 +133,14 @@ export class Relay {
   public rpcMethodRegistry!: RpcMethodRegistry;
 
   /**
+   * Maps a raw method name to a bounded metric label so that caller-supplied names cannot grow the
+   * Prometheus registry without limit; shared by the HTTP and WebSocket servers.
+   *
+   * @public
+   */
+  public methodMetricLabeler!: (method: unknown) => string;
+
+  /**
    * The RPC method dispatcher that takes care of executing the correct method based on the request.
    */
   private rpcMethodDispatcher!: RpcMethodDispatcher;
@@ -163,13 +171,13 @@ export class Relay {
    * to invoke RPC methods on the Relay.
    *
    * @param {string} rpcMethodName - The name of the RPC method to execute
-   * @param {unknown[] | undefined} rpcMethodParams - The params for the RPC method to execute
+   * @param {unknown[] | null | undefined} rpcMethodParams - The params for the RPC method to execute
    * @param {RequestDetails} requestDetails - Additional request context
    * @returns {Promise<unknown>} The result of executing the RPC method
    */
   public async executeRpcMethod(
     rpcMethodName: string,
-    rpcMethodParams: unknown[] | undefined,
+    rpcMethodParams: unknown[] | null | undefined,
     requestDetails: RequestDetails,
   ): Promise<unknown> {
     return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
@@ -436,6 +444,18 @@ export class Relay {
     }));
 
     this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
+
+    // Track real methods and the HTTP/WS synthetic labels as-is; collapse everything else to
+    // `unknown` past the configured limit, so the per-method metric keeps a bounded set of labels.
+    this.methodMetricLabeler = createMethodMetricLabeler(
+      [
+        ...this.rpcMethodRegistry.keys(),
+        constants.METHODS.BATCH_REQUEST,
+        constants.METHODS.ETH_SUBSCRIBE,
+        constants.METHODS.ETH_UNSUBSCRIBE,
+      ],
+      ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX'),
+    );
 
     // Initialize RPC method dispatcher
     this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger, this.register);

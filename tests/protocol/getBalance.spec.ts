@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 
 import { ConfigService } from '../../src/config-service/services';
 import { numberTo0x } from '../../src/relay/formatters';
+import relayConstants from '../../src/relay/lib/constants';
 import { overrideEnvsInMochaDescribe } from '../relay/helpers';
 import type MirrorClient from '../server/clients/mirrorClient';
 import type RelayClient from '../server/clients/relayClient';
@@ -44,6 +45,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
 
   const accounts: AliasAccount[] = [];
   let getBalanceContractAddress: string;
+  let balanceFundsBlockNumber: number;
   let blockNumAfterCreateChildTx = 0;
   let accounts0StartBalance: bigint;
 
@@ -101,7 +103,8 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
       to: getBalanceContractAddress,
       value: ethers.parseEther('1'),
     });
-    await relay.pollForValidTransactionReceipt(balanceFundsTx.hash);
+    const balanceFundsReceipt = await relay.pollForValidTransactionReceipt(balanceFundsTx.hash);
+    balanceFundsBlockNumber = parseInt(balanceFundsReceipt.blockNumber, 16);
   });
 
   after(async () => {
@@ -174,8 +177,16 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
       });
 
       it('@release should execute "eth_getBalance" with block number in the last 15 minutes', async () => {
-        const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
-        const earlierBlockNumber = latestBlock.number - 2;
+        // Wait until latest - 2 reaches the funding block, because an earlier block correctly has a zero balance.
+        let earlierBlockNumber = 0;
+        await Utils.waitUntil(
+          async () => {
+            const latestBlock = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0];
+            earlierBlockNumber = latestBlock.number - 2;
+            return earlierBlockNumber >= balanceFundsBlockNumber;
+          },
+          { intervalMs: 500, description: `two blocks after the funding block ${balanceFundsBlockNumber}` },
+        );
         const res = (await client.call(METHOD_NAME, [
           getBalanceContractAddress,
           numberTo0x(earlierBlockNumber),
@@ -214,6 +225,14 @@ describe('@release @protocol-acceptance @protocol-acceptance-account-service eth
         // initialBalance + sum of value of all transactions
         const manuallyCalculatedBalance = BigInt(initialBalance) + BigInt(ONE_TINYBAR) * BigInt(2);
         expect(BigInt(endBalance).toString()).to.eq(manuallyCalculatedBalance.toString());
+
+        // Wait until tx1's block is past LATEST_BLOCK_TOLERANCE, because until then the relay returns the live balance.
+        await Utils.waitUntil(
+          async () =>
+            Number(await client.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [])) - Number(blockNumber) >
+            relayConstants.LATEST_BLOCK_TOLERANCE,
+          { intervalMs: 500, description: `block ${blockNumber} to fall behind the tip` },
+        );
 
         // Balance at the block number of tx1 should be initialBalance + the value of tx1
         const balanceAtTx1Block = (await client.call(METHOD_NAME, [accounts[0].address, blockNumber])) as string;

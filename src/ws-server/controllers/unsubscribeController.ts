@@ -29,6 +29,6 @@ export const handleEthUnsubscribe = ({
   }
   const subId = params[0] as string | undefined;
   const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
-  limiter.decrementSubs(ctx, unsubbedCount);
+  limiter.decrementSubs(ctx.websocket, unsubbedCount);
   return jsonRespResult(request.id, unsubbedCount !== 0);
 };

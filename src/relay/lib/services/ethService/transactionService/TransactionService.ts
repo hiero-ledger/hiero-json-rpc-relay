@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type FileId } from '@hiero-ledger/sdk';
+import { keccak256 } from 'ethers/crypto';
 import { type Transaction as EthersTransaction } from 'ethers/transaction';
 import type EventEmitter from 'events';
 import { type Logger } from 'pino';
@@ -10,7 +11,11 @@ import { METRICS, MetricsFactory } from '../../../../../metrics';
 import { nanOrNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
-import { isImmatureContractRecord, type MirrorNodeClient } from '../../../clients/mirrorNodeClient';
+import {
+  isChildContractRecord,
+  isImmatureContractRecord,
+  type MirrorNodeClient,
+} from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
@@ -219,6 +224,12 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
+    // A child record is not an ethereum transaction of its own: it is part of its parent's execution.
+    if (isChildContractRecord(contractResult)) {
+      this.logger.trace(`child record is not a transaction of its own for %s`, hash);
+      return null;
+    }
+
     // A record with no block linkage belongs to a transaction rejected before consensus: it will never be
     // part of a block. Filter it out rather than serve a transaction whose block fields can never be
     // filled in - `eth_getTransactionReceipt` carries the rejection detail.
@@ -226,13 +237,15 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
-    const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
-      constants.TYPE_ACCOUNT,
+    const [fromAddress, to, isDeployment] = await Promise.all([
+      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+      this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      this.common.isContractDeployment(contractResult, requestDetails),
     ]);
-    const toAddress = contractResult.created_contract_ids.includes(contractResult.contract_id)
-      ? null
-      : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
+    const toAddress = isDeployment ? null : to;
     contractResult.chain_id = contractResult.chain_id || this.chain;
+
+    await this.confirmPendingPoolTransaction(fromAddress, toHash32(contractResult.hash || hash));
 
     return createTransactionFromContractResult({
       ...contractResult,
@@ -275,6 +288,13 @@ export class TransactionService implements ITransactionService {
 
       return null;
     } else {
+      // A child record is no rejection: it is not an ethereum transaction at all, so it has no receipt of
+      // its own. Report it as not found, the way `eth_getTransactionByHash` does for the same record.
+      if (isChildContractRecord(receiptResponse)) {
+        this.logger.trace(`child record has no receipt of its own for %s`, hash);
+        return null;
+      }
+
       // A record with no block linkage is not part of a block, so no receipt can be built. A non-SUCCESS
       // result means it was rejected before consensus (e.g. `INVALID_SIGNATURE`, `WRONG_NONCE`): surface the
       // rejection with its details. Otherwise report it as not found.
@@ -293,7 +313,37 @@ export class TransactionService implements ITransactionService {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
       this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
+      await this.confirmPendingPoolTransaction(receipt.from, receipt.transactionHash);
+
       return receipt;
+    }
+  }
+
+  /**
+   * Removes a transaction the Mirror Node already reflects in a block from its sender's pending pool, as confirmed.
+   *
+   * @param from The sender's EVM address
+   * @param txHash The transaction hash
+   */
+  private async confirmPendingPoolTransaction(from: string | null, txHash: string): Promise<void> {
+    if (!ConfigService.get('ENABLE_TX_POOL') || !from) return;
+
+    try {
+      const normalizedTxHash = txHash.toLowerCase();
+      const pendingTransactions = await this.transactionPoolService.getTransactions(from);
+      for (const rlpHex of pendingTransactions) {
+        if (keccak256(rlpHex) === normalizedTxHash) {
+          await this.transactionPoolService.removeTransaction(from, rlpHex, 'confirmed');
+          return;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to confirm transaction %s in the pending pool of %s: %s`,
+        txHash,
+        from,
+        (error as Error).message,
+      );
     }
   }
 
@@ -699,9 +749,10 @@ export class TransactionService implements ITransactionService {
         transactionIndex: nanOrNumberTo0x(receiptResponse.transaction_index),
       });
     });
-    const [from, to] = await Promise.all([
+    const [from, to, isDeployment] = await Promise.all([
       this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
+      this.common.isContractDeployment(receiptResponse, requestDetails),
     ]);
 
     let cumulativeGasUsed = 0;
@@ -713,16 +764,7 @@ export class TransactionService implements ITransactionService {
       const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
 
       if (Array.isArray(blockContractResults)) {
-        for (const cr of blockContractResults) {
-          if (cr.transaction_index == null || cr.gas_used == null) {
-            continue;
-          }
-
-          // Only sum gas for transactions that come up to this one in the block (inclusive)
-          if (cr.transaction_index <= receiptResponse.transaction_index) {
-            cumulativeGasUsed += cr.gas_used;
-          }
-        }
+        cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, receiptResponse.transaction_index);
       }
     } else {
       cumulativeGasUsed = receiptResponse.gas_used ?? 0;
@@ -735,6 +777,7 @@ export class TransactionService implements ITransactionService {
       receiptResponse,
       to,
       cumulativeGasUsed,
+      isDeployment,
     });
   }
 
@@ -812,7 +855,75 @@ export class TransactionService implements ITransactionService {
 
     this.logger.debug(`resolved %s by recorded consensus timestamp %s`, hash, consensusTimestamp);
 
-    return await this.buildSyntheticReceipt(hash, ownLogs, requestDetails);
+    const blockNumber = Number(ownLogs[0].blockNumber);
+    const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, { blockNumber });
+
+    const contractResult = blockContractResults.find((result) => result.hash === hash);
+    if (!contractResult) {
+      return null;
+    }
+
+    return await this.buildSyntheticReceiptFromBlockResults(
+      contractResult,
+      blockContractResults,
+      ownLogs,
+      requestDetails,
+    );
+  }
+
+  /**
+   * Builds the receipt of a synthetic transaction out of its block's contract results, through the same
+   * factory every other receipt route uses, so the fields a log cannot supply - the payer, the gas totals,
+   * the status and type - match what those routes report for the same transaction.
+   *
+   * @param contractResult The transaction's own contract result
+   * @param blockContractResults Every contract result of the block, used for the running gas total
+   * @param logs The transaction's synthetic logs
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<ITransactionReceipt>} A promise that resolves to the transaction receipt
+   */
+  private async buildSyntheticReceiptFromBlockResults(
+    contractResult: MirrorNodeContractResult,
+    blockContractResults: MirrorNodeContractResult[],
+    logs: Log[],
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt> {
+    const [effectiveGas, from, to, isDeployment] = await Promise.all([
+      this.common.getCurrentGasPriceForBlock(contractResult.block_hash, requestDetails),
+      this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+      this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      this.common.isContractDeployment(contractResult, requestDetails),
+    ]);
+
+    const cumulativeGasUsed = this.sumCumulativeGasUsed(blockContractResults, contractResult.transaction_index ?? 0);
+
+    return TransactionReceiptFactory.createRegularReceipt({
+      effectiveGas,
+      from: from ?? contractResult.from,
+      logs,
+      receiptResponse: contractResult,
+      to,
+      cumulativeGasUsed,
+      isDeployment,
+    });
+  }
+
+  /**
+   * Sums the gas used by every transaction of a block up to and including the given index, which is what a
+   * receipt reports as `cumulativeGasUsed`.
+   *
+   * @param blockContractResults The contract results of the block
+   * @param transactionIndex The index of the transaction whose receipt is being built
+   * @returns {number} The gas used by the block up to and including that transaction
+   */
+  private sumCumulativeGasUsed(blockContractResults: MirrorNodeContractResult[], transactionIndex: number): number {
+    return blockContractResults.reduce(
+      (total, result) =>
+        result.transaction_index != null && result.transaction_index <= transactionIndex
+          ? total + (result.gas_used ?? 0)
+          : total,
+      0,
+    );
   }
 
   /**
@@ -878,7 +989,11 @@ export class TransactionService implements ITransactionService {
 
     if (shouldPollAndCleanup) {
       if (ConfigService.get('ENABLE_NONCE_ORDERING') && ConfigService.get('ENABLE_TX_POOL')) {
-        void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        if (ConfigService.get('USE_ASYNC_TX_PROCESSING') || submissionError) {
+          void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        } else {
+          await this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+        }
       } else {
         await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
       }
@@ -1066,9 +1181,10 @@ export class TransactionService implements ITransactionService {
     const txHash = parsedTx.hash!;
     const maxAttempts = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS');
     const intervalMs = ConfigService.get('SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS');
+    const waitTimeMs = ConfigService.get('SEND_RAW_TRANSACTION_WAIT_TIME');
 
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      await new Promise((resolve) => setTimeout(resolve, i === 0 ? waitTimeMs : intervalMs));
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result?.hash) {

@@ -93,7 +93,7 @@
     },
     "eth_subscribe - newPendingTransactions": {
       "request": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscribe\",\"params\":[\"newPendingTransactions\"],\"id\":1}",
-      "response": "{\"error\":{\"code\":-32601,\"message\":\"Unsupported JSON-RPC method\"},\"jsonrpc\":\"2.0\",\"id\":1}"
+      "response": "{\"result\":\"0x4a563af33c4871b51a8b108aa2fe1dd5\",\"jsonrpc\":\"2.0\",\"id\":1}"
     },
     "eth_subscribe - non existing contract": {
       "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_subscribe\",\"params\":[\"logs\",{\"address\":\"0x678d3e4c7b6b8e9617e9b3487352ec63c54dbf81\"}]}",

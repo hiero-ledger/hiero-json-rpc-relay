@@ -125,11 +125,139 @@ describe('RPC Server', function () {
       BaseTest.validCorsCheck(response);
     });
 
+    describe('CORS_ALLOWED_ORIGINS', function () {
+      const ALLOWED_ORIGIN = 'https://app.example.com';
+      const ARBITRARY_ORIGIN = 'https://attacker.example';
+      const CHAIN_ID_REQUEST = { jsonrpc: '2.0', id: '2', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] };
+
+      it('should keep the wildcard policy for an arbitrary origin when unset', async function () {
+        const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ARBITRARY_ORIGIN } });
+
+        expect(response.status).to.eq(200);
+        expect(response.headers['access-control-allow-origin']).to.eq('*');
+      });
+
+      it('should keep the wildcard policy for the null origin when unset', async function () {
+        const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: 'null' } });
+
+        expect(response.headers['access-control-allow-origin']).to.eq('*');
+      });
+
+      withOverriddenEnvsInMochaTest({ CORS_ALLOWED_ORIGINS: [ALLOWED_ORIGIN] }, () => {
+        it('should echo back an allowlisted origin on a JSON-RPC response', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ALLOWED_ORIGIN } });
+
+          expect(response.status).to.eq(200);
+          expect(response.headers['access-control-allow-origin']).to.eq(ALLOWED_ORIGIN);
+          expect(response.data.result).to.eq(ConfigService.get('CHAIN_ID'));
+        });
+
+        it('should withhold CORS headers from an arbitrary origin', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ARBITRARY_ORIGIN } });
+
+          expect(response.status).to.eq(200);
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+          expect(response.headers['vary']).to.contain('Origin');
+        });
+
+        it('should withhold CORS headers from the null origin', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: 'null' } });
+
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+        });
+
+        it('should answer a preflight from an allowlisted origin', async function () {
+          const response = await testClient.options('/', {
+            headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+          });
+
+          expect(response.status).to.eq(204);
+          expect(response.headers['access-control-allow-origin']).to.eq(ALLOWED_ORIGIN);
+          expect(response.headers['access-control-allow-methods']).to.eq('GET,POST');
+        });
+
+        it('should reject a preflight from an arbitrary origin', async function () {
+          const response = await testClient.options('/', {
+            headers: { Origin: ARBITRARY_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+          });
+
+          expect(response.headers).to.not.have.property('access-control-allow-origin');
+          expect(response.headers).to.not.have.property('access-control-allow-methods');
+        });
+
+        it('should not advertise credentialed access', async function () {
+          const response = await testClient.post('/', CHAIN_ID_REQUEST, { headers: { Origin: ALLOWED_ORIGIN } });
+
+          expect(response.headers).to.not.have.property('access-control-allow-credentials');
+        });
+      });
+    });
+
     it('should execute metrics collection', async function () {
       const response = await testClient.get('/metrics');
 
       expect(response.status).to.eq(200);
       expect(response.statusText).to.eq('OK');
+    });
+
+    // Unknown method names must not each become their own Prometheus series: distinct unknowns are
+    // capped and the rest collapse to the "unknown" label (see createMethodMetricLabeler).
+    it('bounds the number of distinct "method" metric labels from invented method names', async function () {
+      const cap = ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX');
+      const batchMax = ConfigService.get('BATCH_REQUESTS_MAX_SIZE');
+      const prefix = `eth_mlc${Date.now().toString(36)}_`;
+      const oversizedMethod = 'eth_' + 'z'.repeat(70); // > 64 chars, must collapse to "unknown"
+
+      // Send more distinct invented names than the cap, plus one oversized name, in batch requests.
+      const requests = [
+        ...Array.from({ length: cap + 5 }, (_, i) => ({
+          jsonrpc: '2.0',
+          id: `${i}`,
+          method: `${prefix}${i}`,
+          params: [],
+        })),
+        { jsonrpc: '2.0', id: 'oversized', method: oversizedMethod, params: [] },
+      ];
+      for (let i = 0; i < requests.length; i += batchMax) {
+        await testClient.post('/', requests.slice(i, i + batchMax));
+      }
+
+      const metrics: string = (await testClient.get('/metrics')).data;
+      const resultSeries = metrics.split('\n').filter((line) => line.startsWith('rpc_relay_method_result_count{'));
+      const methodLabels = resultSeries.map((line) => /method="([^"]*)"/.exec(line)?.[1]);
+
+      const invented = new Set(methodLabels.filter((m) => m?.startsWith(prefix)));
+      expect(invented.size, 'distinct invented labels must not exceed the cap').to.be.at.most(cap);
+      expect(methodLabels, 'overflow names collapse to the "unknown" label').to.include('unknown');
+      expect(methodLabels, 'oversized names are never retained verbatim').to.not.include(oversizedMethod);
+    });
+
+    // The per-request path records its own histogram, so it must bound the "method" label the same way.
+    it('bounds the "method" labels on the single-request histogram from invented method names', async function () {
+      const cap = ConfigService.get('METRICS_UNKNOWN_METHOD_LABELS_MAX');
+      const prefix = `eth_smlc${Date.now().toString(36)}_`;
+      const oversizedMethod = 'eth_' + 'z'.repeat(70); // > 64 chars, must collapse to "unknown"
+
+      const requests = [
+        ...Array.from({ length: cap + 5 }, (_, i) => ({
+          jsonrpc: '2.0',
+          id: `${i}`,
+          method: `${prefix}${i}`,
+          params: [],
+        })),
+        { jsonrpc: '2.0', id: 'oversized', method: oversizedMethod, params: [] },
+      ];
+      // Each invented method answers 400 (method not found); only that the request was recorded matters here.
+      await Promise.all(requests.map((request) => testClient.post('/', request, { validateStatus: () => true })));
+
+      const metrics: string = (await testClient.get('/metrics')).data;
+      const responseSeries = metrics.split('\n').filter((line) => line.startsWith('rpc_relay_method_response_count{'));
+      const methodLabels = responseSeries.map((line) => /method="([^"]*)"/.exec(line)?.[1]);
+
+      const invented = new Set(methodLabels.filter((m) => m?.startsWith(prefix)));
+      expect(invented.size, 'distinct invented labels must not exceed the cap').to.be.at.most(cap);
+      expect(methodLabels, 'overflow names collapse to the "unknown" label').to.include('unknown');
+      expect(methodLabels, 'oversized names are never retained verbatim').to.not.include(oversizedMethod);
     });
 
     it('should execute successful health readiness check', async function () {
@@ -161,7 +289,9 @@ describe('RPC Server', function () {
     });
 
     it('should return the server config via /config endpoint', async function () {
-      const response = await testClient.get('/config');
+      // Stub the status.hedera.com call to fail, because it can be too slow, and the version falls back to 'local'.
+      const statusPageStub = sinon.stub(Axios, 'get').rejects(new Error('status page offline'));
+      const response = await testClient.get('/config').finally(() => statusPageStub.restore());
 
       expect(response.status).to.eq(200);
       expect(response.statusText).to.eq('OK');
@@ -258,6 +388,98 @@ describe('RPC Server', function () {
       } catch (error) {
         BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
       }
+    });
+  });
+
+  describe('JSON-RPC "params" validation', function () {
+    [null, 'params', { from: contractAddress1 }].forEach((params) => {
+      it(`should return "Invalid Request" when "params" is non-array "${JSON.stringify(params)}"`, async function () {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method: RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+            params,
+          });
+          Assertions.expectedError();
+        } catch (error) {
+          BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+        }
+      });
+    });
+
+    it('should return "Invalid Request" when "params" is null on a parameterless method', async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: RelayCalls.ETH_ENDPOINTS.NET_VERSION,
+          params: null,
+        });
+        Assertions.expectedError();
+      } catch (error) {
+        BaseTest.invalidRequestSpecError(axiosResponseOf(error), -32600, `Invalid Request`);
+      }
+    });
+
+    it('should accept a request with "params" omitted', async function () {
+      const res = await testClient.post('/', {
+        id: '2',
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+      });
+
+      BaseTest.defaultResponseChecks(res);
+      expect(res.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+
+    it('should only fail the batch entry carrying null "params"', async function () {
+      const response = await testClient.post('/', [
+        { id: '2', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+        { id: '3', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CALL, params: null },
+        { id: '4', jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [] },
+      ]);
+
+      BaseTest.baseDefaultResponseChecks(response);
+
+      expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      expect(response.data[1].id).to.be.equal('3');
+      expect(response.data[1].error.code).to.be.equal(-32600);
+      expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
+      expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+  });
+
+  [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+    it(`should return error when JSON-RPC id is non-primitive "${JSON.stringify(id)}"`, async function () {
+      try {
+        await testClient.post('/', {
+          id,
+          jsonrpc: '2.0',
+          method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+          params: [null],
+        });
+        Assertions.expectedError();
+      } catch (error) {
+        const response = axiosResponseOf(error);
+        BaseTest.invalidRequestSpecError(response, -32600, `Invalid Request`);
+        expect(response.data.id).to.be.equal(null);
+      }
+    });
+  });
+
+  [null, 0, -1, 1.337, 'test'].forEach((id) => {
+    it(`should accept JSON-RPC id "${JSON.stringify(id)}"`, async function () {
+      const response = await testClient.post('/', {
+        id,
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
+        params: [null],
+      });
+
+      BaseTest.baseDefaultResponseChecks(response);
+      expect(response.data.id).to.be.equal(id);
+      expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
     });
   });
 
@@ -833,6 +1055,31 @@ describe('RPC Server', function () {
       expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
     });
 
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      it(`should only reject the entry with non-primitive id "${JSON.stringify(id)}" in batch request`, async function () {
+        const response = await testClient.post('/', [
+          getEthChainIdRequest(2),
+          { id, jsonrpc: '2.0', method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID, params: [null] },
+          getEthChainIdRequest(4),
+        ]);
+
+        // verify response
+        BaseTest.baseDefaultResponseChecks(response);
+
+        // the valid siblings are unaffected
+        expect(response.data[0].id).to.be.equal('2');
+        expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+        expect(response.data[2].id).to.be.equal('4');
+        expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+
+        // only the offending entry errors
+        expect(response.data[1].id).to.be.equal(null);
+        expect(response.data[1].error).to.be.an('Object');
+        expect(response.data[1].error.code).to.be.equal(-32600);
+        expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
+      });
+    });
+
     it('should execute "eth_chainId" and "eth_accounts" in batch request with invalid request id', async function () {
       const response = await testClient.post('/', [getEthChainIdRequest(2), getEthAccountsRequest(null)]);
 
@@ -905,6 +1152,47 @@ describe('RPC Server', function () {
         response.data[2].error.message.endsWith('Invalid parameter 0: The value passed is not valid: null.'),
         'Invalid parameter 0: The value passed is not valid: null.',
       ).to.be.equal(true);
+    });
+
+    it('should reject malformed EIP-1898 block objects per entry in batch request, like single requests', async function () {
+      const address = '0x0000000000000000000000000000000000000001';
+      const blockHash = '0x' + 'a'.repeat(64);
+      const malformed = [
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE, params: [address, {}] },
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, params: [address, { blockHash, blockNumber: '0x1' }] },
+        {
+          method: RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
+          params: [address, { blockNumber: '0x1', requireCanonical: true }],
+        },
+        { method: RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, params: [address, '0x0', { blockNumber: null }] },
+        {
+          method: RelayCalls.ETH_ENDPOINTS.ETH_CALL,
+          params: [{ to: address }, { blockHash, requireCanonical: 'yes' }],
+        },
+      ];
+
+      const response = await testClient.post('/', [
+        getEthChainIdRequest(2),
+        ...malformed.map((request, i) => ({ id: `${i + 3}`, jsonrpc: '2.0', ...request })),
+      ]);
+
+      BaseTest.baseDefaultResponseChecks(response);
+      expect(response.data[0].result).to.be.equal(ConfigService.get('CHAIN_ID'));
+
+      for (const [i, request] of malformed.entries()) {
+        const batchEntry = response.data[i + 1];
+        expect(batchEntry.id).to.be.equal(`${i + 3}`);
+        expect(batchEntry.error.code).to.be.equal(-32602);
+        expect(batchEntry.error.message).to.contain(
+          `Invalid parameter ${request.method === RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT ? 2 : 1}: `,
+        );
+
+        const single = await testClient
+          .post('/', { id: '2', jsonrpc: '2.0', ...request })
+          .catch((error) => axiosResponseOf(error));
+        expect(single.data.error.code).to.be.equal(batchEntry.error.code);
+        expect(single.data.error.message.split('] ').pop()).to.be.equal(batchEntry.error.message.split('] ').pop());
+      }
     });
 
     it('should hit batch request limit', async function () {
@@ -1262,7 +1550,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1281,7 +1569,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1351,7 +1639,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1370,7 +1658,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1599,7 +1887,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1618,7 +1906,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1859,7 +2147,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 'blockHash' for BlockHashObject: ${Constants.BLOCK_HASH_ERROR}, value: 0x123`,
+            `Invalid parameter 1: 'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}, value: {"blockHash":"0x123"}`,
           );
         }
       });
@@ -1878,7 +2166,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 'blockNumber' for BlockNumberObject: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
+            `Invalid parameter 1: 'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}, value: {"blockNumber":"123"}`,
           );
         }
       });
@@ -2196,7 +2484,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 2: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 2: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -2215,7 +2503,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             axiosResponseOf(error),
             ERROR_CODE,
-            `Invalid parameter 2: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
+            `Invalid parameter 2: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -3170,7 +3458,7 @@ describe('RPC Server', function () {
           logs_bloom: '0x',
         });
         callTracer = sinon.stub(DebugImpl.prototype, 'callTracer').resolves(callTracerResult);
-        prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateTracer').resolves(prestateTracerResult);
+        prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateFromContractState').resolves(prestateTracerResult);
         cacheGetAsync = sinon.stub(MeasurableCache.prototype, 'getAsync').resolves(null);
         cacheSet = sinon.stub(MeasurableCache.prototype, 'set').resolves();
         requireDebugAPIEnabled = sinon.stub(DebugImpl, 'requireDebugAPIEnabled').returns();

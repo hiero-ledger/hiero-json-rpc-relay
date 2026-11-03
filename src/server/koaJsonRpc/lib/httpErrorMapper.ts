@@ -3,10 +3,11 @@
 import { type IJsonRpcError } from './RpcError';
 
 // Define constants for frequently used values
-const HTTP_STATUS = {
+export const HTTP_STATUS = {
   OK: 200,
   BAD_REQUEST: 400,
   TOO_MANY_REQUESTS: 429,
+  CLIENT_CLOSED_REQUEST: 499,
   INTERNAL_SERVER_ERROR: 500,
   NOT_IMPLEMENTED: 501,
 };

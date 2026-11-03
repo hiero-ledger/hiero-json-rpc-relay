@@ -28,6 +28,12 @@ describe('LoggerService tests', async function () {
     expect(LoggerService.maskUpEnv(envName, res)).to.equal(`${envName} = ${res}`);
   });
 
+  it('should mask the CORS_ALLOWED_ORIGINS allowlist', async () => {
+    const res = LoggerService.maskUpEnv('CORS_ALLOWED_ORIGINS', ['https://app.example.com']);
+
+    expect(res).to.equal('CORS_ALLOWED_ORIGINS = **********');
+  });
+
   it('should mask private keys in PAYMASTER_ACCOUNTS', async () => {
     const paymaster0 = [
       '0.0.801',

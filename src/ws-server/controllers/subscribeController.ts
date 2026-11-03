@@ -76,6 +76,34 @@ const handleEthSubscribeNewHeads = (
 };
 
 /**
+ * Subscribes the connection to transactions entering the relay's pending pool, as hashes or full transactions.
+ * Only works with ENABLE_TX_POOL and ENABLE_NONCE_ORDERING on and DISABLE_MN_PRECHECKS_ON_TX_SENDING off.
+ */
+const handleEthSubscribeNewPendingTransactions = (
+  includeTransactions: boolean,
+  request: IJsonRpcRequest,
+  ctx: WsContext,
+  event: string,
+  logger: Logger,
+  subscriptionService: SubscriptionService,
+): SubscriptionResponse => {
+  // Skipping the Mirror Node prechecks also skips adding transactions to the pool, so it would stay empty.
+  if (
+    !ConfigService.get('ENABLE_TX_POOL') ||
+    !ConfigService.get('ENABLE_NONCE_ORDERING') ||
+    ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
+  ) {
+    logger.warn(
+      `newPendingTransactions requires ENABLE_TX_POOL=true, ENABLE_NONCE_ORDERING=true and DISABLE_MN_PRECHECKS_ON_TX_SENDING=false`,
+    );
+    throw predefined.UNSUPPORTED_METHOD;
+  }
+
+  const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, { includeTransactions });
+  return jsonRespResult(request.id, subscriptionId) as SubscriptionResponse;
+};
+
+/**
  * Handles the subscription request for logs events.
  * Validates the subscription parameters (including the multiple-address policy and per-filter
  * address limit) and subscribes to the event.
@@ -113,14 +141,12 @@ const handleEthSubscribeLogs = async (
  * @param {IJsonRpcRequest} args.request - The request object received from the client.
  * @param {Relay} args.relay - The relay object for interacting with the Hedera network.
  * @param {MirrorNodeClient} args.mirrorNodeClient - The mirror node client for handling subscriptions.
- * @param {ConnectionLimiter} args.limiter - The limiter object for managing connection subscriptions.
  * @param {Logger} args.logger - The logger object for logging messages and events.
  * @param {RequestDetails} args.requestDetails - The request details for logging and tracking.
  * @returns {Promise<SubscriptionResponse>} Returns a promise that resolves with the subscription response.
  */
 export const handleEthSubscribe = async ({
   ctx,
-  limiter,
   logger,
   mirrorNodeClient,
   params,
@@ -152,11 +178,21 @@ export const handleEthSubscribe = async ({
       response = handleEthSubscribeNewHeads(filters, request, ctx, event, logger, requestDetails, subscriptionService);
       break;
 
+    case constants.SUBSCRIBE_EVENTS.NEW_PENDING_TRANSACTIONS:
+      // Like Geth, an optional `true` second param asks for full transactions instead of hashes.
+      response = handleEthSubscribeNewPendingTransactions(
+        params[1] === true,
+        request,
+        ctx,
+        event,
+        logger,
+        subscriptionService,
+      );
+      break;
+
     default:
       throw predefined.UNSUPPORTED_METHOD;
   }
-
-  limiter.incrementSubs(ctx);
 
   return response;
 };

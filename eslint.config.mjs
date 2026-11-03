@@ -33,8 +33,6 @@ export default defineConfig([
       '**/dist/**',
       '**/coverage/**',
       '**/*.d.ts',
-      'tools/**',
-      'dapp-example/**',
       'k6/**',
       'scripts/**',
       '.github/**',

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ContractId } from '@hiero-ledger/sdk';
 import * as _ from 'lodash';
 import { type Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { type MirrorNodeClient } from '../../../clients';
+import { isSyntheticContractRecord, type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -18,11 +19,13 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
-  type MirrorNodeContractResultBase,
+  type MirrorNodeContractResult,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
+import { isBlockHash } from '../../../utils/blockParam';
+import { isRequestAbortedError, throwIfRequestAborted } from '../../../utils/requestAbort';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -148,6 +151,7 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountWrapper?: { value: number },
+    strictBlockRange: boolean = false,
   ): Promise<boolean> {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
@@ -161,6 +165,11 @@ export class CommonService implements ICommonService {
       if (Number(toBlock) !== Number(latestBlockNumber) && !fromBlock) {
         throw predefined.MISSING_FROM_BLOCK_PARAM;
       }
+
+      // Only eth_getLogs rejects a range past the head, since filter polling starts one block past it on purpose.
+      if (strictBlockRange && Number(toBlock) > Number(latestBlockNumber)) {
+        throw predefined.BLOCK_RANGE_BEYOND_HEAD;
+      }
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
@@ -173,6 +182,10 @@ export class CommonService implements ICommonService {
 
     const fromBlockResponse = await this.getHistoricalBlockResponse(requestDetails, fromBlock, true);
     if (!fromBlockResponse) {
+      // A missing fromBlock past the head means fromBlock > toBlock, since toBlock can't be past the head.
+      if (strictBlockRange && Number(fromBlock) > Number(await this.getLatestBlockNumber(requestDetails))) {
+        throw predefined.REVERSED_BLOCK_RANGE;
+      }
       return false;
     }
 
@@ -217,7 +230,7 @@ export class CommonService implements ICommonService {
       }
 
       if (fromBlockNum > toBlockNum) {
-        throw predefined.INVALID_BLOCK_RANGE;
+        throw strictBlockRange ? predefined.REVERSED_BLOCK_RANGE : predefined.INVALID_BLOCK_RANGE;
       }
 
       const blockRangeLimit = CommonService.getLogsBlockRangeLimit();
@@ -455,6 +468,10 @@ export class CommonService implements ICommonService {
   }
 
   public genericErrorHandler(error: unknown, logMessage?: string): void {
+    if (isRequestAbortedError(error)) {
+      throw error;
+    }
+
     if (logMessage) {
       this.logger.error(error, logMessage);
     } else {
@@ -506,12 +523,20 @@ export class CommonService implements ICommonService {
   public addTopicsToParams(params: IContractLogsResultsParams, topics: LogTopic[] | null): void {
     const topicParams = params as Record<string, string | string[]>;
     if (topics) {
+      if (topics.length > constants.LOG_TOPICS_MAX_POSITIONS) {
+        throw predefined.INVALID_PARAMETER(
+          'topics',
+          `A maximum of ${constants.LOG_TOPICS_MAX_POSITIONS} topic positions are allowed`,
+        );
+      }
+
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
       for (let i = 0; i < topics.length; i++) {
         const topic = topics[i];
         if (!_.isNil(topic)) {
           if (Array.isArray(topic)) {
-            if (topic.length > 100) {
-              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
+            if (topic.length > maxSubTopics) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of ${maxSubTopics}`);
             }
             const trimmedTopics = topic.map((t: string, j: number) => {
               const trimmed = trimPrecedingZeros(t);
@@ -548,12 +573,15 @@ export class CommonService implements ICommonService {
     requestDetails: RequestDetails,
     sliceCount: number = 1,
   ): Promise<MirrorNodeContractLog[]> {
+    throwIfRequestAborted(requestDetails);
+
     // Dedupe case-insensitively so a repeated address is fetched from the Mirror Node once, and so identical
     // logs are not returned twice in the flattened response.
     const addresses = dedupeAddresses(address);
-    const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params),
-    );
+    const logPromises = addresses.map(async (addr) => {
+      throwIfRequestAborted(requestDetails);
+      return this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params);
+    });
 
     const logResults = await Promise.all(logPromises);
     const logs = logResults.flatMap((logResult) => (logResult ? logResult : []));
@@ -598,6 +626,7 @@ export class CommonService implements ICommonService {
     address: string | string[] | null,
     topics: LogTopic[] | null,
     requestDetails: RequestDetails,
+    strictBlockRange: boolean = false,
   ): Promise<Log[]> {
     // Bound the address fan-out before dispatching to the worker, so an oversized array is rejected up front.
     assertAddressCountWithinLimit(address);
@@ -611,6 +640,7 @@ export class CommonService implements ICommonService {
         address,
         topics,
         requestDetails,
+        strictBlockRange,
       },
       this.mirrorNodeClient,
       this.cacheService,
@@ -641,6 +671,56 @@ export class CommonService implements ICommonService {
     }
 
     return resolvedAddress;
+  }
+
+  /**
+   * Tells whether a contract result deployed the contract it executed, since block-stream mirror nodes leave
+   * `created_contract_ids` empty.
+   *
+   * @param contractResult - The contract result to check.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns True when the transaction deployed the contract in `contract_id`.
+   */
+  public async isContractDeployment(
+    contractResult: MirrorNodeContractResult,
+    requestDetails: RequestDetails,
+  ): Promise<boolean> {
+    // Record-stream imports list the created contracts, so trust the list whenever it is filled.
+    if (contractResult.created_contract_ids?.length) {
+      return contractResult.created_contract_ids.includes(contractResult.contract_id);
+    }
+
+    // A failed, synthetic or contract-less transaction deployed nothing, so skip the lookup.
+    if (
+      contractResult.status !== constants.ONE_HEX ||
+      !contractResult.contract_id ||
+      isSyntheticContractRecord(contractResult)
+    ) {
+      return false;
+    }
+
+    // The mirror node reports a deployment's `to` as its contract's long-zero address, so any other `to` is a call.
+    const longZeroAddress = prepend0x(ContractId.fromString(contractResult.contract_id).toEvmAddress());
+    if (contractResult.to && contractResult.to.toLowerCase() !== longZeroAddress) {
+      return false;
+    }
+
+    // Record files list deployments in created_contract_ids (on mainnet since late 2021), so trust an empty list there
+    // as the relay always has.
+    const block = await this.mirrorNodeClient.getBlock(contractResult.block_hash, requestDetails);
+    if (block?.name?.includes('.rcd')) {
+      return false;
+    }
+
+    // A deployment has a contract-create record for its contract, either the transaction itself or one of its children.
+    const records = await this.mirrorNodeClient.getTransactionRecordsByTimestamp(
+      contractResult.timestamp,
+      requestDetails,
+    );
+    return records.some(
+      (record) =>
+        record.name === constants.CONTRACT_CREATE_TRANSACTION_NAME && record.entity_id === contractResult.contract_id,
+    );
   }
 
   /**
@@ -723,7 +803,13 @@ export class CommonService implements ICommonService {
   };
 
   public isBlockParamValid = (tag: string | null): boolean => {
-    return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
+    return (
+      tag == null ||
+      this.isBlockTagEarliest(tag) ||
+      this.isBlockTagFinalized(tag) ||
+      this.isBlockNumValid(tag) ||
+      isBlockHash(tag)
+    );
   };
 
   /**
@@ -742,29 +828,6 @@ export class CommonService implements ICommonService {
       await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS);
     }
     return account;
-  }
-
-  /**
-   * This method retrieves the contract address from the receipt response.
-   * If the contract creation is via a system contract, it handles the system contract creation.
-   * If not, it returns the address from the receipt response.
-   *
-   * @param {MirrorNodeContractResultBase} receiptResponse - The receipt response object.
-   * @returns {string | null} The contract address.
-   */
-  public getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
-    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
-      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-    );
-
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
-    }
-
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
   }
 
   public async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {

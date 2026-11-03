@@ -4,7 +4,7 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { Relay } from '../../../src/relay';
+import { JsonRpcError, predefined, Relay } from '../../../src/relay';
 import { IPRateLimiterService } from '../../../src/relay/lib/services';
 import ConnectionLimiter from '../../../src/ws-server/metrics/connectionLimiter';
 import { type PollerService } from '../../../src/ws-server/service/pollerService';
@@ -20,6 +20,7 @@ let relay: sinon.SinonStubbedInstance<Relay>;
 class MockWsConnection {
   id: string;
   limiter: ConnectionLimiter;
+  subscriptions = 0;
 
   constructor(id: string) {
     this.id = id;
@@ -31,7 +32,7 @@ class MockWsConnection {
   }
 }
 
-// The service only reads `id`, `limiter` and `send` off a connection, so the minimal stand-in above is enough.
+// The service only touches `id`, `limiter`, `subscriptions` and `send` on a connection, so the minimal stand-in above is enough.
 const mockWsConnection = (id: string): RelayWebSocket => new MockWsConnection(id) as unknown as RelayWebSocket;
 
 interface SubscriptionServiceInternals {
@@ -256,6 +257,86 @@ describe('subscriptionService', async function () {
     expect(subId).to.be.eq(subId2);
     subscriptionService.unsubscribe(wsConnection, subId);
     subscriptionService.unsubscribe(wsConnection, subId2);
+  });
+
+  describe('Subscription limit', async function () {
+    const topic = (nonce: number): string => `0x${nonce.toString(16).padStart(64, '0')}`;
+
+    let limitedService: SubscriptionService;
+    let pollerAddSpy: sinon.SinonStub;
+
+    overrideEnvsInMochaDescribe({ WS_SUBSCRIPTION_LIMIT: 2 });
+
+    beforeEach(() => {
+      limitedService = new SubscriptionService(relay, logger, new Registry());
+      const internals = limitedService as unknown as SubscriptionServiceInternals;
+      pollerAddSpy = sandbox.stub(internals.pollerService, 'add');
+      sandbox.stub(internals.pollerService, 'remove');
+    });
+
+    it('increments the connection counter once per newly created subscription', function () {
+      const wsConnection = mockWsConnection('limit-new');
+
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(1)] });
+      expect(wsConnection.subscriptions).to.eq(1);
+
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(2)] });
+      expect(wsConnection.subscriptions).to.eq(2);
+    });
+
+    it('does not increment the counter when an existing subscription id is returned', function () {
+      const wsConnection = mockWsConnection('limit-repeat');
+      const filters = { topics: [topic(1)] };
+
+      const subId = limitedService.subscribe(wsConnection, 'logs', filters);
+      const repeated = [
+        limitedService.subscribe(wsConnection, 'logs', filters),
+        limitedService.subscribe(wsConnection, 'logs', filters),
+        limitedService.subscribe(wsConnection, 'logs', filters),
+      ];
+
+      expect(repeated).to.deep.eq([subId, subId, subId]);
+      expect(wsConnection.subscriptions).to.eq(1);
+    });
+
+    it('throws MAX_SUBSCRIPTIONS once the connection is at the limit', function () {
+      const wsConnection = mockWsConnection('limit-exceeded');
+
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(1)] });
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(2)] });
+
+      expect(() => limitedService.subscribe(wsConnection, 'logs', { topics: [topic(3)] }))
+        .to.throw(JsonRpcError)
+        .with.property('code', predefined.MAX_SUBSCRIPTIONS.code);
+      expect(wsConnection.subscriptions).to.eq(2);
+    });
+
+    it('registers neither a poll nor a tag for a refused subscription', function () {
+      const wsConnection = mockWsConnection('limit-refused');
+      const refusedFilters = { topics: [topic(3)] };
+
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(1)] });
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(2)] });
+      expect(() => limitedService.subscribe(wsConnection, 'logs', refusedFilters)).to.throw(JsonRpcError);
+
+      const refusedTag = JSON.stringify({ event: 'logs', filters: refusedFilters });
+      expect(pollerAddSpy.callCount).to.eq(2);
+      expect(pollerAddSpy.calledWith(refusedTag)).to.be.false;
+      expect(limitedService['subscriptions']).to.not.have.property(refusedTag);
+    });
+
+    it('frees a slot on unsubscribe so a later subscription is admitted', function () {
+      const wsConnection = mockWsConnection('limit-freed');
+
+      const subId = limitedService.subscribe(wsConnection, 'logs', { topics: [topic(1)] });
+      limitedService.subscribe(wsConnection, 'logs', { topics: [topic(2)] });
+
+      const unsubbed = limitedService.unsubscribe(wsConnection, subId);
+      limiter.decrementSubs(wsConnection, unsubbed);
+
+      expect(() => limitedService.subscribe(wsConnection, 'logs', { topics: [topic(3)] })).to.not.throw();
+      expect(wsConnection.subscriptions).to.eq(2);
+    });
   });
 
   describe('With WS_SAME_SUB_FOR_SAME_EVENT == `false`', async function () {

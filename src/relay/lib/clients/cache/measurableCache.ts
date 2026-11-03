@@ -121,9 +121,9 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod The name of the calling method
    * @returns The value of the key after incrementing
    */
-  public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
+  public async incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number> {
     this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.INCR_BY);
-    return await this.decoratedCacheClient.incrBy(key, amount, callingMethod);
+    return await this.decoratedCacheClient.incrBy(key, amount, callingMethod, ttl);
   }
 
   /**

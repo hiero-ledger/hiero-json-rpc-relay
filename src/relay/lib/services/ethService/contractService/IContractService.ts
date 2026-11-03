@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Log } from '../../../model';
-import type { IContractCallRequest, IGetLogsParams, RequestDetails } from '../../../types';
+import type { IContractCallRequest, IGetLogsParams, RequestDetails, StateOverrideSet } from '../../../types';
 
 export interface IContractService {
   /**
@@ -14,8 +14,9 @@ export interface IContractService {
    */
   call: (
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ) => Promise<string>;
 
   /**
@@ -45,5 +46,6 @@ export interface IContractService {
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ) => Promise<string>;
 }

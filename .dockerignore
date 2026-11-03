@@ -30,9 +30,7 @@ codecov.yml
 
 # ── Tooling and examples ──────────────────────────────────────────────────────
 # These directories are not required for building or running the relay.
-tools/
 k6/
-dapp-example/
 charts/
 scripts/
 !scripts/build-standalone.js

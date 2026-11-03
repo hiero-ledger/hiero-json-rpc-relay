@@ -4,12 +4,13 @@ import { expect } from 'chai';
 import { describe } from 'mocha';
 
 import {
-  BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
+  getBlockGasLimitByHapiVersion,
   isHapiVersionAtLeast,
   obtainBlockGasLimit,
   type VersionGasLimit,
 } from '../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../src/relay/lib/constants';
+import { withOverriddenEnvsInMochaTest } from '../../helpers';
 
 const TEST_CONFIG_FULL: ReadonlyArray<VersionGasLimit> = [
   { version: '1.1.0', gasLimit: 350_000_000 },
@@ -21,10 +22,11 @@ const TEST_CONFIG_FULL: ReadonlyArray<VersionGasLimit> = [
 ];
 
 describe('blockGasLimit', () => {
-  it('BLOCK_GAS_LIMIT_BY_HAPI_VERSION must be sorted in descending order', () => {
-    for (let i = 1; i < BLOCK_GAS_LIMIT_BY_HAPI_VERSION.length; i++) {
-      const prev = BLOCK_GAS_LIMIT_BY_HAPI_VERSION[i - 1].version;
-      const curr = BLOCK_GAS_LIMIT_BY_HAPI_VERSION[i].version;
+  it('getBlockGasLimitByHapiVersion must be sorted in descending order', () => {
+    const config = getBlockGasLimitByHapiVersion();
+    for (let i = 1; i < config.length; i++) {
+      const prev = config[i - 1].version;
+      const curr = config[i].version;
       expect(isHapiVersionAtLeast(prev, curr)).to.be.true;
     }
   });
@@ -74,6 +76,17 @@ describe('blockGasLimit', () => {
     expect(obtainBlockGasLimit('0.69.1')).to.equal(150_000_000);
     expect(obtainBlockGasLimit('0.70.0')).to.equal(150_000_000);
     expect(obtainBlockGasLimit('99.0.0')).to.equal(150_000_000);
+  });
+
+  withOverriddenEnvsInMochaTest({ BLOCK_GAS_LIMIT: 200_000_000 }, () => {
+    it('should return the overridden limit for blocks at HAPI 0.69.0 or later', () => {
+      expect(obtainBlockGasLimit('0.69.0')).to.equal(200_000_000);
+      expect(obtainBlockGasLimit('1.0.0')).to.equal(200_000_000);
+    });
+
+    it('should keep 30M for blocks before HAPI 0.69.0', () => {
+      expect(obtainBlockGasLimit('0.68.999')).to.equal(30_000_000);
+    });
   });
 
   describe('with extended test version config', () => {

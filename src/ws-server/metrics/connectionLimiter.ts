@@ -134,16 +134,16 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(ctx.websocket);
   }
 
-  public incrementSubs(ctx: WsContext): void {
-    ctx.websocket.subscriptions++;
+  public incrementSubs(connection: RelayWebSocket): void {
+    connection.subscriptions++;
   }
 
-  public decrementSubs(ctx: WsContext, amount = 1): void {
-    ctx.websocket.subscriptions -= amount;
+  public decrementSubs(connection: RelayWebSocket, amount = 1): void {
+    connection.subscriptions -= amount;
   }
 
-  public validateSubscriptionLimit(ctx: WsContext): boolean {
-    return ctx.websocket.subscriptions < ConfigService.get('WS_SUBSCRIPTION_LIMIT');
+  public validateSubscriptionLimit(connection: RelayWebSocket): boolean {
+    return connection.subscriptions < ConfigService.get('WS_SUBSCRIPTION_LIMIT');
   }
 
   // Starts a timeout timer that closes the connection
@@ -195,7 +195,7 @@ export default class ConnectionLimiter {
     if (methodName === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE || methodName === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)
       return false;
 
-    const methodTotalLimit = methodConfiguration[methodName].total;
+    const methodTotalLimit = methodConfiguration[methodName]?.total ?? ConfigService.get('DEFAULT_RATE_LIMIT');
     return await this.rateLimiter.shouldRateLimit(ip, methodName, methodTotalLimit, requestDetails);
   }
 }

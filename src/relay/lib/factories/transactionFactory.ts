@@ -107,15 +107,15 @@ const formatAuthorizationList = (authorizationList: unknown): AuthorizationListE
     ? authorizationList
         .filter((item) => item !== null && typeof item === 'object')
         .map((item) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { chain_id, ...rest } = item; // snake_case chain_id omitted from rest passthrough
+          const { chain_id, y_parity, yparity, ...rest } = item; // snake_case omitted from rest passthrough
+          const yParity = y_parity ?? yparity; // Mirror node <= v0.162.0 stored y_parity as `yparity`, and those rows are still served unchanged.
+
           return {
             ...rest, // additional properties remain allowed for authorization list items
-            // Mirror node may send either camelCase (`chainId`) or snake_case (`chain_id`).
-            chainId: formatAuthorizationQuantity(item.chainId ?? item.chain_id),
+            chainId: formatAuthorizationQuantity(chain_id),
             nonce: formatAuthorizationQuantity(item.nonce),
             address: formatAddress(item.address),
-            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(String(item.yParity)).substring(0, 4),
+            yParity: !yParity ? constants.ZERO_HEX : prepend0x(String(yParity)).substring(0, 4),
             r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
             s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
           };

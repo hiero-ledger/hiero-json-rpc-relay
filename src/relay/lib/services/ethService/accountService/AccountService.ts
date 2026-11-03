@@ -16,6 +16,7 @@ import {
   type MirrorNodeBlock,
 } from '../../../types/mirrorNode';
 import type { IPendingPoolStatusInfo } from '../../../types/transactionPool';
+import { isBlockHash } from '../../../utils/blockParam';
 import { type TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from '../ethCommonService/ICommonService';
@@ -166,9 +167,8 @@ export class AccountService implements IAccountService {
   ): Promise<BalanceBlockResolution> {
     let latestBlock = await this.getLatestBlockFromCacheOrMirror(requestDetails);
 
-    const isHash = blockNumberOrTagOrHash.length > 32;
-    const requestedBlockNumber = isHash
-      ? Number((await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails)).number)
+    const requestedBlockNumber = isBlockHash(blockNumberOrTagOrHash)
+      ? await this.getBlockNumberByHash(blockNumberOrTagOrHash, requestDetails)
       : Number(blockNumberOrTagOrHash);
 
     const blockDiff = Number(latestBlock.blockNumber) - requestedBlockNumber;
@@ -288,7 +288,17 @@ export class AccountService implements IAccountService {
         );
 
         balanceFound = true;
-        weibars = BigInt(currentBalance - balanceFromTxs) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+        const tinybars = currentBalance - balanceFromTxs;
+        if (tinybars < 0) {
+          this.logger.warn(
+            `Reconstructed a negative balance for account %s at block %s (current: %s, rewound: %s), returning 0`,
+            account,
+            block.number,
+            currentBalance,
+            balanceFromTxs,
+          );
+        }
+        weibars = BigInt(Math.max(tinybars, 0)) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
       }
     }
 
@@ -391,11 +401,11 @@ export class AccountService implements IAccountService {
   ): number {
     return transactions
       .filter((transaction) => {
-        return transaction.consensus_timestamp >= blockTimestamp;
+        return transaction.consensus_timestamp > blockTimestamp;
       })
       .flatMap((transaction) => {
         return transaction.transfers.filter((transfer: ITransfer) => {
-          return transfer.account === account && !transfer.is_approval;
+          return transfer.account === account;
         });
       })
       .map((transfer) => {
@@ -404,6 +414,22 @@ export class AccountService implements IAccountService {
       .reduce((total, amount) => {
         return total + amount;
       }, 0);
+  }
+
+  /**
+   * Resolves a block hash to its block number.
+   *
+   * @param blockHash the 32 byte block hash to resolve
+   * @param requestDetails the request details for logging and tracking
+   * @returns the number of the block with that hash
+   * @throws {JsonRpcError} `-32001 Requested resource not found` when no block has that hash, as EIP-1898 recommends
+   */
+  private async getBlockNumberByHash(blockHash: string, requestDetails: RequestDetails): Promise<number> {
+    const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
+    if (!block) {
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockHash}'.`);
+    }
+    return Number(block.number);
   }
 
   /**
@@ -428,11 +454,7 @@ export class AccountService implements IAccountService {
     if (isParamBlockNum) {
       blockNum = blockNumOrHash;
     } else {
-      const block = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
-      if (!block) {
-        throw predefined.UNKNOWN_BLOCK();
-      }
-      blockNum = block.number;
+      blockNum = await this.getBlockNumberByHash(blockNumOrHash, requestDetails);
     }
 
     // check if on latest block, if so get latest ethereumNonce from mirror node account API

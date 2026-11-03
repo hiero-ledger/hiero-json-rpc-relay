@@ -103,23 +103,29 @@ const parseNumericEnvVar = (envVarName: string, fallbackConstantKey: keyof typeo
 };
 
 /**
+ * Converts a value in weibars to tinybars, kept as a bigint so no precision is lost.
+ *
+ * @param {bigint | boolean | number | string} value - The value to convert, in any form `BigInt()` accepts.
+ * @returns {bigint} - The equivalent value in tinybars, truncated, with any positive fraction raised to 1.
+ */
+const weibarToTinyBar = (value: bigint | boolean | number | string): bigint => {
+  if (value === '0x') return BigInt(0);
+
+  const weibars = BigInt(value);
+  const tinybars = weibars / BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+  // A non-zero amount must stay non-zero, so anything under one tinybar becomes 1.
+  return tinybars === BigInt(0) && weibars > BigInt(0) ? BigInt(1) : tinybars;
+};
+
+/**
  * Converts a value in weibars (as a hex string, bigint, boolean, number, or string) to tinybars.
  *
  * @param {bigint | boolean | number | string} value - The value to convert, can be in various formats such as hex string, bigint, boolean, number, or string.
  * @returns {number} - The equivalent value in tinybars, rounded to the nearest whole number.
  */
 const weibarHexToTinyBarInt = (value: bigint | boolean | number | string): number => {
-  if (value === '0x') return 0;
-
-  const weiBigInt = BigInt(value);
-  const coefBigInt = BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-  // Calculate the tinybar value
-  const tinybarValue = weiBigInt / coefBigInt;
-  // Check if there was a fractional part that got discarded
-  if (tinybarValue === BigInt(0) && weiBigInt > BigInt(0)) {
-    return 1; // Round up to the smallest unit of tinybar
-  }
-  return Number(tinybarValue);
+  return Number(weibarToTinyBar(value));
 };
 
 /**
@@ -279,6 +285,7 @@ export {
   trimPrecedingZeros,
   stripLeadingZeroForSignatures,
   weibarHexToTinyBarInt,
+  weibarToTinyBar,
   toHexString,
   strip0x,
   isValidEthereumAddress,

@@ -57,9 +57,11 @@ import type {
   QueryParamObject,
   QueryParamValue,
 } from '../types/mirrorNode';
+import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '../utils/requestAbort';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
+import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
 
 /**
@@ -93,24 +95,27 @@ export const isImmatureContractRecord = (
 };
 
 /**
- * Whether a Mirror Node contract-result record belongs to a child  transaction rather than to a
- * top-level ethereum one.
+ * Whether a Mirror Node contract-result record belongs to a child transaction (one with a parent, e.g. an
+ * HTS system-contract call made from within an ethereum transaction) rather than to a top-level one.
  *
  * Ethereum has no notion of a child transaction: an inner call has no hash and no receipt of its own, so
  * these records are reported as not found rather than as a rejection.
  *
+ * Relies on the Mirror Node `child` flag (v0.166+). The record shape alone cannot tell a child apart from a
+ * HAPI-submitted CONTRACTCALL/CONTRACTCREATE: both carry a transaction index and neither carries an
+ * ethereum nonce or signature. Without the flag (older Mirror Nodes) no record is treated as a child.
+ *
  * @param record - The contract result record to classify; null/undefined is not a child record.
- * @returns True when the record carries neither an ethereum nonce nor a signature recovery id.
+ * @returns True when the Mirror Node flags the record as a child.
  */
-export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
-  record != null && record.nonce == null && record.v == null;
+export const isChildContractRecord = (record?: { child?: boolean } | null): boolean => record?.child === true;
 
 /**
  * Whether a Mirror Node contract-result record is synthetic: fabricated for a native Hedera transaction
  * (CRYPTOTRANSFER, TOKENMINT and the like) that never reached the EVM, so it has no gas limit.
  *
- * Stricter than {@link isChildContractRecord}, which also matches HAPI-submitted CONTRACTCALL records: those
- * carry no ethereum signature either, but they did execute and are resolvable by hash.
+ * HAPI-submitted CONTRACTCALL records carry no ethereum signature either, but they did execute and are
+ * resolvable by hash, so they are not synthetic.
  */
 export const isSyntheticContractRecord = (
   record?: {
@@ -154,11 +159,18 @@ export class MirrorNodeClient {
   private static readonly GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID = `transactions/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}`;
   private static readonly GET_CONTRACTS_RESULTS_ACTIONS = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/actions`;
   private static readonly GET_CONTRACTS_RESULTS_OPCODES = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/opcodes`;
+  private static readonly GET_CONTRACTS_RESULTS_PRESTATE = `contracts/results/${MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER}/prestate`;
   private static readonly GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT = `contracts/${MirrorNodeClient.ADDRESS_PLACEHOLDER}/results/logs`;
   private static readonly GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT = `contracts/${MirrorNodeClient.CONTRACT_ID_PLACEHOLDER}/results/${MirrorNodeClient.TIMESTAMP_PLACEHOLDER}`;
   private static readonly GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT = `contracts/${MirrorNodeClient.ADDRESS_PLACEHOLDER}/results/${MirrorNodeClient.TIMESTAMP_PLACEHOLDER}`;
   private readonly MIRROR_NODE_RETRY_DELAY = ConfigService.get('MIRROR_NODE_RETRY_DELAY');
   private readonly MIRROR_NODE_REQUEST_RETRY_COUNT = ConfigService.get('MIRROR_NODE_REQUEST_RETRY_COUNT');
+
+  // GET endpoints served by the mirror node web3 module rather than the REST one, despite their REST-looking paths.
+  private static readonly WEB3_GET_PATH_LABELS: ReadonlySet<string> = new Set([
+    MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES,
+    MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE,
+  ]);
 
   static acceptedErrorStatusesResponsePerRequestPathMap: Map<string, Array<number>> = new Map([
     [MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT, [404]],
@@ -175,6 +187,7 @@ export class MirrorNodeClient {
     [MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT, [404]],
     [MirrorNodeClient.GET_CONTRACTS_RESULTS_ACTIONS, [404]],
     [MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES, [404]],
+    [MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE, [404]],
     [MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT, [404]],
     [MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT, [404]],
     [MirrorNodeClient.GET_TOKENS_ENDPOINT, [404]],
@@ -350,6 +363,9 @@ export class MirrorNodeClient {
         return delay;
       },
       retryCondition: (error) => {
+        if (Axios.isCancel(error)) {
+          return false;
+        }
         // @ts-ignore
         return !error?.response?.status || mirrorNodeRetryErrorCodes.includes(error?.response?.status);
       },
@@ -486,8 +502,14 @@ export class MirrorNodeClient {
     data?: unknown,
     retries?: number,
   ): Promise<T | null> {
+    throwIfRequestAborted(requestDetails);
+
     const start = Date.now();
     const controller = new AbortController();
+    const callerSignal = getRequestAbortSignal(requestDetails);
+    const onCallerAbort = (): void => controller.abort(callerSignal?.reason);
+    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+
     try {
       const axiosRequestConfig: AxiosRequestConfig = {
         headers: {
@@ -509,7 +531,7 @@ export class MirrorNodeClient {
 
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
-        if (pathLabel === MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
+        if (MirrorNodeClient.WEB3_GET_PATH_LABELS.has(pathLabel)) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
@@ -542,6 +564,16 @@ export class MirrorNodeClient {
       const ms = Date.now() - start;
       const axiosError = error as { response?: { status?: number }; code?: string };
 
+      if (isRequestAborted(requestDetails)) {
+        this.logger.debug(
+          `Mirror node request cancelled after the caller abandoned the request: method=%s, path=%s, duration=%sms`,
+          method,
+          path,
+          ms,
+        );
+        throwIfRequestAborted(requestDetails);
+      }
+
       // Calculate effective status code
       const effectiveStatusCode =
         axiosError.response?.status ||
@@ -557,6 +589,8 @@ export class MirrorNodeClient {
 
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
+    } finally {
+      callerSignal?.removeEventListener('abort', onCallerAbort);
     }
   }
 
@@ -1275,6 +1309,30 @@ export class MirrorNodeClient {
     );
   }
 
+  /**
+   * Retrieves the state a transaction touched, as recorded by the mirror node.
+   *
+   * Unlike `/contracts/{id}/state`, the returned storage holds only the slots the transaction read or wrote.
+   * Available from mirror node v0.165.0 and gated behind `hiero.mirror.web3.api.prestate.enabled`, so a 501
+   * is expected wherever the flag is off.
+   *
+   * @param transactionIdOrHash - The transaction to trace.
+   * @param requestDetails - Details for request tracking and logging.
+   * @returns The prestate response, or null when the transaction has none.
+   */
+  public async getContractResultPrestate(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<IPrestateResponse | null> {
+    const queryParams = this.getQueryParams({ code: true, storage: true });
+
+    return this.get<IPrestateResponse>(
+      `${this.getContractResultsPrestateByTransactionIdPath(transactionIdOrHash)}${queryParams}`,
+      MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE,
+      requestDetails,
+    );
+  }
+
   public async getContractResultsByAddress(
     contractIdOrAddress: string,
     requestDetails: RequestDetails,
@@ -1648,6 +1706,13 @@ export class MirrorNodeClient {
     );
   }
 
+  private getContractResultsPrestateByTransactionIdPath(transactionIdOrHash: string): string {
+    return MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE.replace(
+      MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
+      transactionIdOrHash,
+    );
+  }
+
   public async getTokenById(tokenId: string, requestDetails: RequestDetails, retries?: number): Promise<unknown> {
     return this.get(
       `${MirrorNodeClient.GET_TOKENS_ENDPOINT}/${tokenId}`,
@@ -1771,6 +1836,40 @@ export class MirrorNodeClient {
       MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID,
       requestDetails,
     );
+  }
+
+  /**
+   * Gets the record of the transaction at a consensus timestamp, plus its child records when it is an Ethereum
+   * transaction, since an Ethereum deployment records its contract creation as a child.
+   *
+   * @param timestamp - The consensus timestamp of the transaction.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns The transaction's records, or an empty array when none is recorded at that timestamp.
+   */
+  public async getTransactionRecordsByTimestamp(
+    timestamp: string,
+    requestDetails: RequestDetails,
+  ): Promise<IMirrorNodeTransactionRecord[]> {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    const page = await this.get<ITransactionsPage>(
+      `${MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT}${this.getQueryParams(queryParamObject)}`,
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT,
+      requestDetails,
+    );
+    const transaction = page?.transactions?.[0];
+    if (!transaction) return [];
+    if (transaction.name !== MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE) return [transaction];
+
+    const records = await this.get<ITransactionsPage>(
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID.replace(
+        MirrorNodeClient.TRANSACTION_ID_PLACEHOLDER,
+        transaction.transaction_id,
+      ),
+      MirrorNodeClient.GET_TRANSACTIONS_ENDPOINT_TRANSACTION_ID,
+      requestDetails,
+    );
+    return records?.transactions ?? [];
   }
 
   /**
@@ -2054,18 +2153,27 @@ export class MirrorNodeClient {
       })();
 
       // Add the activeRequest to the pool and set up self-cleanup
+      const cleanup = (): void => {
+        activeRequestsPool.delete(activeRequest);
+      };
       activeRequestsPool.add(activeRequest);
-      void activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
+      activeRequest.then(cleanup, cleanup);
 
       // Throttle: pause iteration when concurrency limit is reached
       // Resume and add new requests to the pool when any active request completes
       if (activeRequestsPool.size >= concurrency) {
         await Promise.race(activeRequestsPool);
       }
+
+      if (isRequestAborted(requestDetails)) {
+        break;
+      }
     }
 
     // Wait for all remaining requests to complete
     await Promise.all(activeRequestsPool);
+
+    throwIfRequestAborted(requestDetails);
 
     // Merge all slice results with deduplication (single-threaded, no race condition)
     const allLogs: MirrorNodeContractLog[] = [];
@@ -2160,15 +2268,7 @@ export class MirrorNodeClient {
       callerName,
     );
     if (cachedResponse) {
-      // Transitional read-guard, symmetric to the write-guard below. A pre-fix deployment — or a shared Redis cache
-      // during a rolling upgrade — may still hold latest-state ACCOUNT entries written before the write-guard
-      // existed. Their mutable `delegation_address` (EIP-7702 / HIP-1340) could be stale, so ignore such entries and
-      // re-resolve from the mirror node. Historical (timestamped) entries and non-account types are immutable and
-      // safe to return.
-      // TODO(#5471): remove this read-guard once all caches have cycled past CACHE_TTL after the fix is deployed.
-      if (cachedResponse.type !== constants.TYPE_ACCOUNT || timestamp) {
-        return cachedResponse;
-      }
+      return cachedResponse;
     }
 
     const buildPromise = (fn: Promise<unknown>): Promise<unknown> =>

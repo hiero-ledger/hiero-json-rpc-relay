@@ -157,7 +157,7 @@ const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger): boolean 
     return false;
   }
 
-  return !hasId;
+  return !hasId || !isValidJsonRpcId(request.id);
 };
 
 /**
@@ -191,3 +191,10 @@ export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: R
   logger.warn(`${JSON.stringify(wsSubscriptionsDisabledError)}`);
   return jsonRespError(null, wsSubscriptionsDisabledError, requestDetails.requestId);
 };
+
+/**
+ * JSON-RPC 2.0 allows only a string, number or null `id`. Any other type must be rejected before it
+ * reaches `jsonRespResult`/`jsonRespError`, which throw on it.
+ */
+export const isValidJsonRpcId = (id: unknown): boolean =>
+  typeof id === 'string' || typeof id === 'number' || id === null;

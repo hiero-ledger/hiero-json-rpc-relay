@@ -15,6 +15,7 @@ export async function getLogs(
   address: string | string[] | null,
   topics: LogTopic[] | null,
   requestDetails: RequestDetails,
+  strictBlockRange: boolean = false,
 ): Promise<Log[]> {
   const { commonService } = ctx;
   try {
@@ -44,6 +45,7 @@ export async function getLogs(
         requestDetails,
         address,
         sliceCountWrapper,
+        strictBlockRange,
       ))
     ) {
       return EMPTY_RESPONSE;

@@ -23,26 +23,6 @@ type IObjectParamSchema = {
 };
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
-  blockHashObject: {
-    name: 'BlockHashObject',
-    failOnUnexpectedParams: true,
-    properties: {
-      blockHash: {
-        type: 'blockHash',
-        nullable: false,
-      },
-    },
-  },
-  blockNumberObject: {
-    name: 'BlockNumberObject',
-    failOnUnexpectedParams: true,
-    properties: {
-      blockNumber: {
-        type: 'blockNumber',
-        nullable: false,
-      },
-    },
-  },
   filter: {
     name: 'FilterObject',
     failOnUnexpectedParams: true,

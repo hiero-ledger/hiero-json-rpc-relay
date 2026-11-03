@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
+import { ConfigService } from '../../../../src/config-service/services';
 import mainConstants from '../../../../src/relay/lib/constants';
 import {
   type IParamValidation,
@@ -11,6 +12,7 @@ import {
 import * as Constants from '../../../../src/relay/lib/validators/constants';
 import { validateSchema } from '../../../../src/relay/lib/validators/objectTypes';
 import { isValidAndNonNullableParam, validateObject } from '../../../../src/relay/lib/validators/utils';
+import { withOverriddenEnvsInMochaTest } from '../../helpers';
 
 describe('Validator', async () => {
   function expectInvalidParam(index: number | string, message: string, paramValue?: string): string {
@@ -24,6 +26,18 @@ describe('Validator', async () => {
   function expectInvalidObject(index: number | string, message: string, object: string, paramValue: string): string {
     return `Invalid parameter '${index}' for ${object}: ${message}, value: ${paramValue}`;
   }
+
+  describe('normalises missing params', async () => {
+    it('treats null params as an empty array', async () => {
+      const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: false } };
+      expect(() => validateParams(null, validation)).to.not.throw();
+    });
+
+    it('still reports required params as missing when params is null', async () => {
+      const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: true } };
+      expect(() => validateParams(null, validation)).to.throw('Missing value for required parameter 0');
+    });
+  });
 
   describe('validates Address type correctly', async () => {
     const validation: Record<number, IParamValidation> = { 0: { type: 'address', required: false } };
@@ -480,6 +494,35 @@ describe('Validator', async () => {
           '[["0x790673a87ac19773537b2553e1dc7c451f659e0f75d1b69a706ad42d25cbdb55"],["0x790673a87ac19773537b2553e1dc7"]]',
         ),
       );
+    });
+
+    const topic = '0x790673a87ac19773537b2553e1dc7c451f659e0f75d1b69a706ad42d25cbdb55';
+
+    it(`does not throw an error on ${mainConstants.LOG_TOPICS_MAX_POSITIONS} positions`, async () => {
+      const positions = Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(topic);
+
+      expect(validateParams([positions], validation)).to.eq(undefined);
+    });
+
+    it(`throws an error on null-padded positions past ${mainConstants.LOG_TOPICS_MAX_POSITIONS}`, async () => {
+      const positions = [...Array(mainConstants.LOG_TOPICS_MAX_POSITIONS).fill(null), topic];
+
+      expect(() => validateParams([positions], validation)).to.throw(
+        expectInvalidParam(0, topicsError, JSON.stringify(positions)),
+      );
+    });
+
+    const maxSubTopics = mainConstants.LOG_TOPICS_MAX_POSITIONS + 1;
+
+    withOverriddenEnvsInMochaTest({ ETH_GET_LOGS_SUB_TOPICS_LIMIT: maxSubTopics }, () => {
+      it('applies the configured sub-topic limit per position', async () => {
+        const positions = [Array(maxSubTopics + 1).fill(topic)];
+
+        expect(validateParams([[Array(maxSubTopics).fill(topic)]], validation)).to.eq(undefined);
+        expect(() => validateParams([positions], validation)).to.throw(
+          expectInvalidParam(0, Constants.topicsError(maxSubTopics), JSON.stringify(positions)),
+        );
+      });
     });
   });
 
@@ -1183,7 +1226,7 @@ describe('Validator', async () => {
           topics: ['NotHEX'],
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: ["NotHEX"]`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'))}, value: ["NotHEX"]`,
       );
     });
 
@@ -1194,7 +1237,7 @@ describe('Validator', async () => {
           topics: null,
         });
       }).to.throw(
-        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic, value: null`,
+        `Invalid parameter 'topics' for EthSubscribeLogsParamsObject: ${Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'))}, value: null`,
       );
     });
 
@@ -1383,6 +1426,139 @@ describe('Validator', async () => {
     it('does not throw for a valid 32-byte block hash string', async () => {
       const result = validateParams(['0x' + 'a'.repeat(64)], validation);
       expect(result).to.eq(undefined);
+    });
+
+    describe('EIP-1898 block objects', async () => {
+      const blockHash = '0x' + 'a'.repeat(64);
+
+      [
+        { blockNumber: '0x1' },
+        { blockNumber: '0x0' },
+        ...['latest', 'earliest', 'pending', 'finalized', 'safe'].map((tag) => ({ blockNumber: tag })),
+        { blockHash },
+        { blockHash, requireCanonical: true },
+        { blockHash, requireCanonical: false },
+      ].forEach((blockParam) => {
+        it(`does not throw for ${JSON.stringify(blockParam)}`, async () => {
+          expect(validateParams([blockParam], validation)).to.eq(undefined);
+        });
+      });
+
+      [
+        { name: 'an empty object', input: {}, reason: Constants.BLOCK_PARAM_OBJECT_NEITHER_ERROR },
+        {
+          name: 'both blockHash and blockNumber',
+          input: { blockHash, blockNumber: '0x1' },
+          reason: Constants.BLOCK_PARAM_OBJECT_BOTH_ERROR,
+        },
+        {
+          name: 'requireCanonical with blockNumber',
+          input: { blockNumber: '0x1', requireCanonical: true },
+          reason: Constants.BLOCK_PARAM_OBJECT_REQUIRE_CANONICAL_ERROR,
+        },
+        {
+          name: 'only requireCanonical',
+          input: { requireCanonical: true },
+          reason: Constants.BLOCK_PARAM_OBJECT_NEITHER_ERROR,
+        },
+        {
+          name: 'an unknown key',
+          input: { blockHash, foo: 'bar' },
+          reason: Constants.BLOCK_PARAM_OBJECT_UNKNOWN_KEY_ERROR('foo'),
+        },
+        {
+          name: 'a null blockHash',
+          input: { blockHash: null },
+          reason: `'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}`,
+        },
+        {
+          name: 'a blockHash that is not 32 bytes',
+          input: { blockHash: '0x1234' },
+          reason: `'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}`,
+        },
+        {
+          name: 'a blockHash wrapped in an array',
+          input: { blockHash: [blockHash] },
+          reason: `'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}`,
+        },
+        {
+          name: 'a null blockNumber',
+          input: { blockNumber: null },
+          reason: `'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}`,
+        },
+        {
+          name: 'a non-hex blockNumber',
+          input: { blockNumber: '123' },
+          reason: `'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}`,
+        },
+        {
+          name: 'a non-boolean requireCanonical',
+          input: { blockHash, requireCanonical: 'yes' },
+          reason: `'requireCanonical' in EIP-1898 block object: Expected boolean type`,
+        },
+      ].forEach(({ name, input, reason }) => {
+        it(`throws an error naming the broken rule for ${name}`, async () => {
+          expect(() => validateParams([input], validation)).to.throw(
+            expectInvalidParam(0, reason, JSON.stringify(input)),
+          );
+        });
+      });
+
+      it('reports the index of the block parameter it sits at', async () => {
+        const atIndexTwo: Record<number, IParamValidation> = {
+          0: { type: 'address', required: true },
+          1: { type: 'hex64', required: true },
+          2: { type: 'blockParams', required: true },
+        };
+        const address = '0x' + '1'.repeat(40);
+
+        expect(() => validateParams([address, '0x0', {}], atIndexTwo)).to.throw(
+          expectInvalidParam(2, Constants.BLOCK_PARAM_OBJECT_NEITHER_ERROR, '{}'),
+        );
+      });
+
+      it('rejects an array instead of coercing it to a string', async () => {
+        expect(() => validateParams([['0x1']], validation)).to.throw(
+          expectInvalidParam(0, Constants.BLOCK_PARAMS_ERROR, '["0x1"]'),
+        );
+      });
+    });
+  });
+
+  describe('error messages', async () => {
+    it('never duplicate "Expected" in the hash errors', async () => {
+      for (const message of [
+        Constants.BLOCK_HASH_ERROR,
+        Constants.TRANSACTION_HASH_ERROR,
+        Constants.TOPIC_HASH_ERROR,
+        Constants.BLOCK_PARAMS_ERROR,
+      ]) {
+        expect(message).to.not.contain('Expected Expected');
+      }
+    });
+
+    it('print an object value as JSON when no alternative type matches', async () => {
+      const validation: Record<number, IParamValidation> = {
+        0: { type: ['blockNumber', 'blockHash'], required: true },
+      };
+
+      expect(() => validateParams([{ blockNumber: '0x1' }], validation)).to.throw(
+        `The value passed is not valid: {"blockNumber":"0x1"}.`,
+      );
+    });
+  });
+
+  describe('validates blockOverride type correctly', async () => {
+    const validation: Record<number, IParamValidation> = { 0: { type: 'blockOverride', required: false } };
+
+    it('throws an error naming block overrides', async () => {
+      expect(() => validateParams([{ number: '0x1' }], validation)).to.throw(
+        expectInvalidParam(0, 'Block overrides are not supported', '{"number":"0x1"}'),
+      );
+    });
+
+    it('does not throw when the parameter is absent', async () => {
+      expect(validateParams([], validation)).to.eq(undefined);
     });
   });
 });

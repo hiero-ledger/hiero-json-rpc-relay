@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { keccak256 } from 'ethers/crypto';
+
 import { ConfigService } from '../../../config-service/services';
 import type { ICacheClient } from '../clients/cache/ICacheClient';
 import { RequestDetails } from '../types';
@@ -22,6 +24,7 @@ interface CacheNamedParams {
 interface CacheOptions {
   skipParams?: CacheSingleParam[];
   skipNamedParams?: CacheNamedParams[];
+  hashParams?: string[];
   ttl?: number;
 }
 
@@ -34,6 +37,7 @@ interface CacheOptions {
  * @param options - Optional configuration for caching behavior.
  *   @property skipParams - An array of rules for skipping caching based on specific argument values.
  *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
+ *   @property hashParams - Indexes of object arguments to hash into the key instead of serializing in full.
  *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
  * @param cacheServiceProp - Name of the property on the decorated class holding the `ICacheClient`.
  *
@@ -50,7 +54,7 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
     const methodName = String(context.name);
 
     return async function (this: T, ...args: A): Promise<R> {
-      const cacheKey = generateCacheKey(methodName, args);
+      const cacheKey = generateCacheKey(methodName, args, options.hashParams);
       const cacheService = this[cacheServiceProp] as ICacheClient;
 
       const cachedResponse = await cacheService.getAsync<R>(cacheKey, methodName);
@@ -150,6 +154,9 @@ const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedPara
  * instances of `RequestDetails`) into a string format and appends them to the method name to form the final key.
  *
  * - If an argument is an object, each of its key-value pairs is added to the key.
+ * - If its index is listed in `hashParams`, an object argument is reduced to a keccak256 hash instead. The
+ *   serialized form is lowercased first, so the same override written with checksummed and lowercase
+ *   addresses shares one entry. Every field these arguments carry is hex, so case holds no meaning.
  * - Primitive values are directly appended to the key.
  * - Arguments of type `RequestDetails` are ignored in the key generation.
  *
@@ -160,12 +167,15 @@ const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedPara
  * @example
  *   generateCacheKey('getBlockByNumber', arguments); // should return getBlockByNumber_0x160c_false
  */
-const generateCacheKey = (methodName: string, args: unknown[]): string => {
+const generateCacheKey = (methodName: string, args: unknown[], hashParams: string[] = []): string => {
   let cacheKey: string = methodName;
-  for (const value of args) {
+  for (const [index, value] of args.entries()) {
     if (!(value instanceof RequestDetails)) {
       if (value && typeof value === 'object') {
-        cacheKey += `_${JSON.stringify(value)}`;
+        const serialized = JSON.stringify(value);
+        cacheKey += hashParams.includes(String(index))
+          ? `_${keccak256(Buffer.from(serialized.toLowerCase(), 'utf8'))}`
+          : `_${serialized}`;
         continue;
       }
 

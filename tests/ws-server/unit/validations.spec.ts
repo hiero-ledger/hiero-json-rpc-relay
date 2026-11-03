@@ -65,6 +65,22 @@ describe('validations unit test', async function () {
     });
   });
 
+  it('Should execute validateJsonRpcRequest() to reject a request id that is not a string, number or null', () => {
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      const request = { id, jsonrpc: '2.0', method: 'eth_chainId', params: [] };
+
+      expect(validateJsonRpcRequest(request as unknown as IJsonRpcRequest, logger), JSON.stringify(id)).to.be.false;
+    });
+  });
+
+  it('Should execute validateJsonRpcRequest() to accept a request id that is a string, number or null', () => {
+    [null, 0, -1, 'test'].forEach((id) => {
+      const request = { id, jsonrpc: '2.0', method: 'eth_chainId', params: [] };
+
+      expect(validateJsonRpcRequest(request as unknown as IJsonRpcRequest, logger), JSON.stringify(id)).to.be.true;
+    });
+  });
+
   WsTestHelper.withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: 'true' }, () => {
     it('Should execute validateJsonRpcRequest() to validate JSON RPC request that has no id field but return true because REQUEST_ID_IS_OPTIONAL=true', () => {
       const REQUEST = {
@@ -74,6 +90,12 @@ describe('validations unit test', async function () {
       };
       // @ts-ignore
       expect(validateJsonRpcRequest(REQUEST, logger, requestDetails)).to.be.true;
+    });
+
+    it('Should execute validateJsonRpcRequest() to still reject a non-primitive id when REQUEST_ID_IS_OPTIONAL=true', () => {
+      const request = { id: { a: 1 }, jsonrpc: '2.0', method: 'eth_chainId', params: [] };
+
+      expect(validateJsonRpcRequest(request as unknown as IJsonRpcRequest, logger)).to.be.false;
     });
   });
 

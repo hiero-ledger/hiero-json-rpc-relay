@@ -2,7 +2,7 @@
 
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { subscribeEvents } from '../../lib/constants.js';
-import { connectToWebSocket, isErrorResponse } from './common.js';
+import { connectToWebSocket, isNonErrorResponse } from './common.js';
 
 const url = __ENV.WS_RELAY_BASE_URL;
 const methodName = 'eth_subscribe';
@@ -15,7 +15,7 @@ const { options, run } = new TestScenarioBuilder()
     methodName,
     scenarioName,
     [subscribeEvents.newPendingTransactions],
-    { methodName: (r) => isErrorResponse(r) }
+    { methodName: (r) => isNonErrorResponse(r) }
   ))
   .build();
 

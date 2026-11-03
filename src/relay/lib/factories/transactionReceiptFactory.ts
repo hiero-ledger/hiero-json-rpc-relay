@@ -7,11 +7,7 @@ import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, to
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
 import { type Log } from '../model';
-import {
-  type ITransactionReceipt,
-  type MirrorNodeContractResultBase,
-  type MirrorNodeContractResultReceipt,
-} from '../types';
+import { type ITransactionReceipt, type MirrorNodeContractResultReceipt } from '../types';
 import { type IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
@@ -32,6 +28,8 @@ interface IRegularTransactionReceiptParams {
   receiptResponse: MirrorNodeContractResultReceipt;
   to: string | null;
   cumulativeGasUsed: number;
+  /** Whether the transaction deployed the contract in `contract_id`, which mirror nodes don't report uniformly. */
+  isDeployment: boolean;
 }
 
 /**
@@ -80,9 +78,9 @@ class TransactionReceiptFactory {
    * 2. Hedera Mirror Node, however, automatically populates the `to` field with the
    *    address of the newly created contract.
    *
-   * The code checks if a contract was directly created by the transaction (rather than created by
-   * another contract) by checking if the contract's ID appears in the `created_contract_ids` array.
-   * If so, it resets the `to` field to null to match standard Ethereum JSON-RPC behavior.
+   * The caller tells, through `isDeployment`, whether the transaction itself created the contract
+   * (rather than a factory contract creating it). If so, it resets the `to` field to null to match
+   * standard Ethereum JSON-RPC behavior and reports the contract as `contractAddress`.
    *
    * This ensures compatibility with Ethereum tooling that expects standard transaction receipt formats.
    * The handling covers various scenarios:
@@ -97,13 +95,13 @@ class TransactionReceiptFactory {
    * @returns {ITransactionReceipt} Transaction receipt for the regular transaction
    */
   public static createRegularReceipt(params: IRegularTransactionReceiptParams): ITransactionReceipt {
-    const { receiptResponse, effectiveGas, from, logs, cumulativeGasUsed } = params;
+    const { receiptResponse, effectiveGas, from, logs, cumulativeGasUsed, isDeployment } = params;
     let { to } = params;
 
     // Determine contract address if it exists
-    const contractAddress = TransactionReceiptFactory.getContractAddressFromReceipt(receiptResponse);
+    const contractAddress = TransactionReceiptFactory.getContractAddressFromReceipt(receiptResponse, isDeployment);
 
-    if (receiptResponse.created_contract_ids.includes(receiptResponse.contract_id)) {
+    if (isDeployment) {
       to = null;
     }
 
@@ -140,21 +138,28 @@ class TransactionReceiptFactory {
    * Helper method to determine if a receipt response includes a contract address
    *
    * @param receiptResponse Mirror node contract result response
+   * @param isDeployment Whether the transaction deployed the contract in `contract_id`
    * @returns {string | null} Contract address or null
    */
-  private static getContractAddressFromReceipt(receiptResponse: MirrorNodeContractResultBase): string | null {
+  private static getContractAddressFromReceipt(
+    receiptResponse: MirrorNodeContractResultReceipt,
+    isDeployment: boolean,
+  ): string | null {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
       receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
     );
 
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
+    if (isCreationViaSystemContract) {
+      // a reverted call created no token, and its call result carries revert data rather than an address
+      if (receiptResponse.status !== constants.ONE_HEX) {
+        return null;
+      }
+
+      const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
+      return prepend0x(tokenAddress);
     }
 
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
+    return isDeployment ? receiptResponse.address : null;
   }
 
   /**

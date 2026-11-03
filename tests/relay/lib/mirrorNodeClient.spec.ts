@@ -13,7 +13,7 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { type JsonRpcError, MirrorNodeClientError, predefined } from '../../../src/relay';
-import { isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { isChildContractRecord, isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
@@ -162,6 +162,26 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('isChildContractRecord', () => {
+    it('accepts a record the mirror node flags as a child', () => {
+      expect(isChildContractRecord({ child: true })).to.be.true;
+    });
+
+    it('rejects a record the mirror node flags as top-level', () => {
+      expect(isChildContractRecord({ child: false })).to.be.false;
+    });
+
+    // Mirror nodes before v0.166 omit the flag; the record shape alone cannot tell a child from a HAPI contract call.
+    it('rejects a record without the flag', () => {
+      expect(isChildContractRecord({})).to.be.false;
+    });
+
+    it('rejects null and undefined', () => {
+      expect(isChildContractRecord(null)).to.be.false;
+      expect(isChildContractRecord(undefined)).to.be.false;
+    });
+  });
+
   describe('isSyntheticContractRecord', () => {
     // Shapes captured from testnet block 39363179 and from a mainnet contract-result page.
     const synthetic = { gas_limit: 0, nonce: null, v: null, r: null, s: null };
@@ -177,7 +197,7 @@ describe('MirrorNodeClient', async function () {
       expect(isSyntheticContractRecord(real)).to.be.false;
     });
 
-    // isChildContractRecord matches these; a receipt built from their logs would have the wrong shape.
+    // A receipt built from their logs would have the wrong shape.
     it('rejects a HAPI-submitted contract call', () => {
       expect(isSyntheticContractRecord(hapiContractCall)).to.be.false;
     });
@@ -1175,6 +1195,7 @@ describe('MirrorNodeClient', async function () {
         v: null,
         r: null,
         s: null,
+        child: true,
       }),
     );
 
@@ -1943,34 +1964,6 @@ describe('MirrorNodeClient', async function () {
       expect(second!.type).to.eq('ACCOUNT');
       expect(second!.entity.delegation_address).to.eq(accountWithDelegation.delegation_address);
     });
-
-    it('ignores pre-fix cached latest `ACCOUNT` entries on read and re-resolves them (transitional read-guard)', async () => {
-      const accountEntityId = '0.0.1014';
-      const delegationAddress = '0xf25f35d571f4d032fcf24f9090d5af67c0ae4512';
-      const staleCachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${mockData.accountEvmAddress}`;
-
-      // Simulate a stale entry written before the write-guard existed: a latest-state ACCOUNT with no delegation.
-      await cacheService.set(
-        staleCachedLabel,
-        { type: constants.TYPE_ACCOUNT, entity: { ...mockData.account, delegation_address: '0x' } },
-        constants.ETH_GET_CODE,
-      );
-
-      mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
-      mock.onGet(`tokens/${accountEntityId}`).reply(404, JSON.stringify(mockData.notFound));
-      mock
-        .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
-        .reply(200, JSON.stringify({ ...mockData.account, delegation_address: delegationAddress }));
-
-      // The read-guard must skip the stale cached ACCOUNT and re-resolve from the mirror node.
-      const result = await mirrorNodeInstance.resolveEntityType(
-        mockData.accountEvmAddress,
-        constants.ETH_GET_CODE,
-        requestDetails,
-      );
-      expect(result!.type).to.eq('ACCOUNT');
-      expect(result!.entity.delegation_address).to.eq(delegationAddress);
-    });
   });
 
   describe('getTransactionById', async () => {
@@ -2083,6 +2076,43 @@ describe('MirrorNodeClient', async function () {
 
       const result = await mirrorNodeInstance.getContractRevertReasonFromTransaction(error, requestDetails);
       expect(result).to.eq('INVALID_FULL_PREFIX_SIGNATURE_FOR_PRECOMPILE');
+    });
+  });
+
+  describe('getTransactionRecordsByTimestamp', async () => {
+    const timestamp = '1681130077.127938923';
+    const transactionId = '0.0.2-1681130064-409933500';
+    const parent = {
+      consensus_timestamp: timestamp,
+      name: 'ETHEREUMTRANSACTION',
+      nonce: 0,
+      transaction_id: transactionId,
+    };
+    const child = { ...parent, consensus_timestamp: '1681130077.127938924', name: 'CONTRACTCREATEINSTANCE', nonce: 1 };
+
+    it('should fetch the child records of an Ethereum transaction at the timestamp', async () => {
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [parent] }));
+      mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify({ transactions: [parent, child] }));
+
+      const records = await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails);
+
+      expect(records).to.deep.equal([parent, child]);
+    });
+
+    it('should return only the record at the timestamp for any other transaction', async () => {
+      const contractCall = { ...parent, name: 'CONTRACTCALL' };
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [contractCall] }));
+
+      const records = await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails);
+
+      expect(records).to.deep.equal([contractCall]);
+      expect(mock.history.get.length).to.eq(1);
+    });
+
+    it('should return an empty array when no transaction is recorded at the timestamp', async () => {
+      mock.onGet(`transactions?timestamp=${timestamp}`).reply(200, JSON.stringify({ transactions: [] }));
+
+      expect(await mirrorNodeInstance.getTransactionRecordsByTimestamp(timestamp, requestDetails)).to.deep.equal([]);
     });
   });
 
@@ -2574,6 +2604,91 @@ describe('MirrorNodeClient', async function () {
       earlierBlock = await mirrorNodeInstance.getEarliestBlock(requestDetails);
       expect(earlierBlock).to.exist;
       expect(earlierBlock!.name).to.be.equal(mockData.blocks.blocks[0].name);
+    });
+  });
+
+  describe('getContractResultPrestate', async () => {
+    const transactionHash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392';
+    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true`;
+
+    const mockPrestate = {
+      pre: [
+        {
+          address: '0x305a8e76ac38fc088132fb780b2171950ff023f7',
+          balance: '0x3e8',
+          code: '0x6080604052',
+          nonce: 1,
+          storage: {
+            '0x0000000000000000000000000000000000000000000000000000000000000000':
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+          },
+        },
+        {
+          address: '0x00000000000000000000000000000000000003f6',
+          balance: '0x2540be400',
+          code: '0x',
+          nonce: 7,
+          storage: {},
+        },
+      ],
+    };
+
+    it('should fetch the prestate of a transaction', async () => {
+      mock.onGet(prestatePath).reply(200, JSON.stringify(mockPrestate));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result).to.exist;
+      expect(result!.pre.length).to.equal(2);
+      expect(result!.pre[0].address).to.equal(mockPrestate.pre[0].address);
+      expect(result!.pre[0].storage).to.deep.equal(mockPrestate.pre[0].storage);
+      expect(result!.pre[1].storage).to.deep.equal({});
+    });
+
+    it('should return null when the transaction has no prestate', async () => {
+      mock.onGet(prestatePath).reply(404, JSON.stringify(mockData.notFound));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result).to.be.null;
+    });
+
+    // Only 404 is swallowed into null. Every other status must reach the caller with its code intact,
+    // so the prestate fallback can tell 501 (endpoint disabled, remember it) from anything transient.
+    [501, 503].forEach((statusCode) => {
+      it(`should throw with the status code on ${statusCode}`, async () => {
+        mock.onGet(prestatePath).reply(statusCode, JSON.stringify({ _status: { messages: [{ message: 'nope' }] } }));
+
+        await expect(
+          mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails),
+        ).to.eventually.be.rejected.and.have.property('statusCode', statusCode);
+      });
+    });
+
+    it('should be served by the web3 client, not the rest one', async () => {
+      const restInstance = axios.create({ baseURL: 'https://localhost:5551/api/v1' });
+      const web3Instance = axios.create({ baseURL: 'https://localhost:8545/api/v1' });
+      const restMock = new MockAdapter(restInstance);
+      const web3Mock = new MockAdapter(web3Instance);
+
+      const client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: `mirror-node` }),
+        registry,
+        cacheService,
+        restInstance,
+        'https://localhost:8545/api/v1',
+        web3Instance,
+      );
+
+      restMock.onGet(prestatePath).reply(200, JSON.stringify({ pre: [] }));
+      web3Mock.onGet(prestatePath).reply(200, JSON.stringify(mockPrestate));
+
+      const result = await client.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result!.pre.length).to.equal(2);
+      expect(web3Mock.history.get.length).to.equal(1);
+      expect(restMock.history.get.length).to.equal(0);
     });
   });
 

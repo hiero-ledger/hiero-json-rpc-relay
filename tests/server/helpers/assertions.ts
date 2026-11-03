@@ -9,7 +9,7 @@ import { type JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';
-import { type IFeeHistory, type MirrorNodeBlock } from '../../../src/relay/lib/types';
+import { type EntityTraceState, type IFeeHistory, type MirrorNodeBlock } from '../../../src/relay/lib/types';
 import RelayAssertions from '../../relay/assertions';
 
 chai.use(chaiExclude);
@@ -644,9 +644,17 @@ export default class Assertions {
 
   static validatePrestateTracerResult(state: unknown): void {
     expect(state).to.be.an('object');
-    expect(state).to.have.property('balance');
-    expect(state).to.have.property('nonce');
-    expect(state).to.have.property('code');
-    expect(state).to.have.property('storage');
+
+    const entityState = state as EntityTraceState;
+
+    expect(entityState.balance).to.be.a('string').and.match(/^0x/);
+    expect(entityState.nonce).to.be.a('number').and.be.at.least(0);
+    expect(entityState.code).to.be.a('string').and.match(/^0x/);
+    expect(entityState.storage).to.be.an('object');
+
+    for (const [slot, value] of Object.entries(entityState.storage)) {
+      expect(slot).to.match(/^0x[0-9a-f]{64}$/);
+      expect(value).to.match(/^0x[0-9a-f]{64}$/);
+    }
   }
 }

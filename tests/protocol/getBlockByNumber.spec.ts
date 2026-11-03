@@ -103,6 +103,14 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
     describe(client.label, () => {
+      // Poll for the next block, because blocks take about 2s, or longer when the mirror node lags.
+      const waitForNextBlock = (blockNumber: string): Promise<void> =>
+        Utils.waitUntil(
+          async () =>
+            BigInt((await client.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [])) as string) > BigInt(blockNumber),
+          { intervalMs: 500, description: `a block after ${blockNumber}` },
+        );
+
       it('should execute "eth_getBlockByNumber", hydrated transactions = false', async () => {
         const blockResult = (await client.call(METHOD_NAME, [
           numberTo0x(mirrorBlock.number),
@@ -116,32 +124,32 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
       });
 
       it('should not cache "latest" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['latest', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['latest', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['latest', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "finalized" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['finalized', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['finalized', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['finalized', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "safe" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['safe', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['safe', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['safe', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
       });
 
       it('should not cache "pending" block in "eth_getBlockByNumber" ', async () => {
-        const blockResult = await client.call(METHOD_NAME, ['pending', false]);
-        await Utils.wait(2000);
+        const blockResult = (await client.call(METHOD_NAME, ['pending', false])) as BlockResponseLike;
+        await waitForNextBlock(blockResult.number);
 
         const blockResult2 = await client.call(METHOD_NAME, ['pending', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
@@ -169,7 +177,7 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
         expect(blockResult).to.be.null;
       });
 
-      it('should execute "eth_getBlockByNumber", hydrated transactions = true for a block that contains a call with CONTRACT_NEGATIVE_VALUE status', async () => {
+      it('should execute "eth_getBlockByNumber", hydrated transactions = true and exclude a call with CONTRACT_NEGATIVE_VALUE status', async () => {
         let transactionId;
         let hasContractNegativeValueError = false;
         try {
@@ -199,12 +207,17 @@ describe('@release @protocol-acceptance @protocol-acceptance-block-service eth_g
           `/contracts/results/${formatTransactionId(transactionId.toString())}`,
         );
         const txHash = mirrorResult.hash;
+
+        // the call never entered the EVM (gas_used = 0), so the mirror node
+        // leaves it out of /contracts/results listings
         const blockResult = (await client.call(METHOD_NAME, [numberTo0x(mirrorResult.block_number), true])) as {
           transactions: TransactionResponseLike[];
         };
-        expect(blockResult.transactions).to.not.be.empty;
-        expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
-        expect(blockResult.transactions.filter((tx) => tx.hash === txHash)[0].value).to.equal('0xffffff172b5af000');
+        expect(blockResult.transactions.map((tx) => tx.hash)).to.not.contain(txHash);
+
+        // TODO: edit it when https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5804 is merged
+        const receipt = await client.call('eth_getTransactionReceipt', [txHash]);
+        expect(receipt).to.be.null;
       });
 
       for (const params of INVALID_PARAMS) {

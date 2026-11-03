@@ -99,11 +99,11 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
     });
 
     it('Should execute eth_blockNumber requests with undefined params and receive expected result', async () => {
-      const [{ result }, expectedResult] = await Promise.all([
-        WsTestHelper.sendRequestToStandardWebSocket('eth_blockNumber', undefined),
-        global.relay.call('eth_blockNumber', []),
-      ]);
-      expect(result).to.eq(expectedResult);
+      // Check the WS result sits between two HTTP reads, because a block can close between any two reads.
+      const blockBefore = Number(await global.relay.call('eth_blockNumber', []));
+      const { result } = await WsTestHelper.sendRequestToStandardWebSocket('eth_blockNumber', undefined);
+      const blockAfter = Number(await global.relay.call('eth_blockNumber', []));
+      expect(Number(result)).to.be.within(blockBefore, blockAfter);
     });
     it('Should execute eth_sendRawTransaction requests with undefined params and receive MISSING_REQUIRED_PARAMETER error', async () => {
       const response = await WsTestHelper.sendRequestToStandardWebSocket('eth_sendRawTransaction', undefined);

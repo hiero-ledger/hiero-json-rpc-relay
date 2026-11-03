@@ -17,23 +17,26 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y make gcc g++
 
-      - name: Use Node.js TLS 22
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Use Node.js LTS 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # This builds only the Redis server and not bundled modules which are not used.
+          BUILD_ARGS: core
 
       - name: Create .env file
         run: cp ./tests/relay/test.env .env
@@ -47,21 +50,26 @@ jobs:
 
       - name: Upload Heap Snapshots
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Heap Snapshots
           path: '**/*.heapsnapshot'
           if-no-files-found: ignore
 
+      # Upload only when the tests pass: a partial report from a failed run would show as a coverage drop.
       - name: Upload coverage report
-        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
-        run: bash .github/scripts/codecov-upload.sh
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          disable_search: true
+          flags: unit
+          fail_ci_if_error: true
 
       - name: Publish Test Report
         if: ${{ github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name && github.actor != 'dependabot[bot]' && github.actor != 'swirlds-automation' && !cancelled() && !failure() }}
-        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
+        uses: step-security/publish-unit-test-result-action@8cf946dca1a299ebf36dff640273fda13717050a # v2.24.0
         with:
           # check_name: Tests
           check_name: '' # Set to empty to disable check run

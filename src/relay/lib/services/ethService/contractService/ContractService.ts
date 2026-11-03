@@ -11,6 +11,7 @@ import {
   strip0x,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
+  weibarToTinyBar,
 } from '../../../../formatters';
 import type { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -19,11 +20,17 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { type Log } from '../../../model';
 import {
+  type AccountStorage,
   type IContractCallRequest,
   type IContractCallResponse,
   type IGetLogsParams,
+  type IStateOverride,
+  type IStorageEntry,
   type RequestDetails,
+  type StateOverrideSet,
 } from '../../../types';
+import { isBlockHash } from '../../../utils/blockParam';
+import { isRequestAbortedError } from '../../../utils/requestAbort';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import type { ICommonService } from '../../ethService/ethCommonService/ICommonService';
 import type HAPIService from '../../hapiService/hapiService';
@@ -33,6 +40,12 @@ import type { IContractService } from './IContractService';
  * Service responsible for handling contract-related operations.
  */
 export class ContractService implements IContractService {
+  /**
+   * The `detail` of the mirror node's 400 response to a contract call against a block it does not know.
+   * @private
+   */
+  private static readonly MIRROR_NODE_UNKNOWN_BLOCK_DETAIL = 'Unknown block number';
+
   /**
    * The cache service used for caching responses.
    * @private
@@ -112,23 +125,28 @@ export class ContractService implements IContractService {
    * Executes a new message call immediately without creating a transaction on the blockchain.
    *
    * @param {IContractCallRequest} call - The transaction object with call data
-   * @param {string | object | null} blockParam - Block number, tag, or object with blockHash/blockNumber
+   * @param {string | null} blockParam - Block number, tag or hash; EIP-1898 block objects are normalized by the caller
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the call
    * @returns {Promise<string>} The return value of the executed contract call
    */
   public async call(
     call: IContractCallRequest,
-    blockParam: string | object | null,
+    blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
+    const blockNumberOrTag = blockParam || null;
     try {
       if (call.to && !isValidEthereumAddress(call.to)) {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
       }
+      this.rejectBlacklistedContract(call.to);
 
-      const blockNumberOrTag = this.extractBlockParam(blockParam);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
+
+      this.applyStateOverrides(call, stateOverride);
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
@@ -137,8 +155,13 @@ export class ContractService implements IContractService {
 
       return result;
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
-      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
+      if (e instanceof MirrorNodeClientError) {
+        if (isBlockHash(blockNumberOrTag) && ContractService.isMirrorNodeUnknownBlock(e)) {
+          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`);
+        }
+        await this.handleMirrorNodeClientError(e, call.to);
+      }
 
       this.logger.error(e, 'Failed to successfully submit eth_call');
       throw predefined.INTERNAL_ERROR((e as Error).message.toString());
@@ -151,15 +174,18 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace for the duration of the estimate
    * @returns {Promise<string>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
    */
   public async estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<string> {
     try {
-      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
+      this.rejectBlacklistedContract(transaction.to);
+      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails, stateOverride);
 
       if (!response?.result) {
         if (this.logger.isLevelEnabled('debug')) {
@@ -170,8 +196,8 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e) {
-      if (e instanceof JsonRpcError) throw e;
-      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+      if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
+      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e, transaction.to);
 
       this.logger.error(e, 'Failed to successfully estimate gas');
       throw predefined.INTERNAL_ERROR((e as Error).message.toString());
@@ -182,7 +208,7 @@ export class ContractService implements IContractService {
    * Returns the compiled smart contract code at a given address.
    *
    * @param {string} address - The address to get code from
-   * @param {string | null} blockNumber - Block number or tag
+   * @param {string | null} blockNumber - Block number, tag or hash
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} The code at the given address
    */
@@ -191,6 +217,13 @@ export class ContractService implements IContractService {
       throw predefined.UNKNOWN_BLOCK(
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
+    }
+
+    if (
+      isBlockHash(blockNumber) &&
+      !(await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true))
+    ) {
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`);
     }
 
     // check for static precompile cases first before consulting nodes
@@ -245,6 +278,8 @@ export class ContractService implements IContractService {
 
       return constants.EMPTY_HEX;
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.error(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,
@@ -270,6 +305,7 @@ export class ContractService implements IContractService {
       params.address,
       params.topics,
       requestDetails,
+      true,
     );
   }
 
@@ -388,6 +424,87 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Translates an Ethereum state override set into the mirror node's `state_overrides` format.
+   *
+   * The two differ in shape, naming and units: Ethereum keys overrides by address and holds storage
+   * as a map, while the mirror node expects an array of entries carrying their own address,
+   * snake_case fields and storage as key/value pairs.
+   *
+   * @param {StateOverrideSet} stateOverrides - The override set as received from the caller.
+   * @returns {IStateOverride[]} The equivalent mirror node overrides, empty when nothing is left to send.
+   */
+  public formatStateOverrides(stateOverrides: StateOverrideSet): IStateOverride[] {
+    const formatted: IStateOverride[] = [];
+
+    for (const [address, override] of Object.entries(stateOverrides)) {
+      const entry: IStateOverride = { address: address.toLowerCase() };
+
+      if (override.balance !== undefined) {
+        entry.balance = this.toTinybarBalance(override.balance, address);
+      }
+
+      if (override.nonce !== undefined) {
+        entry.nonce = numberTo0x(BigInt(override.nonce));
+      }
+
+      if (override.code !== undefined) {
+        entry.code = override.code;
+      }
+
+      if (override.state !== undefined) {
+        const slots = ContractService.toStorageEntries(override.state);
+        // An empty `state` means "replace all storage with nothing". The mirror node ignores an
+        // empty list and reads real storage instead, so a single zero slot forces full replacement.
+        entry.state =
+          slots.length > 0 ? slots : [{ key: constants.ZERO_HEX_32_BYTE, value: constants.ZERO_HEX_32_BYTE }];
+      }
+
+      if (override.stateDiff !== undefined) {
+        entry.state_diff = ContractService.toStorageEntries(override.stateDiff);
+      }
+
+      const hasOverrides = Object.keys(entry).length > 1;
+      if (hasOverrides) {
+        formatted.push(entry);
+      }
+    }
+
+    return formatted;
+  }
+
+  /**
+   * Attaches a translated override set to a mirror node request, in place.
+   *
+   * @param {IContractCallRequest} call - The request being prepared for the mirror node
+   * @param {StateOverrideSet} [stateOverride] - Account state to replace, as received from the caller
+   */
+  private applyStateOverrides(call: IContractCallRequest, stateOverride?: StateOverrideSet): void {
+    const overrides = stateOverride ? this.formatStateOverrides(stateOverride) : [];
+    if (overrides.length > 0) {
+      call.state_overrides = overrides;
+    }
+  }
+
+  /**
+   * Converts a weibar balance override to tinybars, capped at what the network can hold.
+   */
+  private toTinybarBalance(balance: string, address: string): string {
+    const tinybars = weibarToTinyBar(balance);
+    const totalSupply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
+
+    if (tinybars > totalSupply) {
+      this.logger.warn('Balance override for %s exceeds the total supply and was capped', address);
+      return numberTo0x(totalSupply);
+    }
+
+    return numberTo0x(tinybars);
+  }
+
+  private static toStorageEntries(storage: AccountStorage): IStorageEntry[] {
+    return Object.entries(storage).map(([key, value]) => ({ key, value }));
+  }
+
+  /**
    * Executes an estimate contract call gas request in the mirror node.
    *
    * @param {IContractCallRequest} transaction The transaction data for the contract call.
@@ -397,8 +514,10 @@ export class ContractService implements IContractService {
   private async estimateGasFromMirrorNode(
     transaction: IContractCallRequest,
     requestDetails: RequestDetails,
+    stateOverride?: StateOverrideSet,
   ): Promise<IContractCallResponse | null> {
     await this.contractCallFormat(transaction, requestDetails);
+    this.applyStateOverrides(transaction, stateOverride);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }
@@ -417,41 +536,21 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Extracts the block number, hash or tag from a block parameter.
-   * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
+   * Rejects calls to contracts listed in `CONTRACT_CALL_BLACKLIST` without calling the mirror node.
+   * The mirror node rejects these calls with a 429, which would trigger the rate limit alert.
    *
-   * @param {string | object | null} blockParam - The block parameter (string, object, or null)
-   * @returns {string | null} The extracted block number, hash or tag, or null if not provided
+   * @param {string | null | undefined} to - The target address of the call
+   * @throws {JsonRpcError} COULD_NOT_SIMULATE_TRANSACTION when the address is blacklisted
    * @private
    */
-  private extractBlockParam(blockParam: string | object | null): string | null {
-    if (!blockParam) {
-      return null;
+  private rejectBlacklistedContract(to: string | null | undefined): void {
+    if (!to) return;
+
+    const blacklist = ConfigService.get('CONTRACT_CALL_BLACKLIST');
+    if (blacklist.some((address) => address.toLowerCase() === to.toLowerCase())) {
+      this.logger.info(`Rejected call to blacklisted contract: to=%s`, to);
+      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
     }
-
-    // is an object
-    if (typeof blockParam === 'object') {
-      // object has property blockNumber, example: { "blockNumber": "0x0" }
-      const { blockNumber, blockHash } = blockParam as { blockNumber?: string; blockHash?: string };
-
-      if (blockNumber != null) {
-        return blockNumber;
-      }
-
-      if (blockHash != null) {
-        return blockHash;
-      }
-
-      // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
-      throw predefined.INVALID_ARGUMENTS('neither block nor hash specified');
-    }
-
-    // if blockParam is a string, could be a blockNumber or blockTag or blockHash
-    if (blockParam.length > 0) {
-      return blockParam;
-    }
-
-    return null;
   }
 
   /**
@@ -483,20 +582,40 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Whether the mirror node rejected a contract call because the requested block does not exist.
+   *
+   * @param {MirrorNodeClientError} e - The mirror node error
+   * @returns {boolean} `true` for the mirror node's 400 "Unknown block number" response
+   */
+  private static isMirrorNodeUnknownBlock(e: MirrorNodeClientError): boolean {
+    return e.statusCode === 400 && e.detail === ContractService.MIRROR_NODE_UNKNOWN_BLOCK_DETAIL;
+  }
+
+  /**
    * Handles specific mirror node client errors.
    *
    * @param {MirrorNodeClientError} e - The mirror node client error
+   * @param {string | null} [to] - The target address of the call, logged when the mirror node rejects it
    * @returns {Promise<never>}
    * @private
    */
-  private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<never> {
+  private async handleMirrorNodeClientError(e: MirrorNodeClientError, to?: string | null): Promise<never> {
     if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
     // For 400, treat it as an expected "could not simulate transaction" case and do not store additional logs.
     // For any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
-    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic
-    if (e.statusCode !== 400) this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
+    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic.
+    // A rejection by a mirror node request filter means the contract is missing from CONTRACT_CALL_BLACKLIST, so log its address
+    if (e.isInvalidRequestRateLimit()) {
+      this.logger.error(
+        e,
+        'Could not simulate transaction in the MirrorNode. Rejected by a mirror node request filter: to=%s',
+        to,
+      );
+    } else if (e.statusCode !== 400) {
+      this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
+    }
     throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
   }
 

@@ -146,6 +146,74 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
   });
 
+  describe('removeFromListAndIncrementConfirmedCount idempotency', () => {
+    it('reports whether the transaction was actually removed', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+
+      expect(await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1)).to.be.true;
+      expect(await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1)).to.be.false;
+      expect(await storage.removeFromList(addr1, rlp1)).to.be.false;
+    });
+
+    it('increments the confirmed count only once when the same transaction is confirmed twice', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+
+      await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1);
+      await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1);
+
+      expect(await storage.getConfirmedCount(addr1)).to.equal(4);
+      expect(await storage.getList(addr1)).to.equal(0);
+      expect(await storage.getAllTransactionPayloads()).to.be.empty;
+    });
+
+    it('increments the confirmed count only once for concurrent confirmations', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+
+      const results = await Promise.all([
+        storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1),
+        storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1),
+        storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1),
+      ]);
+
+      expect(results.filter(Boolean)).to.have.lengthOf(1);
+      expect(await storage.getConfirmedCount(addr1)).to.equal(4);
+    });
+
+    it('does not increment the confirmed count for a transaction that is not pending', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+
+      expect(await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp2)).to.be.false;
+      expect(await storage.getConfirmedCount(addr1)).to.equal(3);
+      expect(await storage.getList(addr1)).to.equal(1);
+    });
+
+    it('does not increment the confirmed count after the transaction was removed as rejected', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+
+      expect(await storage.removeFromList(addr1, rlp1)).to.be.true;
+      expect(await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1)).to.be.false;
+      expect(await storage.getConfirmedCount(addr1)).to.equal(3);
+    });
+
+    it('removes the transaction but does not recreate an expired confirmed count', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+      await redisClient.del('txpool:pending:confirmed' + addr1);
+
+      expect(await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1)).to.be.true;
+      expect(await storage.getConfirmedCount(addr1)).to.be.null;
+      expect(await storage.getList(addr1)).to.equal(0);
+    });
+
+    it('refreshes the confirmed count TTL on increment', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 3);
+      await redisClient.expire('txpool:pending:confirmed' + addr1, 1);
+
+      await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1);
+
+      expect(await redisClient.ttl('txpool:pending:confirmed' + addr1)).to.equal(storage.confirmedCountTtl);
+    });
+  });
+
   describe('removeAll', () => {
     it('deletes all txpool:pending:* keys', async () => {
       await storage.addToListAndSetConfirmedCount(addr1, tx1, 0);

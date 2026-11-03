@@ -26,8 +26,6 @@ jobs:
       testfilter: api_batch1
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   api_batch_2:
     name: API Batch 2
@@ -36,8 +34,6 @@ jobs:
       testfilter: api_batch2
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   api_batch_3:
     name: API Batch 3
@@ -46,8 +42,6 @@ jobs:
       testfilter: api_batch3
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   erc20:
     name: ERC20
@@ -56,8 +50,6 @@ jobs:
       testfilter: erc20
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   ratelimiter:
     name: Rate Limiter
@@ -68,8 +60,6 @@ jobs:
       test_rate_limits: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   hbarlimiter:
     name: HBar Limiter
@@ -78,8 +68,6 @@ jobs:
       testfilter: hbarlimiter
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   tokencreate:
     name: Token Create
@@ -88,8 +76,6 @@ jobs:
       testfilter: tokencreate
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   tokenmanagement:
     name: Token Management
@@ -98,8 +84,6 @@ jobs:
       testfilter: tokenmanagement
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   htsprecompilev1:
     name: Precompile
@@ -108,8 +92,6 @@ jobs:
       testfilter: htsprecompilev1
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   precompilecalls:
     name: Precompile Calls
@@ -118,8 +100,6 @@ jobs:
       testfilter: precompile-calls
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   websocket-batch-1:
     name: Websocket Batch 1
@@ -129,8 +109,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   websocket-batch-2:
     name: Websocket Batch 2
@@ -140,8 +118,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   websocket-batch-3:
     name: Websocket Batch 3
@@ -151,8 +127,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   cacheservice:
     name: Cache Service
@@ -161,8 +135,6 @@ jobs:
       testfilter: cache-service
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   server-config:
     name: Server Config
@@ -171,8 +143,6 @@ jobs:
       testfilter: serverconfig
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-account-service:
     name: Protocol Account Service
@@ -182,8 +152,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-block-service:
     name: Protocol Block Service
@@ -193,8 +161,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-common-service:
     name: Protocol Common Service
@@ -204,8 +170,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-contract-service:
     name: Protocol Contract Service
@@ -215,8 +179,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-transaction-service:
     name: Protocol Transaction Service
@@ -226,8 +188,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-fee-service:
     name: Protocol Fee Service
@@ -237,8 +197,6 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   protocol-eth-plain:
     name: Protocol Eth Plain
@@ -249,8 +207,6 @@ jobs:
       test_rate_limits: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish_results:
     name: Publish Results
@@ -282,18 +238,18 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
       - name: Download Test Reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: Test Results (*)
           merge-multiple: true
 
       - name: Publish Test Report
-        uses: step-security/publish-unit-test-result-action@681100d67b09305624c089873f12c545ee7cbc24 # v2.23.0
+        uses: step-security/publish-unit-test-result-action@8cf946dca1a299ebf36dff640273fda13717050a # v2.24.0
         with:
           # check_name: Acceptance Tests
           check_name: '' # Set to empty to disable check run

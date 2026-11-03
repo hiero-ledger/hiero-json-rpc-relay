@@ -104,7 +104,7 @@ export const toHex = (num: number | bigint | string): string => {
 export const ethCallFailing = async <E>(
   contractService: Pick<ContractService, 'call'>,
   args: IContractCallRequest,
-  block: string | object | null,
+  block: string | null,
   requestDetails: RequestDetails,
   assertFunc: (error: E) => void,
 ): Promise<void> => {
@@ -352,12 +352,36 @@ const mockData = {
     },
   },
 
+  requestRejected: {
+    _status: {
+      messages: [
+        {
+          message: 'Too Many Requests',
+          detail: 'Invalid request',
+          data: '',
+        },
+      ],
+    },
+  },
+
   contractReverted: {
     _status: {
       messages: [
         {
           message: 'CONTRACT_REVERT_EXECUTED',
           detail: '',
+          data: '',
+        },
+      ],
+    },
+  },
+
+  stateOverridesNotSupported: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad Request',
+          detail: '400 BAD_REQUEST "State overrides are not supported."',
           data: '',
         },
       ],
@@ -485,6 +509,7 @@ export const contractId2 = '0.0.5002';
 export const signedTransactionHash =
   '0x02f87482012a0485a7a358200085a7a3582000832dc6c09400000000000000000000000000000000000003f78502540be40080c001a006f4cd8e6f84b76a05a5c1542a08682c928108ef7163d9c1bf1f3b636b1cd1fba032097cbf2dda17a2dcc40f62c97964d9d930cdce2e8a9df9a8ba023cda28e4ad';
 export const LONG_ZERO_ADDRESS = '0x0000000000000000000000000000000000000557';
+export const MIRROR_NODE_BLACKLISTED_ADDRESS = '0x00000000000000000000000000000000003c4370';
 
 export const defaultBlock = {
   count: blockTransactionCount,

@@ -21,7 +21,6 @@ updates:
 
   - package-ecosystem: "npm"
     directories:
-      - "/docs/examples"
       - "/k6"
     schedule:
       interval: "weekly"

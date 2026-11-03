@@ -6,7 +6,7 @@ import {
   type IContractLogsResultsParams,
   type MirrorNodeBlock,
   type MirrorNodeContractLog,
-  type MirrorNodeContractResultBase,
+  type MirrorNodeContractResult,
   type RequestDetails,
 } from '../../../types';
 import { type LogTopic } from '../../../types/requestParams';
@@ -21,8 +21,6 @@ export interface ICommonService {
   genericErrorHandler(error: unknown, logMessage?: string): void;
 
   getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
-
-  getContractAddressFromReceipt(contractResult: MirrorNodeContractResultBase): string | null;
 
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
@@ -43,6 +41,7 @@ export interface ICommonService {
     address: string | string[] | null,
     topics: LogTopic[] | null,
     requestDetails: RequestDetails,
+    strictBlockRange?: boolean,
   ): Promise<Log[]>;
 
   getLogsByAddress(
@@ -60,6 +59,8 @@ export interface ICommonService {
   ): Promise<Log[]>;
 
   isBlockParamValid(tag: string | null): boolean;
+
+  isContractDeployment(contractResult: MirrorNodeContractResult, requestDetails: RequestDetails): Promise<boolean>;
 
   resolveEvmAddress(address: string | null, requestDetails: RequestDetails, types?: string[]): Promise<string | null>;
 
@@ -81,5 +82,6 @@ export interface ICommonService {
     requestDetails: RequestDetails,
     address?: string | string[] | null,
     sliceCountOutput?: { value: number },
+    strictBlockRange?: boolean,
   ): Promise<boolean>;
 }

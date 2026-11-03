@@ -266,19 +266,18 @@ describe('Connection Limiter', function () {
       sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
 
-    it('should handle methods not in methodConfiguration', async function () {
+    it('should use the default rate limit for methods not in methodConfiguration', async function () {
       const ip = '127.0.0.1';
-      const methodName = 'unknown_method';
+      const methodName = 'debug_getBadBlocks';
       const requestDetails = { requestId: 'test-request' } as RequestDetails;
+      const expectedLimit = 200;
+      configServiceStub.withArgs('DEFAULT_RATE_LIMIT').returns(expectedLimit);
 
       rateLimiterStub.resolves(false);
 
-      try {
-        await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
-        expect.fail('Should have thrown an error for unknown method');
-      } catch (error) {
-        expect(error).to.be.an('error');
-      }
+      await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
+
+      sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
   });
 
@@ -355,24 +354,17 @@ describe('Connection Limiter', function () {
 
   describe('incrementSubs', function () {
     it('should increment subscription count', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        subscriptions: 5,
-      };
+      const ctx = createMockContext({ subscriptions: 5 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-      } as unknown as WsContext;
+      connectionLimiter.incrementSubs(ctx.websocket);
 
-      connectionLimiter.incrementSubs(mockContext);
-
-      expect(mockContext.websocket.subscriptions).to.eq(6);
+      expect(ctx.websocket.subscriptions).to.eq(6);
     });
 
     it('should increment subscription count from 0', function () {
       const ctx = createMockContext({ subscriptions: 0 });
 
-      connectionLimiter.incrementSubs(ctx);
+      connectionLimiter.incrementSubs(ctx.websocket);
 
       expect(ctx.websocket.subscriptions).to.eq(1);
     });
@@ -382,7 +374,7 @@ describe('Connection Limiter', function () {
     it('should decrement subscription count by 1 by default', function () {
       const ctx = createMockContext({ subscriptions: 5 });
 
-      connectionLimiter.decrementSubs(ctx);
+      connectionLimiter.decrementSubs(ctx.websocket);
 
       expect(ctx.websocket.subscriptions).to.eq(4);
     });
@@ -390,7 +382,7 @@ describe('Connection Limiter', function () {
     it('should decrement subscription count by specified amount', function () {
       const ctx = createMockContext({ subscriptions: 10 });
 
-      connectionLimiter.decrementSubs(ctx, 3);
+      connectionLimiter.decrementSubs(ctx.websocket, 3);
 
       expect(ctx.websocket.subscriptions).to.eq(7);
     });
@@ -398,17 +390,23 @@ describe('Connection Limiter', function () {
     it('should decrement subscription count to 0', function () {
       const ctx = createMockContext({ subscriptions: 1 });
 
-      connectionLimiter.decrementSubs(ctx);
+      connectionLimiter.decrementSubs(ctx.websocket);
 
       expect(ctx.websocket.subscriptions).to.eq(0);
     });
   });
 
   describe('validateSubscriptionLimit', function () {
-    it('should return true if the limit is reached', function () {
+    it('should return true while the count is below the limit', function () {
       const ctx = createMockContext({ subscriptions: 5 });
 
-      expect(connectionLimiter.validateSubscriptionLimit(ctx)).to.be.true;
+      expect(connectionLimiter.validateSubscriptionLimit(ctx.websocket)).to.be.true;
+    });
+
+    it('should return false once the count has reached the limit', function () {
+      const ctx = createMockContext({ subscriptions: 10 });
+
+      expect(connectionLimiter.validateSubscriptionLimit(ctx.websocket)).to.be.false;
     });
   });
 });

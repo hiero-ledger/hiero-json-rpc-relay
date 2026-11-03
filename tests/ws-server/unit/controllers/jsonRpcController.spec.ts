@@ -4,6 +4,7 @@ import { type Logger } from 'pino';
 import { type Counter } from 'prom-client';
 import sinon from 'sinon';
 
+import { createMethodMetricLabeler, UNKNOWN_METHOD_LABEL } from '../../../../src/metrics';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { Relay } from '../../../../src/relay/lib/relay';
@@ -67,6 +68,9 @@ describe('JSON Rpc Controller', function () {
     } as unknown as Counter);
     stubRelay = sinon.createStubInstance(Relay);
     stubRelay.rpcMethodRegistry = new Map([['eth_chainId', sinon.stub()]]);
+    stubRelay.methodMetricLabeler = sinon
+      .stub<[unknown], string>()
+      .callsFake((method) => (typeof method === 'string' ? method : 'unknown'));
     stubConnectionLimiter = sinon.createStubInstance(ConnectionLimiter);
     stubMirrorNodeClient = sinon.createStubInstance(MirrorNodeClient);
     stubSubscriptionService = sinon.createStubInstance(SubscriptionService);
@@ -106,6 +110,29 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('Invalid Request');
     });
 
+    [true, false, [1, 2, 3], { a: 1 }].forEach((id) => {
+      it(`should return invalid request with a null id when the request id is non-primitive "${JSON.stringify(id)}"`, async function () {
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+        expect(resp.error.code).to.equal(-32600);
+        expect(resp.error.message).to.include('Invalid Request');
+        expect(resp.id).to.equal(null);
+      });
+    });
+
+    [null, 0, -1, 'test'].forEach((id) => {
+      it(`should accept a request id of "${JSON.stringify(id)}"`, async function () {
+        const chainId = '0x12a';
+        stubRelay.executeRpcMethod.resolves(chainId);
+        defaultRequestParams[3] = { id, method: 'eth_chainId', jsonrpc: '2.0' } as unknown as IJsonRpcRequest;
+        const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcResultResponse;
+
+        expect(resp.result).to.equal(chainId);
+        expect(resp.id).to.equal(id);
+      });
+    });
+
     it('should throw method not found if passed method is not existing', async function () {
       const nonExistingMethod = 'eth_non-existing-method';
       defaultRequestParams[3] = { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest;
@@ -113,6 +140,21 @@ describe('JSON Rpc Controller', function () {
 
       expect(resp.error.code).to.equal(-32601);
       expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
+    });
+
+    it('should echo a falsy but valid id of 0 when the method is not found', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'eth_non-existing-method', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.error.code).to.equal(-32601);
+      expect(resp.id).to.equal(0);
+    });
+
+    it('should echo a falsy but valid id of 0 when the subdomain is disabled', async function () {
+      defaultRequestParams[3] = { id: 0, method: 'foo_bar', jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.id).to.equal(0);
     });
 
     it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
@@ -123,12 +165,13 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('IP Rate limit exceeded');
     });
 
-    it('should throw Max Subscription error if subscription limit is reached', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(false);
+    it('should surface the Max Subscription error thrown by the subscription service', async function () {
+      stubSubscriptionService.subscribe.throws(predefined.MAX_SUBSCRIPTIONS);
       defaultRequestParams[3] = {
         id: '2',
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         jsonrpc: '2.0',
+        params: ['newHeads'],
       } as IJsonRpcRequest;
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
@@ -137,7 +180,6 @@ describe('JSON Rpc Controller', function () {
     });
     withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
       it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
@@ -150,7 +192,6 @@ describe('JSON Rpc Controller', function () {
       });
 
       it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
-        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
         defaultRequestParams[3] = {
           id: '2',
           method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
@@ -186,6 +227,31 @@ describe('JSON Rpc Controller', function () {
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32603);
+    });
+
+    it('bounds the "method" counter label when unknown method names flood in', async function () {
+      // Drive the real labeler (not the passthrough stub) so this guards the WS wiring against regressions.
+      const cap = 2;
+      const realLabeler = createMethodMetricLabeler(['eth_chainId'], cap);
+      stubRelay.methodMetricLabeler = sinon.stub<[unknown], string>().callsFake(realLabeler);
+
+      const seenLabels: string[] = [];
+      stubWsMetricRegistry.getCounter.returns({
+        labels: (...labelValues: string[]) => {
+          seenLabels.push(labelValues[labelValues.length - 1]);
+          return { inc: sinon.stub() };
+        },
+      } as unknown as Counter);
+
+      for (let i = 0; i < cap + 5; i++) {
+        defaultRequestParams[3] = { id: `${i}`, method: `eth_invented${i}`, jsonrpc: '2.0' } as IJsonRpcRequest;
+        await getRequestResult(...defaultRequestParams);
+      }
+
+      // Distinct method labels stay within the cap; the overflow collapses to the "unknown" label.
+      const distinct = new Set(seenLabels);
+      expect(distinct.size).to.be.at.most(cap + 1);
+      expect(distinct.has(UNKNOWN_METHOD_LABEL)).to.be.true;
     });
   });
 });

@@ -118,7 +118,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     status: '0x1',
     transactionHash: '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392',
     transactionIndex: '0x0',
-    contractAddress: '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9',
+    contractAddress: null,
     root: undefined,
   };
 
@@ -229,9 +229,13 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   it('valid receipt with evm address on match', async function () {
     // mirror node request mocks
-    restMock
-      .onGet(`contracts/results/${defaultTxHash}?hbar=false`)
-      .reply(200, JSON.stringify(defaultDetailedContractResultByHash));
+    restMock.onGet(`contracts/results/${defaultTxHash}?hbar=false`).reply(
+      200,
+      JSON.stringify({
+        ...defaultDetailedContractResultByHash,
+        contract_id: defaultDetailedContractResultByHash.created_contract_ids[0],
+      }),
+    );
     restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(
       200,
       JSON.stringify({
@@ -526,6 +530,27 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       expect(receipt).to.be.null;
     });
 
+    // Mirror Node v0.166+ flags records with a parent; such a record carries its parent's transaction index.
+    it('should report a record the mirror node flags as a child as not found', async function () {
+      restMock
+        .onGet(`contracts/results/${childTxHash}?hbar=false`)
+        .reply(200, JSON.stringify({ ...childRecord, transaction_index: 0, child: true }));
+
+      const receipt = await ethImpl.getTransactionReceipt(childTxHash, requestDetails);
+
+      expect(receipt).to.be.null;
+    });
+
+    it('should report a rejected record the mirror node flags as a child as not found', async function () {
+      restMock
+        .onGet(`contracts/results/${childTxHash}?hbar=false`)
+        .reply(200, JSON.stringify({ ...childRecord, child: true }));
+
+      const receipt = await ethImpl.getTransactionReceipt(childTxHash, requestDetails);
+
+      expect(receipt).to.be.null;
+    });
+
     it('should throw a -32003 rejection error for a rejected top-level transaction', async function () {
       restMock
         .onGet(`contracts/results/${rejectedParentTxHash}?hbar=false`)
@@ -688,5 +713,31 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       const expectedCumulativeHex = '0x' + blockGasUsed.toString(16);
       expect(receipt.cumulativeGasUsed).to.equal(expectedCumulativeHex);
     });
+  });
+
+  it('reports the deployed contract for a deployment imported from the block stream', async function () {
+    // block-stream mirror nodes leave created_contract_ids empty, so the deployment is read off the transaction's records
+    const deployment = { ...defaultDetailedContractResultByHash, created_contract_ids: [] };
+    const transactionId = '0.0.2-167650-000000000';
+
+    restMock.onGet(`contracts/results/${defaultTxHash}?hbar=false`).reply(200, JSON.stringify(deployment));
+    restMock
+      .onGet(`blocks/${deployment.block_hash}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
+    restMock
+      .onGet(`transactions?timestamp=${deployment.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
+    restMock.onGet(`transactions/${transactionId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: deployment.contract_id }],
+      }),
+    );
+    stubBlockAndFeesFunc(sandbox);
+
+    const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
+
+    expect(receipt?.contractAddress).to.equal(deployment.address);
+    expect(receipt?.to).to.be.null;
   });
 });

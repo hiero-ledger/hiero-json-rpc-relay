@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
 import mainConstants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
@@ -11,7 +12,52 @@ import {
 import { type AuthorizationListTypes, validateAuthorizationList } from './authorizationList';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
+import { validateStateOverrideSet } from './stateOverride';
 import { validateArray } from './utils';
+
+export interface ParamTypeValidator {
+  test: (param: unknown) => boolean;
+  error: string;
+  explain?: (param: unknown) => string;
+}
+
+const isPlainObject = (param: unknown): param is Record<string, unknown> =>
+  Object.prototype.toString.call(param) === '[object Object]';
+
+/**
+ * Checks an EIP-1898 block identifier object and describes the first rule it breaks.
+ *
+ * @param param - The block identifier object to check.
+ * @returns A description of the violated rule, or `undefined` when the object is a valid block identifier.
+ */
+function blockParamObjectViolation(param: Record<string, unknown>): string | undefined {
+  const unknownKey = Object.keys(param).find((key) => !Constants.BLOCK_PARAM_OBJECT_KEYS.includes(key));
+  if (unknownKey !== undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_UNKNOWN_KEY_ERROR(unknownKey);
+  }
+
+  const { blockHash, blockNumber, requireCanonical } = param;
+  if (blockHash !== undefined && blockNumber !== undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_BOTH_ERROR;
+  }
+  if (blockHash === undefined && blockNumber === undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_NEITHER_ERROR;
+  }
+  if (requireCanonical !== undefined && blockHash === undefined) {
+    return Constants.BLOCK_PARAM_OBJECT_REQUIRE_CANONICAL_ERROR;
+  }
+  if (blockHash !== undefined && !(typeof blockHash === 'string' && TYPES.blockHash.test(blockHash))) {
+    return `'blockHash' in EIP-1898 block object: ${Constants.BLOCK_HASH_ERROR}`;
+  }
+  if (blockNumber !== undefined && !(typeof blockNumber === 'string' && TYPES.blockNumber.test(blockNumber))) {
+    return `'blockNumber' in EIP-1898 block object: ${Constants.BLOCK_NUMBER_ERROR}`;
+  }
+  if (requireCanonical !== undefined && !TYPES.boolean.test(requireCanonical)) {
+    return `'requireCanonical' in EIP-1898 block object: ${TYPES.boolean.error}`;
+  }
+
+  return undefined;
+}
 
 export const TYPES = {
   address: {
@@ -48,20 +94,14 @@ export const TYPES = {
   },
   blockParams: {
     test: (param: unknown): boolean => {
-      if (Object.prototype.toString.call(param) === '[object Object]') {
-        if (Object.prototype.hasOwnProperty.call(param, 'blockHash')) {
-          return validateSchema(OBJECTS_VALIDATIONS.blockHashObject, param);
-        }
-        return validateSchema(OBJECTS_VALIDATIONS.blockNumberObject, param);
+      if (isPlainObject(param)) {
+        return blockParamObjectViolation(param) === undefined;
       }
-      return (
-        (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param as string) &&
-          Number.MAX_SAFE_INTEGER >= Number(param)) ||
-        ['earliest', 'latest', 'pending', 'finalized', 'safe'].includes(param as string) ||
-        new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param as string)
-      );
+      return typeof param === 'string' && (TYPES.blockNumber.test(param) || TYPES.blockHash.test(param));
     },
     error: Constants.BLOCK_PARAMS_ERROR,
+    explain: (param: unknown): string =>
+      (isPlainObject(param) && blockParamObjectViolation(param)) || Constants.BLOCK_PARAMS_ERROR,
   },
   filter: {
     test: (param: unknown): boolean => {
@@ -106,9 +146,16 @@ export const TYPES = {
   },
   topics: {
     test: (param: unknown): boolean => {
-      return Array.isArray(param) ? validateArray(param.flat(), 'topicHash') : false;
+      if (!Array.isArray(param) || param.length > mainConstants.LOG_TOPICS_MAX_POSITIONS) return false;
+      const maxSubTopics = ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT');
+      if (param.some((position) => Array.isArray(position) && position.length > maxSubTopics)) {
+        return false;
+      }
+      return validateArray(param.flat(), 'topicHash');
     },
-    error: `Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic`,
+    get error(): string {
+      return Constants.topicsError(ConfigService.get('ETH_GET_LOGS_SUB_TOPICS_LIMIT'));
+    },
   },
   transaction: {
     test: (param: unknown): boolean => {
@@ -180,13 +227,18 @@ export const TYPES = {
     },
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
+  blockOverride: {
+    // Accepted by geth, but the mirror node's contracts/call API has no equivalent, so a request
+    // relying on it would silently execute against the real block context.
+    test: (): boolean => false,
+    error: 'Block overrides are not supported',
+  },
   stateOverride: {
     test: (param: unknown): boolean => {
-      // Must be an object if provided
-      // TODO: This validation should be more detailed when state override is officially supported.
-      return typeof param === 'object' && !Array.isArray(param);
+      validateStateOverrideSet(param);
+      return true;
     },
-    error: 'Expected StateOverride object (currently accepting any object structure)',
+    error: 'Expected StateOverride object keyed by address',
   },
   yParityHex: {
     test: (param: unknown): boolean => /^0x([0-9a-fA-F]?){1,2}$/.test(param as string),
@@ -202,8 +254,5 @@ export const TYPES = {
     error: 'Expected valid AuthorizationListEntry object',
   },
 } satisfies {
-  [paramTypeName: string]: {
-    test: (param: unknown) => boolean;
-    error: string;
-  };
+  [paramTypeName: string]: ParamTypeValidator;
 };

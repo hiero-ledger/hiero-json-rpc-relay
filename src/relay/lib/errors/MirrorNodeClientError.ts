@@ -38,6 +38,7 @@ export class MirrorNodeClientError extends Error {
   static messages = {
     INVALID_HEX: 'data field invalid hexadecimal string',
     CONTRACT_REVERT_EXECUTED: Status.ContractRevertExecuted.toString(),
+    INVALID_REQUEST: 'Invalid request',
   };
 
   constructor(error: unknown, statusCode: number) {
@@ -102,6 +103,10 @@ export class MirrorNodeClientError extends Error {
 
   public isRateLimit(): boolean {
     return this.statusCode === MirrorNodeClientError.statusCodes.TOO_MANY_REQUESTS;
+  }
+
+  public isInvalidRequestRateLimit(): boolean {
+    return this.isRateLimit() && this.detail === MirrorNodeClientError.messages.INVALID_REQUEST;
   }
 
   public isNotSupportedSystemContractOperaton(): boolean {

@@ -10,6 +10,7 @@ import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { type OperationHandler, type RequestDetails, type RpcMethodRegistry } from '../types';
+import { isRequestAbortedError } from '../utils/requestAbort';
 import { RPC_PARAM_VALIDATION_RULES_KEY, validateParams } from '../validators';
 
 /**
@@ -48,15 +49,18 @@ export class RpcMethodDispatcher {
    * 3. Error handling: Catches and formats any errors that occur
    *
    * @param rpcMethodName - The name of the RPC method to execute (e.g., "eth_blockNumber")
-   * @param rpcMethodParams - The parameters of the RPC method to execute
+   * @param rpcMethodParams - The parameters of the RPC method to execute, normalised to `[]` when absent or `null`
    * @param requestDetails - Additional details about the request context
    * @returns Promise that resolves to the method execution result or a JsonRpcError instance
    */
   public async dispatch(
     rpcMethodName: string,
-    rpcMethodParams: unknown[] = [],
+    rpcMethodParams: unknown[] | null | undefined = [],
     requestDetails: RequestDetails,
   ): Promise<unknown> {
+    // a JS default only covers `undefined`, so `params: null` has to be normalised here
+    rpcMethodParams ??= [];
+
     try {
       /////////////////////////////// Pre-execution Phase ///////////////////////////////
       const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams);
@@ -65,7 +69,7 @@ export class RpcMethodDispatcher {
       return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
     } catch (error) {
       /////////////////////////////// Error Handling Phase ///////////////////////////////
-      return this.handleRpcMethodError(error, rpcMethodName);
+      return this.handleRpcMethodError(error, rpcMethodName, rpcMethodParams);
     }
   }
 
@@ -95,8 +99,8 @@ export class RpcMethodDispatcher {
     const methodParamSchemas = operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
 
     if (methodParamSchemas) {
-      if (this.logger.isLevelEnabled('info')) {
-        this.logger.info(
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
           `Validating method parameters for %s, params: %s`,
           rpcMethodName,
           JSON.stringify(rpcMethodParams),
@@ -151,15 +155,27 @@ export class RpcMethodDispatcher {
    *   (currently only timeout errors are specifically handled)
    * - All other errors are converted to generic INTERNAL_ERROR responses
    *
-   * All errors are logged with request context for traceability.
+   * All errors are logged with request context and parameters, so a failed request can be reproduced
+   * without logging the parameters of every request.
    *
    * @param error - The error that occurred during method execution
    * @param rpcMethodName - The name of the RPC method that failed
+   * @param rpcMethodParams - The parameters the RPC method was called with
    * @returns A JsonRpcError instance with appropriate error code, message and request ID
    */
-  private handleRpcMethodError(error: unknown, rpcMethodName: string): JsonRpcError {
+  private handleRpcMethodError(error: unknown, rpcMethodName: string, rpcMethodParams: unknown[]): JsonRpcError {
     const errorMessage = (error as { message?: unknown })?.message?.toString() || 'Unknown error';
-    this.logger.error(`Error executing method: rpcMethodName=%s, error=%s`, rpcMethodName, errorMessage);
+    if (isRequestAbortedError(error)) {
+      this.logger.debug(`Method execution cancelled by the caller: rpcMethodName=%s`, rpcMethodName);
+      throw error;
+    }
+
+    this.logger.error(
+      `Error executing method: rpcMethodName=%s, params=%s, error=%s`,
+      rpcMethodName,
+      JSON.stringify(rpcMethodParams),
+      errorMessage,
+    );
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {

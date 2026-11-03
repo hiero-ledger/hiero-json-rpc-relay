@@ -317,10 +317,12 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
           //       calculating delta = expectedTxCost * tolerance to account for this difference in transaction costs.
           const delta = expectedTxCost * transactionReecordCostTolerance;
 
-          while (initialRemainingHbars - updatedRemainingHbars > expectedTxCost + delta) {
+          // The relay looks up each fee on the mirror node with a 2s retry delay, so fees land seconds after the receipt.
+          const deadline = Date.now() + 20_000;
+          while (initialRemainingHbars - updatedRemainingHbars < expectedTxCost && Date.now() < deadline) {
             logger.warn(
               `Failed to retrieve proper updated remaining HBARs. Polling for the proper updated remaining HBARs: expectedTxCost=${expectedTxCost}, delta=${delta}, initialRemainingHbars=${initialRemainingHbars}, currentUpdatedRemainingHbars=${updatedRemainingHbars}, properUpdatedRemainingHbar=${
-                initialRemainingHbars - expectedTxCost - delta
+                initialRemainingHbars - expectedTxCost
               }`,
             );
             await Utils.wait(1000);
@@ -430,6 +432,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         });
 
         it('should verify the estimated and actual transaction fees for file transactions are approximately equal', async function () {
+          const initialRemainingHbars = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
           const contract = await deployContract(mediumSizeContract, accounts[0].wallet);
           const exchangeRateResult = (await mirrorNode.get(`/network/exchangerate`)).current_rate;
           const exchangeRateInCents = exchangeRateResult.cent_equivalent / exchangeRateResult.hbar_equivalent;
@@ -448,6 +451,9 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
           const estimatedFileTransactionTotalFee = estimatedTxFee;
           const actualFileTransactionTotalFee = fileCreateTxFee + fileAppendTxFee;
+
+          // Wait for this deploy's fees to land, so they don't hit the next test's plan after the reset.
+          await pollForProperRemainingHbar(initialRemainingHbars, actualFileTransactionTotalFee);
 
           const tolerance = 0.003 * actualFileTransactionTotalFee; // 0.3% tolerance
           expect(estimatedFileTransactionTotalFee).to.be.approximately(actualFileTransactionTotalFee, tolerance);

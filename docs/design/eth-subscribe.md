@@ -26,7 +26,7 @@ The websocket connections should be handled by its own node process, this can be
 | :--------------------: | :----------------------------------------------------------------------------: |:-----------------------------------------------------------:|
 |          logs          |      Emits logs attached to a new block that match certain topic filters.      |                       Yes                        |
 |        newHeads        |               Emits new blocks that are added to the blockchain.               |                       Yes                        |
-| newPendingTransactions | Emits transaction hashes that are sent to the network and marked as `pending`. | No, as Hedera does not have pending transactions on a node. |
+| newPendingTransactions | Emits transaction hashes that are sent to the network and marked as `pending`. |  Yes, requires `ENABLE_TX_POOL` and `ENABLE_NONCE_ORDERING`  |
 
 ### Initiating a subscription
 

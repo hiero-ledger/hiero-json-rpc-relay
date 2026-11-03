@@ -237,6 +237,54 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     });
   });
 
+  describe('removeFromListAndIncrementConfirmedCount idempotency', () => {
+    it('should report whether the transaction was actually removed', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+
+      expect(await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1)).to.be.true;
+      expect(await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1)).to.be.false;
+      expect(await storage.removeFromList(testAddress1, testRlp1)).to.be.false;
+    });
+
+    it('should increment the confirmed count only once when the same transaction is confirmed twice', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+
+      await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1);
+      await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1);
+
+      expect(await storage.getConfirmedCount(testAddress1)).to.equal(4);
+      expect(await storage.getList(testAddress1)).to.equal(0);
+    });
+
+    it('should increment the confirmed count only once for concurrent confirmations', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+
+      const results = await Promise.all([
+        storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1),
+        storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1),
+      ]);
+
+      expect(results.filter(Boolean)).to.have.lengthOf(1);
+      expect(await storage.getConfirmedCount(testAddress1)).to.equal(4);
+    });
+
+    it('should not increment the confirmed count for a transaction that is not pending', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+
+      expect(await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp2)).to.be.false;
+      expect(await storage.getConfirmedCount(testAddress1)).to.equal(3);
+      expect(await storage.getList(testAddress1)).to.equal(1);
+    });
+
+    it('should not increment the confirmed count after the transaction was removed as rejected', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 3);
+
+      expect(await storage.removeFromList(testAddress1, testRlp1)).to.be.true;
+      expect(await storage.removeFromListAndIncrementConfirmedCount(testAddress1, testRlp1)).to.be.false;
+      expect(await storage.getConfirmedCount(testAddress1)).to.equal(3);
+    });
+  });
+
   describe('removeAll', () => {
     it('should remove all transactions from all addresses', async () => {
       // Add transactions to multiple addresses

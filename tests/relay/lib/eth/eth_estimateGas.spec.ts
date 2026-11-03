@@ -4,7 +4,7 @@ import type MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256, type Transaction } from 'ethers';
-import { createStubInstance, type SinonStub, type SinonStubbedInstance, stub } from 'sinon';
+import { createStubInstance, type SinonSpyCall, type SinonStub, type SinonStubbedInstance, spy, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { type Eth, JsonRpcError } from '../../../../src/relay';
@@ -26,8 +26,20 @@ import {
   type IContractCallResponse,
   type LockStrategy,
   RequestDetails,
+  type StateOverrideSet,
 } from '../../../../src/relay/lib/types';
-import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
+import {
+  type IParamValidation,
+  RPC_PARAM_VALIDATION_RULES_KEY,
+  validateParams,
+} from '../../../../src/relay/lib/validators';
+import { Utils } from '../../../../src/relay/utils';
+import {
+  MIRROR_NODE_BLACKLISTED_ADDRESS,
+  mockData,
+  overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
+} from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -131,7 +143,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     await mockContractCall(callData, true, 400, mockData.failInvalid, requestDetails);
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails))
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.to.eventually.include({
         code: 3,
@@ -148,7 +160,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -162,7 +174,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -175,7 +187,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 200, { result: `0x61A80` }, requestDetails);
 
-    const gas = await ethImpl.estimateGas(callData, null, requestDetails);
+    const gas = await ethImpl.estimateGas(callData, null, undefined, requestDetails);
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT).toLowerCase());
   });
 
@@ -187,7 +199,12 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 200, { result: `0x61A80` }, requestDetails);
 
-    const gas = await ethImpl.estimateGas({ ...callData, value: ONE_TINYBAR_IN_WEI_HEX }, null, requestDetails);
+    const gas = await ethImpl.estimateGas(
+      { ...callData, value: ONE_TINYBAR_IN_WEI_HEX },
+      null,
+      undefined,
+      requestDetails,
+    );
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT).toLowerCase());
   });
 
@@ -209,7 +226,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     await mockContractCall(callData, true, 200, { result: '0x5208' }, requestDetails);
 
     web3Mock.resetHistory();
-    const gas = await ethImpl.estimateGas(callData, null, requestDetails);
+    const gas = await ethImpl.estimateGas(callData, null, undefined, requestDetails);
 
     expect(gas).to.be.a('string');
     expect((gas as string).startsWith('0x')).to.be.true;
@@ -225,7 +242,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImpl.estimateGas({ data: '0x01' }, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas({ data: '0x01' }, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -243,7 +260,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
       .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -258,7 +275,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
     restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, { address: RECEIVER_ADDRESS });
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -281,6 +298,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: 100_000_000_000,
       },
       null,
+      undefined,
       requestDetails,
     );
     expect(gas).to.equal(gasTxBaseCost);
@@ -303,6 +321,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: 100_000_000_000,
       },
       null,
+      undefined,
       requestDetails,
     );
 
@@ -313,6 +332,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: 100_000_000_000,
       },
       null,
+      undefined,
       requestDetails,
     );
 
@@ -336,6 +356,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: 100_000_000_000,
       },
       null,
+      undefined,
       requestDetails,
     );
     expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
@@ -356,6 +377,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: 0,
       },
       null,
+      undefined,
       requestDetails,
     );
 
@@ -374,7 +396,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 200, { result: `0x14b662` }, requestDetails);
 
-    const gas = await ethImpl.estimateGas(callData, null, requestDetails);
+    const gas = await ethImpl.estimateGas(callData, null, undefined, requestDetails);
 
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(gasEstimation).toLowerCase());
   });
@@ -396,6 +418,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
           value: -100_000_000_000,
         },
         null,
+        undefined,
         requestDetails,
       ),
     ).to.be.rejectedWith(JsonRpcError, simulationFailErrorMessage);
@@ -405,7 +428,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const callData: IContractCallRequest = {};
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImpl.estimateGas({}, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas({}, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -415,7 +438,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const callData: IContractCallRequest = {};
     await mockContractCall(callData, true, 200, { result: numberTo0x(defaultGasOverride) }, requestDetails);
 
-    const gas = await ethImplOverridden.estimateGas({}, null, requestDetails);
+    const gas = await ethImplOverridden.estimateGas({}, null, undefined, requestDetails);
     expect(gas).to.equal(numberTo0x(defaultGasOverride));
   });
 
@@ -428,7 +451,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     await mockContractCall(callData, true, 400, contractsCallResponse, requestDetails);
 
-    await expect(ethImpl.estimateGas({ data: '' }, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas({ data: '' }, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -440,7 +463,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImplOverridden.estimateGas({ data: '' }, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImplOverridden.estimateGas({ data: '' }, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -462,6 +485,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         value: '0x2540BE400', // 10 billion wei = 1 tinybar
       },
       null,
+      undefined,
       requestDetails,
     );
     expect(gas).to.equal(gasTxBaseCost);
@@ -473,7 +497,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImplOverridden.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImplOverridden.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -493,7 +517,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(transaction, true, 400, contractCallResult, requestDetails);
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -518,7 +542,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.eventually.satisfy((error: JsonRpcError) => {
         expect(error.data).to.equal(
@@ -536,7 +560,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
       };
 
-      const result = await ethImpl.estimateGas(transaction, id, requestDetails);
+      const result = await ethImpl.estimateGas(transaction, id, undefined, requestDetails);
 
       expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction)));
 
@@ -563,7 +587,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.eventually.satisfy((error: JsonRpcError) => {
         expect(error.data).to.equal(
@@ -598,7 +622,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.eventually.satisfy((error: JsonRpcError) => {
         expect(error.data).to.equal(encodedCustomError);
@@ -631,7 +655,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.eventually.satisfy((error: JsonRpcError) => {
         expect(error.message).to.equal('execution reverted: CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
@@ -663,7 +687,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+    await expect(ethImpl.estimateGas(transaction, id, undefined, requestDetails))
       .to.be.rejectedWith(JsonRpcError)
       .and.eventually.satisfy((error: JsonRpcError) => {
         expect(error.data).to.equal(encodedGenericError);
@@ -696,7 +720,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       simulationFailErrorMessage,
     );
@@ -724,7 +748,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       return predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
 
-    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
+    const result = await ethImpl.estimateGas(transaction, null, undefined, requestDetails);
 
     expect(result).to.be.an('error');
     // @ts-ignore
@@ -800,9 +824,236 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
           `Request failed with status code ${statusCode}`,
         );
-        await expect(ethImpl.estimateGas(callData, null, requestDetails))
+        await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails))
           .to.be.rejectedWith(JsonRpcError, expectedError.message)
           .and.eventually.have.property('code', expectedError.code);
+      });
+    });
+  });
+
+  describe('CONTRACT_CALL_BLACKLIST', () => {
+    const FROM_ADDRESS = '0x05fba803be258049a27b820088bab1cad2058871';
+    const BLACKLISTED_UPPERCASE = `0x${MIRROR_NODE_BLACKLISTED_ADDRESS.slice(2).toUpperCase()}`;
+    const GAS_ESTIMATE = '0x5208';
+
+    const expectRejectedWithoutMirrorNodeCall = async (to: string): Promise<void> => {
+      web3Mock.onPost('contracts/call').reply(200, JSON.stringify({ result: GAS_ESTIMATE }));
+      web3Mock.resetHistory();
+      const infoSpy = spy(contractService['logger'], 'info');
+
+      try {
+        const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
+        await expect(ethImpl.estimateGas({ from: FROM_ADDRESS, to }, null, undefined, requestDetails))
+          .to.be.rejectedWith(JsonRpcError, expectedError.message)
+          .and.eventually.have.property('code', expectedError.code);
+        expect(web3Mock.history.post).to.have.lengthOf(0);
+        expect(infoSpy.calledOnce).to.be.true;
+      } finally {
+        infoSpy.restore();
+      }
+    };
+
+    const expectMirrorNodeCalled = async (callData: IContractCallRequest): Promise<void> => {
+      await mockContractCall(callData, true, 200, { result: GAS_ESTIMATE }, requestDetails);
+      web3Mock.resetHistory();
+
+      const result = await ethImpl.estimateGas(callData, null, undefined, requestDetails);
+
+      expect(result).to.equal(GAS_ESTIMATE);
+      expect(web3Mock.history.post).to.have.lengthOf(1);
+    };
+
+    describe('with a lowercase address in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [MIRROR_NODE_BLACKLISTED_ADDRESS] });
+
+      it('rejects eth_estimateGas to a blacklisted contract without calling the mirror node', async function () {
+        await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+
+      it('rejects eth_estimateGas to a blacklisted contract written in uppercase', async function () {
+        await expectRejectedWithoutMirrorNodeCall(BLACKLISTED_UPPERCASE);
+      });
+
+      it('still calls the mirror node for a contract that is not blacklisted', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, to: RECEIVER_ADDRESS });
+      });
+
+      it('still calls the mirror node for a call without a to address', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, data: transaction.data });
+      });
+    });
+
+    describe('with an uppercase address in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [BLACKLISTED_UPPERCASE] });
+
+      it('rejects eth_estimateGas to the blacklisted contract written in lowercase', async function () {
+        await expectRejectedWithoutMirrorNodeCall(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+    });
+
+    describe('when the mirror node rejects a contract that is not in the list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+      const estimateWith429 = async (body: object): Promise<SinonSpyCall[]> => {
+        const callData = { from: FROM_ADDRESS, to: MIRROR_NODE_BLACKLISTED_ADDRESS };
+        await mockContractCall(callData, true, 429, body, requestDetails);
+        const errorSpy = spy(contractService['logger'], 'error');
+        try {
+          await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(JsonRpcError);
+        } finally {
+          errorSpy.restore();
+        }
+
+        return errorSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
+      };
+
+      it('logs the to address when the mirror node returns 429 with detail "Invalid request"', async function () {
+        const logCalls = await estimateWith429(mockData.requestRejected);
+
+        expect(logCalls).to.have.lengthOf(1);
+        expect(logCalls[0].args[1]).to.include('Rejected by a mirror node request filter');
+        expect(logCalls[0].args[2]).to.equal(MIRROR_NODE_BLACKLISTED_ADDRESS);
+      });
+
+      it('logs a rate limit 429 without the to address', async function () {
+        const logCalls = await estimateWith429(mockData.tooManyRequests);
+
+        expect(logCalls).to.have.lengthOf(1);
+        expect(logCalls[0].args).to.have.lengthOf(2);
+        expect(logCalls[0].args[1]).to.equal('Could not simulate transaction in the MirrorNode.');
+      });
+    });
+
+    describe('with an empty list', () => {
+      overrideEnvsInMochaDescribe({ CONTRACT_CALL_BLACKLIST: [] });
+
+      it('calls the mirror node for every contract', async function () {
+        await expectMirrorNodeCalled({ from: FROM_ADDRESS, to: MIRROR_NODE_BLACKLISTED_ADDRESS });
+      });
+    });
+  });
+
+  describe('state overrides', () => {
+    const OVERRIDE_ADDRESS = `0x${'ab'.repeat(20)}`;
+    const callObject = { to: OVERRIDE_ADDRESS, data: '0x01' };
+
+    const dispatch = async (params: unknown[]): Promise<void> => {
+      const args = Utils.arrangeRpcParams(
+        ethImpl.estimateGas as Parameters<typeof Utils.arrangeRpcParams>[0],
+        params,
+        requestDetails,
+      );
+      await (ethImpl.estimateGas as (...methodArgs: unknown[]) => Promise<string>).apply(ethImpl, args);
+    };
+
+    describe('parameter binding', () => {
+      let estimateStub: SinonStub;
+
+      beforeEach(() => {
+        estimateStub = stub(contractService, 'estimateGas').resolves('0x5208');
+      });
+
+      afterEach(() => {
+        estimateStub.restore();
+      });
+
+      it('keeps requestDetails in its own argument when a state override is sent', async () => {
+        const stateOverride = { [OVERRIDE_ADDRESS]: { balance: '0x1' } };
+        await dispatch([callObject, 'latest', stateOverride]);
+
+        expect(estimateStub.firstCall.args[2]).to.equal(requestDetails);
+        expect(estimateStub.firstCall.args[3]).to.deep.equal(stateOverride);
+      });
+
+      it('passes no state override when the caller sends two parameters', async () => {
+        await dispatch([callObject, 'latest']);
+
+        expect(estimateStub.firstCall.args[2]).to.equal(requestDetails);
+        expect(estimateStub.firstCall.args[3]).to.be.undefined;
+      });
+    });
+
+    describe('error paths', () => {
+      const withOverride = (): Promise<string> =>
+        contractService.estimateGas({ ...callObject }, null, requestDetails, {
+          [OVERRIDE_ADDRESS]: { balance: '0x1' },
+        });
+
+      it('surfaces the mirror node feature-disabled 400 without calling it a revert', async () => {
+        web3Mock.onPost('contracts/call').replyOnce(400, JSON.stringify(mockData.stateOverridesNotSupported));
+
+        const error = await withOverride().catch((e: JsonRpcError) => e);
+
+        expect(error).to.be.instanceOf(JsonRpcError);
+        expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+        expect((error as JsonRpcError).message).to.contain('State overrides are not supported.');
+      });
+
+      it('maps a mirror node 500 to COULD_NOT_SIMULATE_TRANSACTION', async () => {
+        web3Mock.onPost('contracts/call').replyOnce(500, JSON.stringify(mockData.internalServerError));
+
+        const error = await withOverride().catch((e: JsonRpcError) => e);
+
+        expect((error as JsonRpcError).code).to.equal(predefined.COULD_NOT_SIMULATE_TRANSACTION('').code);
+      });
+    });
+
+    describe('parameter rules', () => {
+      const rules = (ethImpl.estimateGas as unknown as Record<string, unknown>)[
+        RPC_PARAM_VALIDATION_RULES_KEY
+      ] as Record<number, IParamValidation>;
+
+      it('declares a rule for the state override parameter', () => {
+        expect(rules[2]).to.deep.equal({ type: 'stateOverride', required: false });
+      });
+
+      it('rejects null, which geth accepts as "no overrides"', () => {
+        expect(() => validateParams([callObject, 'latest', null], rules)).to.throw(
+          'The value passed is not valid: null',
+        );
+      });
+
+      it('rejects movePrecompileToAddress', () => {
+        expect(() =>
+          validateParams(
+            [callObject, 'latest', { [OVERRIDE_ADDRESS]: { movePrecompileToAddress: OVERRIDE_ADDRESS } }],
+            rules,
+          ),
+        ).to.throw("'movePrecompileToAddress' is not supported");
+      });
+
+      it('rejects a block override in the fourth parameter', () => {
+        expect(() => validateParams([callObject, 'latest', {}, { number: '0x1' }], rules)).to.throw(
+          'Block overrides are not supported',
+        );
+      });
+
+      it('accepts the method being called without any override', () => {
+        expect(() => validateParams([callObject, 'latest'], rules)).not.to.throw();
+      });
+    });
+
+    describe('mirror node request', () => {
+      const postedBody = async (stateOverride?: StateOverrideSet): Promise<IContractCallRequest> => {
+        web3Mock.onPost('contracts/call').replyOnce(200, JSON.stringify({ result: '0x5208' }));
+        web3Mock.resetHistory();
+
+        await contractService.estimateGas({ ...callObject }, null, requestDetails, stateOverride);
+
+        return JSON.parse(web3Mock.history.post[0].data);
+      };
+
+      it('sends the translated override set as state_overrides', async () => {
+        const body = await postedBody({ [OVERRIDE_ADDRESS]: { balance: '0x2540be400' } });
+
+        expect(body.state_overrides).to.deep.equal([{ address: OVERRIDE_ADDRESS, balance: '0x1' }]);
+        expect(body.estimate).to.be.true;
+      });
+
+      it('omits state_overrides when no override is passed', async () => {
+        const body = await postedBody();
+
+        expect(body).to.not.have.property('state_overrides');
       });
     });
   });

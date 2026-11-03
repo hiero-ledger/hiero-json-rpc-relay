@@ -220,18 +220,40 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
         }
       });
 
-      it('should return empty logs if `toBlock` is not found', async () => {
+      it('should reject a `toBlock` beyond the head block rather than return a partial result', async () => {
         const notExistedLog = latestBlock + 99;
 
-        const logs = (await client.call(METHOD_NAME, [
+        const response = await client.callRaw(METHOD_NAME, [
           {
             fromBlock: log0Block.blockNumber,
             toBlock: `0x${notExistedLog.toString(16)}`,
             address: [contractAddress, contractAddress2],
           },
-        ])) as Log[];
+        ]);
 
-        expect(logs.length).to.eq(0);
+        expect(response.error).to.exist;
+        expect(response.error!.code).to.eq(predefined.BLOCK_RANGE_BEYOND_HEAD.code);
+        expect(response.error!.message).to.include(predefined.BLOCK_RANGE_BEYOND_HEAD.message);
+      });
+
+      it('should reject a `fromBlock` beyond the head block when `toBlock` is latest', async () => {
+        const response = await client.callRaw(METHOD_NAME, [
+          { fromBlock: numberTo0x(latestBlock + 99), toBlock: 'latest' },
+        ]);
+
+        expect(response.error).to.exist;
+        expect(response.error!.code).to.eq(predefined.REVERSED_BLOCK_RANGE.code);
+        expect(response.error!.message).to.include(predefined.REVERSED_BLOCK_RANGE.message);
+      });
+
+      it('should reject a `fromBlock` greater than `toBlock`', async () => {
+        const response = await client.callRaw(METHOD_NAME, [
+          { fromBlock: numberTo0x(Number(log0Block.blockNumber) + 1), toBlock: log0Block.blockNumber },
+        ]);
+
+        expect(response.error).to.exist;
+        expect(response.error!.code).to.eq(predefined.REVERSED_BLOCK_RANGE.code);
+        expect(response.error!.message).to.include(predefined.REVERSED_BLOCK_RANGE.message);
       });
 
       it('should be able to use `address` param', async () => {

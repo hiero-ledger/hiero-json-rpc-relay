@@ -43,3 +43,28 @@ export interface INewFilterParams {
   address?: string | string[];
   topics?: LogTopic[];
 }
+
+/**
+ * Storage slots for a single account, keyed by 32-byte slot.
+ * Both keys and values are 0x-prefixed 64-digit hex.
+ */
+export type AccountStorage = Record<string, string>;
+
+/**
+ * A single account's overrides as sent by Ethereum tooling.
+ * `state` replaces all storage; `stateDiff` patches individual slots. They are mutually exclusive.
+ */
+export interface IAccountOverride {
+  balance?: string;
+  nonce?: string;
+  code?: string;
+  state?: AccountStorage;
+  stateDiff?: AccountStorage;
+  // Supported by geth, unsupported by the mirror node. Declared so the validator can reject it.
+  movePrecompileToAddress?: string;
+}
+
+/**
+ * The optional third parameter of `eth_call` and `eth_estimateGas`, keyed by 20-byte address.
+ */
+export type StateOverrideSet = Record<string, IAccountOverride>;

@@ -357,27 +357,41 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
     }
 
-    it('Expect Unsupported Method Error message when subscribing for newPendingTransactions method', async function () {
-      const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = {} as IJsonRpcResponse;
-      webSocket.on('message', function incoming(data) {
-        response = JSON.parse(data.toString());
+    if (global.relayIsLocal) {
+      // newPendingTransactions is only supported with nonce ordering, which is off by default.
+      WsTestHelper.withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: true }, () => {
+        it('Subscribes to newPendingTransactions and receives the hash and the full transaction', async function () {
+          const notifications: { subscription: string; result: unknown }[] = [];
+          (wsProvider.websocket as unknown as WebSocket).on('message', (data) => {
+            const message = JSON.parse(data.toString());
+            if (message.method === 'eth_subscription') notifications.push(message.params);
+          });
+          const hashSubId = await wsProvider.send('eth_subscribe', ['newPendingTransactions']);
+          const fullSubId = await wsProvider.send('eth_subscribe', ['newPendingTransactions', true]);
+
+          // Without Redis only this relay instance's pool is visible, so send it over the subscribed connection.
+          const tx = await accounts[0].wallet.connect(wsProvider).sendTransaction({
+            to: accounts[1].address,
+            value: Constants.TINYBAR_TO_WEIBAR_COEF,
+            ...(await Utils.gasOptions()),
+          });
+
+          const isTx = (result: unknown): boolean =>
+            result === tx.hash || (result as { hash?: string }).hash === tx.hash;
+          await Utils.waitUntil(
+            async () =>
+              [hashSubId, fullSubId].every((id) => notifications.some((n) => n.subscription === id && isTx(n.result))),
+            { timeoutMs: 10_000, intervalMs: 100, description: 'newPendingTransactions notifications' },
+          );
+
+          expect(notifications).to.deep.include({ subscription: hashSubId, result: tx.hash });
+          expect(notifications.find((n) => n.subscription === fullSubId && isTx(n.result))?.result).to.include({
+            hash: tx.hash,
+            from: tx.from,
+          });
+        });
       });
-      webSocket.on('open', function open() {
-        webSocket.send('{"jsonrpc":"2.0","method":"eth_subscribe","params":["newPendingTransactions"],"id":1}');
-      });
-
-      // wait 500ms to expect the message
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      assertJsonRpcError(response);
-
-      expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
-      expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
-
-      // close the connection
-      webSocket.close();
-    });
+    }
 
     it('@release Expect Unsupported Method Error message when subscribing for "other" method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
@@ -927,7 +941,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     it('Calling eth_subscribe Logs with an invalid topics should fail', async function () {
       const expectedError = predefined.INVALID_PARAMETER(
         `'topics' for EthSubscribeLogsParamsObject`,
-        `Expected an array or array of arrays containing Expected 0x prefixed string representing the hash (32 bytes) of a topic, value: ["0x000"]`,
+        `Expected an array or array of arrays containing 0x prefixed strings representing topic hashes (32 bytes), with at most 4 positions and at most 100 topics per position, value: ["0x000"]`,
       );
 
       await Assertions.assertPredefinedRpcError(expectedError, wsProvider.send, true, wsProvider, [
@@ -1080,6 +1094,31 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
           }
         }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      });
+
+      it('Does not allow a batch of unique filters to exceed the limit', async function () {
+        const batch = Array.from({ length: 20 }, (_, i) => ({
+          id: i + 1,
+          jsonrpc: '2.0',
+          method: 'eth_subscribe',
+          params: ['logs', { topics: [`0x${(i + 1).toString(16).padStart(64, '0')}`] }],
+        }));
+
+        const responses = await WsTestHelper.sendRequestToStandardWebSocket<WsJsonRpcResponse[]>(
+          'batch_request',
+          batch,
+        );
+
+        expect(responses).to.be.an('array').with.lengthOf(batch.length);
+
+        const subscriptionIds = responses.filter((response) => response.result).map((response) => response.result);
+        const refused = responses.filter((response) => response.error);
+
+        expect(new Set(subscriptionIds).size).to.eq(ConfigService.get('WS_SUBSCRIPTION_LIMIT'));
+        expect(refused).to.have.lengthOf(batch.length - ConfigService.get('WS_SUBSCRIPTION_LIMIT'));
+        refused.forEach((response) => expect(response.error!.code).to.eq(predefined.MAX_SUBSCRIPTIONS.code));
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       });

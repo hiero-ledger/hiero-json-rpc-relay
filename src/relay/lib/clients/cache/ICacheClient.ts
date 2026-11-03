@@ -6,7 +6,7 @@ export interface ICacheClient {
   set(key: string, value: unknown, callingMethod: string, ttl?: number): Promise<void>;
   delete(key: string, callingMethod: string): Promise<void>;
   clear(): Promise<void>;
-  incrBy(key: string, amount: number, callingMethod: string): Promise<number>;
+  incrBy(key: string, amount: number, callingMethod: string, ttl?: number): Promise<number>;
   rPush(key: string, value: unknown, callingMethod: string): Promise<number>;
   lRange<T = unknown>(key: string, start: number, end: number, callingMethod: string): Promise<T[]>;
 

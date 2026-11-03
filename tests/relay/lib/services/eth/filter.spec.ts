@@ -692,6 +692,26 @@ describe('Filter API Test Suite', async function () {
       expect(logs).to.be.empty;
     });
 
+    it('should return an empty set rather than an error when polled again before a new block', async function () {
+      restMock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify({ blocks: [defaultBlock] }));
+      restMock
+        .onGet(
+          `contracts/results/logs?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&limit=100&order=asc`,
+        )
+        .reply(200, JSON.stringify([]));
+      restMock.onGet('blocks/1').reply(200, JSON.stringify({ ...defaultBlock, block_number: 1 }));
+      restMock
+        .onGet(`blocks/${defaultBlock.number + 1}`)
+        .reply(404, { _status: { messages: [{ message: 'Not found' }] } });
+
+      const filterId = await filterService.newFilter({ fromBlock: '0x1' }, requestDetails);
+      await filterService.getFilterChanges(filterId, requestDetails);
+
+      // The first poll moves lastQueried one block past the head, so the second one starts beyond it.
+      const logs = await filterService.getFilterChanges(filterId, requestDetails);
+      expect(logs).to.be.empty;
+    });
+
     it('should return an empty set if there are no block hashes (e.g. 2 requests within 2 seconds)', async function () {
       restMock
         .onGet(LATEST_BLOCK_QUERY)

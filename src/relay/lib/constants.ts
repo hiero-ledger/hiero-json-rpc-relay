@@ -26,6 +26,8 @@ enum CACHE_KEY {
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
   DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber',
   PRESTATE_TRACER = 'prestateTracer',
+  PRESTATE_TRACER_ENDPOINT = 'prestateTracerEndpoint',
+  PRESTATE_ENDPOINT_UNSUPPORTED = 'prestateEndpointUnsupported',
 }
 
 enum CACHE_TTL {
@@ -74,7 +76,11 @@ export default {
   NANOS_PER_SECOND: BigInt('1000000000'),
   // Inclusive upper bounds for unsigned integer fields. EIP-7702 authorization tuples encode
   // `nonce` as a uint64 and `chainId` as a uint256; values above these bounds are invalid.
+  INT64_MAX: BigInt('9223372036854775807'),
   UINT64_MAX: BigInt('18446744073709551615'),
+  STATE_OVERRIDE_MAX_ADDRESSES: 10,
+  STATE_OVERRIDE_MAX_SLOTS: 100,
+  STATE_OVERRIDE_MAX_CODE_LENGTH: 24576 * 2,
   UINT256_MAX: BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935'),
   TINYBAR_TO_WEIBAR_COEF: 10_000_000_000,
   TOTAL_SUPPLY_TINYBARS: 5_000_000_000_000_000_000,
@@ -86,9 +92,12 @@ export default {
   TYPE_ACCOUNT: 'ACCOUNT',
   TYPE_TOKEN: 'TOKEN',
   TYPE_SCHEDULE: 'SCHEDULE',
+  CONTRACT_CREATE_TRANSACTION_NAME: 'CONTRACTCREATEINSTANCE',
 
   DEFAULT_FEE_HISTORY_MAX_RESULTS: 10,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE: 100,
+
+  LOG_TOPICS_MAX_POSITIONS: 4,
 
   ORDER,
 
@@ -190,6 +199,7 @@ export default {
     ETH_UNSUBSCRIBE: 'eth_unsubscribe',
     ETH_CHAIN_ID: 'eth_chainId',
     ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
+    BATCH_REQUEST: 'batch_request',
   },
 
   SUBSCRIBE_EVENTS: {
