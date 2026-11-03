@@ -887,13 +887,14 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
               .setTransactionMemo('Relay test child record funding'),
           );
+          await accounts[3].client.associateToken(htsTokenId);
 
           const token = new ethers.Contract(
             Utils.idToEvmAddress(htsTokenId.toString()),
             ['function transfer(address to, uint256 amount) returns (bool)'],
             accounts[2].wallet,
           );
-          const tx = await token.transfer(Utils.idToEvmAddress(servicesNode._thisAccountId().toString()), 1, {
+          const tx = await token.transfer(accounts[3].address, 1, {
             gasLimit: 1_000_000,
           });
           parentTxHash = tx.hash;
