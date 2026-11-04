@@ -26,6 +26,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly globalPendingTxsKey = `${this.keyPrefix}global`;
 
   /**
+   * Sorted set of addresses scored by their pending set's expiry, so they can be counted without `KEYS`.
+   */
+  private readonly activeAddressesKey = `${this.keyPrefix}addresses`;
+
+  /**
    * Key for storing cached count of confirmed transactions.
    */
   private readonly confirmedTxCountKey = `${this.keyPrefix}confirmed`;
@@ -44,24 +49,52 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly extraPerPendingStorageTtl: number;
 
   /**
+   * Lua script that atomically removes a transaction from the pending pool and, once the address has no
+   * pending transactions left, drops it from the active addresses sorted set.
+   *
+   * - `KEYS[1]`: the per-address pending set.
+   * - `KEYS[2]`: the global pending set.
+   * - `KEYS[3]`: the active addresses sorted set.
+   * - `ARGV[1]`: the RLP-encoded transaction.
+   * - `ARGV[2]`: the address.
+   *
+   * Returns 1 if the transaction was removed, 0 otherwise.
+   */
+  private static readonly REMOVE_SCRIPT = `
+    local removed = redis.call('SREM', KEYS[1], ARGV[1])
+    redis.call('SREM', KEYS[2], ARGV[1])
+    if redis.call('SCARD', KEYS[1]) == 0 then
+      redis.call('ZREM', KEYS[3], ARGV[2])
+    end
+    return removed
+  `;
+
+  /**
    * Lua script that atomically removes a transaction from the pending pool and, only if it was actually
    * removed, increments the address' confirmed count.
    *
    * - `KEYS[1]`: the per-address pending set.
    * - `KEYS[2]`: the global pending set.
    * - `KEYS[3]`: the per-address confirmed count.
+   * - `KEYS[4]`: the active addresses sorted set.
    * - `ARGV[1]`: the RLP-encoded transaction.
    * - `ARGV[2]`: the TTL (in seconds) to refresh on the confirmed count.
+   * - `ARGV[3]`: the address.
    *
    * The per-address SREM result decides whether this caller is the one that removed the transaction, so of
    * several (possibly concurrent) callers removing the same transaction exactly one increments the count.
    * A missing confirmed count key means it expired way too early - it is not recreated then.
+   * Like {@link REMOVE_SCRIPT}, it drops the address from the active addresses sorted set once it has no
+   * pending transactions left.
    *
    * Returns 1 if the transaction was removed, 0 otherwise.
    */
   private static readonly REMOVE_AND_INCREMENT_CONFIRMED_SCRIPT = `
     local removed = redis.call('SREM', KEYS[1], ARGV[1])
     redis.call('SREM', KEYS[2], ARGV[1])
+    if redis.call('SCARD', KEYS[1]) == 0 then
+      redis.call('ZREM', KEYS[4], ARGV[3])
+    end
     if removed == 1 and redis.call('EXISTS', KEYS[3]) == 1 then
       redis.call('INCR', KEYS[3])
       redis.call('EXPIRE', KEYS[3], ARGV[2])
@@ -103,6 +136,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     const addressKey = this.keyFor(address);
     const confirmedCountKey = this.keyFor(address, this.confirmedTxCountKey);
     const storageTtl = await this.getPendingTxTtl(address);
+    const now = Date.now();
 
     await this.redisClient
       .multi()
@@ -110,6 +144,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
       .expire(addressKey, storageTtl)
       .sAdd(this.globalPendingTxsKey, rlpHex)
       .expire(this.globalPendingTxsKey, storageTtl)
+      .zAdd(this.activeAddressesKey, { score: now + storageTtl * 1000, value: address })
+      .zRemRangeByScore(this.activeAddressesKey, '-inf', now)
 
       .set(confirmedCountKey, confirmedCount, { NX: true }) // set only if not exists
       .expire(confirmedCountKey, this.confirmedCountTtl) // but always refresh ttl
@@ -125,14 +161,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @returns true if the transaction was in the pending list of the address and got removed.
    */
   async removeFromList(address: string, rlpHex: string): Promise<boolean> {
-    const key = this.keyFor(address);
-
-    const [removedFromAddress] = await this.redisClient
-      .multi()
-      .sRem(key, rlpHex)
-      .sRem(this.globalPendingTxsKey, rlpHex)
-      .exec();
-    return Number(removedFromAddress) === 1;
+    const result = await this.redisClient.eval(RedisPendingTransactionStorage.REMOVE_SCRIPT, {
+      keys: [this.keyFor(address), this.globalPendingTxsKey, this.activeAddressesKey],
+      arguments: [rlpHex, address],
+    });
+    return Number(result) === 1;
   }
 
   /**
@@ -147,8 +180,13 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeFromListAndIncrementConfirmedCount(address: string, rlpHex: string): Promise<boolean> {
     const result = await this.redisClient.eval(RedisPendingTransactionStorage.REMOVE_AND_INCREMENT_CONFIRMED_SCRIPT, {
-      keys: [this.keyFor(address), this.globalPendingTxsKey, this.keyFor(address, this.confirmedTxCountKey)],
-      arguments: [rlpHex, String(this.confirmedCountTtl)],
+      keys: [
+        this.keyFor(address),
+        this.globalPendingTxsKey,
+        this.keyFor(address, this.confirmedTxCountKey),
+        this.activeAddressesKey,
+      ],
+      arguments: [rlpHex, String(this.confirmedCountTtl), address],
     });
     return Number(result) === 1;
   }
@@ -182,8 +220,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @returns Promise resolving to the count of unique addresses in the pending pool.
    */
   async getUniqueAddressCount(): Promise<number> {
-    const keys = await this.redisClient.keys(`${this.keyPrefix}*`);
-    return keys.filter((k) => k !== this.globalPendingTxsKey).length;
+    return await this.redisClient.zCount(this.activeAddressesKey, `(${Date.now()}`, '+inf');
   }
 
   /**
@@ -194,6 +231,15 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   async getAllTransactionPayloads(): Promise<Set<string>> {
     const members = await this.redisClient.sMembers(this.globalPendingTxsKey);
     return new Set(members);
+  }
+
+  /**
+   * Retrieves the number of pending transactions across all addresses.
+   *
+   * @returns The total pending transaction count
+   */
+  async getAllTransactionCount(): Promise<number> {
+    return await this.redisClient.sCard(this.globalPendingTxsKey);
   }
 
   /**
