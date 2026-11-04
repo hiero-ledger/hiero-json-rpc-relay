@@ -724,7 +724,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
-  REDIS_CONNECT_TIMEOUT_MS: {
+  REDIS_COMMAND_TIMEOUT_MS: {
     type: 'number',
     required: false,
     defaultValue: 5000,

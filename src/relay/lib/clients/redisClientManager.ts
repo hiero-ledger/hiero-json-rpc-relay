@@ -40,10 +40,8 @@ export class RedisClientManager {
 
       this.client = createClient({
         url,
-        socket: {
-          connectTimeout: ConfigService.get('REDIS_CONNECT_TIMEOUT_MS'),
-          reconnectStrategy: (retries) => retries * ConfigService.get('REDIS_RECONNECT_DELAY_MS'),
-        },
+        socket: { reconnectStrategy: (retries) => retries * ConfigService.get('REDIS_RECONNECT_DELAY_MS') },
+        commandOptions: { timeout: ConfigService.get('REDIS_COMMAND_TIMEOUT_MS') },
       });
 
       this.client.on('ready', () => {
