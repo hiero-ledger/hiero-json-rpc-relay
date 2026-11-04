@@ -729,6 +729,8 @@ export class CommonService implements ICommonService {
    * This method fetches network fees from the mirror node for a specific timestamp (if provided)
    * and converts the gas price from tinybars to weibars for Ethereum compatibility.
    *
+   * If the fee schedule at the given timestamp has no `EthereumTransaction` price, the current gas price is returned.
+   *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking
    * @param {string} [timestamp] - Optional timestamp to get historical gas prices
    * @returns {Promise<number>} The gas price in weibars
@@ -746,6 +748,11 @@ export class CommonService implements ICommonService {
         // convert tinyBars into weiBars and return the value
         return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
       }
+    }
+
+    // Fee schedules before HIP-410 (August 2022) have no EthereumTransaction price
+    if (timestamp) {
+      return this.getGasPriceInWeibars(requestDetails);
     }
 
     throw predefined.INTERNAL_ERROR('Failed to retrieve gas price from network fees');

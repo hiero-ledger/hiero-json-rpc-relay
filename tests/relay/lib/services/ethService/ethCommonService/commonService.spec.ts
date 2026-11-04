@@ -21,6 +21,7 @@ import { type IWorkerContext } from '../../../../../../src/relay/lib/services/wo
 import { WorkersPool } from '../../../../../../src/relay/lib/services/workersService/WorkersPool';
 import {
   type IMirrorNodeTransactionRecord,
+  type INetworkFees,
   type MirrorNodeContractLog,
   type MirrorNodeContractResult,
   RequestDetails,
@@ -225,6 +226,87 @@ describe('CommonService', () => {
 
       await expect(commonService.getLatestBlockNumber(requestDetails)).to.be.rejectedWith(
         predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK.message,
+      );
+    });
+  });
+
+  describe('getGasPriceInWeibars', () => {
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+    const TIMESTAMP = 'lte:1600000000.000000000';
+    const HISTORICAL_FEES_QUERY = `network/fees?timestamp=${TIMESTAMP}`;
+    const CURRENT_FEES_QUERY = 'network/fees';
+    const feesWithEthereumGas = (gas: number): INetworkFees => ({
+      fees: [
+        { gas: 50, transaction_type: 'ContractCall' },
+        { gas, transaction_type: 'EthereumTransaction' },
+      ],
+      timestamp: '1600000000.000000000',
+    });
+
+    let commonService: CommonService;
+    let restMock: MockAdapter;
+
+    beforeEach(() => {
+      const logger = pino({ level: 'silent' });
+      const registry = new Registry();
+      const cacheService = CacheClientFactory.create(logger, registry);
+      const mirrorNodeClient = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: 'mirror-node' }),
+        registry,
+        cacheService,
+      );
+      restMock = new MockAdapter(mirrorNodeClient.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+    });
+
+    afterEach(() => {
+      restMock.restore();
+      sinon.restore();
+    });
+
+    it('returns the historical price when the fee schedule at the timestamp has one', async () => {
+      restMock.onGet(HISTORICAL_FEES_QUERY).reply(200, JSON.stringify(feesWithEthereumGas(80)));
+
+      const result = await commonService.getGasPriceInWeibars(requestDetails, TIMESTAMP);
+
+      expect(result).to.equal(80 * constants.TINYBAR_TO_WEIBAR_COEF);
+      expect(restMock.history.get.map(({ url }) => url)).to.deep.equal([HISTORICAL_FEES_QUERY]);
+    });
+
+    it('falls back to the current price when the fee schedule at the timestamp is not found', async () => {
+      restMock.onGet(HISTORICAL_FEES_QUERY).reply(404, JSON.stringify({}));
+      restMock.onGet(CURRENT_FEES_QUERY).reply(200, JSON.stringify(feesWithEthereumGas(121)));
+
+      const result = await commonService.getGasPriceInWeibars(requestDetails, TIMESTAMP);
+
+      expect(result).to.equal(121 * constants.TINYBAR_TO_WEIBAR_COEF);
+    });
+
+    it('falls back to the current price when the fee schedule at the timestamp has no EthereumTransaction price', async () => {
+      restMock
+        .onGet(HISTORICAL_FEES_QUERY)
+        .reply(200, JSON.stringify({ fees: [{ gas: 50, transaction_type: 'ContractCall' }], timestamp: '1' }));
+      restMock.onGet(CURRENT_FEES_QUERY).reply(200, JSON.stringify(feesWithEthereumGas(121)));
+
+      const result = await commonService.getGasPriceInWeibars(requestDetails, TIMESTAMP);
+
+      expect(result).to.equal(121 * constants.TINYBAR_TO_WEIBAR_COEF);
+    });
+
+    it('throws when the mirror node fails for the timestamp', async () => {
+      restMock.onGet(HISTORICAL_FEES_QUERY).reply(500, JSON.stringify({}));
+      restMock.onGet(CURRENT_FEES_QUERY).reply(200, JSON.stringify(feesWithEthereumGas(121)));
+
+      await expect(commonService.getGasPriceInWeibars(requestDetails, TIMESTAMP)).to.be.rejected;
+      expect(restMock.history.get.map(({ url }) => url)).to.deep.equal([HISTORICAL_FEES_QUERY]);
+    });
+
+    it('throws INTERNAL_ERROR when the current fee schedule has no EthereumTransaction price', async () => {
+      restMock.onGet(CURRENT_FEES_QUERY).reply(404, JSON.stringify({}));
+
+      await expect(commonService.getGasPriceInWeibars(requestDetails)).to.be.rejectedWith(
+        'Failed to retrieve gas price from network fees',
       );
     });
   });
