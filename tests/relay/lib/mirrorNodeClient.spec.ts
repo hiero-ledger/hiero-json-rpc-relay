@@ -13,7 +13,7 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { type JsonRpcError, MirrorNodeClientError, predefined } from '../../../src/relay';
-import { isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { isChildContractRecord, isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
 import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
@@ -162,6 +162,26 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('isChildContractRecord', () => {
+    it('accepts a record the mirror node flags as a child', () => {
+      expect(isChildContractRecord({ child: true })).to.be.true;
+    });
+
+    it('rejects a record the mirror node flags as top-level', () => {
+      expect(isChildContractRecord({ child: false })).to.be.false;
+    });
+
+    // Mirror nodes before v0.166 omit the flag; the record shape alone cannot tell a child from a HAPI contract call.
+    it('rejects a record without the flag', () => {
+      expect(isChildContractRecord({})).to.be.false;
+    });
+
+    it('rejects null and undefined', () => {
+      expect(isChildContractRecord(null)).to.be.false;
+      expect(isChildContractRecord(undefined)).to.be.false;
+    });
+  });
+
   describe('isSyntheticContractRecord', () => {
     // Shapes captured from testnet block 39363179 and from a mainnet contract-result page.
     const synthetic = { gas_limit: 0, nonce: null, v: null, r: null, s: null };
@@ -177,7 +197,7 @@ describe('MirrorNodeClient', async function () {
       expect(isSyntheticContractRecord(real)).to.be.false;
     });
 
-    // isChildContractRecord matches these; a receipt built from their logs would have the wrong shape.
+    // A receipt built from their logs would have the wrong shape.
     it('rejects a HAPI-submitted contract call', () => {
       expect(isSyntheticContractRecord(hapiContractCall)).to.be.false;
     });
@@ -1175,6 +1195,7 @@ describe('MirrorNodeClient', async function () {
         v: null,
         r: null,
         s: null,
+        child: true,
       }),
     );
 
@@ -1207,30 +1228,6 @@ describe('MirrorNodeClient', async function () {
     expect(result.transaction_index).to.eq(detailedContractResult.transaction_index);
     expect(result.block_number).to.eq(detailedContractResult.block_number);
     expect(mock.history.get.length).to.eq(2);
-  });
-
-  it('`getContractResultsWithRetry` should return the immature record when the caller opts in', async () => {
-    const hash = '0x2a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6395';
-    const immatureRecord = {
-      ...detailedContractResult,
-      transaction_index: null,
-      block_number: null,
-      block_hash: '0x',
-      result: 'INSUFFICIENT_PAYER_BALANCE',
-    };
-    [...Array(10)].reduce((mockChain) => {
-      return mockChain.onGet(`contracts/results/${hash}?hbar=false`).replyOnce(200, JSON.stringify(immatureRecord));
-    }, mock);
-
-    const result = await mirrorNodeInstance.getContractResultWithRetry<MirrorNodeContractResultDetails>(
-      mirrorNodeInstance.getContractResult.name,
-      [hash, requestDetails],
-      { returnImmatureRecords: true },
-    );
-
-    expect(result.result).to.eq('INSUFFICIENT_PAYER_BALANCE');
-    expect(result.block_number).to.be.null;
-    expect(mock.history.get.length).to.eq(10);
   });
 
   it('`getContractResults` detailed', async () => {

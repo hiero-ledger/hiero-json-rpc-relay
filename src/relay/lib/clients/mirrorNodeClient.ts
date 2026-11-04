@@ -75,33 +75,47 @@ type REQUEST_METHODS = 'GET' | 'POST';
  * {@link Utils.isRejectedDueToHederaSpecificValidation}.
  *
  * @param record - The contract result or log record to classify; null/undefined is not immature.
+ * @param logger - Logger instance.
  * @returns True when `transaction_index`, `block_number`, or `block_hash` is unpopulated.
  */
 export const isImmatureContractRecord = (
-  record?: { transaction_index?: number | null; block_number?: number | null; block_hash?: string | null } | null,
-): boolean =>
-  record != null &&
-  (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
+  record:
+    { transaction_index?: number | null; block_number?: number | null; block_hash?: string | null } | null | undefined,
+  logger: Logger,
+): boolean => {
+  const isImmature =
+    record != null &&
+    (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
+
+  if (isImmature) {
+    logger.info(`Immature record detected: %s`, JSON.stringify(record));
+  }
+
+  return isImmature;
+};
 
 /**
- * Whether a Mirror Node contract-result record belongs to a child  transaction rather than to a
- * top-level ethereum one.
+ * Whether a Mirror Node contract-result record belongs to a child transaction (one with a parent, e.g. an
+ * HTS system-contract call made from within an ethereum transaction) rather than to a top-level one.
  *
  * Ethereum has no notion of a child transaction: an inner call has no hash and no receipt of its own, so
  * these records are reported as not found rather than as a rejection.
  *
+ * Relies on the Mirror Node `child` flag (v0.166+). The record shape alone cannot tell a child apart from a
+ * HAPI-submitted CONTRACTCALL/CONTRACTCREATE: both carry a transaction index and neither carries an
+ * ethereum nonce or signature. Without the flag (older Mirror Nodes) no record is treated as a child.
+ *
  * @param record - The contract result record to classify; null/undefined is not a child record.
- * @returns True when the record carries neither an ethereum nonce nor a signature recovery id.
+ * @returns True when the Mirror Node flags the record as a child.
  */
-export const isChildContractRecord = (record?: { nonce?: number | null; v?: number | null } | null): boolean =>
-  record != null && record.nonce == null && record.v == null;
+export const isChildContractRecord = (record?: { child?: boolean } | null): boolean => record?.child === true;
 
 /**
  * Whether a Mirror Node contract-result record is synthetic: fabricated for a native Hedera transaction
  * (CRYPTOTRANSFER, TOKENMINT and the like) that never reached the EVM, so it has no gas limit.
  *
- * Stricter than {@link isChildContractRecord}, which also matches HAPI-submitted CONTRACTCALL records: those
- * carry no ethereum signature either, but they did execute and are resolvable by hash.
+ * HAPI-submitted CONTRACTCALL records carry no ethereum signature either, but they did execute and are
+ * resolvable by hash, so they are not synthetic.
  */
 export const isSyntheticContractRecord = (
   record?: {
@@ -1135,23 +1149,11 @@ export class MirrorNodeClient {
    * - The record matures (all fields are properly populated)
    * - The maximum retry count is reached
    *
-   * Records rejected by a Hedera-specific validation (`HEDERA_SPECIFIC_REVERT_STATUSES`, e.g. `WRONG_NONCE`)
-   * never reached the EVM and are therefore never part of a block: their block linkage can never fill in,
-   * so they are returned immediately rather than polled for the full window.
-   *
    * @param methodName - The name of the method used to fetch contract results.
    * @param args - The arguments to be passed to the specified method for fetching contract results.
-   * @param options - Retry options.
-   * @param options.returnImmatureRecords - When true, a record still immature after the final polling
-   *   attempt is returned as-is instead of throwing `DEPENDENT_SERVICE_IMMATURE_RECORDS`, letting the
-   *   caller classify it (see {@link isImmatureContractRecord}) and surface the rejection itself.
    * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry<T = unknown>(
-    methodName: string,
-    args: unknown[],
-    options: { returnImmatureRecords?: boolean } = {},
-  ): Promise<T> {
+  public async getContractResultWithRetry<T = unknown>(methodName: string, args: unknown[]): Promise<T> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -1166,7 +1168,7 @@ export class MirrorNodeClient {
         let foundImmatureRecord = false;
 
         for (const contractObject of contractObjects) {
-          if (!isImmatureContractRecord(contractObject)) continue;
+          if (!isImmatureContractRecord(contractObject, this.logger)) continue;
 
           // A record rejected by a Hedera-specific validation never reached the EVM, so it is never part of
           // a block and no amount of polling can populate its block linkage. It is a final record, not an
@@ -1200,10 +1202,8 @@ export class MirrorNodeClient {
             );
           }
 
-          // If immature records persist after the final polling attempt, hand the record back when the
-          // caller opted in (it classifies the outcome itself), otherwise throw DEPENDENT_SERVICE_IMMATURE_RECORDS.
+          // If immature records persist after the final polling attempt, throw DEPENDENT_SERVICE_IMMATURE_RECORDS
           if (isLastAttempt) {
-            if (options.returnImmatureRecords) return contractResult;
             throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
           }
 
@@ -1425,7 +1425,9 @@ export class MirrorNodeClient {
     attempt: number = 0,
   ): Promise<MirrorNodeContractLog[]> {
     const logResults = await fetchFn();
-    const hasImmatureRecords = logResults.some((log) => log && (isImmatureContractRecord(log) || log.index == null));
+    const hasImmatureRecords = logResults.some(
+      (log) => log && (isImmatureContractRecord(log, this.logger) || log.index == null),
+    );
 
     if (hasImmatureRecords) {
       const isLastAttempt = attempt >= maxAttempts - 1;

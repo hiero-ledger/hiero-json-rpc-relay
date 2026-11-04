@@ -392,6 +392,8 @@ export interface MirrorNodeContractResult extends MirrorNodeContractResultBase {
   nonce: number;
   /** Authorization list for EIP-7702 transactions. */
   authorization_list?: AuthorizationListEntry[] | null;
+  /** Whether the transaction has a parent transaction. Exposed by MirrorNode v0.166+, absent before. */
+  child?: boolean;
 }
 
 /**
