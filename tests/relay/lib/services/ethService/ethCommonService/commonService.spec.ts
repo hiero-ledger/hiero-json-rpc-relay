@@ -10,7 +10,7 @@ import sinon from 'sinon';
 chai.use(chaiAsPromised);
 
 import { ConfigService } from '../../../../../../src/config-service/services';
-import { prepend0x } from '../../../../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../../../../src/relay/lib/clients';
 import constants from '../../../../../../src/relay/lib/constants';
 import { predefined } from '../../../../../../src/relay/lib/errors/JsonRpcError';
@@ -308,6 +308,17 @@ describe('CommonService', () => {
       await expect(commonService.getGasPriceInWeibars(requestDetails)).to.be.rejectedWith(
         'Failed to retrieve gas price from network fees',
       );
+    });
+
+    it('getCurrentGasPriceForBlock returns the current price when the fee schedule at the block has none', async () => {
+      const blockHash = '0x' + 'ab'.repeat(32);
+      restMock.onGet(`blocks/${blockHash}`).reply(200, JSON.stringify({ timestamp: { from: '1600000000.000000001' } }));
+      restMock.onGet('network/fees?timestamp=1600000000').reply(404, JSON.stringify({}));
+      restMock.onGet(CURRENT_FEES_QUERY).reply(200, JSON.stringify(feesWithEthereumGas(121)));
+
+      const result = await commonService.getCurrentGasPriceForBlock(blockHash, requestDetails);
+
+      expect(result).to.equal(numberTo0x(121 * constants.TINYBAR_TO_WEIBAR_COEF));
     });
   });
 

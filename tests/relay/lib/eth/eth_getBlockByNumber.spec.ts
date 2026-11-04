@@ -26,6 +26,7 @@ import {
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
+  BASE_FEE_PER_GAS_DEFAULT,
   BASE_FEE_PER_GAS_HEX,
   BLOCK_HASH,
   BLOCK_HASH_PREV_TRIMMED,
@@ -369,6 +370,20 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       // verify expected constants
       RelayAssertions.verifyBlockConstants(result);
     }
+  });
+
+  it('eth_getBlockByNumber uses the current gas price when the fee schedule at the block has none', async function () {
+    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, gas_used: 0 }));
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({ results: [] }));
+    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify({ logs: [] }));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(404, JSON.stringify(NOT_FOUND_RES));
+
+    const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
+
+    expect(result?.baseFeePerGas).to.equal(BASE_FEE_PER_GAS_DEFAULT);
   });
 
   it('eth_getBlockByNumber with match and details', async function () {

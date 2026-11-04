@@ -23,6 +23,7 @@ import {
 } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
+  BASE_FEE_PER_GAS_DEFAULT,
   BLOCK_HASH,
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
@@ -34,6 +35,7 @@ import {
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
+  NOT_FOUND_RES,
 } from './eth-config';
 import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
@@ -198,6 +200,21 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
         expectValidReceipt(receipts[0], results[0], results[0].gas_used);
       });
+    });
+
+    it('should use the current gas price when the fee schedule at the block has none', async function () {
+      const currentNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+      currentNetworkFees.fees[2].gas *= 100;
+
+      setupStandardResponses();
+      restMock.onGet(`network/fees?timestamp=${BLOCK_TIMESTAMP}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+      restMock.onGet('network/fees').reply(200, JSON.stringify(currentNetworkFees));
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      assertExists(receipts);
+      expect(receipts.length).to.equal(2);
+      receipts.forEach((receipt) => expect(receipt.effectiveGasPrice).to.equal(BASE_FEE_PER_GAS_DEFAULT));
     });
 
     it('should return empty array for block with no transactions', async function () {

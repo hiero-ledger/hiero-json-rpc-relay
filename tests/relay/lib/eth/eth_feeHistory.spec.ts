@@ -196,9 +196,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
   describe('eth_feeHistory -> Mirror node returns error', function () {
     const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
 
-    function feeHistoryOnErrorExpect(feeHistory: FeeHistoryResult): void {
+    function feeHistoryOnErrorExpect(feeHistory: FeeHistoryResult, baseFeePerGas: string): void {
       expect(feeHistory).to.exist;
-      expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(baseFeePerGas);
       expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
@@ -214,17 +214,19 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     });
 
-    it('eth_feeHistory on mirror 404', async function () {
+    it('eth_feeHistory on mirror 404 uses the current gas price', async function () {
       const feeHistory = (await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails)) as FeeHistoryResult;
-      feeHistoryOnErrorExpect(feeHistory);
+      feeHistoryOnErrorExpect(feeHistory, BASE_FEE_PER_GAS_HEX);
       const rewards = feeHistory['reward'][0];
       expect(rewards[0]).to.equal('0x0');
       expect(rewards[1]).to.equal('0x0');
     });
 
     it('eth_feeHistory on mirror 500', async function () {
+      restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(500, JSON.stringify({}));
+
       const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
-      feeHistoryOnErrorExpect(feeHistory);
+      feeHistoryOnErrorExpect(feeHistory, '0x0');
     });
   });
 

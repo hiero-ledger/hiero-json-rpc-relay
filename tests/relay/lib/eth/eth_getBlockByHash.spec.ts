@@ -46,6 +46,7 @@ import {
   LINKS_NEXT_RES,
   MOCK_ACCOUNT_WITHOUT_TRANSACTIONS,
   NO_SUCH_BLOCK_EXISTS_RES,
+  NOT_FOUND_RES,
 } from './eth-config';
 import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
@@ -321,6 +322,28 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     expect(result).to.not.be.null;
     expect(result).to.have.property('transactions').not.empty;
     expect(result!.transactions[0]).to.have.property('authorizationList').that.deep.equal(DEFAULT_AUTHORIZATION_LIST);
+  });
+
+  it('eth_getBlockByHash uses the current gas price when the fee schedule at the block has none', async function () {
+    await cacheService.clear();
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(404, JSON.stringify(NOT_FOUND_RES));
+    restMock
+      .onGet(
+        `contracts/results?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc&hbar=false`,
+      )
+      .reply(200, JSON.stringify([]));
+    restMock
+      .onGet(
+        `contracts/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`,
+      )
+      .reply(200, JSON.stringify({ logs: [] }));
+
+    const result = await ethImpl.getBlockByHash(BLOCK_HASH, false, requestDetails);
+
+    expect(result?.baseFeePerGas).to.equal(BASE_FEE_PER_GAS_DEFAULT);
   });
 
   it('eth_getBlockByHash with no match', async function () {
