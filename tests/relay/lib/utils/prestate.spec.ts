@@ -122,13 +122,19 @@ describe('applyPrestateTracerConfig', function () {
     [emptyAddress]: empty,
   };
 
-  it('drops empty accounts and keeps the rest unchanged by default', function () {
+  it('keeps every account unchanged by default', function () {
     const result = applyPrestateTracerConfig(prestate);
+
+    expect(result).to.deep.equal(prestate);
+  });
+
+  it('drops empty accounts with includeEmpty false', function () {
+    const result = applyPrestateTracerConfig(prestate, { includeEmpty: false });
 
     expect(result).to.deep.equal({ [contractAddress]: contract, [accountAddress]: account });
   });
 
-  it('keeps empty accounts with includeEmpty', function () {
+  it('keeps empty accounts with includeEmpty true', function () {
     const result = applyPrestateTracerConfig(prestate, { includeEmpty: true });
 
     expect(result).to.deep.equal(prestate);
@@ -140,6 +146,7 @@ describe('applyPrestateTracerConfig', function () {
     expect(result).to.deep.equal({
       [contractAddress]: { balance: '0xe8d4a51000', nonce: 1, storage: { [slot]: value } },
       [accountAddress]: { balance: '0x15d3ef79800', nonce: 7, storage: {} },
+      [emptyAddress]: { balance: '0x0', nonce: 0, storage: {} },
     });
   });
 
@@ -149,6 +156,7 @@ describe('applyPrestateTracerConfig', function () {
     expect(result).to.deep.equal({
       [contractAddress]: { balance: '0xe8d4a51000', nonce: 1, code: '0x6080604052' },
       [accountAddress]: { balance: '0x15d3ef79800', nonce: 7, code: '0x' },
+      [emptyAddress]: { balance: '0x0', nonce: 0, code: '0x' },
     });
   });
 
@@ -165,7 +173,9 @@ describe('applyPrestateTracerConfig', function () {
   it('checks emptiness before disableCode strips the code', function () {
     const legacyContract = { balance: '0x0', nonce: 0, code: '0x6080604052', storage: {} };
 
-    const result = applyPrestateTracerConfig({ [contractAddress]: legacyContract }, { disableCode: true });
+    const tracerConfig = { disableCode: true, includeEmpty: false };
+
+    const result = applyPrestateTracerConfig({ [contractAddress]: legacyContract }, tracerConfig);
 
     expect(result).to.deep.equal({ [contractAddress]: { balance: '0x0', nonce: 0, storage: {} } });
   });

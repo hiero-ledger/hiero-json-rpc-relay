@@ -46,8 +46,8 @@ export const mapPrestateResponse = (response: IPrestateResponse): EntityTraceSta
 /**
  * Applies the geth prestateTracer options to a prestate result.
  *
- * Empty accounts are dropped unless `includeEmpty` is set, before `disableCode` strips the code the
- * check depends on. Returns a new map, since the input is usually a cached result.
+ * Empty accounts are dropped only on request, before `disableCode` strips the code the check depends on.
+ * Returns a new map, since the input is usually a cached result.
  *
  * @param prestate - The full prestate, keyed by EVM address.
  * @param config - The prestateTracer options.
@@ -57,20 +57,23 @@ export const applyPrestateTracerConfig = (
   prestate: EntityTraceStateMap,
   config: IPrestateTracerConfig = {},
 ): EntityTraceStateMap => {
+  // Unlike geth, empty accounts are kept by default: the mirror node reports nonce 0 for most accounts
+  const { disableCode, disableStorage, includeEmpty = true } = config;
+
   const result: EntityTraceStateMap = {};
 
   for (const [address, state] of Object.entries(prestate)) {
-    if (!config.includeEmpty && isEmptyAccount(state)) {
+    if (!includeEmpty && isEmptyAccount(state)) {
       continue;
     }
 
     const trimmed: EntityTraceState = { ...state };
 
-    if (config.disableCode) {
+    if (disableCode) {
       delete trimmed.code;
     }
 
-    if (config.disableStorage) {
+    if (disableStorage) {
       delete trimmed.storage;
     }
 

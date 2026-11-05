@@ -1904,7 +1904,10 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: TracerType.PrestateTracer, tracerConfig: { disableCode: true, disableStorage: true } },
+            {
+              tracer: TracerType.PrestateTracer,
+              tracerConfig: { disableCode: true, disableStorage: true, includeEmpty: false },
+            },
             requestDetails,
           );
 
@@ -3274,7 +3277,7 @@ describe('Debug API Test Suite', async function () {
       const emptyAccount = { balance: '0x0', nonce: 0, code: '0x', storage: {} };
       const emptyTrace = { address: emptyAddress, balance: '0x0', code: null, nonce: 0, storage: {} };
       const responseWithEmpty = { pre: [...prestateResponse.pre, emptyTrace] };
-      const fallbackPrestate = { ...mappedPrestate, [emptyAddress]: emptyAccount };
+      const prestateWithEmpty = { ...mappedPrestate, [emptyAddress]: emptyAccount };
 
       const prestatePathFor = (code: boolean, storage: boolean): string =>
         `contracts/results/${transactionHash}/prestate?code=${code}&storage=${storage}`;
@@ -3294,44 +3297,44 @@ describe('Debug API Test Suite', async function () {
       const requestedUrls = (): (string | undefined)[] => web3Mock.history.get.map((call) => call.url);
 
       describe('from the endpoint', async function () {
-        it('should drop empty accounts by default', async function () {
+        it('should keep empty accounts by default', async function () {
           web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
 
           const result = await debugService.prestateTracer(transactionHash, {}, requestDetails);
 
+          expect(result).to.deep.equal(prestateWithEmpty);
+        });
+
+        it('should drop empty accounts with includeEmpty false', async function () {
+          web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
+
+          const result = await debugService.prestateTracer(transactionHash, { includeEmpty: false }, requestDetails);
+
           expect(result).to.deep.equal(mappedPrestate);
         });
 
-        it('should keep empty accounts with includeEmpty', async function () {
-          web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
-
-          const result = await debugService.prestateTracer(transactionHash, { includeEmpty: true }, requestDetails);
-
-          expect(result).to.deep.equal(fallbackPrestate);
-        });
-
-        // The empty check needs the code, so it is still requested and stripped by the relay.
-        it('should request the code but omit it with disableCode', async function () {
-          web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
+        it('should not request the code with disableCode', async function () {
+          web3Mock.onGet(prestatePathFor(false, true)).reply(replyWithoutCode);
 
           const result = await debugService.prestateTracer(transactionHash, { disableCode: true }, requestDetails);
-
-          expect(requestedUrls()).to.deep.equal([prestatePathFor(true, true)]);
-          expect(result).to.deep.equal({
-            [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, storage: { [slot]: value } },
-          });
-        });
-
-        it('should not request the code with disableCode and includeEmpty', async function () {
-          web3Mock.onGet(prestatePathFor(false, true)).reply(replyWithoutCode);
-          const tracerConfig = { disableCode: true, includeEmpty: true };
-
-          const result = await debugService.prestateTracer(transactionHash, tracerConfig, requestDetails);
 
           expect(requestedUrls()).to.deep.equal([prestatePathFor(false, true)]);
           expect(result).to.deep.equal({
             [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, storage: { [slot]: value } },
             [emptyAddress]: { balance: '0x0', nonce: 0, storage: {} },
+          });
+        });
+
+        // The empty check needs the code, so it is still requested and stripped by the relay.
+        it('should request the code but omit it with disableCode and includeEmpty false', async function () {
+          web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
+          const tracerConfig = { disableCode: true, includeEmpty: false };
+
+          const result = await debugService.prestateTracer(transactionHash, tracerConfig, requestDetails);
+
+          expect(requestedUrls()).to.deep.equal([prestatePathFor(true, true)]);
+          expect(result).to.deep.equal({
+            [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, storage: { [slot]: value } },
           });
         });
 
@@ -3343,6 +3346,7 @@ describe('Debug API Test Suite', async function () {
           expect(requestedUrls()).to.deep.equal([prestatePathFor(true, false)]);
           expect(result).to.deep.equal({
             [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, code: '0x6080604052' },
+            [emptyAddress]: { balance: '0x0', nonce: 0, code: '0x' },
           });
         });
 
@@ -3359,22 +3363,24 @@ describe('Debug API Test Suite', async function () {
           const fullAgain = await debugService.prestateTracer(transactionHash, {}, requestDetails);
 
           expect(requestedUrls()).to.deep.equal([prestatePathFor(true, true), prestatePathFor(true, false)]);
-          expect(full).to.deep.equal(mappedPrestate);
+          expect(full).to.deep.equal(prestateWithEmpty);
           expect(withoutStorage[contractEvmAddress]).to.not.have.property('storage');
-          expect(fullAgain).to.deep.equal(mappedPrestate);
+          expect(fullAgain).to.deep.equal(prestateWithEmpty);
         });
 
         it('should share the cached result between options that request the same data', async function () {
           web3Mock.onGet(prestatePathFor(true, true)).reply(200, JSON.stringify(responseWithEmpty));
 
           const full = await debugService.prestateTracer(transactionHash, {}, requestDetails);
-          const withoutCode = await debugService.prestateTracer(transactionHash, { disableCode: true }, requestDetails);
-          const withEmpty = await debugService.prestateTracer(transactionHash, { includeEmpty: true }, requestDetails);
+          const withoutEmpty = await debugService.prestateTracer(
+            transactionHash,
+            { includeEmpty: false },
+            requestDetails,
+          );
 
           expect(requestedUrls()).to.deep.equal([prestatePathFor(true, true)]);
-          expect(full).to.deep.equal(mappedPrestate);
-          expect(withoutCode[contractEvmAddress]).to.not.have.property('code');
-          expect(withEmpty).to.deep.equal(fallbackPrestate);
+          expect(full).to.deep.equal(prestateWithEmpty);
+          expect(withoutEmpty).to.deep.equal(mappedPrestate);
         });
       });
 
@@ -3383,50 +3389,52 @@ describe('Debug API Test Suite', async function () {
           web3Mock.onGet(new RegExp('/prestate')).reply(501, JSON.stringify({ _status: { messages: [] } }));
         });
 
-        it('should drop empty accounts by default', async function () {
-          sinon.stub(debugService, 'prestateFromContractState').resolves(fallbackPrestate);
+        it('should keep empty accounts by default', async function () {
+          sinon.stub(debugService, 'prestateFromContractState').resolves(prestateWithEmpty);
 
           const result = await debugService.prestateTracer(transactionHash, {}, requestDetails);
+
+          expect(result).to.deep.equal(prestateWithEmpty);
+        });
+
+        it('should drop empty accounts with includeEmpty false', async function () {
+          sinon.stub(debugService, 'prestateFromContractState').resolves(prestateWithEmpty);
+
+          const result = await debugService.prestateTracer(transactionHash, { includeEmpty: false }, requestDetails);
 
           expect(result).to.deep.equal(mappedPrestate);
         });
 
-        it('should keep empty accounts with includeEmpty', async function () {
-          sinon.stub(debugService, 'prestateFromContractState').resolves(fallbackPrestate);
-
-          const result = await debugService.prestateTracer(transactionHash, { includeEmpty: true }, requestDetails);
-
-          expect(result).to.deep.equal(fallbackPrestate);
-        });
-
         it('should omit the code with disableCode', async function () {
-          sinon.stub(debugService, 'prestateFromContractState').resolves(fallbackPrestate);
+          sinon.stub(debugService, 'prestateFromContractState').resolves(prestateWithEmpty);
 
           const result = await debugService.prestateTracer(transactionHash, { disableCode: true }, requestDetails);
 
           expect(result).to.deep.equal({
             [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, storage: { [slot]: value } },
+            [emptyAddress]: { balance: '0x0', nonce: 0, storage: {} },
           });
         });
 
         it('should omit the storage with disableStorage', async function () {
-          sinon.stub(debugService, 'prestateFromContractState').resolves(fallbackPrestate);
+          sinon.stub(debugService, 'prestateFromContractState').resolves(prestateWithEmpty);
 
           const result = await debugService.prestateTracer(transactionHash, { disableStorage: true }, requestDetails);
 
           expect(result).to.deep.equal({
             [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, code: '0x6080604052' },
+            [emptyAddress]: { balance: '0x0', nonce: 0, code: '0x' },
           });
         });
 
         it('should leave the cached fallback result untouched', async function () {
-          const cached = structuredClone(fallbackPrestate);
+          const cached = structuredClone(prestateWithEmpty);
           sinon.stub(debugService, 'prestateFromContractState').resolves(cached);
-          const tracerConfig = { disableCode: true, disableStorage: true };
+          const tracerConfig = { disableCode: true, disableStorage: true, includeEmpty: false };
 
           await debugService.prestateTracer(transactionHash, tracerConfig, requestDetails);
 
-          expect(cached).to.deep.equal(fallbackPrestate);
+          expect(cached).to.deep.equal(prestateWithEmpty);
         });
       });
     });

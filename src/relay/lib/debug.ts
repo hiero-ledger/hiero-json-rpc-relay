@@ -1030,10 +1030,12 @@ export class DebugImpl implements Debug {
     tracerConfig: IPrestateTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<EntityTraceStateMap> {
-    // The empty-account check needs the code, so it is only left out when empty accounts are kept
+    const { disableCode, disableStorage, includeEmpty = true } = tracerConfig;
+
+    // The empty-account check needs the code, so it is fetched whenever empty accounts are dropped
     const endpointParams = {
-      code: !tracerConfig.disableCode || !tracerConfig.includeEmpty,
-      storage: !tracerConfig.disableStorage,
+      code: !disableCode || !includeEmpty,
+      storage: !disableStorage,
     };
 
     const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails, endpointParams);

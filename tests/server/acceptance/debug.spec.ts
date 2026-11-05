@@ -852,8 +852,10 @@ describe('@debug API Acceptance Tests', function () {
           expect(withoutCode).to.deep.equal(omitFields(full, ['code']));
         });
 
-        it('should keep a contract with no nonce and no balance with disableCode', async function () {
-          const withoutCode = await traceWith(pingReceipt.transactionHash, { disableCode: true });
+        it('should keep a contract with no nonce and no balance when dropping empty accounts', async function () {
+          const tracerConfig = { disableCode: true, includeEmpty: false };
+
+          const withoutCode = await traceWith(pingReceipt.transactionHash, tracerConfig);
 
           expect(withoutCode).to.have.property(basicContractAddress.toLowerCase());
         });
@@ -873,16 +875,18 @@ describe('@debug API Acceptance Tests', function () {
           expect(minimal).to.deep.equal(omitFields(full, ['code', 'storage']));
         });
 
-        it('should add only empty accounts with includeEmpty', async function () {
+        it('should keep empty accounts by default and drop only them with includeEmpty false', async function () {
           const full = await traceWith(pingReceipt.transactionHash);
           const withEmpty = await traceWith(pingReceipt.transactionHash, { includeEmpty: true });
+          const withoutEmpty = await traceWith(pingReceipt.transactionHash, { includeEmpty: false });
 
-          const addedAccounts = Object.keys(withEmpty).filter((address) => !(address in full));
+          const droppedAccounts = Object.keys(full).filter((address) => !(address in withoutEmpty));
 
-          expect(withEmpty).to.deep.include(full);
+          expect(full).to.deep.equal(withEmpty);
+          expect(full).to.deep.include(withoutEmpty);
 
-          for (const address of addedAccounts) {
-            expect(isEmptyAccount(withEmpty[address])).to.be.true;
+          for (const address of droppedAccounts) {
+            expect(isEmptyAccount(full[address])).to.be.true;
           }
         });
 
