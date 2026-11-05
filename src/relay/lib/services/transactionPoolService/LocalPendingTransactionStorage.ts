@@ -132,6 +132,15 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
+   * Retrieves the number of pending transactions across all addresses.
+   *
+   * @returns Promise resolving to the total pending transaction count
+   */
+  async getAllTransactionCount(): Promise<number> {
+    return this.globalTransactionIndex.size;
+  }
+
+  /**
    * Retrieves pending transaction payloads (RLP hex) for a specific address.
    *
    * @param address - The account address to query
