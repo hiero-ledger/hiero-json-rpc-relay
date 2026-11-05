@@ -132,6 +132,13 @@ export interface PendingTransactionStorage {
   getAllTransactionPayloads(): Promise<Set<string>>;
 
   /**
+   * Retrieves the number of pending transactions across all addresses, without loading their payloads.
+   *
+   * @returns A promise that resolves to the total pending transaction count.
+   */
+  getAllTransactionCount(): Promise<number>;
+
+  /**
    * Retrieves pending transaction payloads (RLP hex) for a specific address.
    *
    * @param address - The account address to query.

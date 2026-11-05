@@ -117,6 +117,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         removeAll: sinon.stub(),
         getUniqueAddressCount: sinon.stub(),
         getAllTransactionPayloads: sinon.stub(),
+        getAllTransactionCount: sinon.stub(),
         getTransactionPayloads: sinon.stub(),
         getConfirmedCount: sinon.stub(),
       },

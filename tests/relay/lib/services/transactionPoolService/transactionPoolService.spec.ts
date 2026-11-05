@@ -50,6 +50,7 @@ describe('TransactionPoolService Test Suite', function () {
       removeAll: sinon.stub(),
       getTransactionPayloads: sinon.stub(),
       getAllTransactionPayloads: sinon.stub(),
+      getAllTransactionCount: sinon.stub(),
       getUniqueAddressCount: sinon.stub(),
       getConfirmedCount: sinon.stub(),
     };
@@ -406,6 +407,59 @@ describe('TransactionPoolService Test Suite', function () {
       }
 
       expect(mockStorage.getAllTransactionPayloads.calledOnce).to.be.true;
+    });
+  });
+
+  describe('getAllTransactionsCount', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return 0 if ENABLE_TX_POOL is set to false', async function () {
+        mockStorage.getAllTransactionCount.resolves(3);
+        const result = await transactionPoolService.getAllTransactionsCount();
+        expect(result).to.equal(0);
+        expect(mockStorage.getAllTransactionCount.notCalled).to.be.true;
+      });
+    });
+
+    it('should return the count from storage', async () => {
+      mockStorage.getAllTransactionCount.resolves(3);
+
+      const result = await transactionPoolService.getAllTransactionsCount();
+
+      expect(result).to.equal(3);
+      expect(mockStorage.getAllTransactionCount.calledOnce).to.be.true;
+    });
+
+    it('should rethrow storage errors and increment the error counter', async () => {
+      const storageError = new Error('Storage retrieval failed');
+      mockStorage.getAllTransactionCount.rejects(storageError);
+
+      await expect(transactionPoolService.getAllTransactionsCount()).to.be.rejectedWith(storageError);
+
+      const metric = await register.getSingleMetric('rpc_relay_txpool_storage_errors_total');
+      if (!metric) throw new Error('Expected metric to be registered');
+      const getOperation = (await metric.get()).values.find((v) => v.labels.operation === 'get');
+      expect(getOperation?.value).to.equal(1);
+    });
+  });
+
+  describe('Gauges', () => {
+    it('should collect the pending count without loading the transaction payloads', async () => {
+      mockStorage.getAllTransactionCount.resolves(3);
+
+      const metric = await register.getSingleMetric('rpc_relay_txpool_pending_count');
+      if (!metric) throw new Error('Expected metric to be registered');
+
+      expect((await metric.get()).values[0].value).to.equal(3);
+      expect(mockStorage.getAllTransactionPayloads.notCalled).to.be.true;
+    });
+
+    it('should collect the active addresses count from storage', async () => {
+      mockStorage.getUniqueAddressCount.resolves(2);
+
+      const metric = await register.getSingleMetric('rpc_relay_txpool_active_addresses');
+      if (!metric) throw new Error('Expected metric to be registered');
+
+      expect((await metric.get()).values[0].value).to.equal(2);
     });
   });
 
