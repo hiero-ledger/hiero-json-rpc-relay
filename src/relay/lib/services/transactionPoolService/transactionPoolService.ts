@@ -83,7 +83,7 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     this.pendingCountGauge = metricsFactory.gauge(METRICS.transactionPool.pendingCount, {
       collect: async (): Promise<void> => {
-        const count = (await this.getAllTransactions()).size;
+        const count = await this.getAllTransactionsCount();
         this.pendingCountGauge.set(count);
       },
     });
@@ -239,6 +239,26 @@ export class TransactionPoolService implements ITransactionPoolService {
       return await this.storage.getAllTransactionPayloads();
     } catch (error) {
       this.logger.error({ error: (error as Error).message }, 'Failed to get all transactions');
+      this.storageErrorsCounter.labels('get', this.storageType).inc();
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieves the number of pending transactions across all addresses, without loading their payloads.
+   *
+   * @returns A promise that resolves to the total pending transaction count.
+   *          Returns 0 if the transaction pool is disabled.
+   */
+  async getAllTransactionsCount(): Promise<number> {
+    if (!TransactionPoolService.isEnabled()) {
+      return 0;
+    }
+
+    try {
+      return await this.storage.getAllTransactionCount();
+    } catch (error) {
+      this.logger.error({ error: (error as Error).message }, 'Failed to get all transactions count');
       this.storageErrorsCounter.labels('get', this.storageType).inc();
       throw error;
     }
