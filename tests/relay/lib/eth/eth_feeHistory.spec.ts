@@ -7,7 +7,7 @@ import { predefined } from '../../../../src/relay';
 import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { type IFeeHistory, RequestDetails } from '../../../../src/relay/lib/types';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   BASE_FEE_PER_GAS_HEX,
   BLOCK_NUMBER_2,
@@ -15,6 +15,7 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   DEFAULT_BLOCK,
   DEFAULT_NETWORK_FEES,
+  EARLIEST_MAINNET_GAS_PRICE_HEX,
   NOT_FOUND_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
@@ -196,9 +197,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
   describe('eth_feeHistory -> Mirror node returns error', function () {
     const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
 
-    function feeHistoryOnErrorExpect(feeHistory: FeeHistoryResult): void {
+    function feeHistoryOnErrorExpect(feeHistory: FeeHistoryResult, baseFeePerGas = '0x0'): void {
       expect(feeHistory).to.exist;
-      expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(baseFeePerGas);
       expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
@@ -223,8 +224,24 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     });
 
     it('eth_feeHistory on mirror 500', async function () {
+      restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(500, JSON.stringify({}));
+
       const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
       feeHistoryOnErrorExpect(feeHistory);
+    });
+
+    withOverriddenEnvsInMochaTest({ CHAIN_ID: '0x127' }, () => {
+      it('eth_feeHistory on mirror 404 uses the earliest recorded gas price', async function () {
+        const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
+        feeHistoryOnErrorExpect(feeHistory, EARLIEST_MAINNET_GAS_PRICE_HEX);
+      });
+
+      it('eth_feeHistory on mirror 500 still returns zero', async function () {
+        restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(500, JSON.stringify({}));
+
+        const feeHistory = (await ethImpl.feeHistory(1, 'latest', null, requestDetails)) as FeeHistoryResult;
+        feeHistoryOnErrorExpect(feeHistory);
+      });
     });
   });
 
