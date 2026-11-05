@@ -88,6 +88,13 @@ export default {
   CACHE_TTL,
   DEFAULT_TINY_BAR_GAS: 72, // (853454 / 1000) * (1 / 12)
 
+  // First EthereumTransaction gas price in each network's fee schedule, in tinybars, for blocks recorded before it.
+  // mainnet: block 36,401,332 (fee schedule at 1660671751), testnet: block 2,425 (fee schedule at 1706820309)
+  EARLIEST_GAS_PRICE_TINYBARS_BY_CHAIN_ID: {
+    '0x127': 110,
+    '0x128': 71,
+  } as Record<string, number>,
+
   TYPE_CONTRACT: 'CONTRACT',
   TYPE_ACCOUNT: 'ACCOUNT',
   TYPE_TOKEN: 'TOKEN',
