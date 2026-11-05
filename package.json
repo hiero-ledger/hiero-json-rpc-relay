@@ -10,6 +10,13 @@
   "config": {
     "executionApisVersion": "v1.0.0-beta.7"
   },
+  "repository": {
+      "type": "git",
+      "url": "git+https://github.com/hiero-ledger/hiero-json-rpc-relay"
+  },
+  "bin": {
+      "hiero-relay": "./bin/hiero-relay.js"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@octokit/core": "7.0.8",
