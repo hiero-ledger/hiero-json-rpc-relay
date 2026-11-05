@@ -10,6 +10,7 @@ import { ConfigService } from '../../../../src/config-service/services';
 import { predefined } from '../../../../src/relay';
 import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
 import { type LockAcquisitionResult, RequestDetails } from '../../../../src/relay/lib/types';
+import { isRequestAbortedError, requestAbortReason } from '../../../../src/relay/lib/utils/requestAbort';
 import { signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -141,6 +142,25 @@ describe('eth_sendRawTransaction transaction tracing', function () {
       expect(record).to.not.be.null;
       expect(record!.status).to.equal('rejected');
       expect(record!.error).to.contain('Failed to save transaction to pool: pool write failed');
+    });
+
+    it('rethrows a client-abort error unchanged', async () => {
+      const { ethImpl, transactionTracingService } = generateEthTestEnv();
+      const transactionService = ethImpl['transactionService'] as unknown as TransactionServiceInternals;
+      const { parsedTx } = await buildSignedTx();
+      const abortError = requestAbortReason('The client closed the connection before the response was written');
+
+      sinon
+        .stub(transactionService.accountService, 'getTransactionCounts')
+        .resolves({ confirmedCount: 0, pendingCount: 0, mirrorNodeArtifact: undefined });
+      sinon.stub(transactionService.transactionPoolService, 'saveTransaction').rejects(abortError);
+
+      const error = await transactionService.admitTransaction(parsedTx.from!, parsedTx, requestDetails).catch((e) => e);
+      expect(error).to.equal(abortError);
+      expect(isRequestAbortedError(error)).to.be.true;
+
+      const record = await transactionTracingService.getByHash(parsedTx.hash!);
+      expect(record).to.be.null;
     });
 
     it('traces an SDK timeout as timedout', async () => {

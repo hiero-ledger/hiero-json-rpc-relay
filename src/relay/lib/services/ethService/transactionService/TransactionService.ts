@@ -37,6 +37,7 @@ import type {
   RequestDetails,
   TypedEvents,
 } from '../../../types';
+import { isRequestAbortedError } from '../../../utils/requestAbort';
 import type HAPIService from '../../hapiService/hapiService';
 import type {
   IAccountService,
@@ -479,7 +480,7 @@ export class TransactionService implements ITransactionService {
       // save transaction to pool
       await this.transactionPoolService.saveTransaction(senderAddress, parsedTx, confirmedCount);
     } catch (error) {
-      if (error instanceof JsonRpcError) throw error;
+      if (error instanceof JsonRpcError || isRequestAbortedError(error)) throw error;
 
       // throw to clients instead of silently ignore because if ignored and still let the tx moves on to Lock 2 and CN.
       // CN can accept it. MN will reflect the nonce. But the pool never had the entry, and the txpool_ endpoints will
