@@ -2645,6 +2645,22 @@ describe('MirrorNodeClient', async function () {
       expect(result!.pre[1].storage).to.deep.equal({});
     });
 
+    [
+      { code: true, storage: true },
+      { code: false, storage: true },
+      { code: true, storage: false },
+      { code: false, storage: false },
+    ].forEach((params) => {
+      it(`should send code=${params.code} and storage=${params.storage}`, async () => {
+        const path = `contracts/results/${transactionHash}/prestate?code=${params.code}&storage=${params.storage}`;
+        mock.onGet(path).reply(200, JSON.stringify(mockPrestate));
+
+        const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails, params);
+
+        expect(result!.pre.length).to.equal(2);
+      });
+    });
+
     it('should return null when the transaction has no prestate', async () => {
       mock.onGet(prestatePath).reply(404, JSON.stringify(mockData.notFound));
 

@@ -652,7 +652,7 @@ export default class Assertions {
     expect(entityState.code).to.be.a('string').and.match(/^0x/);
     expect(entityState.storage).to.be.an('object');
 
-    for (const [slot, value] of Object.entries(entityState.storage)) {
+    for (const [slot, value] of Object.entries(entityState.storage ?? {})) {
       expect(slot).to.match(/^0x[0-9a-f]{64}$/);
       expect(value).to.match(/^0x[0-9a-f]{64}$/);
     }

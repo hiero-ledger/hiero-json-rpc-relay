@@ -11,4 +11,10 @@ export interface IOpcodeLoggerConfig {
   fullStorage?: boolean; // Non-standard parameter sometimes sent by Remix - ignored in implementation
 }
 
-export type ITracerConfig = ICallTracerConfig | IOpcodeLoggerConfig;
+export interface IPrestateTracerConfig {
+  disableCode?: boolean;
+  disableStorage?: boolean;
+  includeEmpty?: boolean;
+}
+
+export type ITracerConfig = ICallTracerConfig | IOpcodeLoggerConfig | IPrestateTracerConfig;

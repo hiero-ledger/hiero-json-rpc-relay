@@ -10,9 +10,14 @@ import { ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x, prepend0x, strip0x, toHexString } from '../../../src/relay/formatters';
+import { isEmptyAccount, numberTo0x, prepend0x, strip0x, toHexString } from '../../../src/relay/formatters';
 import constants, { TracerType } from '../../../src/relay/lib/constants';
-import { type CallTracerResult, type ITransactionReceipt, type TraceBlockTxResult } from '../../../src/relay/lib/types';
+import {
+  type CallTracerResult,
+  type EntityTraceStateMap,
+  type ITransactionReceipt,
+  type TraceBlockTxResult,
+} from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators/constants';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import type MirrorClient from '../clients/mirrorClient';
@@ -803,6 +808,110 @@ describe('@debug API Acceptance Tests', function () {
         expect(topCallOnly).to.deep.equal(allCalls);
       });
 
+      describe('options', () => {
+        let pingReceipt: ITransactionReceipt;
+        let updateCounterTxHash: string;
+
+        const traceWith = async (txHash: string, tracerConfig?: object): Promise<EntityTraceStateMap> => {
+          return relay.call(DEBUG_TRACE_TRANSACTION, [txHash, { tracer: TracerType.PrestateTracer, tracerConfig }]);
+        };
+
+        const omitFields = (prestate: EntityTraceStateMap, fields: string[]): EntityTraceStateMap => {
+          const result: EntityTraceStateMap = {};
+
+          for (const [address, state] of Object.entries(prestate)) {
+            result[address] = Object.fromEntries(
+              Object.entries(state).filter(([field]) => !fields.includes(field)),
+            ) as EntityTraceStateMap[string];
+          }
+
+          return result;
+        };
+
+        before(async function () {
+          // Basic was deployed without a nonce and holds no balance, so it only stays non-empty through its code.
+          const transaction = await Utils.buildTransaction(
+            relay,
+            basicContractAddress,
+            accounts[0].address,
+            BASIC_CONTRACT_PING_CALL_DATA,
+          );
+          pingReceipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+          const updateCounter = deployerContract.getFunction('updateCounter');
+          const updateCounterTx = await updateCounter(11);
+
+          await relay.pollForValidTransactionReceipt(updateCounterTx.hash);
+          updateCounterTxHash = updateCounterTx.hash;
+        });
+
+        it('@release should omit the code with disableCode and keep the rest', async function () {
+          const full = await traceWith(pingReceipt.transactionHash);
+          const withoutCode = await traceWith(pingReceipt.transactionHash, { disableCode: true });
+
+          expect(withoutCode).to.deep.equal(omitFields(full, ['code']));
+        });
+
+        it('should keep a contract with no nonce and no balance when dropping empty accounts', async function () {
+          const tracerConfig = { disableCode: true, includeEmpty: false };
+
+          const withoutCode = await traceWith(pingReceipt.transactionHash, tracerConfig);
+
+          expect(withoutCode).to.have.property(basicContractAddress.toLowerCase());
+        });
+
+        it('@release should omit the storage with disableStorage and keep the rest', async function () {
+          const full = await traceWith(updateCounterTxHash);
+          const withoutStorage = await traceWith(updateCounterTxHash, { disableStorage: true });
+
+          expect(full[deployerContractAddress.toLowerCase()].storage).to.not.be.empty;
+          expect(withoutStorage).to.deep.equal(omitFields(full, ['storage']));
+        });
+
+        it('should return only balance and nonce with disableCode and disableStorage', async function () {
+          const full = await traceWith(updateCounterTxHash);
+          const minimal = await traceWith(updateCounterTxHash, { disableCode: true, disableStorage: true });
+
+          expect(minimal).to.deep.equal(omitFields(full, ['code', 'storage']));
+        });
+
+        it('should keep empty accounts by default and drop only them with includeEmpty false', async function () {
+          const full = await traceWith(pingReceipt.transactionHash);
+          const withEmpty = await traceWith(pingReceipt.transactionHash, { includeEmpty: true });
+          const withoutEmpty = await traceWith(pingReceipt.transactionHash, { includeEmpty: false });
+
+          const droppedAccounts = Object.keys(full).filter((address) => !(address in withoutEmpty));
+
+          expect(full).to.deep.equal(withEmpty);
+          expect(full).to.deep.include(withoutEmpty);
+
+          for (const address of droppedAccounts) {
+            expect(isEmptyAccount(full[address])).to.be.true;
+          }
+        });
+
+        it('@release should apply the options when tracing a block', async function () {
+          const blockNumber = pingReceipt.blockNumber;
+          const tracerConfig = { disableCode: true, disableStorage: true };
+
+          const fullBlock = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+            blockNumber,
+            TRACER_CONFIGS.PRESTATE_TRACER,
+          ]);
+          const minimalBlock = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig },
+          ]);
+
+          const fullTrace = fullBlock.find((trace: TraceBlockTxResult) => trace.txHash === pingReceipt.transactionHash);
+          const minimalTrace = minimalBlock.find(
+            (trace: TraceBlockTxResult) => trace.txHash === pingReceipt.transactionHash,
+          );
+
+          expect(minimalTrace.result).to.deep.equal(omitFields(fullTrace.result, ['code', 'storage']));
+        });
+      });
+
       // Touched slots need mirror node v0.165.0 with `hiero.mirror.web3.api.prestate.enabled`. Without it the
       // relay falls back to the contract's full storage, so probe the endpoint directly and skip when it is off.
       describe('touched storage slots', () => {
@@ -1032,6 +1141,36 @@ describe('@debug API Acceptance Tests', function () {
           predefined.INVALID_PARAMETER(
             1,
             'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+          ),
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when using PrestateTracer config with CallTracer tracer', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.CallTracer,
+          tracerConfig: { disableCode: true },
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER(
+            1,
+            'prestateTracer config properties for TracerConfigWrapper are only valid when tracer=prestateTracer',
+          ),
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when using disableStorage with CallTracer tracer', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.CallTracer,
+          tracerConfig: { disableStorage: true },
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER(
+            1,
+            'opcodeLogger/prestateTracer config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger or tracer=prestateTracer',
           ),
         );
       });

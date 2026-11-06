@@ -95,6 +95,28 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
       },
     },
   },
+  prestateTracerConfig: {
+    name: 'PrestateTracerConfig',
+    failOnEmpty: true,
+    failOnUnexpectedParams: false,
+    properties: {
+      disableCode: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      disableStorage: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      includeEmpty: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+    },
+  },
   tracerConfigWrapper: {
     name: 'TracerConfigWrapper',
     failOnEmpty: true,
@@ -287,23 +309,13 @@ export function validateEthSubscribeLogsParamObject(param: unknown): boolean {
 export function validateTracerConfigWrapper(param: unknown): boolean {
   const schema = OBJECTS_VALIDATIONS.tracerConfigWrapper;
   const valid = validateSchema(schema, param);
-  const { tracer, tracerConfig } = param as { tracer?: unknown; tracerConfig?: Record<string, unknown> };
+  const { tracer, tracerConfig } = param as { tracer?: TracerType; tracerConfig?: Record<string, unknown> };
 
-  const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
   const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
 
   // Check for opcodeLogger config properties at the top level
   const topLevelKeys = Object.keys(param as object);
   const hasTopLevelOpcodeLoggerKeys = topLevelKeys.some((k) => opcodeLoggerKeys.includes(k));
-
-  // Check for tracer config properties in nested tracerConfig
-  let hasNestedCallTracerKeys = false;
-  let hasNestedOpcodeLoggerKeys = false;
-  if (tracerConfig) {
-    const configKeys = Object.keys(tracerConfig);
-    hasNestedCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
-    hasNestedOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
-  }
 
   // Don't allow both top-level and nested config properties at the same time
   if (hasTopLevelOpcodeLoggerKeys && tracerConfig) {
@@ -321,20 +333,44 @@ export function validateTracerConfigWrapper(param: unknown): boolean {
     );
   }
 
-  // Validate nested config properties with tracer types (existing logic)
-  if (hasNestedCallTracerKeys && tracer === TracerType.OpcodeLogger) {
-    throw predefined.INVALID_PARAMETER(
-      1,
-      `callTracer config properties for ${schema.name} are only valid when tracer=${TracerType.CallTracer}`,
-    );
-  }
-
-  if (hasNestedOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
-    throw predefined.INVALID_PARAMETER(
-      1,
-      `opcodeLogger config properties for ${schema.name} are only valid when tracer=${TracerType.OpcodeLogger}`,
-    );
+  if (tracerConfig) {
+    validateNestedTracerConfigKeys(tracer, Object.keys(tracerConfig), schema.name);
   }
 
   return valid;
+}
+
+const TRACER_CONFIG_SCHEMAS: Record<TracerType, IObjectSchema> = {
+  [TracerType.CallTracer]: OBJECTS_VALIDATIONS.callTracerConfig,
+  [TracerType.OpcodeLogger]: OBJECTS_VALIDATIONS.opcodeLoggerConfig,
+  [TracerType.PrestateTracer]: OBJECTS_VALIDATIONS.prestateTracerConfig,
+};
+
+/**
+ * Rejects a nested tracer config key that belongs to another tracer, naming every tracer that accepts it.
+ * Without an explicit tracer only callTracer keys are accepted, and `onlyTopCall` is also accepted
+ * (and ignored) for the prestateTracer, as in geth.
+ */
+function validateNestedTracerConfigKeys(
+  tracer: TracerType | undefined,
+  configKeys: string[],
+  schemaName: string,
+): void {
+  const allowedKeys = Object.keys(TRACER_CONFIG_SCHEMAS[tracer ?? TracerType.CallTracer].properties);
+  if (tracer === TracerType.PrestateTracer) {
+    allowedKeys.push(...Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties));
+  }
+
+  for (const key of configKeys) {
+    const owners = (Object.keys(TRACER_CONFIG_SCHEMAS) as TracerType[]).filter((tracerType) =>
+      Object.prototype.hasOwnProperty.call(TRACER_CONFIG_SCHEMAS[tracerType].properties, key),
+    );
+
+    if (owners.length > 0 && !allowedKeys.includes(key)) {
+      throw predefined.INVALID_PARAMETER(
+        1,
+        `${owners.join('/')} config properties for ${schemaName} are only valid when tracer=${owners.join(' or tracer=')}`,
+      );
+    }
+  }
 }

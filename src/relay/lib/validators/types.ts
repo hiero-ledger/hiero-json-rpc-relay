@@ -6,6 +6,7 @@ import { predefined } from '../errors/JsonRpcError';
 import {
   type ICallTracerConfig,
   type IOpcodeLoggerConfig,
+  type IPrestateTracerConfig,
   type ITracerConfig,
   type ITracerConfigWrapper,
 } from '../types';
@@ -206,13 +207,23 @@ export const TYPES = {
     },
     error: 'Expected OpcodeLoggerConfig',
   },
+  prestateTracerConfig: {
+    test: (param: unknown): param is IPrestateTracerConfig => {
+      if (param && typeof param === 'object') {
+        return validateSchema(OBJECTS_VALIDATIONS.prestateTracerConfig, param);
+      }
+      return false;
+    },
+    error: 'Expected PrestateTracerConfig',
+  },
   tracerConfig: {
     test: (param: unknown): param is ITracerConfig => {
       if (param && typeof param === 'object') {
         const isEmptyObject = Object.keys(param).length === 0;
         const isValidCallTracerConfig = TYPES.callTracerConfig.test(param);
         const isValidOpcodeLoggerConfig = TYPES.opcodeLoggerConfig.test(param);
-        return isEmptyObject || isValidCallTracerConfig || isValidOpcodeLoggerConfig;
+        const isValidPrestateTracerConfig = TYPES.prestateTracerConfig.test(param);
+        return isEmptyObject || isValidCallTracerConfig || isValidOpcodeLoggerConfig || isValidPrestateTracerConfig;
       }
       return false;
     },

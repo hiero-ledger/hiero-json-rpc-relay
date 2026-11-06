@@ -249,6 +249,16 @@ const isHex = (value: string): boolean => {
   return hexRegex.test(value);
 };
 
+/**
+ * Whether an account holds nothing: no nonce, no code and no balance. Storage is ignored, as in geth.
+ * The mirror node can report a missing nonce or code as null.
+ */
+const isEmptyAccount = (account: { balance: string; nonce?: number | null; code?: string | null }): boolean => {
+  const hasCode = !!account.code && account.code !== EMPTY_HEX;
+
+  return !account.nonce && !hasCode && BigInt(account.balance) === BigInt(0);
+};
+
 const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false): number | bigint | null => {
   if (value && value < 0) {
     // negative amount can be received only by CONTRACT_NEGATIVE_VALUE revert
@@ -290,6 +300,7 @@ export {
   strip0x,
   isValidEthereumAddress,
   isHex,
+  isEmptyAccount,
   ASCIIToHex,
   mapKeysAndValues,
   tinybarsToWeibars,
