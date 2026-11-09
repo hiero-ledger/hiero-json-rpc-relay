@@ -32,6 +32,11 @@ describe('RedisClientManager Test Suite', async function () {
       await expect(RedisClientManager.isConnected()).to.be.true;
     });
 
+    it('should apply REDIS_COMMAND_TIMEOUT_MS as the command timeout', async () => {
+      const client = await RedisClientManager.getClient(logger);
+      expect(client.options?.commandOptions?.timeout).to.equal(5000);
+    });
+
     it('should throw an error when the client is already connected', async () => {
       await expect(RedisClientManager.connect()).to.eventually.be.rejectedWith('Socket already opened');
       await expect(RedisClientManager.isConnected()).to.be.true;

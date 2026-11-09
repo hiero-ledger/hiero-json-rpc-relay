@@ -214,6 +214,73 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     });
   });
 
+  describe('getUniqueAddressCount', () => {
+    it('counts each address with pending transactions once, ignoring confirmed count keys', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp3, 0);
+
+      expect(await storage.getUniqueAddressCount()).to.equal(2);
+    });
+
+    it('keeps the address while it still has pending transactions', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
+
+      await storage.removeFromList(addr1, rlp1);
+
+      expect(await storage.getUniqueAddressCount()).to.equal(1);
+    });
+
+    it('drops the address once its last transaction is removed as rejected', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp2, 0);
+
+      await storage.removeFromList(addr1, rlp1);
+
+      expect(await storage.getUniqueAddressCount()).to.equal(1);
+    });
+
+    it('drops the address once its last transaction is removed as confirmed', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp2, 0);
+
+      await storage.removeFromListAndIncrementConfirmedCount(addr1, rlp1);
+
+      expect(await storage.getUniqueAddressCount()).to.equal(1);
+    });
+
+    it('stops counting an address once its pending set expires and prunes it on the next add', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await redisClient.zAdd('txpool:pending:addresses', { score: Date.now() - 1, value: addr1 });
+
+      expect(await storage.getUniqueAddressCount()).to.equal(0);
+
+      await storage.addToListAndSetConfirmedCount(addr2, rlp2, 0);
+      expect(await redisClient.zScore('txpool:pending:addresses', addr1)).to.be.null;
+      expect(await storage.getUniqueAddressCount()).to.equal(1);
+    });
+
+    it('drops an address whose pending set already expired when a removal arrives', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await redisClient.del('txpool:pending:' + addr1);
+
+      expect(await storage.removeFromList(addr1, rlp1)).to.be.false;
+      expect(await storage.getUniqueAddressCount()).to.equal(0);
+    });
+  });
+
+  describe('getAllTransactionCount', () => {
+    it('returns the number of pending transactions across all addresses', async () => {
+      await storage.addToListAndSetConfirmedCount(addr1, rlp1, 0);
+      await storage.addToListAndSetConfirmedCount(addr1, rlp2, 0);
+      await storage.addToListAndSetConfirmedCount(addr2, rlp3, 0);
+      await storage.removeFromList(addr1, rlp1);
+
+      expect(await storage.getAllTransactionCount()).to.equal(2);
+    });
+  });
+
   describe('removeAll', () => {
     it('deletes all txpool:pending:* keys', async () => {
       await storage.addToListAndSetConfirmedCount(addr1, tx1, 0);

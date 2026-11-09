@@ -34,6 +34,8 @@ import {
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
+  EARLIEST_MAINNET_GAS_PRICE_HEX,
+  NOT_FOUND_RES,
 } from './eth-config';
 import { asSdkClientProvider, generateEthTestEnv } from './eth-helpers';
 
@@ -197,6 +199,19 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         expect(receipts[1].transactionHash).to.equal(results[1].hash);
 
         expectValidReceipt(receipts[0], results[0], results[0].gas_used);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ CHAIN_ID: '0x127' }, () => {
+      it('should use the earliest recorded gas price when the fee schedule at the block has none', async function () {
+        setupStandardResponses();
+        restMock.onGet(`network/fees?timestamp=${BLOCK_TIMESTAMP}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+
+        const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+        assertExists(receipts);
+        expect(receipts.length).to.equal(2);
+        receipts.forEach((receipt) => expect(receipt.effectiveGasPrice).to.equal(EARLIEST_MAINNET_GAS_PRICE_HEX));
       });
     });
 

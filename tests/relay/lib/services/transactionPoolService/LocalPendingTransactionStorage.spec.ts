@@ -518,6 +518,15 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       expect(allPayloads.has(testRlp2)).to.be.true;
     });
 
+    it('should count all transactions across addresses', async () => {
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress1, testRlp2, 0);
+      await storage.addToListAndSetConfirmedCount(testAddress2, testRlp3, 0);
+      await storage.removeFromList(testAddress1, testRlp1);
+
+      expect(await storage.getAllTransactionCount()).to.equal(2);
+    });
+
     it('should clear all payloads when removeAll is called', async () => {
       await storage.addToListAndSetConfirmedCount(testAddress1, testRlp1, 0);
       await storage.addToListAndSetConfirmedCount(testAddress2, testRlp2, 0);
