@@ -406,6 +406,14 @@ export const METRICS = {
         name: 'rpc_websocket_active_newheads_polls',
         help: 'Relay websocket active newHeads polls count',
       }),
+      lagBlocks: gauge({
+        name: 'rpc_websocket_poller_lag_blocks',
+        help: 'Relay websocket poller blocks the latest block is ahead of the last handled one',
+      }),
+      failedPolls: counter({
+        name: 'rpc_websocket_poller_failed_polls_total',
+        help: 'Relay websocket poller failed polls count',
+      }),
     },
 
     /** Subscription metrics. */
