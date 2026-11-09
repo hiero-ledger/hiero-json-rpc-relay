@@ -1019,8 +1019,32 @@ describe('Validator', async () => {
       expect(validate({ tracer: prestateTracer, tracerConfig: { enableMemory: true } })).to.throw(error);
     });
 
+    it('accepts diffMode for prestateTracer', async () => {
+      expect(validate({ tracer: prestateTracer, tracerConfig: { diffMode: true } })).to.not.throw();
+      expect(validate({ tracer: prestateTracer, tracerConfig: { diffMode: false } })).to.not.throw();
+    });
+
+    it('accepts diffMode together with the other prestateTracer options', async () => {
+      const tracerConfig = { diffMode: true, disableCode: true, disableStorage: true, includeEmpty: true };
+
+      expect(validate({ tracer: prestateTracer, tracerConfig })).to.not.throw();
+    });
+
+    it('rejects diffMode for callTracer and opcodeLogger', async () => {
+      const tracerConfig = { diffMode: true };
+
+      expect(validate({ tracer: Constants.TracerType.CallTracer, tracerConfig })).to.throw(prestateOnlyError);
+      expect(validate({ tracer: Constants.TracerType.OpcodeLogger, tracerConfig })).to.throw(prestateOnlyError);
+    });
+
     it('rejects non-boolean prestateTracer options', async () => {
-      const invalidConfigs = [{ disableCode: 'yes' }, { includeEmpty: 1 }, { onlyTopCall: true, includeEmpty: 'yes' }];
+      const invalidConfigs = [
+        { disableCode: 'yes' },
+        { includeEmpty: 1 },
+        { onlyTopCall: true, includeEmpty: 'yes' },
+        { diffMode: 'yes' },
+        { disableCode: true, diffMode: 1 },
+      ];
 
       for (const tracerConfig of invalidConfigs) {
         const error = expectInvalidParam(
@@ -1437,6 +1461,7 @@ describe('Validator', async () => {
     it('returns true for a valid prestate tracer config', () => {
       expect(TYPES.tracerConfig.test({ disableCode: true })).to.be.true;
       expect(TYPES.tracerConfig.test({ includeEmpty: false })).to.be.true;
+      expect(TYPES.tracerConfig.test({ diffMode: true })).to.be.true;
     });
 
     it('returns false for an invalid config', () => {
