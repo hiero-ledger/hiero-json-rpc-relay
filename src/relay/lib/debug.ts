@@ -49,6 +49,7 @@ import type {
   IOpcodeLoggerConfig,
   IPrestateTracerConfig,
   OpcodeLoggerResult,
+  PrestateDiffResult,
   RequestDetails,
   TraceBlockTxResult,
   TransactionTracerConfig,
@@ -270,7 +271,7 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult> {
+  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult | PrestateDiffResult> {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -940,7 +941,7 @@ export class DebugImpl implements Debug {
   async prestateFromEndpoint(
     transactionHash: string,
     requestDetails: RequestDetails,
-    params: { code: boolean; storage: boolean },
+    params: { code: boolean; storage: boolean; diff: boolean },
   ): Promise<EntityTraceStateMap | null> {
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}_${params.code}_${params.storage}`;
 
@@ -1036,6 +1037,7 @@ export class DebugImpl implements Debug {
     const endpointParams = {
       code: !disableCode || !includeEmpty,
       storage: !disableStorage,
+      diff: false,
     };
 
     const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails, endpointParams);

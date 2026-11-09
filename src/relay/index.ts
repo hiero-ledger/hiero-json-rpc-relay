@@ -16,6 +16,7 @@ import type {
   INewFilterParams,
   ITransactionReceipt,
   OpcodeLoggerResult,
+  PrestateDiffResult,
   RequestDetails,
   StateOverrideSet,
   TraceBlockTxResult,
@@ -32,7 +33,7 @@ export interface Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ) => Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult>;
+  ) => Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult | PrestateDiffResult>;
 
   traceBlockByNumber(
     blockNumber: string,

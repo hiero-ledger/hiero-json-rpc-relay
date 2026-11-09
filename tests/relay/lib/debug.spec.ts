@@ -3125,8 +3125,8 @@ describe('Debug API Test Suite', async function () {
   });
 
   describe('prestate endpoint and fallback', async function () {
-    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true`;
-    const fullParams = { code: true, storage: true };
+    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=false`;
+    const fullParams = { code: true, storage: true, diff: false };
     const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
     const slot = '0x0000000000000000000000000000000000000000000000000000000000000001';
     const value = '0x0000000000000000000000000000000000000000000000000000000000000024';
@@ -3280,7 +3280,7 @@ describe('Debug API Test Suite', async function () {
       const prestateWithEmpty = { ...mappedPrestate, [emptyAddress]: emptyAccount };
 
       const prestatePathFor = (code: boolean, storage: boolean): string =>
-        `contracts/results/${transactionHash}/prestate?code=${code}&storage=${storage}`;
+        `contracts/results/${transactionHash}/prestate?code=${code}&storage=${storage}&diff=false`;
 
       const replyWithoutCode = (): [number, string] => {
         const pre = responseWithEmpty.pre.map((trace) => ({ ...trace, code: null }));
