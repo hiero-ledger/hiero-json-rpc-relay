@@ -6,8 +6,13 @@ import type {
   IPrestateAccountTrace,
   IPrestateResponse,
 } from '../../../../src/relay/lib/clients/models/IPrestateResponse';
-import type { EntityTraceState, EntityTraceStateMap } from '../../../../src/relay/lib/types';
-import { applyPrestateTracerConfig, mapPrestateResponse } from '../../../../src/relay/lib/utils/prestate';
+import type { EntityTraceState, EntityTraceStateMap, PrestateDiffResult } from '../../../../src/relay/lib/types';
+import {
+  applyPrestateDiffConfig,
+  applyPrestateTracerConfig,
+  mapPrestateDiffResponse,
+  mapPrestateResponse,
+} from '../../../../src/relay/lib/utils/prestate';
 
 describe('mapPrestateResponse', function () {
   const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
@@ -186,5 +191,170 @@ describe('applyPrestateTracerConfig', function () {
     applyPrestateTracerConfig(input, { disableCode: true, disableStorage: true });
 
     expect(input).to.deep.equal(prestate);
+  });
+});
+
+describe('mapPrestateDiffResponse', function () {
+  const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+  const senderAddress = '0x00000000000000000000000000000000000003f6';
+  const createdAddress = '0x00000000000000000000000000000000000004d2';
+  const changedSlot = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const readSlot = '0x0000000000000000000000000000000000000000000000000000000000000002';
+  const clearedSlot = '0x0000000000000000000000000000000000000000000000000000000000000003';
+  const zero = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  const one = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const seven = '0x0000000000000000000000000000000000000000000000000000000000000007';
+
+  const contractPre: IPrestateAccountTrace = {
+    address: contractAddress,
+    balance: '0x0',
+    code: '0x6080604052',
+    nonce: 1,
+    storage: { [changedSlot]: one, [readSlot]: one, [clearedSlot]: one },
+  };
+
+  const senderPre: IPrestateAccountTrace = {
+    address: senderAddress,
+    balance: '0x64',
+    code: null,
+    nonce: 4,
+    storage: {},
+  };
+
+  const unchanged = { balance: null, code: null, nonce: null, storage: null };
+
+  it('keys both sides by lowercase address and leaves unchanged fields out of post', function () {
+    const upperSender = senderAddress.toUpperCase().replace('0X', '0x');
+    const response: IPrestateResponse = {
+      pre: [{ ...senderPre, address: upperSender }],
+      post: [{ ...unchanged, address: upperSender, balance: '0x32', nonce: 5 }],
+    };
+
+    const result = mapPrestateDiffResponse(response);
+
+    expect(result.pre).to.deep.equal({ [senderAddress]: { balance: '0x64', nonce: 4, code: '0x', storage: {} } });
+    expect(result.post).to.deep.equal({ [senderAddress]: { balance: '0x32', nonce: 5 } });
+  });
+
+  it('shows a changed slot with its old value in pre and its new value in post', function () {
+    const response: IPrestateResponse = {
+      pre: [contractPre],
+      post: [{ ...unchanged, address: contractAddress, storage: { [changedSlot]: seven } }],
+    };
+
+    const result = mapPrestateDiffResponse(response);
+
+    expect(result.pre[contractAddress].storage).to.deep.equal({ [changedSlot]: one });
+    expect(result.post[contractAddress]).to.deep.equal({ storage: { [changedSlot]: seven } });
+  });
+
+  it('leaves a slot that did not change out of pre', function () {
+    const response: IPrestateResponse = {
+      pre: [contractPre],
+      post: [{ ...unchanged, address: contractAddress, storage: { [changedSlot]: seven } }],
+    };
+
+    const result = mapPrestateDiffResponse(response);
+
+    expect(result.pre[contractAddress].storage).to.not.have.property(readSlot);
+  });
+
+  it('shows a slot written to zero in pre only', function () {
+    const response: IPrestateResponse = {
+      pre: [contractPre],
+      post: [{ ...unchanged, address: contractAddress, storage: { [clearedSlot]: zero } }],
+    };
+
+    const result = mapPrestateDiffResponse(response);
+
+    expect(result.pre[contractAddress].storage).to.deep.equal({ [clearedSlot]: one });
+    expect(result.post[contractAddress]).to.deep.equal({});
+  });
+
+  it('keeps an account created by the transaction in post only', function () {
+    const created = {
+      address: createdAddress,
+      balance: '0x0',
+      code: '0x6080',
+      nonce: 1,
+      storage: { [changedSlot]: one },
+    };
+
+    const result = mapPrestateDiffResponse({ pre: [], post: [created] });
+
+    expect(result.pre).to.deep.equal({});
+    expect(result.post).to.deep.equal({
+      [createdAddress]: { balance: '0x0', code: '0x6080', nonce: 1, storage: { [changedSlot]: one } },
+    });
+  });
+
+  it('keeps the full state of an account deleted by the transaction in pre', function () {
+    const result = mapPrestateDiffResponse({ pre: [contractPre], post: [] });
+
+    expect(result.pre[contractAddress].storage).to.deep.equal(contractPre.storage);
+    expect(result.post).to.deep.equal({});
+  });
+
+  it('returns empty sides for an empty or missing response', function () {
+    expect(mapPrestateDiffResponse({ pre: [] })).to.deep.equal({ pre: {}, post: {} });
+    expect(mapPrestateDiffResponse(undefined as unknown as IPrestateResponse)).to.deep.equal({ pre: {}, post: {} });
+  });
+
+  it('skips post entries without an address', function () {
+    const response = { pre: [], post: [{ ...unchanged, balance: '0x1' }] } as unknown as IPrestateResponse;
+
+    expect(mapPrestateDiffResponse(response).post).to.deep.equal({});
+  });
+});
+
+describe('applyPrestateDiffConfig', function () {
+  const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+  const emptyAddress = '0x00000000000000000000000000000000000004d2';
+  const slot = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const one = '0x0000000000000000000000000000000000000000000000000000000000000001';
+  const seven = '0x0000000000000000000000000000000000000000000000000000000000000007';
+
+  const diff: PrestateDiffResult = {
+    pre: {
+      [contractAddress]: { balance: '0x0', nonce: 1, code: '0x6080', storage: { [slot]: one } },
+      [emptyAddress]: { balance: '0x0', nonce: 0, code: '0x', storage: {} },
+    },
+    post: {
+      [contractAddress]: { code: '0x6081', storage: { [slot]: seven } },
+      [emptyAddress]: { balance: '0x1' },
+    },
+  };
+
+  it('returns the diff unchanged by default', function () {
+    expect(applyPrestateDiffConfig(diff)).to.deep.equal(diff);
+  });
+
+  it('omits the code from both sides with disableCode', function () {
+    const result = applyPrestateDiffConfig(diff, { disableCode: true });
+
+    expect(result.pre[contractAddress]).to.not.have.property('code');
+    expect(result.post[contractAddress]).to.deep.equal({ storage: { [slot]: seven } });
+  });
+
+  it('omits the storage from both sides with disableStorage', function () {
+    const result = applyPrestateDiffConfig(diff, { disableStorage: true });
+
+    expect(result.pre[contractAddress]).to.not.have.property('storage');
+    expect(result.post[contractAddress]).to.deep.equal({ code: '0x6081' });
+  });
+
+  it('drops empty accounts from pre only with includeEmpty false', function () {
+    const result = applyPrestateDiffConfig(diff, { includeEmpty: false });
+
+    expect(result.pre).to.not.have.property(emptyAddress);
+    expect(result.post[emptyAddress]).to.deep.equal({ balance: '0x1' });
+  });
+
+  it('does not modify its input', function () {
+    const input = structuredClone(diff);
+
+    applyPrestateDiffConfig(input, { disableCode: true, disableStorage: true, includeEmpty: false });
+
+    expect(input).to.deep.equal(diff);
   });
 });
