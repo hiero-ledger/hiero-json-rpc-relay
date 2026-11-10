@@ -23,14 +23,18 @@ interface NewHeadsNotification {
   params: { subscription: string; result: Record<string, unknown> & { transactions: unknown[] } };
 }
 
+/** Verifies a head that holds transactions, returning true when that ends the test. */
 function verifyResponse(
   response: NewHeadsNotification,
   // eslint-disable-next-line no-undef
   done: Mocha.Done,
   webSocket: WebSocket,
   includeTransactions: boolean,
-): void {
+): boolean {
   if (response?.params?.result?.transactions?.length > 0) {
+    // Later heads must not end the test a second time.
+    webSocket.removeAllListeners('message');
+    webSocket.close();
     try {
       expect(response).to.have.property('jsonrpc', '2.0');
       expect(response).to.have.property('method', 'eth_subscription');
@@ -81,10 +85,11 @@ function verifyResponse(
       }
       done();
     } catch (error) {
-      webSocket.close();
       done(error);
     }
+    return true;
   }
+  return false;
 }
 
 describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
@@ -253,8 +258,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
         const response = JSON.parse(data.toString());
 
         responseCounter++;
-        verifyResponse(response, done, webSocket, true);
-        if (responseCounter > 1) {
+        if (!verifyResponse(response, done, webSocket, true) && responseCounter > 1) {
           webSocket.close();
           done();
         }
@@ -282,8 +286,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
         const response = JSON.parse(data.toString());
 
         responseCounter++;
-        verifyResponse(response, done, webSocket, false);
-        if (responseCounter > 1) {
+        if (!verifyResponse(response, done, webSocket, false) && responseCounter > 1) {
           webSocket.close();
           done();
         }
@@ -311,8 +314,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
         const response = JSON.parse(data.toString());
 
         responseCounter++;
-        verifyResponse(response, done, webSocket, false);
-        if (responseCounter > 1) {
+        if (!verifyResponse(response, done, webSocket, false) && responseCounter > 1) {
           webSocket.close();
           done();
         }
