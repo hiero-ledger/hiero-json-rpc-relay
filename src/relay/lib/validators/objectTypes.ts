@@ -115,6 +115,11 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
         nullable: false,
         required: false,
       },
+      diffMode: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
     },
   },
   tracerConfigWrapper: {

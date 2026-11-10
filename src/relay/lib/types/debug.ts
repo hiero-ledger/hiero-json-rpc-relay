@@ -41,6 +41,21 @@ export interface EntityTraceState {
 export type EntityTraceStateMap = Record<string, EntityTraceState>;
 
 /**
+ * The fields of an entity that a transaction changed, as reported in diff mode's `post`.
+ */
+export type ChangedEntityTraceState = Partial<EntityTraceState>;
+
+/**
+ * Represents the result of a prestateTracer operation in diff mode.
+ */
+export interface PrestateDiffResult {
+  /** The accounts the transaction changed, as they were before it. */
+  pre: EntityTraceStateMap;
+  /** Only the fields the transaction changed, with their new values. */
+  post: Record<string, ChangedEntityTraceState>;
+}
+
+/**
  * Represents the result of a callTracer operation for a transaction.
  */
 export interface CallTracerResult {

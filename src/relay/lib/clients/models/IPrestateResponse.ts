@@ -10,6 +10,15 @@ export interface IPrestateAccountTrace {
   storage: Record<string, string>;
 }
 
+export interface IPrestatePostAccountTrace {
+  address: string;
+  balance: string | null;
+  code: string | null;
+  nonce: number | null;
+  storage: Record<string, string> | null;
+}
+
 export interface IPrestateResponse {
   pre: IPrestateAccountTrace[];
+  post?: IPrestatePostAccountTrace[];
 }

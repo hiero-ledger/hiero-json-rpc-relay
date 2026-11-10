@@ -2609,7 +2609,7 @@ describe('MirrorNodeClient', async function () {
 
   describe('getContractResultPrestate', async () => {
     const transactionHash = '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392';
-    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true`;
+    const prestatePath = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=false`;
 
     const mockPrestate = {
       pre: [
@@ -2646,19 +2646,45 @@ describe('MirrorNodeClient', async function () {
     });
 
     [
-      { code: true, storage: true },
-      { code: false, storage: true },
-      { code: true, storage: false },
-      { code: false, storage: false },
+      { code: true, storage: true, diff: false },
+      { code: false, storage: true, diff: false },
+      { code: true, storage: false, diff: false },
+      { code: false, storage: false, diff: false },
     ].forEach((params) => {
       it(`should send code=${params.code} and storage=${params.storage}`, async () => {
-        const path = `contracts/results/${transactionHash}/prestate?code=${params.code}&storage=${params.storage}`;
+        const path = `contracts/results/${transactionHash}/prestate?code=${params.code}&storage=${params.storage}&diff=false`;
         mock.onGet(path).reply(200, JSON.stringify(mockPrestate));
 
         const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails, params);
 
         expect(result!.pre.length).to.equal(2);
       });
+    });
+
+    it('should request the diff with diff=true', async () => {
+      const path = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=true`;
+      const post = [{ address: mockPrestate.pre[0].address, balance: '0x1', code: null, nonce: null, storage: null }];
+      mock.onGet(path).reply(200, JSON.stringify({ ...mockPrestate, post }));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails, {
+        code: true,
+        storage: true,
+        diff: true,
+      });
+
+      expect(result!.post).to.deep.equal(post);
+    });
+
+    it('should send diff=false when diff is false', async () => {
+      mock.onGet(prestatePath).reply(200, JSON.stringify(mockPrestate));
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails, {
+        code: true,
+        storage: true,
+        diff: false,
+      });
+
+      expect(result!.pre.length).to.equal(2);
     });
 
     it('should return null when the transaction has no prestate', async () => {

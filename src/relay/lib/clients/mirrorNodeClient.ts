@@ -1318,15 +1318,20 @@ export class MirrorNodeClient {
    *
    * @param transactionIdOrHash - The transaction to trace.
    * @param requestDetails - Details for request tracking and logging.
-   * @param params - Whether to include each account's code and storage. Both are included by default.
+   * @param params - Whether to include each account's code and storage, both by default, and whether to return
+   * the diff between the state before and after the transaction.
    * @returns The prestate response, or null when the transaction has none.
    */
   public async getContractResultPrestate(
     transactionIdOrHash: string,
     requestDetails: RequestDetails,
-    params: { code: boolean; storage: boolean } = { code: true, storage: true },
+    params: { code: boolean; storage: boolean; diff: boolean } = { code: true, storage: true, diff: false },
   ): Promise<IPrestateResponse | null> {
-    const queryParams = this.getQueryParams({ code: params.code, storage: params.storage });
+    const queryParams = this.getQueryParams({
+      code: params.code,
+      storage: params.storage,
+      diff: params.diff,
+    });
 
     return this.get<IPrestateResponse>(
       `${this.getContractResultsPrestateByTransactionIdPath(transactionIdOrHash)}${queryParams}`,

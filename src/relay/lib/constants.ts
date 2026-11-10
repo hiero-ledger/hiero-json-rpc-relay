@@ -26,7 +26,7 @@ enum CACHE_KEY {
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
   DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber',
   PRESTATE_TRACER = 'prestateTracer',
-  PRESTATE_TRACER_ENDPOINT = 'prestateTracerEndpoint',
+  PRESTATE_ENDPOINT_RESPONSE = 'prestateEndpointResponse',
   PRESTATE_ENDPOINT_UNSUPPORTED = 'prestateEndpointUnsupported',
 }
 
