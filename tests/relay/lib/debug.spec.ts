@@ -3159,12 +3159,12 @@ describe('Debug API Test Suite', async function () {
     });
 
     describe('prestateFromEndpoint', async function () {
-      it('should map and return the touched state', async function () {
+      it('should return the response of the endpoint', async function () {
         web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
 
         const result = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
 
-        expect(result).to.deep.equal(mappedPrestate);
+        expect(result).to.deep.equal(prestateResponse);
       });
 
       it('should serve a repeated trace from the cache', async function () {
@@ -3187,12 +3187,15 @@ describe('Debug API Test Suite', async function () {
       // A disabled endpoint stays disabled until someone changes the mirror node config, so it is remembered.
       it('should stop requesting the endpoint after a 501', async function () {
         web3Mock.onGet(prestatePath).reply(501, JSON.stringify({ _status: { messages: [{ message: 'Disabled' }] } }));
+        const disabledMessage = 'The mirror node prestate endpoint is disabled on this network';
 
-        const first = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
-        const second = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
+        await expect(debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams)).to.be.rejectedWith(
+          disabledMessage,
+        );
+        await expect(debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams)).to.be.rejectedWith(
+          disabledMessage,
+        );
 
-        expect(first).to.be.null;
-        expect(second).to.be.null;
         expect(web3Mock.history.get.filter((call) => call.url === prestatePath)).to.have.lengthOf(1);
       });
 
@@ -3203,11 +3206,13 @@ describe('Debug API Test Suite', async function () {
             .onGet(prestatePath)
             .reply(statusCode, JSON.stringify({ _status: { messages: [{ message: 'Transient' }] } }));
 
-          const first = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
-          const second = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
+          await expect(
+            debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams),
+          ).to.be.rejected.and.eventually.have.property('statusCode', statusCode);
+          await expect(
+            debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams),
+          ).to.be.rejected.and.eventually.have.property('statusCode', statusCode);
 
-          expect(first).to.be.null;
-          expect(second).to.be.null;
           expect(web3Mock.history.get.filter((call) => call.url === prestatePath)).to.have.lengthOf(2);
         });
       });
@@ -3234,7 +3239,7 @@ describe('Debug API Test Suite', async function () {
         expect(fallbackStub.called).to.be.false;
       });
 
-      [501, 404].forEach((statusCode) => {
+      [501, 404, 429, 503].forEach((statusCode) => {
         it(`should fall back to the contract state on a ${statusCode}`, async function () {
           web3Mock.onGet(prestatePath).reply(statusCode, JSON.stringify({ _status: { messages: [] } }));
           const fallbackStub = sinon.stub(debugService, 'prestateFromContractState').resolves(mappedPrestate);
@@ -3246,6 +3251,17 @@ describe('Debug API Test Suite', async function () {
         });
       });
 
+      it('should fall back to the contract state when the endpoint is remembered as disabled', async function () {
+        await cacheService.set(constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED, true, 'test');
+        const fallbackStub = sinon.stub(debugService, 'prestateFromContractState').resolves(mappedPrestate);
+
+        const result = await debugService.prestateTracer(transactionHash, {}, requestDetails);
+
+        expect(result).to.deep.equal(mappedPrestate);
+        expect(fallbackStub.calledOnce).to.be.true;
+        expect(web3Mock.history.get).to.be.empty;
+      });
+
       // The two sources return different storage, so neither may read what the other cached.
       it('should ignore a cached fallback result when reading the endpoint', async function () {
         const fallbackResult = { [contractEvmAddress]: { balance: '0x1', nonce: 1, code: '0x', storage: {} } };
@@ -3254,12 +3270,12 @@ describe('Debug API Test Suite', async function () {
 
         const result = await debugService.prestateFromEndpoint(transactionHash, requestDetails, fullParams);
 
-        expect(result).to.deep.equal(mappedPrestate);
+        expect(result).to.deep.equal(prestateResponse);
       });
 
       it('should ignore a cached endpoint result when reading the fallback', async function () {
         await cacheService.set(
-          `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}_true_true`,
+          `${constants.CACHE_KEY.PRESTATE_ENDPOINT_RESPONSE}_${transactionHash}_true_true_false`,
           mappedPrestate,
           'test',
         );
@@ -3364,7 +3380,7 @@ describe('Debug API Test Suite', async function () {
 
           expect(requestedUrls()).to.deep.equal([prestatePathFor(true, true), prestatePathFor(true, false)]);
           expect(full).to.deep.equal(prestateWithEmpty);
-          expect(withoutStorage[contractEvmAddress]).to.not.have.property('storage');
+          expect((withoutStorage as EntityTraceStateMap)[contractEvmAddress]).to.not.have.property('storage');
           expect(fullAgain).to.deep.equal(prestateWithEmpty);
         });
 
@@ -3436,6 +3452,155 @@ describe('Debug API Test Suite', async function () {
 
           expect(cached).to.deep.equal(prestateWithEmpty);
         });
+      });
+    });
+
+    describe('diff mode', async function () {
+      const diffPath = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=true`;
+      const syntheticDiffPath = `contracts/results/${syntheticTxHash}/prestate?code=true&storage=true&diff=true`;
+      const newValue = '0x0000000000000000000000000000000000000000000000000000000000000025';
+      const unsupportedMessage =
+        'diffMode requires the mirror node prestate endpoint, which is disabled on this network';
+
+      const diffResponse = {
+        pre: prestateResponse.pre,
+        post: [{ address: contractEvmAddress, balance: null, code: null, nonce: null, storage: { [slot]: newValue } }],
+      };
+
+      const expectedDiff = {
+        pre: mappedPrestate,
+        post: { [contractEvmAddress]: { storage: { [slot]: newValue } } },
+      };
+
+      const diffRequests = (): (string | undefined)[] =>
+        web3Mock.history.get.filter((call) => call.url?.includes('diff=true')).map((call) => call.url);
+
+      afterEach(() => {
+        sinon.restore();
+      });
+
+      afterEach(() => {
+        sinon.restore();
+      });
+
+      it('should return the diff from the endpoint', async function () {
+        web3Mock.onGet(diffPath).reply(200, JSON.stringify(diffResponse));
+
+        const result = await debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails);
+
+        expect(result).to.deep.equal(expectedDiff);
+      });
+
+      it('should apply the prestateTracer options to both sides', async function () {
+        web3Mock
+          .onGet(`contracts/results/${transactionHash}/prestate?code=false&storage=true&diff=true`)
+          .reply(200, JSON.stringify(diffResponse));
+
+        const result = await debugService.prestateTracer(
+          transactionHash,
+          { diffMode: true, disableCode: true },
+          requestDetails,
+        );
+
+        expect(result).to.deep.equal({
+          pre: { [contractEvmAddress]: { balance: '0xe8d4a51000', nonce: 3, storage: { [slot]: value } } },
+          post: { [contractEvmAddress]: { storage: { [slot]: newValue } } },
+        });
+      });
+
+      it('should cache the diff apart from the prestate', async function () {
+        web3Mock.onGet(prestatePath).reply(200, JSON.stringify(prestateResponse));
+        web3Mock.onGet(diffPath).reply(200, JSON.stringify(diffResponse));
+
+        const prestate = await debugService.prestateTracer(transactionHash, {}, requestDetails);
+        const diff = await debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails);
+        const diffAgain = await debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails);
+
+        expect(prestate).to.deep.equal(mappedPrestate);
+        expect(diff).to.deep.equal(expectedDiff);
+        expect(diffAgain).to.deep.equal(expectedDiff);
+        expect(diffRequests()).to.have.lengthOf(1);
+      });
+
+      it('should report a disabled endpoint as unsupported and remember it', async function () {
+        web3Mock.onGet(diffPath).reply(501, JSON.stringify({ _status: { messages: [{ message: 'Disabled' }] } }));
+
+        await expect(
+          debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails),
+        ).to.be.rejectedWith(unsupportedMessage);
+        await expect(
+          debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails),
+        ).to.be.rejectedWith(unsupportedMessage);
+
+        expect(diffRequests()).to.have.lengthOf(1);
+      });
+
+      it('should report the endpoint as unsupported when prestate mode found it disabled', async function () {
+        await cacheService.set(constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED, true, 'test');
+
+        await expect(
+          debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails),
+        ).to.be.rejectedWith(unsupportedMessage);
+
+        expect(web3Mock.history.get).to.be.empty;
+      });
+
+      // A transient failure is not the network turning the feature off, so it is neither remembered nor renamed.
+      [429, 503].forEach((statusCode) => {
+        it(`should pass a ${statusCode} on without remembering it`, async function () {
+          web3Mock
+            .onGet(diffPath)
+            .reply(statusCode, JSON.stringify({ _status: { messages: [{ message: 'Transient' }] } }));
+
+          await expect(
+            debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails),
+          ).to.be.rejected.and.eventually.have.property('statusCode', statusCode);
+
+          const remembered = await cacheService.getAsync(constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED, 'test');
+          expect(remembered).to.not.be.ok;
+        });
+      });
+
+      it('should never fall back to the contract state', async function () {
+        web3Mock.onGet(diffPath).reply(501, JSON.stringify({ _status: { messages: [] } }));
+        const fallbackStub = sinon.stub(debugService, 'prestateFromContractState');
+
+        await expect(debugService.prestateTracer(transactionHash, { diffMode: true }, requestDetails)).to.be.rejected;
+
+        expect(fallbackStub.called).to.be.false;
+      });
+
+      it('should return an empty diff for a synthetic transaction', async function () {
+        web3Mock.onGet(syntheticDiffPath).reply(404, JSON.stringify({ _status: { messages: [] } }));
+        restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+
+        const result = await debugService.prestateTracer(syntheticTxHash, { diffMode: true }, requestDetails);
+
+        expect(result).to.deep.equal({ pre: {}, post: {} });
+      });
+
+      it('should throw RESOURCE_NOT_FOUND for a transaction the mirror node does not know', async function () {
+        web3Mock.onGet(syntheticDiffPath).reply(404, JSON.stringify({ _status: { messages: [] } }));
+        restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
+
+        await expect(
+          debugService.prestateTracer(syntheticTxHash, { diffMode: true }, requestDetails),
+        ).to.be.rejectedWith('Failed to retrieve transaction information');
+      });
+
+      it('should reject diffMode on the block tracers without calling the mirror node', async function () {
+        const blockStub = sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse');
+        const tracerObject = { tracer: TracerType.PrestateTracer, tracerConfig: { diffMode: true } };
+        const blockOnlyMessage = 'diffMode is only supported by debug_traceTransaction';
+
+        await expect(debugService.traceBlockByNumber('0x1', tracerObject, requestDetails)).to.be.rejectedWith(
+          blockOnlyMessage,
+        );
+        await expect(
+          debugService.traceBlockByHash(`0x${'a'.repeat(64)}`, tracerObject, requestDetails),
+        ).to.be.rejectedWith(blockOnlyMessage);
+
+        expect(blockStub.called).to.be.false;
       });
     });
   });
