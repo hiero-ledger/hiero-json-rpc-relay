@@ -48,7 +48,7 @@ function verifyAggregatedInfo(result: Transaction | null): void {
     expect(result.blockHash).equal(BLOCK_HASH_TRIMMED);
     expect(result.blockNumber).equal(BLOCK_NUMBER_HEX);
     expect(result.hash).equal(CONTRACT_HASH_1);
-    expect(result.to).equal(CONTRACT_ADDRESS_1);
+    expect(result.to).to.be.null;
   }
 }
 
@@ -291,6 +291,50 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
     );
     verifyAggregatedInfo(result);
     expect(result).to.have.property('authorizationList').that.deep.equal(DEFAULT_AUTHORIZATION_LIST);
+  });
+
+  it('eth_getTransactionByBlockNumberAndIndex keeps the to field of a contract call', async function () {
+    const call = defaultContractResults.results[1];
+    restMock
+      .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
+      .reply(200, JSON.stringify({ results: [call] }));
+    restMock.onGet(`blocks/${call.block_hash}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+    const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+      numberTo0x(DEFAULT_BLOCK.number),
+      numberTo0x(DEFAULT_BLOCK.count),
+      requestDetails,
+    );
+
+    expect(result?.to).to.equal(call.to);
+  });
+
+  it('eth_getTransactionByBlockNumberAndIndex returns a null to field for a deployment imported from the block stream', async function () {
+    const transactionId = '0.0.2-1651560380-000000000';
+    const deployment = { ...defaultContractResults.results[0], created_contract_ids: [] };
+    restMock
+      .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
+      .reply(200, JSON.stringify({ results: [deployment] }));
+    restMock
+      .onGet(`blocks/${deployment.block_hash}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
+    restMock
+      .onGet(`transactions?timestamp=${deployment.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: transactionId }] }));
+    restMock.onGet(`transactions/${transactionId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: deployment.contract_id }],
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+      numberTo0x(DEFAULT_BLOCK.number),
+      numberTo0x(DEFAULT_BLOCK.count),
+      requestDetails,
+    );
+
+    expect(result?.to).to.be.null;
   });
 
   describe('synthetic transaction handling', function () {

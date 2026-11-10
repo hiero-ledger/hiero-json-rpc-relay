@@ -142,6 +142,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(`contracts/${defaultContractResults.results[1].to}`).reply(200);
     restMock.onGet(`tokens/${defaultContractResults.results[0].contract_id}`).reply(200);
     restMock.onGet(`tokens/${defaultContractResults.results[1].contract_id}`).reply(200);
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
   });
 
   this.afterEach(() => {
@@ -405,6 +406,58 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       RelayAssertions.verifyBlockConstants(result);
       expect(result.receiptsRoot).to.equal(DEFAULT_BLOCK_RECEIPTS_ROOT_HASH);
     }
+  });
+
+  it('eth_getBlockByNumber with match and details returns a null to field for a contract deployment', async function () {
+    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
+    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+
+    const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), true, requestDetails);
+
+    const transactions = result?.transactions as Transaction[];
+    expect(transactions[0].to).to.be.null;
+    expect(transactions[1].to).to.equal(CONTRACT_ADDRESS_2);
+  });
+
+  it('eth_getBlockByNumber with match and details returns a null to field for a deployment imported from the block stream', async function () {
+    const [deployment, call] = defaultContractResults.results;
+    const deploymentTxId = '0.0.2-1651560380-000000000';
+    const callTxId = '0.0.2-1651560381-000000000';
+    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock
+      .onGet(`blocks/${BLOCK_HASH}`)
+      .reply(200, JSON.stringify({ ...DEFAULT_BLOCK, name: '0000000000000001234.blk.zstd' }));
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
+    restMock
+      .onGet(CONTRACT_RESULTS_WITH_FILTER_URL)
+      .reply(200, JSON.stringify({ results: [{ ...deployment, created_contract_ids: [] }, call] }));
+    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+    restMock
+      .onGet(`transactions?timestamp=${deployment.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: deploymentTxId }] }));
+    restMock.onGet(`transactions/${deploymentTxId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'CONTRACTCREATEINSTANCE', nonce: 1, entity_id: deployment.contract_id }],
+      }),
+    );
+    restMock
+      .onGet(`transactions?timestamp=${call.timestamp}`)
+      .reply(200, JSON.stringify({ transactions: [{ name: 'ETHEREUMTRANSACTION', transaction_id: callTxId }] }));
+    restMock.onGet(`transactions/${callTxId}`).reply(
+      200,
+      JSON.stringify({
+        transactions: [{ name: 'ETHEREUMTRANSACTION', nonce: 0, entity_id: call.contract_id }],
+      }),
+    );
+
+    const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), true, requestDetails);
+
+    const transactions = result?.transactions as Transaction[];
+    expect(transactions[0].to).to.be.null;
+    expect(transactions[1].to).to.equal(CONTRACT_ADDRESS_2);
   });
 
   it('eth_getBlockByNumber with match and details and synthetic transactions', async function () {
