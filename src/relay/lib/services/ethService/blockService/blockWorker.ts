@@ -316,16 +316,19 @@ async function prepareTransactionArray(
     return uniqueContractResults.map((cr) => cr.hash);
   }
 
-  const [fromAddressMap, toAddressMap] = await resolveContractResultAddresses(
+  const [fromAddressMap, toAddressMap, deploymentHashes] = await resolveContractResultAddresses(
     ctx,
     uniqueContractResults,
     requestDetails,
+    true,
   );
 
   return uniqueContractResults
     .map((contractResult) => {
       contractResult.from = fromAddressMap.get(contractResult.from) ?? contractResult.from;
-      if (contractResult.to !== null) {
+      if (deploymentHashes.has(contractResult.hash)) {
+        contractResult.to = null;
+      } else if (contractResult.to !== null) {
         contractResult.to = toAddressMap.get(contractResult.to) ?? contractResult.to;
       }
       contractResult.chain_id = contractResult.chain_id || chain;
