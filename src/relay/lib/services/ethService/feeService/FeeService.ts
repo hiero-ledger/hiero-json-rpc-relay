@@ -10,6 +10,7 @@ import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { type JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { type IFeeHistory, type MirrorNodeBlock, type RequestDetails } from '../../../types';
+import { isRequestAbortedError } from '../../../utils/requestAbort';
 import { type ICommonService } from '../ethCommonService/ICommonService';
 import { type IFeeService } from '../feeService/IFeeService';
 
@@ -116,6 +117,8 @@ export class FeeService implements IFeeService {
 
       return feeHistory;
     } catch (e) {
+      if (isRequestAbortedError(e)) throw e;
+
       const feeHistoryEmptyResponse: IFeeHistory = {
         baseFeePerGas: [],
         gasUsedRatio: [],
@@ -260,6 +263,8 @@ export class FeeService implements IFeeService {
       );
       return new Map(blocks.map((block) => [block.number, block] as [number, MirrorNodeBlock]));
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.warn(
         error,
         `Fee history: unable to batch-fetch blocks for range %s-%s; resolving blocks individually`,
@@ -300,6 +305,8 @@ export class FeeService implements IFeeService {
           return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
         }
       } catch (error) {
+        if (isRequestAbortedError(error)) throw error;
+
         this.logger.warn(
           error,
           `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
@@ -321,6 +328,8 @@ export class FeeService implements IFeeService {
 
       return { fee, gasUsedRatio };
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.warn(error, `Fee history cannot retrieve fee. Returning zero fee for block %s`, blockNumber);
       return { fee: constants.ZERO_HEX, gasUsedRatio };
     }
