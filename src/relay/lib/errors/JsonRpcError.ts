@@ -142,6 +142,10 @@ export const predefined = {
       code: -32000,
       message: `Request beyond head block: requested ${requested}, head ${latest}`,
     }),
+  GET_LOGS_RELAY_BUSY: new JsonRpcError({
+    code: -32005,
+    message: 'eth_getLogs memory limit reached on the relay, try again later',
+  }),
   REQUEST_TIMEOUT: new JsonRpcError({
     code: -32010,
     message: 'Request timeout. Please try again.',
