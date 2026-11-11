@@ -312,6 +312,8 @@ export class CommonService implements ICommonService {
     try {
       blocks = await this.mirrorNodeClient.getBlocksByRange(requestDetails, fromBlockNumber, toBlockNumber, pageMax);
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       this.logger.warn(
         error,
         `Timestamp slicing skipped: unable to fetch blocks %s-%s to size the slices`,
