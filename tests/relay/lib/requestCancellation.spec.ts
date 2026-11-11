@@ -11,11 +11,21 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
+import { type ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
+import constants, { TracerType } from '../../../src/relay/lib/constants';
+import { DebugImpl } from '../../../src/relay/lib/debug';
 import { JsonRpcError } from '../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
-import { CommonService, ContractService } from '../../../src/relay/lib/services';
+import {
+  CommonService,
+  ContractService,
+  type LockService,
+  type TransactionPoolService,
+  type TransactionTracingService,
+} from '../../../src/relay/lib/services';
+import { FeeService } from '../../../src/relay/lib/services/ethService/feeService/FeeService';
 import type HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
-import { RequestDetails } from '../../../src/relay/lib/types';
+import { type ContractAction, type MirrorNodeBlock, RequestDetails } from '../../../src/relay/lib/types';
 import {
   getRequestAbortSignal,
   isRequestAborted,
@@ -23,6 +33,7 @@ import {
   requestAbortReason,
   throwIfRequestAborted,
 } from '../../../src/relay/lib/utils/requestAbort';
+import { overrideEnvsInMochaDescribe } from '../helpers';
 
 chai.use(chaiAsPromised);
 
@@ -326,6 +337,181 @@ describe('Request cancellation', function () {
 
       await expect(contractService.estimateGas({}, null, requestDetails)).to.be.rejectedWith(abortError);
       expect(loggerErrorSpy.called).to.equal(false);
+    });
+  });
+
+  describe('fallback catch blocks', () => {
+    const abortError = requestAbortReason('client disconnected');
+    const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '0.0.0.0' });
+    const TX_HASH = `0x${'ab'.repeat(32)}`;
+    const block = {
+      number: 10,
+      count: 1,
+      gas_used: 0,
+      timestamp: { from: '1700000000.000000000', to: '1700000001.000000000' },
+    } as MirrorNodeBlock;
+
+    let cacheService: ICacheClient;
+    let commonService: CommonService;
+    let loggerWarnSpy: sinon.SinonSpy;
+    let loggerErrorSpy: sinon.SinonSpy;
+
+    beforeEach(() => {
+      cacheService = CacheClientFactory.create(logger, registry);
+      commonService = new CommonService(mirrorNodeClient, logger, cacheService);
+      loggerWarnSpy = sinon.spy(logger, 'warn');
+      loggerErrorSpy = sinon.spy(logger, 'error');
+    });
+
+    const expectNothingLogged = (): void => {
+      expect(loggerWarnSpy.called, 'logged a warning').to.equal(false);
+      expect(loggerErrorSpy.called, 'logged an error').to.equal(false);
+    };
+
+    describe('eth_feeHistory', () => {
+      overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });
+
+      let feeService: FeeService;
+
+      beforeEach(() => {
+        feeService = new FeeService(mirrorNodeClient, commonService, logger);
+        sinon.stub(commonService, 'translateBlockTag').resolves(block.number);
+      });
+
+      it('rethrows the abort error when the block range fetch is abandoned', async () => {
+        sinon.stub(mirrorNodeClient, 'getBlocksByRange').rejects(abortError);
+
+        await expect(feeService.feeHistory(1, 'latest', null, requestDetails)).to.be.rejectedWith(abortError);
+        expectNothingLogged();
+      });
+
+      it('rethrows the abort error when a block fetch is abandoned', async () => {
+        sinon.stub(mirrorNodeClient, 'getBlocksByRange').resolves([]);
+        sinon.stub(mirrorNodeClient, 'getBlock').rejects(abortError);
+
+        await expect(feeService.feeHistory(1, 'latest', null, requestDetails)).to.be.rejectedWith(abortError);
+        expectNothingLogged();
+      });
+
+      it('rethrows the abort error when a block fee lookup is abandoned', async () => {
+        sinon.stub(mirrorNodeClient, 'getBlocksByRange').resolves([block]);
+        sinon.stub(mirrorNodeClient, 'getLatestContractResultForBlock').rejects(abortError);
+
+        await expect(feeService.feeHistory(1, 'latest', null, requestDetails)).to.be.rejectedWith(abortError);
+        expectNothingLogged();
+      });
+    });
+
+    describe('debug tracers', () => {
+      let debugService: DebugImpl;
+
+      beforeEach(() => {
+        debugService = new DebugImpl(
+          mirrorNodeClient,
+          logger,
+          cacheService,
+          ConfigService.get('CHAIN_ID'),
+          {} as HAPIService,
+          {} as TransactionPoolService,
+          {} as LockService,
+          registry,
+          {} as TransactionTracingService,
+        );
+      });
+
+      it('rethrows the abort error from the prestate tracer when a contract state fetch is abandoned', async () => {
+        const contractAddress = '0x0000000000000000000000000000000000000002';
+        const action = {
+          from: contractAddress,
+          caller_type: constants.TYPE_CONTRACT,
+          timestamp: block.timestamp.from,
+        } as ContractAction;
+        sinon.stub(mirrorNodeClient, 'getContractsResultsActions').resolves([action]);
+        sinon.stub(mirrorNodeClient, 'getContractResultWithRetry').resolves({ hash: TX_HASH });
+        sinon.stub(mirrorNodeClient, 'resolveEntityType').resolves({
+          type: constants.TYPE_CONTRACT,
+          entity: { contract_id: '0.0.2', evm_address: contractAddress },
+        });
+        sinon.stub(mirrorNodeClient, 'getBalanceAtTimestamp').resolves({ timestamp: null, balances: [] });
+        sinon.stub(mirrorNodeClient, 'getContractState').rejects(abortError);
+        const cacheSetSpy = sinon.spy(cacheService, 'set');
+
+        await expect(debugService.prestateFromContractState(TX_HASH, requestDetails)).to.be.rejectedWith(abortError);
+        expect(cacheSetSpy.called).to.equal(false);
+        expectNothingLogged();
+      });
+
+      it('does not cache a partial prestate when the request is abandoned while entities are resolved', async () => {
+        const controller = new AbortController();
+        const abandonedRequestDetails = new RequestDetails({
+          requestId: 'test-request-id',
+          ipAddress: '0.0.0.0',
+          abortSignal: controller.signal,
+        });
+        const action = {
+          from: '0x0000000000000000000000000000000000000001',
+          caller_type: 'ACCOUNT',
+          timestamp: block.timestamp.from,
+        } as ContractAction;
+        sinon.stub(mirrorNodeClient, 'getContractsResultsActions').resolves([action]);
+        sinon.stub(mirrorNodeClient, 'getContractResultWithRetry').resolves({ hash: TX_HASH });
+        // resolveEntityType turns an aborted lookup into null, like any other failed lookup.
+        sinon.stub(mirrorNodeClient, 'resolveEntityType').callsFake(async () => {
+          controller.abort(abortError);
+          return null;
+        });
+        const cacheSetSpy = sinon.spy(cacheService, 'set');
+
+        await expect(debugService.prestateFromContractState(TX_HASH, abandonedRequestDetails)).to.be.rejectedWith(
+          abortError,
+        );
+        expect(cacheSetSpy.called).to.equal(false);
+        expectNothingLogged();
+      });
+
+      it('rethrows the abort error from the prestate endpoint instead of falling back to the contract state', async () => {
+        sinon.stub(mirrorNodeClient, 'getContractResultPrestate').rejects(abortError);
+        const actionsStub = sinon.stub(mirrorNodeClient, 'getContractsResultsActions');
+
+        await expect(debugService.prestateTracer(TX_HASH, {}, requestDetails)).to.be.rejectedWith(abortError);
+        expect(actionsStub.called).to.equal(false);
+        expectNothingLogged();
+      });
+
+      it('rethrows the abort error from debug_traceBlockByNumber when the actions prefetch is abandoned', async () => {
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').resolves(block);
+        sinon
+          .stub(mirrorNodeClient, 'getContractResultWithRetry')
+          .resolves([{ hash: TX_HASH, result: 'SUCCESS', gas_used: 21000 }]);
+        sinon.stub(mirrorNodeClient, 'getContractsResultsActions').rejects(abortError);
+
+        await expect(
+          debugService.traceBlockByNumber('0xa', { tracer: TracerType.CallTracer }, requestDetails),
+        ).to.be.rejectedWith(abortError);
+        expectNothingLogged();
+      });
+    });
+
+    it('rethrows the abort error from eth_getLogs when sizing the timestamp slices is abandoned', async () => {
+      sinon
+        .stub(commonService, 'getHistoricalBlockResponse')
+        .onFirstCall()
+        .resolves({ ...block, number: 1 })
+        .onSecondCall()
+        .resolves(block);
+      sinon.stub(mirrorNodeClient, 'getBlocksByRange').rejects(abortError);
+
+      await expect(
+        commonService.validateBlockRangeAndAddTimestampToParams(
+          {},
+          '0x1',
+          'latest',
+          requestDetails,
+          '0x0000000000000000000000000000000000000001',
+          { value: 1 },
+        ),
+      ).to.be.rejectedWith(abortError);
+      expectNothingLogged();
     });
   });
 });

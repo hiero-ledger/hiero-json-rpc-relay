@@ -69,6 +69,7 @@ import {
   mapPrestateDiffResponse,
   mapPrestateResponse,
 } from './utils/prestate';
+import { isRequestAbortedError, throwIfRequestAborted } from './utils/requestAbort';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -915,6 +916,8 @@ export class DebugImpl implements Debug {
             };
           }
         } catch (error) {
+          if (isRequestAbortedError(error)) throw error;
+
           this.logger.error(
             `Error processing entity %s for transaction %s: %s`,
             accountEntity.address,
@@ -924,6 +927,9 @@ export class DebugImpl implements Debug {
         }
       }),
     );
+
+    // resolveEntityType turns an abort into null and the entity is skipped, so don't cache a partial prestate.
+    throwIfRequestAborted(requestDetails);
 
     // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateFromContractState.name);
@@ -1044,6 +1050,8 @@ export class DebugImpl implements Debug {
     try {
       response = await this.prestateFromEndpoint(transactionHash, requestDetails, { code, storage, diff: false });
     } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
       // A disabled endpoint was already logged when it was found
       if (!DebugImpl.isPrestateEndpointDisabled(error)) {
         this.logger.warn(
@@ -1153,6 +1161,8 @@ export class DebugImpl implements Debug {
         const actions = await this.mirrorNodeClient.getContractsResultsActions(txHash, requestDetails);
         return { txHash, actions };
       } catch (error) {
+        if (isRequestAbortedError(error)) throw error;
+
         // If actions fetch fails, return empty array (synthetic transactions may not have actions)
         this.logger.warn(`Failed to fetch actions for transaction ${txHash}: ${error}`);
         return { txHash, actions: [] };
