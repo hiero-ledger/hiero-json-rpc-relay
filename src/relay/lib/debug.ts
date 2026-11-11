@@ -17,15 +17,16 @@ import {
   tinybarsToWeibars,
   toHexString,
 } from '../formatters';
-import type { Debug, JsonRpcError } from '../index';
+import type { Debug } from '../index';
 import { Utils } from '../utils';
 import type { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import type { IOpcode } from './clients/models/IOpcode';
 import type { IOpcodesResponse } from './clients/models/IOpcodesResponse';
+import type { IPrestateResponse } from './clients/models/IPrestateResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
-import { predefined } from './errors/JsonRpcError';
+import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { BlockFactory } from './factories/blockFactory';
 import type { Block, Log } from './model';
@@ -49,6 +50,7 @@ import type {
   IOpcodeLoggerConfig,
   IPrestateTracerConfig,
   OpcodeLoggerResult,
+  PrestateDiffResult,
   RequestDetails,
   TraceBlockTxResult,
   TransactionTracerConfig,
@@ -61,7 +63,12 @@ import type {
   MirrorNodeContractResult,
   MirrorNodeContractResultDetails,
 } from './types/mirrorNode';
-import { applyPrestateTracerConfig, mapPrestateResponse } from './utils/prestate';
+import {
+  applyPrestateDiffConfig,
+  applyPrestateTracerConfig,
+  mapPrestateDiffResponse,
+  mapPrestateResponse,
+} from './utils/prestate';
 import { isRequestAbortedError, throwIfRequestAborted } from './utils/requestAbort';
 import { rpcParamValidationRules } from './validators';
 
@@ -271,7 +278,7 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult> {
+  ): Promise<CallTracerResult | EntityTraceStateMap | OpcodeLoggerResult | PrestateDiffResult> {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -930,131 +937,179 @@ export class DebugImpl implements Debug {
   }
 
   /**
-   * Reads the pre-state of a transaction from the mirror node prestate endpoint.
+   * Reads a transaction's prestate from the mirror node prestate endpoint, cached per request.
    *
-   * Unlike {@link prestateFromContractState}, the storage it returns holds only the slots the
-   * transaction touched. The endpoint is gated behind `hiero.mirror.web3.api.prestate.enabled` and
-   * answers 501 wherever that flag is off, so this returns null whenever it cannot produce an answer
-   * and leaves the caller to fall back.
+   * Unlike {@link prestateFromContractState}, the storage it returns holds only the slots the transaction touched.
+   * The endpoint is gated behind `hiero.mirror.web3.api.prestate.enabled` and answers 501 wherever that flag is off,
+   * which is remembered for fifteen minutes. The caller decides what a failure means: prestate mode falls back,
+   * diff mode cannot.
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
-   * @param params - Whether the endpoint should include each account's code and storage.
-   * @returns {Promise<EntityTraceStateMap | null>} The touched state, or null when the endpoint gave no answer.
+   * @param params - Whether the endpoint should include each account's code and storage, and return the diff.
+   * @returns {Promise<IPrestateResponse | null>} The raw response, or null when the endpoint has no prestate for it.
+   * @throws {JsonRpcError} UNSUPPORTED_OPERATION when the endpoint is disabled.
+   * @throws {MirrorNodeClientError} On any other mirror node failure.
    */
   async prestateFromEndpoint(
     transactionHash: string,
     requestDetails: RequestDetails,
-    params: { code: boolean; storage: boolean },
-  ): Promise<EntityTraceStateMap | null> {
-    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER_ENDPOINT}_${transactionHash}_${params.code}_${params.storage}`;
+    params: { code: boolean; storage: boolean; diff: boolean },
+  ): Promise<IPrestateResponse | null> {
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_ENDPOINT_RESPONSE}_${transactionHash}_${params.code}_${params.storage}_${params.diff}`;
 
-    const cachedResult = await this.cacheService.getAsync<EntityTraceStateMap>(
+    const cachedResponse = await this.cacheService.getAsync<IPrestateResponse>(
       cacheKey,
       this.prestateFromEndpoint.name,
     );
 
-    if (cachedResult) {
-      return cachedResult;
+    if (cachedResponse) {
+      return cachedResponse;
     }
 
-    const unsupported = await this.cacheService.getAsync<boolean>(
+    const disabled = await this.cacheService.getAsync<boolean>(
       constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED,
       this.prestateFromEndpoint.name,
     );
 
-    if (unsupported) {
-      return null;
+    if (disabled) {
+      throw DebugImpl.prestateEndpointDisabled();
     }
+
+    let response: IPrestateResponse | null;
 
     try {
-      const response = await this.mirrorNodeClient.getContractResultPrestate(transactionHash, requestDetails, params);
+      response = await this.mirrorNodeClient.getContractResultPrestate(transactionHash, requestDetails, params);
+    } catch (error) {
+      // Only a 501 is remembered: anything else is transient and would keep the relay off a recovered endpoint
+      if (error instanceof MirrorNodeClientError && error.isNotSupported()) {
+        this.logger.info(
+          `Prestate endpoint is disabled on the mirror node, not calling it for the next %s ms`,
+          constants.CACHE_TTL.FIFTEEN_MINUTES,
+        );
 
-      if (!response) {
-        return null;
+        await this.cacheService.set(
+          constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED,
+          true,
+          this.prestateFromEndpoint.name,
+          constants.CACHE_TTL.FIFTEEN_MINUTES,
+        );
+
+        throw DebugImpl.prestateEndpointDisabled();
       }
 
-      const result = mapPrestateResponse(response);
-      await this.cacheService.set(cacheKey, result, this.prestateFromEndpoint.name);
-
-      return result;
-    } catch (error) {
-      if (isRequestAbortedError(error)) throw error;
-
-      await this.handlePrestateEndpointError(error, transactionHash);
-
-      return null;
+      throw error;
     }
+
+    if (response) {
+      await this.cacheService.set(cacheKey, response, this.prestateFromEndpoint.name);
+    }
+
+    return response;
+  }
+
+  private static prestateEndpointDisabled(): JsonRpcError {
+    return predefined.UNSUPPORTED_OPERATION('The mirror node prestate endpoint is disabled on this network');
+  }
+
+  private static isPrestateEndpointDisabled(error: unknown): boolean {
+    return error instanceof JsonRpcError && error.code === DebugImpl.prestateEndpointDisabled().code;
   }
 
   /**
-   * Remembers a disabled prestate endpoint so every later trace skips straight to the fallback.
+   * Retrieves the state of the accounts a transaction touched, as it was just before the transaction ran.
    *
-   * Only a 501 is remembered. Everything else - a throttle, a query timeout, a restarting pod - is
-   * transient, and remembering it would hold the relay on the fallback long after the mirror node recovered.
-   *
-   * @private
-   * @param error - The error raised by the prestate endpoint.
-   * @param transactionHash - The hash being traced, for logging.
-   */
-  private async handlePrestateEndpointError(error: unknown, transactionHash: string): Promise<void> {
-    if (error instanceof MirrorNodeClientError && error.isNotSupported()) {
-      this.logger.info(
-        `Prestate endpoint is disabled on the mirror node, falling back to the contract state for the next %s ms`,
-        constants.CACHE_TTL.FIFTEEN_MINUTES,
-      );
-
-      await this.cacheService.set(
-        constants.CACHE_KEY.PRESTATE_ENDPOINT_UNSUPPORTED,
-        true,
-        this.prestateFromEndpoint.name,
-        constants.CACHE_TTL.FIFTEEN_MINUTES,
-      );
-
-      return;
-    }
-
-    this.logger.warn(
-      `Prestate endpoint failed for transaction %s, falling back to the contract state: %s`,
-      transactionHash,
-      error,
-    );
-  }
-
-  /**
-   * Retrieves the pre-state information for contracts and accounts involved in a transaction.
-   * This tracer collects the state (balance, nonce, code, and storage) of all accounts and
-   * contracts just before the transaction execution.
+   * In diff mode it returns the changed accounts before the transaction and only what changed after it. Diff mode
+   * has no fallback, because the contract state builder has no state after the transaction.
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
    * @param {IPrestateTracerConfig} tracerConfig - The prestateTracer options.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
-   * @returns {Promise<EntityTraceStateMap>} The state the transaction touched, keyed by EVM address.
+   * @returns {Promise<EntityTraceStateMap | PrestateDiffResult>} The state the transaction touched, keyed by EVM
+   * address, or the diff in diff mode.
    */
   async prestateTracer(
     transactionHash: string,
     tracerConfig: IPrestateTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<EntityTraceStateMap> {
-    const { disableCode, disableStorage, includeEmpty = true } = tracerConfig;
+  ): Promise<EntityTraceStateMap | PrestateDiffResult> {
+    const { disableCode, disableStorage, includeEmpty = true, diffMode } = tracerConfig;
 
     // The empty-account check needs the code, so it is fetched whenever empty accounts are dropped
-    const endpointParams = {
-      code: !disableCode || !includeEmpty,
-      storage: !disableStorage,
-    };
+    const code = !disableCode || !includeEmpty;
+    const storage = !disableStorage;
 
-    const fromEndpoint = await this.prestateFromEndpoint(transactionHash, requestDetails, endpointParams);
+    if (diffMode) {
+      return this.prestateDiff(transactionHash, tracerConfig, requestDetails, { code, storage });
+    }
 
-    if (fromEndpoint) {
-      return applyPrestateTracerConfig(fromEndpoint, tracerConfig);
+    let response: IPrestateResponse | null = null;
+
+    try {
+      response = await this.prestateFromEndpoint(transactionHash, requestDetails, { code, storage, diff: false });
+    } catch (error) {
+      if (isRequestAbortedError(error)) throw error;
+
+      // A disabled endpoint was already logged when it was found
+      if (!DebugImpl.isPrestateEndpointDisabled(error)) {
+        this.logger.warn(
+          `Prestate endpoint failed for transaction %s, falling back to the contract state: %s`,
+          transactionHash,
+          error,
+        );
+      }
+    }
+
+    if (response) {
+      return applyPrestateTracerConfig(mapPrestateResponse(response), tracerConfig);
     }
 
     const fromContractState = await this.prestateFromContractState(transactionHash, requestDetails);
 
     return applyPrestateTracerConfig(fromContractState, tracerConfig);
+  }
+
+  /**
+   * Retrieves the diff of a transaction from the prestate endpoint, with no fallback.
+   *
+   * @private
+   * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {IPrestateTracerConfig} tracerConfig - The prestateTracer options.
+   * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @param params - Whether the endpoint should include each account's code and storage.
+   * @returns {Promise<PrestateDiffResult>} The diff in geth's shape.
+   * @throws {JsonRpcError} UNSUPPORTED_OPERATION when the endpoint is disabled, RESOURCE_NOT_FOUND for an unknown hash.
+   */
+  private async prestateDiff(
+    transactionHash: string,
+    tracerConfig: IPrestateTracerConfig,
+    requestDetails: RequestDetails,
+    params: { code: boolean; storage: boolean },
+  ): Promise<PrestateDiffResult> {
+    let response: IPrestateResponse | null;
+
+    try {
+      response = await this.prestateFromEndpoint(transactionHash, requestDetails, { ...params, diff: true });
+    } catch (error) {
+      if (DebugImpl.isPrestateEndpointDisabled(error)) {
+        throw predefined.UNSUPPORTED_OPERATION(
+          'diffMode requires the mirror node prestate endpoint, which is disabled on this network',
+        );
+      }
+
+      throw error;
+    }
+
+    if (!response) {
+      // Throws RESOURCE_NOT_FOUND unless the transaction is a synthetic one, whose trace is empty
+      await this.handleSyntheticTransaction(transactionHash, TracerType.PrestateTracer, requestDetails);
+
+      return { pre: {}, post: {} };
+    }
+
+    return applyPrestateDiffConfig(mapPrestateDiffResponse(response), tracerConfig);
   }
 
   /**
@@ -1284,6 +1339,11 @@ export class DebugImpl implements Debug {
   ): Promise<TraceBlockTxResult[]> {
     try {
       DebugImpl.requireDebugAPIEnabled();
+
+      if ((tracerObject?.tracerConfig as IPrestateTracerConfig | undefined)?.diffMode) {
+        throw predefined.UNSUPPORTED_OPERATION('diffMode is only supported by debug_traceTransaction');
+      }
+
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockIdentifier, true);
 
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockIdentifier} not found`);

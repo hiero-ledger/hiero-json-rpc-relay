@@ -15,6 +15,7 @@ export interface IPrestateTracerConfig {
   disableCode?: boolean;
   disableStorage?: boolean;
   includeEmpty?: boolean;
+  diffMode?: boolean;
 }
 
 export type ITracerConfig = ICallTracerConfig | IOpcodeLoggerConfig | IPrestateTracerConfig;

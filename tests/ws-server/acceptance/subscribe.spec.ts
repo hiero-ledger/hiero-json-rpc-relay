@@ -766,6 +766,43 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
   });
 
+  describe('Log delivery', async function () {
+    let contract: ethers.Contract;
+
+    before(async function () {
+      contract = (await Utils.deployContractWithEthersV2([], LogContractJson, accounts[0].wallet)) as ethers.Contract;
+    });
+
+    it('does not send logs from blocks handled before subscribing', async function () {
+      await createLogs(contract);
+
+      const received: ethers.Log[] = [];
+      await wsProvider.on({ address: contract.target }, (log) => received.push(log));
+      // Leave the poller time to wrongly send the earlier blocks before the new log arrives.
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const receipt = await (await contract.log1(1, await Utils.gasOptions())).wait();
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      expect(received.map((log) => log.transactionHash)).to.deep.equal([receipt.hash]);
+    });
+
+    it('sends each log once', async function () {
+      const received: ethers.Log[] = [];
+      await wsProvider.on({ address: contract.target }, (log) => received.push(log));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const gasOptions = await Utils.gasOptions();
+      const hashes: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        hashes.push((await (await contract.log1(i, gasOptions)).wait()).hash);
+      }
+      // Wait past the subscription cache's TTL, which would otherwise hide a log the poller sent twice.
+      await new Promise((resolve) => setTimeout(resolve, ConfigService.get('WS_CACHE_TTL') + 3000));
+
+      expect(received.map((log) => log.transactionHash)).to.deep.equal(hashes);
+    });
+  });
+
   describe('Subscribes to hts tokens and listens for synthetic log events', async function () {
     // eslint-disable-next-line prefer-const
     let htsAccounts: AliasAccount[] = [];

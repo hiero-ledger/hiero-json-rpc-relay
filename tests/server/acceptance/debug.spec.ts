@@ -962,6 +962,97 @@ describe('@debug API Acceptance Tests', function () {
           expect(deployerState.storage).to.not.have.property(SALT_SLOT);
         });
       });
+
+      // Diff mode has no fallback, so the endpoint is probed and each test checks the behaviour that applies.
+      describe('diff mode', () => {
+        const COUNTER_SLOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        const DIFF_MODE = { tracer: TracerType.PrestateTracer, tracerConfig: { diffMode: true } };
+
+        let diffTxHash: string;
+        let diffBlockNumber: string;
+        let counterBefore: string;
+        let endpointStatus: 'enabled' | 'disabled' | 'missing' = 'enabled';
+
+        before(async function () {
+          counterBefore = await relay.call('eth_getStorageAt', [deployerContractAddress, COUNTER_SLOT, 'latest']);
+
+          const updateCounter = deployerContract.getFunction('updateCounter');
+          const updateCounterTx = await updateCounter(13);
+          const receipt = await relay.pollForValidTransactionReceipt(updateCounterTx.hash);
+
+          diffTxHash = updateCounterTx.hash;
+          diffBlockNumber = receipt.blockNumber;
+
+          try {
+            await mirrorNode.get(`/contracts/results/${diffTxHash}/prestate?code=true&storage=true&diff=true`);
+          } catch (error) {
+            const status = (error as { response?: { status?: number } }).response?.status;
+
+            if (status === 404) {
+              endpointStatus = 'missing';
+            } else if (status === 501) {
+              endpointStatus = 'disabled';
+            } else {
+              throw error;
+            }
+          }
+        });
+
+        it('@release should show a written slot with its old value in pre and its new value in post', async function () {
+          if (endpointStatus !== 'enabled') {
+            this.skip();
+          }
+
+          const result = await relay.call(DEBUG_TRACE_TRANSACTION, [diffTxHash, DIFF_MODE]);
+          const deployer = deployerContractAddress.toLowerCase();
+
+          expect(result.pre[deployer].storage[COUNTER_SLOT]).to.equal(counterBefore);
+          expect(result.post[deployer].storage[COUNTER_SLOT]).to.equal(ethers.zeroPadValue(ethers.toBeHex(13), 32));
+        });
+
+        it("should show the sender's nonce going up by one", async function () {
+          if (endpointStatus !== 'enabled') {
+            this.skip();
+          }
+
+          const result = await relay.call(DEBUG_TRACE_TRANSACTION, [diffTxHash, DIFF_MODE]);
+          const sender = accounts[0].address.toLowerCase();
+
+          expect(result.post[sender].nonce).to.equal(result.pre[sender].nonce + 1);
+        });
+
+        it('should list in pre only the accounts the transaction changed', async function () {
+          if (endpointStatus !== 'enabled') {
+            this.skip();
+          }
+
+          const result = await relay.call(DEBUG_TRACE_TRANSACTION, [diffTxHash, DIFF_MODE]);
+
+          expect(Object.keys(result.post)).to.include.members(Object.keys(result.pre));
+        });
+
+        it('should fail with UNSUPPORTED_OPERATION where the prestate endpoint is disabled', async function () {
+          if (endpointStatus !== 'disabled') {
+            this.skip();
+          }
+
+          await relay.callFailing(
+            DEBUG_TRACE_TRANSACTION,
+            [diffTxHash, DIFF_MODE],
+            predefined.UNSUPPORTED_OPERATION(
+              'diffMode requires the mirror node prestate endpoint, which is disabled on this network',
+            ),
+          );
+        });
+
+        it('should reject diffMode on the block tracers', async function () {
+          const blockOnlyError = predefined.UNSUPPORTED_OPERATION(
+            'diffMode is only supported by debug_traceTransaction',
+          );
+
+          await relay.callFailing(DEBUG_TRACE_BLOCK_BY_NUMBER, [diffBlockNumber, DIFF_MODE], blockOnlyError);
+        });
+      });
     });
 
     describe('OpcodeLogger', () => {

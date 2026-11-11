@@ -644,15 +644,16 @@ export class TransactionService implements ITransactionService {
       return this.getSyntheticTransactionByBlockAndIndex(blockParam, transactionIndex, requestDetails);
     }
 
-    const [resolvedToAddress, resolvedFromAddress] = await Promise.all([
+    const [resolvedToAddress, resolvedFromAddress, isDeployment] = await Promise.all([
       this.common.resolveEvmAddress(contractResults[0].to, requestDetails),
       this.common.resolveEvmAddress(contractResults[0].from, requestDetails, [constants.TYPE_ACCOUNT]),
+      this.common.isContractDeployment(contractResults[0], requestDetails),
     ]);
 
     return createTransactionFromContractResult({
       ...contractResults[0],
       from: resolvedFromAddress!,
-      to: resolvedToAddress,
+      to: isDeployment ? null : resolvedToAddress,
     });
   }
 

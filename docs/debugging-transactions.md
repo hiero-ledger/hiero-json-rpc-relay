@@ -597,13 +597,14 @@ The response is an object keyed by the EVM address of every account the transact
 ##### Options:
 
 Pass options in `tracerConfig`, as in geth. They apply to `debug_traceTransaction`, `debug_traceBlockByNumber` and
-`debug_traceBlockByHash`.
+`debug_traceBlockByHash`, except `diffMode`, which only `debug_traceTransaction` supports.
 
-| Option           | Default | Effect                                                                                                         |
-| ---------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| `disableCode`    | `false` | Omits `code` from every account.                                                                               |
-| `disableStorage` | `false` | Omits `storage` from every account.                                                                            |
-| `includeEmpty`   | `false` | Keeps accounts that had no nonce, no code and no balance before the transaction, which are dropped by default. |
+| Option           | Default | Effect                                                                                             |
+| ---------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `disableCode`    | `false` | Omits `code` from every account.                                                                   |
+| `disableStorage` | `false` | Omits `storage` from every account.                                                                |
+| `includeEmpty`   | `true`  | Set to `false` to drop accounts that had no nonce, no code and no balance before the transaction.  |
+| `diffMode`       | `false` | Returns what the transaction changed as `{ pre, post }`. `debug_traceTransaction` only, see below. |
 
 ```json
 {
@@ -633,6 +634,35 @@ Pass options in `tracerConfig`, as in geth. They apply to `debug_traceTransactio
 }
 ```
 
+##### Diff mode:
+
+With `diffMode: true` the response holds two maps: `pre`, the accounts the transaction changed as they were before it,
+and `post`, only the fields that changed, with their new values. As in geth, unchanged accounts and slots are left out,
+a slot written to zero appears in `pre` only, an account the transaction created appears in `post` only, and one it
+deleted appears in `pre` only.
+
+```json
+{
+  "pre": {
+    "0x637a6a8e5a69c087c24983b05261f63f64ed7e9b": {
+      "balance": "0xe8d4a51000",
+      "nonce": 3,
+      "code": "0x6080604052",
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000024"
+      }
+    }
+  },
+  "post": {
+    "0x637a6a8e5a69c087c24983b05261f63f64ed7e9b": {
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000025"
+      }
+    }
+  }
+}
+```
+
 ##### Hedera specifics
 
 - **Touched slots require mirror node v0.165.0 with `hiero.mirror.web3.api.prestate.enabled`.** Without it the relay
@@ -642,8 +672,12 @@ Pass options in `tracerConfig`, as in geth. They apply to `debug_traceTransactio
   `storage` therefore does not distinguish "untouched" from "was zero".
 - **`debug_traceBlockByNumber` and `debug_traceBlockByHash` always report full storage**, even where the single
   transaction endpoint reports touched slots.
+- **`includeEmpty` defaults to `true`**, unlike geth, so `diffMode` is also accepted together with
+  `includeEmpty: true`, which geth rejects.
 - **`onlyTopCall` is accepted and ignored**, as in geth, whose prestate tracer has no such option.
-- **`diffMode` is not supported.**
+- **`diffMode` requires the mirror node prestate endpoint** and has no fallback, because the contract state is only
+  known before the transaction. Where the endpoint is disabled it fails with `-32610`. `debug_traceBlockByNumber` and
+  `debug_traceBlockByHash` reject it with `-32610`.
 
 ## 4. Transaction Status Tracing
 

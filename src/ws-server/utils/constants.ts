@@ -8,4 +8,8 @@ export const WS_CONSTANTS = {
   },
   // Caps concurrent Mirror Node lookups per batch when validating a multi-address eth_subscribe logs filter.
   SUBSCRIBE_LOGS_ADDRESS_BATCH_SIZE: 25,
+  // Keeps each poll small while the WebSocket poller catches up on blocks it missed.
+  POLLER_MAX_BLOCKS_PER_POLL: 10,
+  // Caps the growing delay between retries of a failed WebSocket poll.
+  POLLER_MAX_RETRY_DELAY_MS: 10_000,
 };

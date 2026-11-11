@@ -46,7 +46,7 @@ function verifyAggregatedInfo(result: Transaction | null): void {
     expect(result.blockHash).equal(BLOCK_HASH_TRIMMED);
     expect(result.blockNumber).equal(BLOCK_NUMBER_HEX);
     expect(result.hash).equal(CONTRACT_HASH_1);
-    expect(result.to).equal(CONTRACT_ADDRESS_1);
+    expect(result.to).to.be.null;
   }
 }
 
@@ -83,6 +83,7 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
     restMock.onGet(`contracts/${defaultContractResults.results[1].to}`).reply(200);
     restMock.onGet(`tokens/${defaultContractResults.results[0].contract_id}`).reply(200);
     restMock.onGet(`tokens/${defaultContractResults.results[1].contract_id}`).reply(200);
+    restMock.onGet(`blocks/${CONTRACT_RESULT_MOCK.block_hash}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
   });
 
   this.afterEach(() => {
