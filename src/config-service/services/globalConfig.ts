@@ -552,14 +552,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 100,
   },
-  MIRROR_NODE_LOGS_MAX_PARALLEL_PAGES: {
-    type: 'number',
-    required: false,
-    defaultValue: 16,
-    validation: (value: number) =>
-      (Number.isInteger(value) && value >= 1) ||
-      'MIRROR_NODE_LOGS_MAX_PARALLEL_PAGES must be an integer of 1 or greater.',
-  },
   MIRROR_NODE_MAX_REDIRECTS: {
     type: 'number',
     required: false,

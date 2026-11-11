@@ -317,11 +317,6 @@ describe('ValidationService tests', async function () {
         reject: [0, -1, 1.5, NaN],
       },
       {
-        key: 'MIRROR_NODE_LOGS_MAX_PARALLEL_PAGES',
-        accept: [1, 16],
-        reject: [0, -1, 1.5, NaN],
-      },
-      {
         key: 'METRICS_UNKNOWN_METHOD_LABELS_MAX',
         accept: [0, 1, 100, UNKNOWN_METHOD_LABELS_CEILING - 1],
         reject: [-1, -5, NaN, UNKNOWN_METHOD_LABELS_CEILING, UNKNOWN_METHOD_LABELS_CEILING + 1],
