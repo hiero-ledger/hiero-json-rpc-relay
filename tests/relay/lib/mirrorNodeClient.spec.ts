@@ -383,6 +383,44 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('timeout counter', () => {
+    // A dedicated registry, since every client built on the shared one replaces its metrics.
+    let timeoutRegistry: Registry;
+    let client: MirrorNodeClient;
+
+    beforeEach(() => {
+      timeoutRegistry = new Registry();
+      client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger,
+        timeoutRegistry,
+        cacheService,
+        instance,
+      );
+    });
+
+    const timeoutCount = async (pathLabel: string): Promise<number> => {
+      const metric = await timeoutRegistry.getSingleMetric('rpc_relay_mirror_node_timeout_count')!.get();
+      return metric.values.find((v) => v.labels.method === pathLabel)?.value ?? 0;
+    };
+
+    it('counts a client-side timeout', async () => {
+      mock.onGet('accounts').timeout();
+      await expect(client.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith(/timeout of \d+ms exceeded/)
+        .and.have.property('statusCode', 504);
+      expect(await timeoutCount('accounts')).to.equal(1);
+    });
+
+    it('does not count an upstream 504', async () => {
+      mock.onGet('accounts').reply(504, ``);
+      await expect(client.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith('Request failed with status code 504')
+        .and.have.property('statusCode', 504);
+      expect(await timeoutCount('accounts')).to.equal(0);
+    });
+  });
+
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;

@@ -3,7 +3,7 @@
 // Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
 import '../bigNumberConfig';
 
-import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import Axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
@@ -226,6 +226,7 @@ export class MirrorNodeClient {
    */
   public static readonly ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM = 'addLabelToMirrorResponseHistogram';
   public static readonly ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER = 'addLabelToMirrorErrorCodeCounter';
+  public static readonly ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER = 'addLabelToMirrorTimeoutCounter';
 
   /**
    * The logger used for logging all output from this class.
@@ -250,6 +251,12 @@ export class MirrorNodeClient {
    * @private
    */
   private readonly mirrorErrorCodeCounter: Counter;
+
+  /**
+   * Counts client-side timeouts separately, since the error code counter labels them 504 like a real upstream 504.
+   * @private
+   */
+  private readonly mirrorTimeoutCounter: Counter;
 
   /**
    * The cache service used for caching responses.
@@ -408,6 +415,7 @@ export class MirrorNodeClient {
     const metricsFactory = new MetricsFactory(register);
     this.mirrorResponseHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseLatency);
     this.mirrorErrorCodeCounter = metricsFactory.counter(METRICS.mirrorNode.httpErrorCodes);
+    this.mirrorTimeoutCounter = metricsFactory.counter(METRICS.mirrorNode.timeouts);
 
     if (isMainThread) {
       this.logger.info(
@@ -583,6 +591,9 @@ export class MirrorNodeClient {
       // Record metrics
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
       this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
+      if (axiosError.code === AxiosError.ECONNABORTED) {
+        this.addLabelToMirrorTimeoutCounter(pathLabel);
+      }
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -630,6 +641,17 @@ export class MirrorNodeClient {
         value,
       },
       () => this.mirrorErrorCodeCounter.labels(pathLabel, value).inc(),
+    );
+  }
+
+  /**
+   * Increments the mirror timeout counter for the given path, via the parent thread when called from a worker.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   */
+  public addLabelToMirrorTimeoutCounter(pathLabel: string): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER, { pathLabel }, () =>
+      this.mirrorTimeoutCounter.labels(pathLabel).inc(),
     );
   }
 
