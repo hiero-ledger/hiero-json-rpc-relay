@@ -784,26 +784,24 @@ describe('MirrorNodeClient', async function () {
     expect(result.map((b) => b.number)).to.deep.equal([1, 2, 3, 4]);
   });
 
-  it('`getBlocksByRange` warms the per-block cache so subsequent getBlock calls resolve without a network request', async () => {
+  it('`getBlocksByRange` does not write the fetched blocks to the per-block cache', async () => {
     const fromBlock = 10;
     const toBlock = 11;
     const rangeBlocks = [
       { ...block, number: 10 },
       { ...block, number: 11 },
     ];
-    // replyOnce: the range endpoint is available exactly once; any repeat fetch would throw
     mock
       .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
       .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
-    // no mock registered for blocks/10 or blocks/11 — MockAdapter throws on unmatched requests
 
     await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
 
-    // Both blocks must now be served from cache; if either hits the network, MockAdapter throws
-    const b10 = await mirrorNodeInstance.getBlock(10, requestDetails);
-    const b11 = await mirrorNodeInstance.getBlock(11, requestDetails);
-    expect(b10.number).to.equal(10);
-    expect(b11.number).to.equal(11);
+    const cachedBlock10 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.10`, 'test');
+    const cachedBlock11 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.11`, 'test');
+
+    expect(cachedBlock10).to.be.null;
+    expect(cachedBlock11).to.be.null;
   });
 
   it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
