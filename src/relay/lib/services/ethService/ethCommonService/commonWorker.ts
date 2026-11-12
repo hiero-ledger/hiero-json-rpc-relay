@@ -89,11 +89,13 @@ export function createLogsCallLimits(requestDetails: RequestDetails): {
 } {
   const controller = new AbortController();
   const callerSignal = requestDetails.abortSignal;
-  const onCallerAbort = (): void => controller.abort(callerSignal?.reason);
+  let dispose = (): void => {};
   if (callerSignal?.aborted) {
-    onCallerAbort();
-  } else {
-    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+    controller.abort(callerSignal.reason);
+  } else if (callerSignal) {
+    const onCallerAbort = (): void => controller.abort(callerSignal.reason);
+    callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    dispose = (): void => callerSignal.removeEventListener('abort', onCallerAbort);
   }
 
   const maxResponseSize: number = ConfigService.get('ETH_GET_LOGS_MAX_RESPONSE_SIZE');
@@ -113,6 +115,6 @@ export function createLogsCallLimits(requestDetails: RequestDetails): {
       abortSignal: controller.signal,
     }),
     limits: { budget, maxPageBytes: ConfigService.get('ETH_GET_LOGS_MAX_PAGE_SIZE') },
-    dispose: () => callerSignal?.removeEventListener('abort', onCallerAbort),
+    dispose,
   };
 }

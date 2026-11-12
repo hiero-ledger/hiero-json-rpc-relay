@@ -139,7 +139,7 @@ function markAsBudgetError(error: JsonRpcError): JsonRpcError {
 export function estimateLogsResponseSize(logs: MirrorNodeContractLog[]): number {
   let size = 0;
   for (const log of logs) {
-    size += LOG_BASE_JSON_SIZE + (log?.data?.length ?? 2) + (log?.topics?.length ?? 0) * LOG_TOPIC_JSON_SIZE;
+    size += LOG_BASE_JSON_SIZE + (log.data?.length ?? 2) + (log.topics?.length ?? 0) * LOG_TOPIC_JSON_SIZE;
   }
   return size;
 }

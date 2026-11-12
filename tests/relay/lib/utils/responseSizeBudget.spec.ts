@@ -102,4 +102,11 @@ describe('ResponseSizeBudget', function () {
     expect(estimateLogsResponseSize([log('0x', 0), log('0x', 0)])).to.equal(730);
     expect(estimateLogsResponseSize([])).to.equal(0);
   });
+
+  it('should estimate a log without data or topics as empty data and no topics', function () {
+    const bare = {} as unknown as MirrorNodeContractLog;
+
+    // the same as a log with data '0x' and no topics
+    expect(estimateLogsResponseSize([bare])).to.equal(365);
+  });
 });
