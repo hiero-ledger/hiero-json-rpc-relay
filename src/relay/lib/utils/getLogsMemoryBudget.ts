@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { predefined } from '../errors/JsonRpcError';
+import { type JsonRpcError, predefined } from '../errors/JsonRpcError';
+import { markAsBudgetError, type ResponseSizeBudgetParent } from './responseSizeBudget';
 
 /**
- * One `eth_getLogs` call's part of the {@link GetLogsMemoryBudget}.
+ * One request's part of the {@link GetLogsMemoryBudget}. It is the parent of the request's `eth_getLogs` call
+ * budgets, so every page they count is also counted in the relay-wide total.
  */
-export interface GetLogsMemoryShare {
-  /** Bytes of log data this call holds in the memory budget. */
+export interface GetLogsMemoryShare extends ResponseSizeBudgetParent {
+  /** Bytes of log data this request holds in the memory budget. */
   readonly heldBytes: number;
 
-  /**
-   * Adds the bytes of a downloaded log page to the relay-wide total.
-   *
-   * @throws `GET_LOGS_RELAY_BUSY` when the relay total would go over the limit; the bytes are then not counted.
-   */
-  add(bytes: number): void;
-
-  /** Gives all bytes of this call back to the memory budget. Safe to call more than once. */
-  release(): void;
+  /** Gives all bytes of this request back once its response has been sent. Safe to call more than once. */
+  close(): void;
 }
 
 /**
@@ -33,44 +28,70 @@ export class GetLogsMemoryBudget {
   }
 
   /**
-   * Opens one `eth_getLogs` call's share of the memory budget. The call must release it when it finishes or fails.
+   * Opens one request's share of the memory budget. The request must close it once its response has been sent.
    */
   open(): GetLogsMemoryShare {
     let held = 0;
-    let released = false;
+
+    // Set when the relay total refused this share's bytes, or when the share was closed.
+    let stopped = false;
+
+    const busyError = (): JsonRpcError => markAsBudgetError(predefined.GET_LOGS_RELAY_BUSY());
 
     return {
       get heldBytes(): number {
         return held;
       },
 
-      add: (bytes: number): void => {
-        // A page that arrives after its call has ended must not be counted, or its bytes would never be given back.
-        if (released) {
-          throw new Error('Memory share was already released');
+      get isExceeded(): boolean {
+        return stopped;
+      },
+
+      exceededError: (): JsonRpcError | undefined => (stopped ? busyError() : undefined),
+
+      consume: (bytes: number): void => {
+        assertByteCount(bytes);
+
+        // A page that arrives after its request has ended must not be counted, or its bytes would never be given back.
+        if (stopped) {
+          throw busyError();
         }
 
-        this.reserve(bytes);
+        if (this.used + bytes > this.maxBytes) {
+          stopped = true;
+          throw busyError();
+        }
+
+        this.used += bytes;
         held += bytes;
       },
 
-      release: (): void => {
-        released = true;
+      release: (bytes: number): void => {
+        assertByteCount(bytes);
+
+        const returned = Math.min(bytes, held);
+
+        held -= returned;
+        this.used -= returned;
+      },
+
+      assertNotExceeded: (): void => {
+        if (stopped) {
+          throw busyError();
+        }
+      },
+
+      close: (): void => {
+        stopped = true;
         this.used -= held;
         held = 0;
       },
     };
   }
+}
 
-  private reserve(bytes: number): void {
-    if (!Number.isSafeInteger(bytes) || bytes < 0) {
-      throw new Error(`Invalid byte count: ${bytes}`);
-    }
-
-    if (this.used + bytes > this.maxBytes) {
-      throw predefined.GET_LOGS_RELAY_BUSY;
-    }
-
-    this.used += bytes;
+function assertByteCount(bytes: number): void {
+  if (!Number.isSafeInteger(bytes) || bytes < 0) {
+    throw new Error(`Invalid byte count: ${bytes}`);
   }
 }
