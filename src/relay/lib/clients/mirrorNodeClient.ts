@@ -1001,6 +1001,18 @@ export class MirrorNodeClient {
       pageMax,
     );
 
+    if (ConfigService.get('MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED')) {
+      await Promise.all(
+        blocks.map((block) =>
+          this.cacheService.set(
+            `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
+            block,
+            MirrorNodeClient.GET_BLOCK_ENDPOINT,
+          ),
+        ),
+      );
+    }
+
     return blocks;
   }
 
