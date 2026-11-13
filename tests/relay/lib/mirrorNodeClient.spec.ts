@@ -412,6 +412,16 @@ describe('MirrorNodeClient', async function () {
       expect(await timeoutCount('accounts')).to.equal(1);
     });
 
+    it('counts a client-side timeout reported as ETIMEDOUT when clarifyTimeoutError is on', async () => {
+      const restInstance = client.getMirrorNodeRestInstance();
+      restInstance.defaults.transitional = { ...restInstance.defaults.transitional, clarifyTimeoutError: true };
+      clientMock.onGet('accounts').timeout();
+      await expect(client.get('accounts', 'accounts', requestDetails, 0)).to.eventually.be.rejectedWith(
+        /timeout of \d+ms exceeded/,
+      );
+      expect(await timeoutCount('accounts')).to.equal(1);
+    });
+
     it('does not count an upstream 504', async () => {
       clientMock.onGet('accounts').reply(504, ``);
       await expect(client.get('accounts', 'accounts', requestDetails))

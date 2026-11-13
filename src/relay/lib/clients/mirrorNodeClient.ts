@@ -663,9 +663,9 @@ export class MirrorNodeClient {
     );
   }
 
-  /** Axios reports its own MIRROR_NODE_TIMEOUT expiry as ECONNABORTED. */
+  /** Axios reports its own MIRROR_NODE_TIMEOUT expiry as ECONNABORTED, or ETIMEDOUT when clarifyTimeoutError is on. */
   private static isTimeoutError(error: { code?: string }): boolean {
-    return error.code === AxiosError.ECONNABORTED;
+    return error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT;
   }
 
   async get<T = unknown>(
