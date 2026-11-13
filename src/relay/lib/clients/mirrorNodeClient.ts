@@ -4,7 +4,7 @@
 import '../bigNumberConfig';
 
 import Axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
-import axiosRetry from 'axios-retry';
+import axiosRetry, { type IAxiosRetryConfig } from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
 import https from 'https';
@@ -532,10 +532,18 @@ export class MirrorNodeClient {
         axiosRequestConfig.headers!['Forwarded'] = `for="${formattedClientIp}"`;
       }
 
-      // request specific config for axios-retry
+      // Count timed-out attempts that axios-retry retries, since the catch below only sees the last attempt.
+      const retryConfig: IAxiosRetryConfig = {
+        onRetry: (_retryCount, retryError) => {
+          if (MirrorNodeClient.isTimeoutError(retryError)) {
+            this.addLabelToMirrorTimeoutCounter(pathLabel);
+          }
+        },
+      };
       if (retries != null) {
-        axiosRequestConfig['axios-retry'] = { retries };
+        retryConfig.retries = retries;
       }
+      axiosRequestConfig['axios-retry'] = retryConfig;
 
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
@@ -591,7 +599,7 @@ export class MirrorNodeClient {
       // Record metrics
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
       this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
-      if (axiosError.code === AxiosError.ECONNABORTED) {
+      if (MirrorNodeClient.isTimeoutError(axiosError)) {
         this.addLabelToMirrorTimeoutCounter(pathLabel);
       }
 
@@ -653,6 +661,11 @@ export class MirrorNodeClient {
     WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER, { pathLabel }, () =>
       this.mirrorTimeoutCounter.labels(pathLabel).inc(),
     );
+  }
+
+  /** Axios reports its own MIRROR_NODE_TIMEOUT expiry as ECONNABORTED. */
+  private static isTimeoutError(error: { code?: string }): boolean {
+    return error.code === AxiosError.ECONNABORTED;
   }
 
   async get<T = unknown>(

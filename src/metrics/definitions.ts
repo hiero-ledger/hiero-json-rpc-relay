@@ -143,7 +143,7 @@ export const METRICS = {
     }),
     timeouts: counter({
       name: 'rpc_relay_mirror_node_timeout_count',
-      help: 'Count of Mirror Node calls that exceeded MIRROR_NODE_TIMEOUT',
+      help: 'Count of Mirror Node request attempts, retries included, that exceeded MIRROR_NODE_TIMEOUT',
       labelNames: ['method'],
     }),
   },
