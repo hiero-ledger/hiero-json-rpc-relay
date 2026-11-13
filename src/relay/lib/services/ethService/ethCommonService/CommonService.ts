@@ -7,7 +7,7 @@ import { type Logger } from 'pino';
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
-import { isSyntheticContractRecord, type MirrorNodeClient } from '../../../clients';
+import { type ILogsSizeLimits, isSyntheticContractRecord, type MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -567,6 +567,7 @@ export class CommonService implements ICommonService {
    * @param params - Query parameters including timestamp range
    * @param requestDetails - Request details for logging and tracking
    * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
+   * @param limits - Optional size limits of the `eth_getLogs` call, shared by all addresses
    * @returns Sorted array of logs from all specified addresses
    */
   public async getLogsByAddress(
@@ -574,6 +575,7 @@ export class CommonService implements ICommonService {
     params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount: number = 1,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]> {
     throwIfRequestAborted(requestDetails);
 
@@ -582,7 +584,14 @@ export class CommonService implements ICommonService {
     const addresses = dedupeAddresses(address);
     const logPromises = addresses.map(async (addr) => {
       throwIfRequestAborted(requestDetails);
-      return this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params);
+      return this.mirrorNodeClient.getContractResultsLogsByAddress(
+        addr,
+        requestDetails,
+        sliceCount,
+        params,
+        undefined,
+        limits,
+      );
     });
 
     const logResults = await Promise.all(logPromises);
@@ -594,19 +603,36 @@ export class CommonService implements ICommonService {
     return logs;
   }
 
+  /**
+   * Retrieves logs matching the given Mirror Node query params and converts them to `eth_getLogs` entries.
+   *
+   * @param address - Optional single address or array of addresses to filter by
+   * @param params - Query parameters including timestamp range and topics
+   * @param requestDetails - Request details for logging and tracking
+   * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
+   * @param limits - Optional size limits of the `eth_getLogs` call
+   * @returns The logs, sorted by timestamp
+   */
   public async getLogsWithParams(
     address: string | string[] | null,
     params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount: number = 1,
+    limits?: ILogsSizeLimits,
   ): Promise<Log[]> {
     const EMPTY_RESPONSE: Log[] = [];
 
     let logResults: MirrorNodeContractLog[];
     if (address) {
-      logResults = await this.getLogsByAddress(address, params, requestDetails, sliceCount);
+      logResults = await this.getLogsByAddress(address, params, requestDetails, sliceCount, limits);
     } else {
-      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, sliceCount, params);
+      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(
+        requestDetails,
+        sliceCount,
+        params,
+        undefined,
+        limits,
+      );
     }
 
     if (!logResults) {

@@ -17,7 +17,7 @@ import { ConfigService } from '../../../config-service/services';
 import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
-import { predefined } from '../errors/JsonRpcError';
+import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
@@ -58,11 +58,32 @@ import type {
   QueryParamValue,
 } from '../types/mirrorNode';
 import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '../utils/requestAbort';
+import { estimateLogsResponseSize, ResponseSizeBudget } from '../utils/responseSizeBudget';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
+
+/**
+ * Optional per-page hooks of {@link MirrorNodeClient.getPaginatedResults}.
+ */
+interface IPaginationOptions<T> {
+  /** Called with the items of every page as soon as it arrives; may throw to stop the pagination. */
+  onPage?: (items: T[]) => void;
+  /** Upper bound, in bytes, of a single page body; a larger page is stopped while it downloads. */
+  maxPageBytes?: number;
+}
+
+/**
+ * Limits applied while fetching the logs of one `eth_getLogs` call.
+ */
+export interface ILogsSizeLimits {
+  /** Charged with the estimated JSON size of every page, shared by all slices and addresses of the call. */
+  budget: ResponseSizeBudget;
+  /** Upper bound, in bytes, of a single Mirror Node log page body. */
+  maxPageBytes: number;
+}
 
 /**
  * Whether a Mirror Node contract-result / log record is "immature" - the block linkage is not (yet)
@@ -363,7 +384,7 @@ export class MirrorNodeClient {
         return delay;
       },
       retryCondition: (error) => {
-        if (Axios.isCancel(error)) {
+        if (Axios.isCancel(error) || MirrorNodeClient.isMaxContentLengthError(error)) {
           return false;
         }
         // @ts-ignore
@@ -373,6 +394,37 @@ export class MirrorNodeClient {
     });
 
     return axiosClient;
+  }
+
+  /**
+   * Reports whether a request failed because its response body grew past the request's `maxContentLength`.
+   *
+   * @param error - The value thrown by the failed request.
+   * @returns `true` for the error axios raises when it stops a response at `maxContentLength`.
+   */
+  static isMaxContentLengthError(error: unknown): boolean {
+    return (
+      Axios.isAxiosError(error) &&
+      error.code === Axios.AxiosError.ERR_BAD_RESPONSE &&
+      error.message.startsWith('maxContentLength size of')
+    );
+  }
+
+  /**
+   * Reports whether fetching logs failed because a size limit was reached: the call's budget, or a single page
+   * stopped at its maximum size. Such failures must not be retried by another strategy, since it would only
+   * download the same oversized logs again.
+   *
+   * @param error - The value thrown while fetching the logs.
+   * @param limits - The size limits of the `eth_getLogs` call, if any.
+   * @returns `true` when the error is a size limit error, or the call's budget is already exceeded.
+   */
+  private static isLogsSizeError(error: unknown, limits?: ILogsSizeLimits): boolean {
+    return (
+      ResponseSizeBudget.isExceededError(error) ||
+      limits?.budget.isExceeded === true ||
+      (error instanceof JsonRpcError && error.code === predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(0).code)
+    );
   }
 
   constructor(
@@ -501,6 +553,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     data?: unknown,
     retries?: number,
+    maxContentLength?: number,
   ): Promise<T | null> {
     throwIfRequestAborted(requestDetails);
 
@@ -527,6 +580,11 @@ export class MirrorNodeClient {
       // request specific config for axios-retry
       if (retries != null) {
         axiosRequestConfig['axios-retry'] = { retries };
+      }
+
+      // stop the download as soon as the body grows past the limit, instead of buffering all of it
+      if (maxContentLength != null) {
+        axiosRequestConfig.maxContentLength = maxContentLength;
       }
 
       let response: AxiosResponse<T>;
@@ -587,6 +645,16 @@ export class MirrorNodeClient {
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
 
+      if (maxContentLength != null && MirrorNodeClient.isMaxContentLengthError(error)) {
+        this.logger.warn(
+          `Mirror node response stopped at the maximum size: method=%s, path=%s, maxContentLength=%s`,
+          method,
+          path,
+          maxContentLength,
+        );
+        throw predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(maxContentLength);
+      }
+
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
     } finally {
@@ -638,8 +706,9 @@ export class MirrorNodeClient {
     pathLabel: string,
     requestDetails: RequestDetails,
     retries?: number,
+    maxContentLength?: number,
   ): Promise<T | null> {
-    return this.request<T>(path, pathLabel, 'GET', requestDetails, null, retries);
+    return this.request<T>(path, pathLabel, 'GET', requestDetails, null, retries, maxContentLength);
   }
 
   async post<T = unknown>(
@@ -716,10 +785,18 @@ export class MirrorNodeClient {
     results: T[] = [],
     page = 1,
     pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
+    options?: IPaginationOptions<T>,
   ): Promise<T[]> {
-    const result = await this.get<Record<string, T[]> & { links?: IMirrorNodeLinks }>(url, pathLabel, requestDetails);
+    const result = await this.get<Record<string, T[]> & { links?: IMirrorNodeLinks }>(
+      url,
+      pathLabel,
+      requestDetails,
+      undefined,
+      options?.maxPageBytes,
+    );
 
     if (result && result[resultProperty]) {
+      options?.onPage?.(result[resultProperty]);
       results = results.concat(result[resultProperty]);
     }
 
@@ -732,7 +809,7 @@ export class MirrorNodeClient {
     if (result?.links?.next && page < pageMax) {
       page++;
       const next = result.links.next.replace(constants.NEXT_LINK_PREFIX, '');
-      return this.getPaginatedResults(next, pathLabel, resultProperty, requestDetails, results, page, pageMax);
+      return this.getPaginatedResults(next, pathLabel, resultProperty, requestDetails, results, page, pageMax, options);
     } else {
       return results;
     }
@@ -1416,20 +1493,36 @@ export class MirrorNodeClient {
    * - `block_number` being null/undefined
    * - `block_hash` being '0x' (empty hex)
    *
-   * @param fetchFn - Async function that fetches the log results
+   * When size limits are given, every page is charged to the call's budget as it arrives. The bytes of an attempt
+   * that is retried are released first, so the same logs are never counted twice.
+   *
+   * @param fetchFn - Async function that fetches the log results, reporting each page through the given options
    * @param requestDetails - Request details for logging
    * @param maxAttempts - Maximum total fetch attempts (initial + retries). For example, 10 means 1 initial + 9 retries.
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @param attempt - Current attempt number
    * @returns Array of mature log results
    * @throws DEPENDENT_SERVICE_IMMATURE_RECORDS error if immature records persist after all attempts
+   * @throws LOGS_RESPONSE_SIZE_EXCEEDED once the call's budget is exceeded
    */
   private async fetchLogsWithImmatureRetry(
-    fetchFn: () => Promise<MirrorNodeContractLog[]>,
+    fetchFn: (options?: IPaginationOptions<MirrorNodeContractLog>) => Promise<MirrorNodeContractLog[]>,
     requestDetails: RequestDetails,
     maxAttempts: number,
+    limits?: ILogsSizeLimits,
     attempt: number = 0,
   ): Promise<MirrorNodeContractLog[]> {
-    const logResults = await fetchFn();
+    let chargedBytes = 0;
+    const options: IPaginationOptions<MirrorNodeContractLog> | undefined = limits && {
+      maxPageBytes: limits.maxPageBytes,
+      onPage: (logs): void => {
+        const bytes = estimateLogsResponseSize(logs);
+        chargedBytes += bytes;
+        limits.budget.consume(bytes);
+      },
+    };
+
+    const logResults = await fetchFn(options);
     const hasImmatureRecords = logResults.some(
       (log) => log && (isImmatureContractRecord(log, this.logger) || log.index == null),
     );
@@ -1437,6 +1530,8 @@ export class MirrorNodeClient {
     if (hasImmatureRecords) {
       const isLastAttempt = attempt >= maxAttempts - 1;
       if (!isLastAttempt) {
+        // the retry fetches the same logs again, so the bytes of this attempt must not stay charged
+        limits?.budget.release(chargedBytes);
         const retryDelay = this.getMirrorNodeRetryDelay();
         this.logger.debug(
           'Immature log records detected, retrying after %sms (attempt %s/%s)',
@@ -1445,7 +1540,8 @@ export class MirrorNodeClient {
           maxAttempts,
         );
         await new Promise((r) => setTimeout(r, retryDelay));
-        return this.fetchLogsWithImmatureRetry(fetchFn, requestDetails, maxAttempts, attempt + 1);
+        limits?.budget.assertNotExceeded();
+        return this.fetchLogsWithImmatureRetry(fetchFn, requestDetails, maxAttempts, limits, attempt + 1);
       } else {
         throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
       }
@@ -1464,6 +1560,7 @@ export class MirrorNodeClient {
    * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
    * @param contractLogsResultsParams - Query parameters for contract logs results
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Mature contract logs results array
    */
   public async getContractResultsLogsWithRetry(
@@ -1471,6 +1568,7 @@ export class MirrorNodeClient {
     sliceCount: number = 1,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]> {
     return this.fetchContractLogsWithSlicingSupport(
       MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
@@ -1479,6 +1577,7 @@ export class MirrorNodeClient {
       sliceCount,
       contractLogsResultsParams,
       limitOrderParams,
+      limits,
     );
   }
 
@@ -1493,6 +1592,7 @@ export class MirrorNodeClient {
    * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
    * @param contractLogsResultsParams - Query parameters for contract logs results
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Mature contract logs results array for the specified address
    */
   public async getContractResultsLogsByAddress(
@@ -1501,6 +1601,7 @@ export class MirrorNodeClient {
     sliceCount: number = 1,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]> {
     if (address === constants.ZERO_ADDRESS_HEX) return [];
 
@@ -1516,6 +1617,7 @@ export class MirrorNodeClient {
       sliceCount,
       contractLogsResultsParams,
       limitOrderParams,
+      limits,
     );
   }
 
@@ -1532,6 +1634,7 @@ export class MirrorNodeClient {
    * @param sliceCount - Number of timestamp slices for parallel fetching
    * @param contractLogsResultsParams - Query parameters for contract logs results
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Mature contract logs results array
    */
   private async fetchContractLogsWithSlicingSupport(
@@ -1541,6 +1644,7 @@ export class MirrorNodeClient {
     sliceCount: number,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]> {
     const timestampRange = contractLogsResultsParams?.timestamp;
 
@@ -1555,6 +1659,7 @@ export class MirrorNodeClient {
           sliceCount,
           contractLogsResultsParams,
           limitOrderParams,
+          limits,
         );
       } catch (error) {
         // Determine if error is recoverable (should fallback to sequential) vs fatal (should propagate).
@@ -1570,8 +1675,9 @@ export class MirrorNodeClient {
           'code' in error &&
           (error as { code: number }).code === predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS.code;
 
-        // Immature records should propagate - sequential won't resolve data maturity issues
-        if (isImmatureRecordsError) {
+        // Immature records should propagate - sequential won't resolve data maturity issues.
+        // Size errors too: a sequential retry would only download the same oversized logs again.
+        if (isImmatureRecordsError || MirrorNodeClient.isLogsSizeError(error, limits)) {
           throw error;
         }
 
@@ -1590,7 +1696,7 @@ export class MirrorNodeClient {
     const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
 
     return this.fetchLogsWithImmatureRetry(
-      () =>
+      (options) =>
         this.getPaginatedResults(
           `${apiEndpoint}${queryParams}`,
           pathLabel,
@@ -1599,9 +1705,11 @@ export class MirrorNodeClient {
           [],
           1,
           this.calculateMaxPage(contractLogsResultsParams),
+          options,
         ),
       requestDetails,
       this.getMirrorNodeRequestRetryCount(),
+      limits,
     );
   }
 
@@ -2081,6 +2189,7 @@ export class MirrorNodeClient {
    * @param maxAttempts - Maximum number of retry attempts for immature records
    * @param contractLogsResultsParams - Base query parameters
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Mature contract logs results for the slice
    * @throws DEPENDENT_SERVICE_IMMATURE_RECORDS if immature records persist after all attempts
    */
@@ -2092,6 +2201,7 @@ export class MirrorNodeClient {
     maxAttempts: number,
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
+    limits: ILogsSizeLimits | undefined,
   ): Promise<MirrorNodeContractLog[]> {
     const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
     const sliceParams: IContractLogsResultsParams = {
@@ -2102,15 +2212,20 @@ export class MirrorNodeClient {
     const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
 
     return this.fetchLogsWithImmatureRetry(
-      () =>
+      (options) =>
         this.getPaginatedResults(
           `${apiEndpoint}${queryParams}`,
           pathLabel,
           MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
           requestDetails,
+          undefined,
+          undefined,
+          undefined,
+          options,
         ),
       requestDetails,
       maxAttempts,
+      limits,
     );
   }
 
@@ -2125,6 +2240,7 @@ export class MirrorNodeClient {
    * @param slices - Array of timestamp slice boundaries for parallel fetching
    * @param contractLogsResultsParams - Original query parameters excluding timestamp
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Deduplicated and timestamp-sorted array of contract result logs
    * @throws Error if any slice fails after exhausting retries
    */
@@ -2135,6 +2251,7 @@ export class MirrorNodeClient {
     slices: ITimestamp[],
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
+    limits: ILogsSizeLimits | undefined,
   ): Promise<MirrorNodeContractLog[]> {
     const concurrency: number = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY');
     const maxAttempts = this.getMirrorNodeRequestRetryCount();
@@ -2155,6 +2272,7 @@ export class MirrorNodeClient {
           maxAttempts,
           contractLogsResultsParams,
           limitOrderParams,
+          limits,
         );
         sliceResults[sliceIndex] = data;
       })();
@@ -2216,6 +2334,7 @@ export class MirrorNodeClient {
    * @param sliceCount - Number of slices to create for parallel fetching
    * @param contractLogsResultsParams - Original query parameters excluding timestamp
    * @param limitOrderParams - Pagination limit and ordering parameters
+   * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Deduplicated and sorted array of contract result logs from all slices
    */
   private async getContractResultsLogsWithTimestampSlicing(
@@ -2226,6 +2345,7 @@ export class MirrorNodeClient {
     sliceCount: number,
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]> {
     // Parse and validate timestamp range
     const { fromNanos, toNanos } = this.parseTimestampRange(timestampRange);
@@ -2247,6 +2367,7 @@ export class MirrorNodeClient {
       slices,
       contractLogsResultsParams,
       limitOrderParams,
+      limits,
     );
   }
 

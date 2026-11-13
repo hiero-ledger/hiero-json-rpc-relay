@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { type ILogsSizeLimits } from '../../../clients/mirrorNodeClient';
 import { type Log } from '../../../model';
 import {
   type IAccountInfo,
@@ -49,6 +50,7 @@ export interface ICommonService {
     params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount?: number,
+    limits?: ILogsSizeLimits,
   ): Promise<MirrorNodeContractLog[]>;
 
   getLogsWithParams(
@@ -56,6 +58,7 @@ export interface ICommonService {
     params: IContractLogsResultsParams,
     requestDetails: RequestDetails,
     sliceCount?: number,
+    limits?: ILogsSizeLimits,
   ): Promise<Log[]>;
 
   isBlockParamValid(tag: string | null): boolean;
