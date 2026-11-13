@@ -14,7 +14,11 @@ import { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import { type JsonRpcError, predefined } from '../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/relay/lib/services';
-import { createLogsCallLimits } from '../../../src/relay/lib/services/ethService/ethCommonService/commonWorker';
+import {
+  createLogsCallLimits,
+  getLogs,
+} from '../../../src/relay/lib/services/ethService/ethCommonService/commonWorker';
+import { type IWorkerContext } from '../../../src/relay/lib/services/workersService/workerContext';
 import { type MirrorNodeContractLog, RequestDetails } from '../../../src/relay/lib/types';
 import { estimateLogsResponseSize, ResponseSizeBudget } from '../../../src/relay/lib/utils/responseSizeBudget';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
@@ -100,7 +104,7 @@ describe('eth_getLogs response size limits', function () {
         call.dispose();
       });
 
-      it('aborts the call when the caller abandons the request, and stops listening once disposed', () => {
+      it('aborts the call when the caller abandons the request', () => {
         const caller = new AbortController();
         const requestDetails = new RequestDetails({
           requestId: 'ethGetLogsSizeLimitsTest',
@@ -113,14 +117,31 @@ describe('eth_getLogs response size limits', function () {
         expect(call.requestDetails.abortSignal?.aborted).to.equal(true);
         expect((call.requestDetails.abortSignal?.reason as Error).message).to.equal('client gone');
         call.dispose();
+      });
 
-        const disposedCaller = new AbortController();
-        const disposedCall = createLogsCallLimits(
-          new RequestDetails({ requestId: 'x', ipAddress: '0.0.0.0', abortSignal: disposedCaller.signal }),
+      it('aborts the requests still in flight and stops listening to the caller once disposed', () => {
+        const caller = new AbortController();
+        const callerSignal = caller.signal;
+        const removeEventListener = sinon.spy(callerSignal, 'removeEventListener');
+        const call = createLogsCallLimits(
+          new RequestDetails({ requestId: 'x', ipAddress: '0.0.0.0', abortSignal: callerSignal }),
         );
-        disposedCall.dispose();
-        disposedCaller.abort();
-        expect(disposedCall.requestDetails.abortSignal?.aborted).to.equal(false);
+
+        call.dispose();
+        expect(call.requestDetails.abortSignal?.aborted).to.equal(true);
+        expect(removeEventListener.calledOnceWith('abort')).to.equal(true);
+
+        // a caller abort after the call has ended no longer reaches it
+        const reasonAtDispose = call.requestDetails.abortSignal?.reason;
+        caller.abort(new Error('client gone'));
+        expect(call.requestDetails.abortSignal?.reason).to.equal(reasonAtDispose);
+      });
+
+      it('aborts the requests still in flight once disposed, when the caller has no abort signal', () => {
+        const call = createLogsCallLimits(newRequestDetails());
+
+        call.dispose();
+        expect(call.requestDetails.abortSignal?.aborted).to.equal(true);
       });
 
       it('starts aborted when the caller has already abandoned the request', () => {
@@ -263,15 +284,23 @@ describe('eth_getLogs response size limits', function () {
     let upstream: http.Server;
     let upstreamRequests: number;
     let port: number;
+    // when set, only the first request gets the large page; the others get small pages, each with a next page
+    let largeFirstPageOnly: boolean;
 
     // a page of ~64 KiB, streamed without a Content-Length header so the limit is enforced while downloading
     const LARGE_PAGE = JSON.stringify({ logs: [log(0, { data: `0x${'ab'.repeat(32 * 1024)}` })] });
 
     beforeEach(async () => {
       upstreamRequests = 0;
+      largeFirstPageOnly = false;
       upstream = http.createServer((_req, res) => {
-        upstreamRequests++;
+        const page = ++upstreamRequests;
         res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (largeFirstPageOnly && page > 1) {
+          const next = `/api/v1/contracts/results/logs?timestamp=gte:1707944548.000000000&page=${page}`;
+          setTimeout(() => res.end(JSON.stringify({ logs: [log(page)], links: { next } })), 20);
+          return;
+        }
         for (let i = 0; i < LARGE_PAGE.length; i += 4096) {
           res.write(LARGE_PAGE.slice(i, i + 4096));
         }
@@ -345,6 +374,38 @@ describe('eth_getLogs response size limits', function () {
 
           expect(logs).to.have.length(1);
           expect(upstreamRequests).to.equal(1);
+        });
+
+        it('stops the other slices of an eth_getLogs call once one of them fails on a page over the limit', async () => {
+          largeFirstPageOnly = true;
+          const commonService = new CommonService(newRealClient(), logger, CacheClientFactory.create(logger, registry));
+          sinon
+            .stub(commonService, 'validateBlockRangeAndAddTimestampToParams')
+            .callsFake(async (params, _fromBlock, _toBlock, _requestDetails, _address, sliceCountWrapper) => {
+              params.timestamp = TIMESTAMP_RANGE;
+              sliceCountWrapper!.value = 2;
+              return true;
+            });
+
+          // one slice fails on its first page while the other one still has pages to fetch
+          const error = await errorOf(
+            getLogs(
+              { commonService } as unknown as IWorkerContext,
+              null,
+              '0x1',
+              '0x2',
+              null,
+              null,
+              newRequestDetails(),
+            ),
+          );
+          expect(error).to.deep.equal(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(1024));
+
+          // the other slice asks for no further page once the call has failed: at most the one already in flight
+          // reaches the server, where the slice would otherwise keep paginating every 20ms
+          const requestsAtFailure = upstreamRequests;
+          await delay(200);
+          expect(upstreamRequests).to.be.at.most(requestsAtFailure + 1);
         });
       },
     );
