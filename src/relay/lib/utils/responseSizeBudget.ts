@@ -20,6 +20,26 @@ const LOG_TOPIC_JSON_SIZE = 69;
 const budgetErrors = new WeakSet<object>();
 
 /**
+ * What a budget needs from its parent. Lets a budget of another kind (for example, a relay-wide one) be a parent.
+ */
+export interface ResponseSizeBudgetParent {
+  /** Whether this parent, or any of its own parents, has been exceeded. */
+  readonly isExceeded: boolean;
+
+  /** Builds the error of the exceeded budget, or returns `undefined` when none is exceeded. */
+  exceededError(): JsonRpcError | undefined;
+
+  /** Charges bytes; throws an error marked with {@link markAsBudgetError} once exceeded. */
+  consume(bytes: number): void;
+
+  /** Returns bytes, for data that was fetched but is discarded. */
+  release(bytes: number): void;
+
+  /** Throws an error marked with {@link markAsBudgetError} when already exceeded. */
+  assertNotExceeded(): void;
+}
+
+/**
  * A byte budget for a response that is still being assembled.
  *
  * Producers call {@link consume} as data arrives (for example, after every mirror node page), so that a response
@@ -27,7 +47,7 @@ const budgetErrors = new WeakSet<object>();
  * all of it is in memory. A budget may have a parent: every byte consumed is also charged to the parent, so a
  * batch can share one budget across all of its entries, including the ones still in flight.
  */
-export class ResponseSizeBudget {
+export class ResponseSizeBudget implements ResponseSizeBudgetParent {
   private used = 0;
 
   /** Sticky: once a budget is exceeded it stays exceeded, even if bytes are released afterwards. */
@@ -43,7 +63,7 @@ export class ResponseSizeBudget {
   constructor(
     private readonly maxBytes: number,
     private readonly createError: () => JsonRpcError,
-    private readonly parent?: ResponseSizeBudget,
+    private readonly parent?: ResponseSizeBudgetParent,
     private readonly onExceeded?: () => void,
   ) {}
 
@@ -123,7 +143,13 @@ export class ResponseSizeBudget {
   }
 }
 
-function markAsBudgetError(error: JsonRpcError): JsonRpcError {
+/**
+ * Marks an error as raised by a budget, so that {@link ResponseSizeBudget.isExceededError} recognizes it.
+ *
+ * @param error - The error a budget is about to throw.
+ * @returns The same error.
+ */
+export function markAsBudgetError(error: JsonRpcError): JsonRpcError {
   budgetErrors.add(error);
   return error;
 }
