@@ -133,6 +133,9 @@ export class WorkersPool {
         if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER) {
           this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER](msg.pathLabel, msg.value);
         }
+        if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER) {
+          this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER](msg.pathLabel);
+        }
         if (msg.type === MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER) {
           this.cacheService[MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER](
             msg.callingMethod,

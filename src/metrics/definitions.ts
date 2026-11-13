@@ -141,6 +141,11 @@ export const METRICS = {
       help: 'Count of errors returned from Mirror Node by HTTP status code and error type',
       labelNames: ['method', 'statusCode'],
     }),
+    timeouts: counter({
+      name: 'rpc_relay_mirror_node_timeout_count',
+      help: 'Count of Mirror Node request attempts, retries included, that exceeded MIRROR_NODE_TIMEOUT',
+      labelNames: ['method'],
+    }),
   },
 
   /** Operator account metrics. */
