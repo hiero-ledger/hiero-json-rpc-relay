@@ -246,6 +246,16 @@ export const predefined = {
       code: -32610,
       message: `Unsupported operation. ${message}`,
     }),
+  LOGS_RESPONSE_SIZE_EXCEEDED: (maxBytes: number): JsonRpcError =>
+    new JsonRpcError({
+      code: -32005,
+      message: `Query returned more than ${maxBytes} bytes of logs. Narrow the block range or filter by address or topics`,
+    }),
+  MIRROR_NODE_RESPONSE_SIZE_EXCEEDED: (maxBytes: number): JsonRpcError =>
+    new JsonRpcError({
+      code: -32005,
+      message: `Mirror node response exceeds the maximum size of ${maxBytes} bytes. Narrow the block range or filter by address or topics`,
+    }),
   PAGINATION_MAX: (count: number): JsonRpcError =>
     new JsonRpcError({
       code: -32011,

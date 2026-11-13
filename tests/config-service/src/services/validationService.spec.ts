@@ -307,6 +307,16 @@ describe('ValidationService tests', async function () {
         reject: [0, -5, NaN],
       },
       {
+        key: 'ETH_GET_LOGS_MAX_PAGE_SIZE',
+        accept: [1, 8_388_608],
+        reject: [0, -1, NaN],
+      },
+      {
+        key: 'ETH_GET_LOGS_MAX_RESPONSE_SIZE',
+        accept: [1, 26_214_400],
+        reject: [0, -1, NaN],
+      },
+      {
         key: 'MIRROR_NODE_HTTP_MAX_SOCKETS',
         accept: [1, 300],
         reject: [0, -1, 1.5, NaN],
