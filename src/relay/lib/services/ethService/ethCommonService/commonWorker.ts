@@ -79,8 +79,8 @@ export async function getLogs(
  * addresses, and an `AbortController` that stops all of its Mirror Node requests once the budget is exceeded.
  *
  * @param requestDetails - The details of the request; its abort signal, if any, also aborts the call.
- * @returns The request details to fetch the logs with, the limits, and a function that releases the listener on
- *   the caller's abort signal.
+ * @returns The request details to fetch the logs with, the limits, and a function to call once the call has ended:
+ *   it releases the listener on the caller's abort signal and aborts the Mirror Node requests still in flight.
  */
 export function createLogsCallLimits(requestDetails: RequestDetails): {
   requestDetails: RequestDetails;
@@ -89,14 +89,19 @@ export function createLogsCallLimits(requestDetails: RequestDetails): {
 } {
   const controller = new AbortController();
   const callerSignal = requestDetails.abortSignal;
-  let dispose = (): void => {};
+  let removeListener = (): void => {};
   if (callerSignal?.aborted) {
     controller.abort(callerSignal.reason);
   } else if (callerSignal) {
     const onCallerAbort = (): void => controller.abort(callerSignal.reason);
     callerSignal.addEventListener('abort', onCallerAbort, { once: true });
-    dispose = (): void => callerSignal.removeEventListener('abort', onCallerAbort);
+    removeListener = (): void => callerSignal.removeEventListener('abort', onCallerAbort);
   }
+
+  const dispose = (): void => {
+    removeListener();
+    controller.abort();
+  };
 
   const maxResponseSize: number = ConfigService.get('ETH_GET_LOGS_MAX_RESPONSE_SIZE');
   const budget: ResponseSizeBudget = new ResponseSizeBudget(
