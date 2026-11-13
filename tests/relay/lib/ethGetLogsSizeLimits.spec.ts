@@ -119,7 +119,7 @@ describe('eth_getLogs response size limits', function () {
         call.dispose();
       });
 
-      it('aborts the requests still in flight and stops listening to the caller once disposed', () => {
+      it('stops listening to the caller once disposed, without aborting the call', () => {
         const caller = new AbortController();
         const callerSignal = caller.signal;
         const removeEventListener = sinon.spy(callerSignal, 'removeEventListener');
@@ -128,20 +128,29 @@ describe('eth_getLogs response size limits', function () {
         );
 
         call.dispose();
-        expect(call.requestDetails.abortSignal?.aborted).to.equal(true);
+        expect(call.requestDetails.abortSignal?.aborted).to.equal(false);
         expect(removeEventListener.calledOnceWith('abort')).to.equal(true);
 
         // a caller abort after the call has ended no longer reaches it
-        const reasonAtDispose = call.requestDetails.abortSignal?.reason;
         caller.abort(new Error('client gone'));
-        expect(call.requestDetails.abortSignal?.reason).to.equal(reasonAtDispose);
+        expect(call.requestDetails.abortSignal?.aborted).to.equal(false);
       });
 
-      it('aborts the requests still in flight once disposed, when the caller has no abort signal', () => {
+      it('aborts the requests still in flight once the call is aborted', () => {
         const call = createLogsCallLimits(newRequestDetails());
 
-        call.dispose();
+        call.abort();
         expect(call.requestDetails.abortSignal?.aborted).to.equal(true);
+        call.dispose();
+      });
+
+      it('keeps the budget error as the abort reason when the call is aborted after exceeding the budget', () => {
+        const call = createLogsCallLimits(newRequestDetails());
+
+        expect(() => call.limits.budget.consume(101)).to.throw();
+        call.abort();
+        expect(ResponseSizeBudget.isExceededError(call.requestDetails.abortSignal?.reason)).to.equal(true);
+        call.dispose();
       });
 
       it('starts aborted when the caller has already abandoned the request', () => {
