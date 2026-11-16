@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '../../../config-service/services';
 import { type JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { markAsBudgetError, type ResponseSizeBudgetParent } from './responseSizeBudget';
 
@@ -88,6 +89,19 @@ export class GetLogsMemoryBudget {
       },
     };
   }
+}
+
+let sharedBudget: GetLogsMemoryBudget | undefined;
+
+/**
+ * The relay-wide memory budget of this process, shared by the HTTP and WebSocket servers.
+ */
+export function sharedGetLogsMemoryBudget(): GetLogsMemoryBudget {
+  if (sharedBudget === undefined) {
+    sharedBudget = new GetLogsMemoryBudget(ConfigService.get('ETH_GET_LOGS_RELAY_MAX_RESPONSE_SIZE'));
+  }
+
+  return sharedBudget;
 }
 
 function assertByteCount(bytes: number): void {
