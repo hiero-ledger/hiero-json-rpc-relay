@@ -155,14 +155,15 @@ export function markAsBudgetError(error: JsonRpcError): JsonRpcError {
 }
 
 /**
- * Estimates the size of mirror node logs once they are serialized as `eth_getLogs` entries.
+ * Estimates the size of logs once they are serialized as `eth_getLogs` entries.
  *
  * The estimate is computed from the variable-length fields only, so it is cheap enough to run on every page.
+ * Mirror node logs and the relay's `Log` entries have the same `data` and `topics`, so it works for both.
  *
- * @param logs - The mirror node logs of one page.
+ * @param logs - The mirror node logs of one page, or the `eth_getLogs` entries built from them.
  * @returns The estimated size, in bytes, of the logs in the JSON-RPC response.
  */
-export function estimateLogsResponseSize(logs: MirrorNodeContractLog[]): number {
+export function estimateLogsResponseSize(logs: ReadonlyArray<Pick<MirrorNodeContractLog, 'data' | 'topics'>>): number {
   let size = 0;
   for (const log of logs) {
     size += LOG_BASE_JSON_SIZE + (log.data?.length ?? 2) + (log.topics?.length ?? 0) * LOG_TOPIC_JSON_SIZE;

@@ -107,7 +107,7 @@ export function createLogsCallLimits(requestDetails: RequestDetails): {
   const budget: ResponseSizeBudget = new ResponseSizeBudget(
     maxResponseSize,
     () => predefined.LOGS_RESPONSE_SIZE_EXCEEDED(maxResponseSize),
-    undefined,
+    requestDetails.responseMemoryShare,
     // the other slices and addresses unwind with the budget error as the abort reason
     () => controller.abort(budget.exceededError()),
   );

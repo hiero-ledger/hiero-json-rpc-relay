@@ -26,6 +26,7 @@ import { type LogTopic } from '../../../types/requestParams';
 import { assertAddressCountWithinLimit, dedupeAddresses } from '../../../utils/addressLimit';
 import { isBlockHash } from '../../../utils/blockParam';
 import { isRequestAbortedError, throwIfRequestAborted } from '../../../utils/requestAbort';
+import { estimateLogsResponseSize } from '../../../utils/responseSizeBudget';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { type ICommonService } from './ICommonService';
 
@@ -657,7 +658,7 @@ export class CommonService implements ICommonService {
     // Bound the address fan-out before dispatching to the worker, so an oversized array is rejected up front.
     assertAddressCountWithinLimit(address);
 
-    return WorkersPool.run(
+    const logs: Log[] = await WorkersPool.run(
       {
         type: 'getLogs',
         blockHash,
@@ -671,6 +672,13 @@ export class CommonService implements ICommonService {
       this.mirrorNodeClient,
       this.cacheService,
     );
+
+    // A worker thread cannot reach the request's share, so its pages were not counted; count the result here.
+    if (ConfigService.get('WORKERS_POOL_ENABLED')) {
+      requestDetails.responseMemoryShare?.consume(estimateLogsResponseSize(logs));
+    }
+
+    return logs;
   }
 
   public async resolveEvmAddress(
