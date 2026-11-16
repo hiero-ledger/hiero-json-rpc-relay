@@ -1650,6 +1650,10 @@ export class MirrorNodeClient {
 
     // Attempt parallel timestamp slicing when applicable
     if (timestampRange && sliceCount > 1) {
+      const slicesLimits: ILogsSizeLimits | undefined = limits && {
+        ...limits,
+        budget: limits.budget.createChild(),
+      };
       try {
         return await this.getContractResultsLogsWithTimestampSlicing(
           apiEndpoint,
@@ -1659,7 +1663,7 @@ export class MirrorNodeClient {
           sliceCount,
           contractLogsResultsParams,
           limitOrderParams,
-          limits,
+          slicesLimits,
         );
       } catch (error) {
         // Determine if error is recoverable (should fallback to sequential) vs fatal (should propagate).
@@ -1689,6 +1693,8 @@ export class MirrorNodeClient {
             error instanceof Error ? error.message : String(error),
           );
         }
+
+        slicesLimits?.budget.release(slicesLimits.budget.usedBytes);
       }
     }
 
@@ -2242,7 +2248,7 @@ export class MirrorNodeClient {
    * @param limitOrderParams - Pagination limit and ordering parameters
    * @param limits - Optional size limits of the `eth_getLogs` call the logs are fetched for
    * @returns Deduplicated and timestamp-sorted array of contract result logs
-   * @throws Error if any slice fails after exhausting retries
+   * @throws Error if any slice fails after exhausting retries, once the other slices have stopped
    */
   private async executeLogsSlicesWithConcurrency(
     apiEndpoint: string,
@@ -2258,6 +2264,21 @@ export class MirrorNodeClient {
     const sliceResults: MirrorNodeContractLog[][] = [];
     const activeRequestsPool = new Set<Promise<void>>();
 
+    const slicesController = new AbortController();
+    const callerSignal = getRequestAbortSignal(requestDetails);
+    const slicesRequestDetails = new RequestDetails({
+      requestId: requestDetails.requestId,
+      ipAddress: requestDetails.ipAddress,
+      connectionId: requestDetails.connectionId,
+      abortSignal: callerSignal ? AbortSignal.any([callerSignal, slicesController.signal]) : slicesController.signal,
+    });
+
+    const stopSlicesAndRethrow = async (error: unknown): Promise<never> => {
+      slicesController.abort();
+      await Promise.allSettled(activeRequestsPool);
+      throw error;
+    };
+
     for (const slice of slices) {
       const sliceIndex = sliceResults.length;
       sliceResults.push([]); // Pre-allocate slot for ordered results
@@ -2267,7 +2288,7 @@ export class MirrorNodeClient {
         const data = await this.fetchLogSliceWithRetry(
           apiEndpoint,
           pathLabel,
-          requestDetails,
+          slicesRequestDetails,
           slice,
           maxAttempts,
           contractLogsResultsParams,
@@ -2287,7 +2308,7 @@ export class MirrorNodeClient {
       // Throttle: pause iteration when concurrency limit is reached
       // Resume and add new requests to the pool when any active request completes
       if (activeRequestsPool.size >= concurrency) {
-        await Promise.race(activeRequestsPool);
+        await Promise.race(activeRequestsPool).catch(stopSlicesAndRethrow);
       }
 
       if (isRequestAborted(requestDetails)) {
@@ -2296,7 +2317,7 @@ export class MirrorNodeClient {
     }
 
     // Wait for all remaining requests to complete
-    await Promise.all(activeRequestsPool);
+    await Promise.all(activeRequestsPool).catch(stopSlicesAndRethrow);
 
     throwIfRequestAborted(requestDetails);
 

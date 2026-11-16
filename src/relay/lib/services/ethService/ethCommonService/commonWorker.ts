@@ -66,6 +66,9 @@ export async function getLogs(
         sliceCountWrapper.value,
         call.limits,
       );
+    } catch (e: unknown) {
+      call.abort();
+      throw e;
     } finally {
       call.dispose();
     }
@@ -79,29 +82,26 @@ export async function getLogs(
  * addresses, and an `AbortController` that stops all of its Mirror Node requests once the budget is exceeded.
  *
  * @param requestDetails - The details of the request; its abort signal, if any, also aborts the call.
- * @returns The request details to fetch the logs with, the limits, and a function to call once the call has ended:
- *   it releases the listener on the caller's abort signal and aborts the Mirror Node requests still in flight.
+ * @returns The request details to fetch the logs with, the limits, a function that aborts the Mirror Node requests
+ *   still in flight once the call has failed, and a function to call once the call has ended, which releases the
+ *   listener on the caller's abort signal. A call that succeeds is never aborted.
  */
 export function createLogsCallLimits(requestDetails: RequestDetails): {
   requestDetails: RequestDetails;
   limits: ILogsSizeLimits;
+  abort: () => void;
   dispose: () => void;
 } {
   const controller = new AbortController();
   const callerSignal = requestDetails.abortSignal;
-  let removeListener = (): void => {};
+  let dispose = (): void => {};
   if (callerSignal?.aborted) {
     controller.abort(callerSignal.reason);
   } else if (callerSignal) {
     const onCallerAbort = (): void => controller.abort(callerSignal.reason);
     callerSignal.addEventListener('abort', onCallerAbort, { once: true });
-    removeListener = (): void => callerSignal.removeEventListener('abort', onCallerAbort);
+    dispose = (): void => callerSignal.removeEventListener('abort', onCallerAbort);
   }
-
-  const dispose = (): void => {
-    removeListener();
-    controller.abort();
-  };
 
   const maxResponseSize: number = ConfigService.get('ETH_GET_LOGS_MAX_RESPONSE_SIZE');
   const budget: ResponseSizeBudget = new ResponseSizeBudget(
@@ -120,6 +120,7 @@ export function createLogsCallLimits(requestDetails: RequestDetails): {
       abortSignal: controller.signal,
     }),
     limits: { budget, maxPageBytes: ConfigService.get('ETH_GET_LOGS_MAX_PAGE_SIZE') },
+    abort: (): void => controller.abort(),
     dispose,
   };
 }
