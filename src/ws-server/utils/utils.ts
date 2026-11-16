@@ -68,16 +68,18 @@ export const handleConnectionClose = async (
  * @param {IJsonRpcRequest | IJsonRpcRequest[]} request - The request object received from the client.
  * @param {IJsonRpcResponse | IJsonRpcResponse[]} response - The response data to be sent back to the client.
  * @param {Logger} logger - The logger object used for logging messages.
+ * @param onWritten - Optional; called once the response has been written to the connection, or has failed to be.
  */
 export const sendToClient = (
   connection: RelayWebSocket,
   request: IJsonRpcRequest | IJsonRpcRequest[],
   response: IJsonRpcResponse | IJsonRpcResponse[],
   logger: Logger,
+  onWritten?: (error?: Error) => void,
 ): void => {
   logger.trace(`Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(request)}`);
 
-  connection.send(JSON.stringify(response));
+  connection.send(JSON.stringify(response), onWritten);
   connection.limiter.resetInactivityTTLTimer(connection);
 };
 

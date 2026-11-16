@@ -119,6 +119,20 @@ describe('Utilities unit tests', async function () {
       expect(connectionMock.send.calledWith(JSON.stringify(response))).to.be.true;
     });
 
+    it('should hand the write callback to the connection', () => {
+      const onWritten = sinon.stub();
+
+      sendToClient(
+        connectionMock as unknown as RelayWebSocket,
+        request,
+        response,
+        loggerMock as unknown as Logger,
+        onWritten,
+      );
+
+      expect(connectionMock.send.calledOnceWithExactly(JSON.stringify(response), onWritten)).to.be.true;
+    });
+
     it('should reset the inactivity TTL timer for the client connection', () => {
       sendToClient(connectionMock as unknown as RelayWebSocket, request, response, loggerMock as unknown as Logger);
 
