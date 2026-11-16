@@ -63,6 +63,7 @@ import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
+type MirrorCounterName = 'requests' | 'retries' | 'timeouts' | 'timeoutRetries';
 
 /**
  * Whether a Mirror Node contract-result / log record is "immature" - the block linkage is not (yet)
@@ -226,7 +227,7 @@ export class MirrorNodeClient {
    */
   public static readonly ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM = 'addLabelToMirrorResponseHistogram';
   public static readonly ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER = 'addLabelToMirrorErrorCodeCounter';
-  public static readonly ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER = 'addLabelToMirrorTimeoutCounter';
+  public static readonly INCREMENT_MIRROR_COUNTER = 'incrementMirrorCounter';
 
   /**
    * The logger used for logging all output from this class.
@@ -253,10 +254,11 @@ export class MirrorNodeClient {
   private readonly mirrorErrorCodeCounter: Counter;
 
   /**
-   * Counts client-side timeouts separately, since the error code counter labels them 504 like a real upstream 504.
+   * Request, retry and timeout counters, kept apart from the error code counter because it labels a client-side
+   * timeout 504, the same as a real upstream 504.
    * @private
    */
-  private readonly mirrorTimeoutCounter: Counter;
+  private readonly mirrorCounters: Record<MirrorCounterName, Counter>;
 
   /**
    * The cache service used for caching responses.
@@ -415,7 +417,12 @@ export class MirrorNodeClient {
     const metricsFactory = new MetricsFactory(register);
     this.mirrorResponseHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseLatency);
     this.mirrorErrorCodeCounter = metricsFactory.counter(METRICS.mirrorNode.httpErrorCodes);
-    this.mirrorTimeoutCounter = metricsFactory.counter(METRICS.mirrorNode.timeouts);
+    this.mirrorCounters = {
+      requests: metricsFactory.counter(METRICS.mirrorNode.requests),
+      retries: metricsFactory.counter(METRICS.mirrorNode.retries),
+      timeouts: metricsFactory.counter(METRICS.mirrorNode.timeouts),
+      timeoutRetries: metricsFactory.counter(METRICS.mirrorNode.timeoutRetries),
+    };
 
     if (isMainThread) {
       this.logger.info(
@@ -511,6 +518,7 @@ export class MirrorNodeClient {
     retries?: number,
   ): Promise<T | null> {
     throwIfRequestAborted(requestDetails);
+    this.incrementMirrorCounter('requests', pathLabel);
 
     const start = Date.now();
     const controller = new AbortController();
@@ -532,11 +540,12 @@ export class MirrorNodeClient {
         axiosRequestConfig.headers!['Forwarded'] = `for="${formattedClientIp}"`;
       }
 
-      // Count timed-out attempts that axios-retry retries, since the catch below only sees the last attempt.
+      // Count retries here, since the catch below only sees the last attempt.
       const retryConfig: IAxiosRetryConfig = {
         onRetry: (_retryCount, retryError) => {
+          this.incrementMirrorCounter('retries', pathLabel);
           if (MirrorNodeClient.isTimeoutError(retryError)) {
-            this.addLabelToMirrorTimeoutCounter(pathLabel);
+            this.incrementMirrorCounter('timeoutRetries', pathLabel);
           }
         },
       };
@@ -600,7 +609,7 @@ export class MirrorNodeClient {
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
       this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
       if (MirrorNodeClient.isTimeoutError(axiosError)) {
-        this.addLabelToMirrorTimeoutCounter(pathLabel);
+        this.incrementMirrorCounter('timeouts', pathLabel);
       }
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
@@ -653,13 +662,14 @@ export class MirrorNodeClient {
   }
 
   /**
-   * Increments the mirror timeout counter for the given path, via the parent thread when called from a worker.
+   * Increments one of the mirror request, retry or timeout counters, via the parent thread when called from a worker.
    *
+   * @param counter - Which counter to increment.
    * @param pathLabel - Label identifying the mirrored request path.
    */
-  public addLabelToMirrorTimeoutCounter(pathLabel: string): void {
-    WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.ADD_LABEL_TO_MIRROR_TIMEOUT_COUNTER, { pathLabel }, () =>
-      this.mirrorTimeoutCounter.labels(pathLabel).inc(),
+  public incrementMirrorCounter(counter: MirrorCounterName, pathLabel: string): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.INCREMENT_MIRROR_COUNTER, { counter, pathLabel }, () =>
+      this.mirrorCounters[counter].labels(pathLabel).inc(),
     );
   }
 

@@ -383,33 +383,46 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
-  describe('timeout counter', () => {
+  describe('request, retry and timeout counters', () => {
     // The client reads the retry delay at construction, so zero keeps the retry tests fast.
     overrideEnvsInMochaDescribe({ MIRROR_NODE_RETRY_DELAY: 0 });
 
     // A dedicated registry, since every client built on the shared one replaces its metrics.
-    let timeoutRegistry: Registry;
+    let counterRegistry: Registry;
     let client: MirrorNodeClient;
     let clientMock: MockAdapter;
 
     beforeEach(() => {
-      timeoutRegistry = new Registry();
+      counterRegistry = new Registry();
       // No injected axios instance, so requests go through the client's own axios-retry setup.
-      client = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, timeoutRegistry, cacheService);
+      client = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, counterRegistry, cacheService);
       clientMock = new MockAdapter(client.getMirrorNodeRestInstance());
     });
 
-    const timeoutCount = async (pathLabel: string): Promise<number> => {
-      const metric = await timeoutRegistry.getSingleMetric('rpc_relay_mirror_node_timeout_count')!.get();
-      return metric.values.find((v) => v.labels.method === pathLabel)?.value ?? 0;
+    const count = async (metricName: string): Promise<number> => {
+      const metric = await counterRegistry.getSingleMetric(metricName)!.get();
+      return metric.values.find((v) => v.labels.method === 'accounts')?.value ?? 0;
     };
+
+    const counts = async (): Promise<Record<string, number>> => ({
+      requests: await count('rpc_relay_mirror_node_request_count'),
+      retries: await count('rpc_relay_mirror_node_retry_count'),
+      timeouts: await count('rpc_relay_mirror_node_timeout_count'),
+      timeoutRetries: await count('rpc_relay_mirror_node_timeout_retry_count'),
+    });
+
+    it('counts a successful request', async () => {
+      clientMock.onGet('accounts').reply(200, JSON.stringify({ accounts: [] }));
+      await expect(client.get('accounts', 'accounts', requestDetails)).to.eventually.deep.equal({ accounts: [] });
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 0, timeoutRetries: 0 });
+    });
 
     it('counts a client-side timeout', async () => {
       clientMock.onGet('accounts').timeout();
       await expect(client.get('accounts', 'accounts', requestDetails, 0))
         .to.eventually.be.rejectedWith(/timeout of \d+ms exceeded/)
         .and.have.property('statusCode', 504);
-      expect(await timeoutCount('accounts')).to.equal(1);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
     });
 
     it('counts a client-side timeout reported as ETIMEDOUT when clarifyTimeoutError is on', async () => {
@@ -419,18 +432,18 @@ describe('MirrorNodeClient', async function () {
       await expect(client.get('accounts', 'accounts', requestDetails, 0)).to.eventually.be.rejectedWith(
         /timeout of \d+ms exceeded/,
       );
-      expect(await timeoutCount('accounts')).to.equal(1);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
     });
 
-    it('does not count an upstream 504', async () => {
+    it('does not count an upstream 504 as a timeout', async () => {
       clientMock.onGet('accounts').reply(504, ``);
       await expect(client.get('accounts', 'accounts', requestDetails))
         .to.eventually.be.rejectedWith('Request failed with status code 504')
         .and.have.property('statusCode', 504);
-      expect(await timeoutCount('accounts')).to.equal(0);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 0, timeoutRetries: 0 });
     });
 
-    it('counts each timed-out attempt that is retried before a success', async () => {
+    it('counts timed-out attempts that are retried before a success as timeout retries', async () => {
       clientMock
         .onGet('accounts')
         .timeoutOnce()
@@ -439,15 +452,25 @@ describe('MirrorNodeClient', async function () {
         .onGet('accounts')
         .reply(200, JSON.stringify({ accounts: [] }));
       await expect(client.get('accounts', 'accounts', requestDetails, 2)).to.eventually.deep.equal({ accounts: [] });
-      expect(await timeoutCount('accounts')).to.equal(2);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 2, timeouts: 0, timeoutRetries: 2 });
     });
 
-    it('counts every attempt when all of them time out', async () => {
+    it('counts timeout retries and the final timeout when every attempt times out', async () => {
       clientMock.onGet('accounts').timeout();
       await expect(client.get('accounts', 'accounts', requestDetails, 2)).to.eventually.be.rejectedWith(
         /timeout of \d+ms exceeded/,
       );
-      expect(await timeoutCount('accounts')).to.equal(3);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 2, timeouts: 1, timeoutRetries: 2 });
+    });
+
+    it('counts a retry after a network error, but not as a timeout retry', async () => {
+      clientMock
+        .onGet('accounts')
+        .networkErrorOnce()
+        .onGet('accounts')
+        .reply(200, JSON.stringify({ accounts: [] }));
+      await expect(client.get('accounts', 'accounts', requestDetails, 1)).to.eventually.deep.equal({ accounts: [] });
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 1, timeouts: 0, timeoutRetries: 0 });
     });
   });
 
