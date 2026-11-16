@@ -232,6 +232,91 @@ describe('eth_getLogs response size limits', function () {
     });
   });
 
+  describe('fallback to sequential pagination after a slice fails', () => {
+    const urlOf = (config: { url?: string }): string => decodeURIComponent(config.url ?? '');
+    // the sequential fallback requests the original, unsliced range
+    const isUnsliced = (url: string): boolean => url.includes(TIMESTAMP_RANGE[0]) && url.includes(TIMESTAMP_RANGE[1]);
+    // the last slice ends where the range ends, but starts after it
+    const isLastSlice = (url: string): boolean => !url.includes(TIMESTAMP_RANGE[0]) && url.includes(TIMESTAMP_RANGE[1]);
+
+    withOverriddenEnvsInMochaTest({ ETH_GET_LOGS_MAX_RESPONSE_SIZE: LOG_SIZE * 5, MIRROR_NODE_RETRIES: 0 }, () => {
+      it('takes the logs of the slices back out of the budget before fetching the whole range again', async () => {
+        let index = 0;
+        restMock.onGet(LOGS_REGEX).reply(async (config) => {
+          const url = urlOf(config);
+          if (isUnsliced(url)) {
+            return [200, JSON.stringify({ logs: [log(10), log(11), log(12), log(13)] })];
+          }
+          if (isLastSlice(url)) {
+            // fail once the other slices have charged the budget with their logs
+            await delay(30);
+            return [500, JSON.stringify({ _status: { messages: [{ message: 'Internal error' }] } })];
+          }
+          return [200, JSON.stringify({ logs: [log(index++)] })];
+        });
+
+        const call = createLogsCallLimits(newRequestDetails());
+        const logs = await mirrorNodeClient.getContractResultsLogsWithRetry(
+          call.requestDetails,
+          4,
+          { timestamp: TIMESTAMP_RANGE },
+          undefined,
+          call.limits,
+        );
+        call.dispose();
+
+        // 3 logs from the slices and 4 from the fallback would exceed the budget of 5, if counted together
+        expect(index).to.equal(3);
+        expect(logs).to.have.length(4);
+        expect(call.limits.budget.usedBytes).to.equal(LOG_SIZE * 4);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_RETRIES: 0 }, () => {
+      it('stops the other slices before fetching the whole range again', async () => {
+        let index = 0;
+        restMock.onGet(LOGS_REGEX).reply(async (config) => {
+          const url = urlOf(config);
+          if (isUnsliced(url)) {
+            return [200, JSON.stringify({ logs: [log(100)] })];
+          }
+          if (isLastSlice(url)) {
+            await delay(30);
+            return [500, JSON.stringify({ _status: { messages: [{ message: 'Internal error' }] } })];
+          }
+          // the other slices have an endless number of pages
+          await delay(5);
+          const page = index++;
+          return [
+            200,
+            JSON.stringify({
+              logs: [log(page)],
+              links: { next: `/api/v1/contracts/results/logs?timestamp=gt:1707944548.000000000&page=${page}` },
+            }),
+          ];
+        });
+
+        const call = createLogsCallLimits(newRequestDetails());
+        const logs = await mirrorNodeClient.getContractResultsLogsWithRetry(
+          call.requestDetails,
+          4,
+          { timestamp: TIMESTAMP_RANGE },
+          undefined,
+          call.limits,
+        );
+        call.dispose();
+
+        expect(logs).to.have.length(1);
+        expect(call.limits.budget.usedBytes).to.equal(LOG_SIZE);
+
+        // no slice asks for another page once the fallback has started
+        const requestsAtReturn = restMock.history.get.length;
+        await delay(50);
+        expect(restMock.history.get.length).to.equal(requestsAtReturn);
+      });
+    });
+  });
+
   describe('budget shared by the addresses of a call', () => {
     withOverriddenEnvsInMochaTest({ ETH_GET_LOGS_MAX_RESPONSE_SIZE: LOG_SIZE * 5 }, () => {
       it('fails once the logs of all addresses together exceed the budget', async () => {

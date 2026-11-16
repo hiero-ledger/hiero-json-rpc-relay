@@ -58,6 +58,16 @@ export class ResponseSizeBudget {
   }
 
   /**
+   * Creates a budget without a limit of its own that charges every byte to this one, to track a part of the
+   * response that may be discarded: releasing the child's {@link usedBytes} returns exactly that part to this budget.
+   *
+   * @returns The child budget.
+   */
+  createChild(): ResponseSizeBudget {
+    return new ResponseSizeBudget(Infinity, this.createError, this);
+  }
+
+  /**
    * The number of bytes consumed from this budget so far.
    */
   get usedBytes(): number {

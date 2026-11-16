@@ -103,6 +103,25 @@ describe('ResponseSizeBudget', function () {
     expect(estimateLogsResponseSize([])).to.equal(0);
   });
 
+  it('should create a child that charges the parent and can return exactly its own bytes', function () {
+    const parent = new ResponseSizeBudget(100, error);
+    parent.consume(10);
+    const child = parent.createChild();
+
+    child.consume(60);
+    expect(child.usedBytes).to.equal(60);
+    expect(parent.usedBytes).to.equal(70);
+
+    child.release(child.usedBytes);
+    expect(child.usedBytes).to.equal(0);
+    expect(parent.usedBytes).to.equal(10);
+
+    // the child has no limit of its own, so it fails only with the parent's error
+    expect(() => child.consume(91)).to.throw(error().message);
+    expect(parent.isExceeded).to.equal(true);
+    expect(child.isExceeded).to.equal(true);
+  });
+
   it('should estimate a log without data or topics as empty data and no topics', function () {
     const bare = {} as unknown as MirrorNodeContractLog;
 
