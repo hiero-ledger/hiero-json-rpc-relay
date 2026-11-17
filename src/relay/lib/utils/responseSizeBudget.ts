@@ -112,15 +112,16 @@ export class ResponseSizeBudget implements ResponseSizeBudgetParent {
   }
 
   /**
-   * Charges bytes to this budget and to its parents.
+   * Charges bytes to this budget and to its parents. Bytes are counted only once every budget has accepted them,
+   * so {@link usedBytes} is always what the parents were charged by this budget.
    *
    * @param bytes - The number of bytes being added to the response.
    * @throws The budget's error once this budget, or a parent, is exceeded.
    */
   consume(bytes: number): void {
-    this.used += bytes;
-    if (this.used > this.maxBytes) this.throwExceeded();
+    if (this.exceeded || this.used + bytes > this.maxBytes) this.throwExceeded();
     this.parent?.consume(bytes);
+    this.used += bytes;
   }
 
   /**

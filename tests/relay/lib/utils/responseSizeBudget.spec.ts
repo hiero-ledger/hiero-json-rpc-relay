@@ -50,7 +50,7 @@ describe('ResponseSizeBudget', function () {
 
     first.consume(70);
     expect(() => second.consume(31)).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
-    expect(parent.usedBytes).to.equal(101);
+    expect(parent.usedBytes).to.equal(70);
     expect(first.isExceeded).to.be.true;
     expect(() => first.assertNotExceeded()).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
   });
@@ -61,6 +61,37 @@ describe('ResponseSizeBudget', function () {
 
     expect(() => child.consume(101)).to.throw(error().message);
     expect(parent.usedBytes).to.equal(0);
+  });
+
+  it('should not count the bytes that a budget refused, so releasing usedBytes returns exactly what the parent was charged', function () {
+    const parent = new ResponseSizeBudget(100, () => predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100));
+    const sibling = new ResponseSizeBudget(Infinity, error, parent);
+    const ownLimit = new ResponseSizeBudget(50, error, parent);
+    const parentLimit = new ResponseSizeBudget(Infinity, error, parent);
+
+    sibling.consume(20);
+    ownLimit.consume(40);
+    expect(() => ownLimit.consume(20)).to.throw(error().message);
+    expect(ownLimit.usedBytes).to.equal(40);
+
+    parentLimit.consume(30);
+    expect(() => parentLimit.consume(20)).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
+    expect(parentLimit.usedBytes).to.equal(30);
+
+    ownLimit.release(ownLimit.usedBytes);
+    parentLimit.release(parentLimit.usedBytes);
+    expect(parent.usedBytes).to.equal(20);
+  });
+
+  it('should stay exceeded after releasing bytes, even for bytes that would fit', function () {
+    const budget = new ResponseSizeBudget(100, error);
+
+    budget.consume(90);
+    expect(() => budget.consume(20)).to.throw();
+    budget.release(90);
+
+    expect(() => budget.consume(1)).to.throw(error().message);
+    expect(budget.usedBytes).to.equal(0);
   });
 
   it('should return released bytes to the parent and stay exceeded once exceeded', function () {

@@ -68,6 +68,7 @@ export async function getLogs(
       );
     } catch (e: unknown) {
       call.abort();
+      call.limits.budget.release(call.limits.budget.usedBytes);
       throw e;
     } finally {
       call.dispose();

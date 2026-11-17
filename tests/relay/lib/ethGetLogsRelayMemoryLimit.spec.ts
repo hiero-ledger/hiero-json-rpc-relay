@@ -9,7 +9,7 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
-import { type JsonRpcError } from '../../../src/relay/lib/errors/JsonRpcError';
+import { type JsonRpcError, predefined } from '../../../src/relay/lib/errors/JsonRpcError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { Log } from '../../../src/relay/lib/model';
 import { CommonService } from '../../../src/relay/lib/services';
@@ -120,8 +120,40 @@ describe('eth_getLogs relay-wide memory limit', function () {
 
       expectBusy(error);
       expect(share.isExceeded).to.be.true;
-      expect(share.heldBytes).to.equal(LOG_SIZE * 2);
+      expect(share.heldBytes).to.equal(0);
       expect(pagesServed).to.equal(2);
+    });
+
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_RETRIES: 0 }, () => {
+      it('gives back the bytes of a call that fails for another reason', async () => {
+        const share = new GetLogsMemoryBudget(LOG_SIZE * 10).open();
+        restMock
+          .onGet(LOGS_REGEX)
+          .replyOnce(
+            200,
+            JSON.stringify({ logs: [log(0), log(1)], links: { next: '/api/v1/contracts/results/logs?page=1' } }),
+          )
+          .onGet(LOGS_REGEX)
+          .replyOnce(500, JSON.stringify({ _status: { messages: [{ message: 'Internal error' }] } }));
+
+        const error = await runGetLogs(requestDetailsWith(share)).catch((e: unknown) => e);
+
+        expect(error).to.exist;
+        expect(share.heldBytes).to.equal(0);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ ETH_GET_LOGS_MAX_RESPONSE_SIZE: LOG_SIZE * 3 }, () => {
+      it('gives back only its own bytes when a call fails on its own limit, keeping those of the other calls', async () => {
+        const share = new GetLogsMemoryBudget(LOG_SIZE * 10).open();
+        share.consume(LOG_SIZE * 2);
+        serveLogPages(5, 2);
+
+        const error = await runGetLogs(requestDetailsWith(share)).catch((e: unknown) => e);
+
+        expect((error as JsonRpcError).code).to.equal(predefined.LOGS_RESPONSE_SIZE_EXCEEDED(LOG_SIZE * 3).code);
+        expect(share.heldBytes).to.equal(LOG_SIZE * 2);
+      });
     });
 
     it('counts the calls of one request together, as for the entries of a batch', async () => {
