@@ -20,6 +20,26 @@ const LOG_TOPIC_JSON_SIZE = 69;
 const budgetErrors = new WeakSet<object>();
 
 /**
+ * What a budget needs from its parent. Lets a budget of another kind (for example, a relay-wide one) be a parent.
+ */
+export interface ResponseSizeBudgetParent {
+  /** Whether this parent, or any of its own parents, has been exceeded. */
+  readonly isExceeded: boolean;
+
+  /** Builds the error of the exceeded budget, or returns `undefined` when none is exceeded. */
+  exceededError(): JsonRpcError | undefined;
+
+  /** Charges bytes; throws an error marked with {@link markAsBudgetError} once exceeded. */
+  consume(bytes: number): void;
+
+  /** Returns bytes, for data that was fetched but is discarded. */
+  release(bytes: number): void;
+
+  /** Throws an error marked with {@link markAsBudgetError} when already exceeded. */
+  assertNotExceeded(): void;
+}
+
+/**
  * A byte budget for a response that is still being assembled.
  *
  * Producers call {@link consume} as data arrives (for example, after every mirror node page), so that a response
@@ -27,7 +47,7 @@ const budgetErrors = new WeakSet<object>();
  * all of it is in memory. A budget may have a parent: every byte consumed is also charged to the parent, so a
  * batch can share one budget across all of its entries, including the ones still in flight.
  */
-export class ResponseSizeBudget {
+export class ResponseSizeBudget implements ResponseSizeBudgetParent {
   private used = 0;
 
   /** Sticky: once a budget is exceeded it stays exceeded, even if bytes are released afterwards. */
@@ -43,7 +63,7 @@ export class ResponseSizeBudget {
   constructor(
     private readonly maxBytes: number,
     private readonly createError: () => JsonRpcError,
-    private readonly parent?: ResponseSizeBudget,
+    private readonly parent?: ResponseSizeBudgetParent,
     private readonly onExceeded?: () => void,
   ) {}
 
@@ -92,15 +112,16 @@ export class ResponseSizeBudget {
   }
 
   /**
-   * Charges bytes to this budget and to its parents.
+   * Charges bytes to this budget and to its parents. Bytes are counted only once every budget has accepted them,
+   * so {@link usedBytes} is always what the parents were charged by this budget.
    *
    * @param bytes - The number of bytes being added to the response.
    * @throws The budget's error once this budget, or a parent, is exceeded.
    */
   consume(bytes: number): void {
-    this.used += bytes;
-    if (this.used > this.maxBytes) this.throwExceeded();
+    if (this.exceeded || this.used + bytes > this.maxBytes) this.throwExceeded();
     this.parent?.consume(bytes);
+    this.used += bytes;
   }
 
   /**
@@ -133,20 +154,27 @@ export class ResponseSizeBudget {
   }
 }
 
-function markAsBudgetError(error: JsonRpcError): JsonRpcError {
+/**
+ * Marks an error as raised by a budget, so that {@link ResponseSizeBudget.isExceededError} recognizes it.
+ *
+ * @param error - The error a budget is about to throw.
+ * @returns The same error.
+ */
+export function markAsBudgetError(error: JsonRpcError): JsonRpcError {
   budgetErrors.add(error);
   return error;
 }
 
 /**
- * Estimates the size of mirror node logs once they are serialized as `eth_getLogs` entries.
+ * Estimates the size of logs once they are serialized as `eth_getLogs` entries.
  *
  * The estimate is computed from the variable-length fields only, so it is cheap enough to run on every page.
+ * Mirror node logs and the relay's `Log` entries have the same `data` and `topics`, so it works for both.
  *
- * @param logs - The mirror node logs of one page.
+ * @param logs - The mirror node logs of one page, or the `eth_getLogs` entries built from them.
  * @returns The estimated size, in bytes, of the logs in the JSON-RPC response.
  */
-export function estimateLogsResponseSize(logs: MirrorNodeContractLog[]): number {
+export function estimateLogsResponseSize(logs: ReadonlyArray<Pick<MirrorNodeContractLog, 'data' | 'topics'>>): number {
   let size = 0;
   for (const log of logs) {
     size += LOG_BASE_JSON_SIZE + (log.data?.length ?? 2) + (log.topics?.length ?? 0) * LOG_TOPIC_JSON_SIZE;
