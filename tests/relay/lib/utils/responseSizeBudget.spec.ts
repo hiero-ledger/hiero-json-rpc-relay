@@ -4,7 +4,12 @@ import { expect } from 'chai';
 
 import { type JsonRpcError, predefined } from '../../../../src/relay';
 import { type MirrorNodeContractLog } from '../../../../src/relay/lib/types';
-import { estimateLogsResponseSize, ResponseSizeBudget } from '../../../../src/relay/lib/utils/responseSizeBudget';
+import {
+  estimateLogsResponseSize,
+  markAsBudgetError,
+  ResponseSizeBudget,
+  type ResponseSizeBudgetParent,
+} from '../../../../src/relay/lib/utils/responseSizeBudget';
 
 describe('ResponseSizeBudget', function () {
   const error = (): JsonRpcError => predefined.LOGS_RESPONSE_SIZE_EXCEEDED(100);
@@ -32,6 +37,12 @@ describe('ResponseSizeBudget', function () {
     expect(ResponseSizeBudget.isExceededError(null)).to.be.false;
   });
 
+  it('should recognize errors marked with markAsBudgetError', function () {
+    const marked = markAsBudgetError(error());
+
+    expect(ResponseSizeBudget.isExceededError(marked)).to.be.true;
+  });
+
   it('should charge the parent and fail every child once the parent is exceeded', function () {
     const parent = new ResponseSizeBudget(100, () => predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100));
     const first = new ResponseSizeBudget(Infinity, error, parent);
@@ -39,7 +50,7 @@ describe('ResponseSizeBudget', function () {
 
     first.consume(70);
     expect(() => second.consume(31)).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
-    expect(parent.usedBytes).to.equal(101);
+    expect(parent.usedBytes).to.equal(70);
     expect(first.isExceeded).to.be.true;
     expect(() => first.assertNotExceeded()).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
   });
@@ -50,6 +61,37 @@ describe('ResponseSizeBudget', function () {
 
     expect(() => child.consume(101)).to.throw(error().message);
     expect(parent.usedBytes).to.equal(0);
+  });
+
+  it('should not count the bytes that a budget refused, so releasing usedBytes returns exactly what the parent was charged', function () {
+    const parent = new ResponseSizeBudget(100, () => predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100));
+    const sibling = new ResponseSizeBudget(Infinity, error, parent);
+    const ownLimit = new ResponseSizeBudget(50, error, parent);
+    const parentLimit = new ResponseSizeBudget(Infinity, error, parent);
+
+    sibling.consume(20);
+    ownLimit.consume(40);
+    expect(() => ownLimit.consume(20)).to.throw(error().message);
+    expect(ownLimit.usedBytes).to.equal(40);
+
+    parentLimit.consume(30);
+    expect(() => parentLimit.consume(20)).to.throw(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(100).message);
+    expect(parentLimit.usedBytes).to.equal(30);
+
+    ownLimit.release(ownLimit.usedBytes);
+    parentLimit.release(parentLimit.usedBytes);
+    expect(parent.usedBytes).to.equal(20);
+  });
+
+  it('should stay exceeded after releasing bytes, even for bytes that would fit', function () {
+    const budget = new ResponseSizeBudget(100, error);
+
+    budget.consume(90);
+    expect(() => budget.consume(20)).to.throw();
+    budget.release(90);
+
+    expect(() => budget.consume(1)).to.throw(error().message);
+    expect(budget.usedBytes).to.equal(0);
   });
 
   it('should return released bytes to the parent and stay exceeded once exceeded', function () {
@@ -91,6 +133,45 @@ describe('ResponseSizeBudget', function () {
     const own = new ResponseSizeBudget(10, error);
     expect(() => own.consume(11)).to.throw();
     expect(own.exceededError()).to.deep.equal(error());
+  });
+
+  it('should accept a parent that is not a ResponseSizeBudget', function () {
+    const parentError = markAsBudgetError(predefined.MIRROR_NODE_RESPONSE_SIZE_EXCEEDED(50));
+    const calls: string[] = [];
+    let parentExceeded = false;
+    const parent: ResponseSizeBudgetParent = {
+      get isExceeded() {
+        return parentExceeded;
+      },
+      exceededError: () => (parentExceeded ? parentError : undefined),
+      consume: (bytes) => {
+        calls.push(`consume ${bytes}`);
+        if (bytes > 50) {
+          parentExceeded = true;
+          throw parentError;
+        }
+      },
+      release: (bytes) => calls.push(`release ${bytes}`),
+      assertNotExceeded: () => {
+        if (parentExceeded) throw parentError;
+      },
+    };
+    const budget = new ResponseSizeBudget(Infinity, error, parent);
+
+    budget.consume(30);
+    budget.release(10);
+
+    expect(calls).to.deep.equal(['consume 30', 'release 10']);
+    expect(budget.isExceeded).to.be.false;
+
+    expect(() => budget.consume(60))
+      .to.throw()
+      .that.equals(parentError);
+    expect(budget.isExceeded).to.be.true;
+    expect(budget.exceededError()).to.equal(parentError);
+    expect(() => budget.assertNotExceeded())
+      .to.throw()
+      .that.equals(parentError);
   });
 
   it('should estimate the JSON-RPC size of logs from their data and topics', function () {

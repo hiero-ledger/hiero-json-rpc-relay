@@ -11,6 +11,7 @@ import WebSocket from 'ws';
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay, WebSocketError } from '../../../src/relay';
 import { type RequestDetails } from '../../../src/relay/lib/types';
+import { type GetLogsMemoryShare, sharedGetLogsMemoryBudget } from '../../../src/relay/lib/utils/getLogsMemoryBudget';
 import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcController';
 import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
 import * as utils from '../../../src/ws-server/utils/utils';
@@ -617,6 +618,144 @@ describe('webSocketServer websocket handling', () => {
       sockets.forEach((ws) => ws.terminate());
       await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }
+  });
+
+  describe('response memory share', () => {
+    let opened: sinon.SinonSpy<[], GetLogsMemoryShare>;
+    let seen: RequestDetails[];
+
+    const message = (id: number): Record<string, unknown> => ({
+      id,
+      jsonrpc: '2.0',
+      method: 'eth_chainId',
+      params: [],
+    });
+
+    const nextReply = (ws: WebSocket): Promise<unknown> =>
+      new Promise((resolve) => ws.once('message', (data) => resolve(JSON.parse(data.toString()))));
+
+    // the share is closed from the write callback, which can come just after the client has the reply
+    const waitUntilClosed = async (share: GetLogsMemoryShare): Promise<void> => {
+      for (let i = 0; i < 50 && !share.isExceeded; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    };
+
+    beforeEach(() => {
+      seen = [];
+      opened = sinon.spy(sharedGetLogsMemoryBudget(), 'open');
+      sinon.stub(jsonRpcController, 'getRequestResult').callsFake(async (...args: unknown[]) => {
+        const requestDetails = args[7] as RequestDetails;
+        const request = args[3] as { id: number };
+        seen.push(requestDetails);
+        requestDetails.responseMemoryShare?.consume(10);
+        return { id: request.id, jsonrpc: '2.0', result: '0x12a' };
+      });
+    });
+
+    it('gives a single message its own share and closes it once the reply has been written', async () => {
+      const usedBefore = sharedGetLogsMemoryBudget().usedBytes;
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send(JSON.stringify(message(1)));
+      const reply = await nextReply(ws);
+      const share = seen[0].responseMemoryShare!;
+      await waitUntilClosed(share);
+
+      expect(reply).to.deep.include({ id: 1, result: '0x12a' });
+      expect(share).to.equal(opened.returnValues[0]);
+      expect(share.isExceeded).to.equal(true);
+      expect(sharedGetLogsMemoryBudget().usedBytes).to.equal(usedBefore);
+    });
+
+    it('keeps the share open until the reply has been written', async () => {
+      let onWritten: ((error?: Error) => void) | undefined;
+      const replyHandedOver = new Promise<void>((resolve) => {
+        sinon.stub(utils, 'sendToClient').callsFake((...args: unknown[]) => {
+          onWritten = args[4] as (error?: Error) => void;
+          resolve();
+        });
+      });
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send(JSON.stringify(message(1)));
+      await replyHandedOver;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const share = seen[0].responseMemoryShare!;
+
+      expect(share.isExceeded, 'closed before the reply was written').to.equal(false);
+      expect(share.heldBytes).to.equal(10);
+
+      onWritten!();
+
+      expect(share.isExceeded).to.equal(true);
+      expect(share.heldBytes).to.equal(0);
+    });
+
+    it('gives every entry of a batch message the same share and closes it once', async () => {
+      sinon.stub(utils, 'getWsBatchRequestsEnabled').returns(true);
+      sinon.stub(utils, 'getBatchRequestsMaxSize').returns(10);
+      const usedBefore = sharedGetLogsMemoryBudget().usedBytes;
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send(JSON.stringify([message(1), message(2), message(3)]));
+      const reply = (await nextReply(ws)) as unknown[];
+      const share = seen[0].responseMemoryShare!;
+      await waitUntilClosed(share);
+
+      expect(reply).to.have.length(3);
+      expect(opened.callCount).to.equal(1);
+      expect(seen.map((requestDetails) => requestDetails.responseMemoryShare)).to.deep.equal([share, share, share]);
+      expect(share.isExceeded).to.equal(true);
+      expect(sharedGetLogsMemoryBudget().usedBytes).to.equal(usedBefore);
+    });
+
+    it('gives separate messages separate shares', async () => {
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send(JSON.stringify(message(1)));
+      await nextReply(ws);
+      ws.send(JSON.stringify(message(2)));
+      await nextReply(ws);
+
+      expect(seen[0].responseMemoryShare).to.not.equal(seen[1].responseMemoryShare);
+    });
+
+    it('closes the share of a message answered with an error', async () => {
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send('not-json');
+      await nextReply(ws);
+      const share = opened.returnValues[0];
+      await waitUntilClosed(share);
+
+      expect(share.isExceeded).to.equal(true);
+    });
+
+    it('closes the share when the connection closes before the reply', async () => {
+      const usedBefore = sharedGetLogsMemoryBudget().usedBytes;
+      const requestReceived = new Promise<void>((resolve) => {
+        (jsonRpcController.getRequestResult as sinon.SinonStub).callsFake((...args: unknown[]) => {
+          (args[7] as RequestDetails).responseMemoryShare?.consume(10);
+          resolve();
+          // never settles: only the connection closing can release this share
+          return new Promise(() => {});
+        });
+      });
+      const ws = await openWsServerAndUpdateSockets(server, sockets);
+
+      ws.send(JSON.stringify(message(1)));
+      await requestReceived;
+      const share = opened.returnValues[0];
+
+      expect(sharedGetLogsMemoryBudget().usedBytes).to.equal(usedBefore + 10);
+
+      ws.close();
+      await waitUntilClosed(share);
+
+      expect(share.isExceeded).to.equal(true);
+      expect(sharedGetLogsMemoryBudget().usedBytes).to.equal(usedBefore);
+    });
   });
 });
 
