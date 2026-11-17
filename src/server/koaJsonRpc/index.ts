@@ -13,6 +13,7 @@ import { IPRateLimiterService } from '../../relay/lib/services';
 import { type MethodRateLimitConfiguration, type RateLimitStore } from '../../relay/lib/types';
 import { RequestDetails } from '../../relay/lib/types';
 import { countBatchAddresses, HTTP_BATCH_ADDRESS_METHODS } from '../../relay/lib/utils/addressLimit';
+import { type GetLogsMemoryShare, sharedGetLogsMemoryBudget } from '../../relay/lib/utils/getLogsMemoryBudget';
 import { isRequestAbortedError, requestAbortReason } from '../../relay/lib/utils/requestAbort';
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { type IJsonRpcRequest } from './lib/IJsonRpcRequest';
@@ -75,6 +76,10 @@ export default class KoaJsonRpc {
       }
 
       const { signal: abortSignal, release: releaseAbortSignal } = this.createRequestAbortSignal(ctx);
+
+      const memoryShare = sharedGetLogsMemoryBudget().open();
+      ctx.res.once('close', () => memoryShare.close());
+
       try {
         let body: unknown | unknown[];
         try {
@@ -85,9 +90,9 @@ export default class KoaJsonRpc {
           return;
         }
         if (Array.isArray(body)) {
-          await this.handleBatchRequest(ctx, body, requestId, abortSignal);
+          await this.handleBatchRequest(ctx, body, requestId, abortSignal, memoryShare);
         } else {
-          await this.handleSingleRequest(ctx, body, requestId, abortSignal);
+          await this.handleSingleRequest(ctx, body, requestId, abortSignal, memoryShare);
         }
       } catch (error) {
         if (!isRequestAbortedError(error)) {
@@ -129,6 +134,7 @@ export default class KoaJsonRpc {
     body: unknown,
     requestId: string,
     abortSignal: AbortSignal,
+    memoryShare: GetLogsMemoryShare,
   ): Promise<void> {
     let response: IJsonRpcResponse;
     if (!this.hasValidJsonRpcId(body)) {
@@ -137,7 +143,7 @@ export default class KoaJsonRpc {
       response = jsonRespError(body.id, spec.InvalidRequest, requestId);
     } else {
       ctx.state.methodName = body.method;
-      response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal);
+      response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal, memoryShare);
     }
 
     ctx.body = response;
@@ -155,6 +161,7 @@ export default class KoaJsonRpc {
     body: unknown[],
     requestId: string,
     abortSignal: AbortSignal,
+    memoryShare: GetLogsMemoryShare,
   ): Promise<void> {
     // verify that batch requests are enabled
     if (!getBatchRequestsEnabled()) {
@@ -203,7 +210,7 @@ export default class KoaJsonRpc {
         return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestId);
 
       const startTime = Date.now();
-      return this.getRequestResult(item, ctx.ip, requestId, abortSignal).then((res) => {
+      return this.getRequestResult(item, ctx.ip, requestId, abortSignal, memoryShare).then((res) => {
         const ms = Date.now() - startTime;
         const code = 'error' in res ? res.error.code : 200;
         this.methodResponseHistogram
@@ -225,6 +232,7 @@ export default class KoaJsonRpc {
     ipAddress: string,
     requestId: string,
     abortSignal?: AbortSignal,
+    responseMemoryShare?: GetLogsMemoryShare,
   ): Promise<IJsonRpcResponse> {
     const subdomain = request.method.split('_')[0] ?? null;
     if (!RPC_HTTP_API.has(subdomain)) {
@@ -234,7 +242,7 @@ export default class KoaJsonRpc {
     abortSignal?.throwIfAborted();
 
     try {
-      const requestDetails = new RequestDetails({ requestId, ipAddress, abortSignal });
+      const requestDetails = new RequestDetails({ requestId, ipAddress, abortSignal, responseMemoryShare });
       // check rate limit for method and ip
       const rateLimitMethod = this.relay.methodMetricLabeler(request.method);
       const methodTotalLimit = this.methodConfig[rateLimitMethod]?.total ?? this.defaultRateLimit;

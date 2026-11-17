@@ -18,6 +18,7 @@ import { RegistryFactory } from '../relay/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '../relay/lib/services';
 import { RequestDetails } from '../relay/lib/types';
 import { countBatchAddresses, WS_BATCH_ADDRESS_METHODS } from '../relay/lib/utils/addressLimit';
+import { type GetLogsMemoryShare, sharedGetLogsMemoryBudget } from '../relay/lib/utils/getLogsMemoryBudget';
 import { isRequestAbortedError, requestAbortReason } from '../relay/lib/utils/requestAbort';
 import KoaJsonRpc from '../server/koaJsonRpc';
 import type { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
@@ -132,6 +133,7 @@ export async function initializeWsServer(
     const startTime = process.hrtime();
 
     const inFlightRequests = new Set<AbortController>();
+    const openMemoryShares = new Set<GetLogsMemoryShare>();
     ctx.websocket.limiter = limiter;
     ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
@@ -149,6 +151,11 @@ export async function initializeWsServer(
           inFlightRequest.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));
         }
         inFlightRequests.clear();
+
+        for (const memoryShare of openMemoryShares) {
+          memoryShare.close();
+        }
+        openMemoryShares.clear();
 
         await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
       }),
@@ -168,11 +175,21 @@ export async function initializeWsServer(
       const abortController = new AbortController();
       inFlightRequests.add(abortController);
 
+      // One share for the whole message, a batch included, closed once its reply has been written to the client.
+      const memoryShare = sharedGetLogsMemoryBudget().open();
+      openMemoryShares.add(memoryShare);
+      const closeMemoryShare = (): void => {
+        memoryShare.close();
+        openMemoryShares.delete(memoryShare);
+      };
+      let closeOnWrite = false;
+
       const requestDetails = new RequestDetails({
         requestId,
         ipAddress: ctx.request.ip,
         connectionId: ctx.websocket.id,
         abortSignal: abortController.signal,
+        responseMemoryShare: memoryShare,
       });
 
       try {
@@ -278,7 +295,8 @@ export async function initializeWsServer(
             const responses = await Promise.all(requestPromises);
 
             // send to client
-            sendToClient(ctx.websocket, request, responses, logger);
+            sendToClient(ctx.websocket, request, responses, logger, closeMemoryShare);
+            closeOnWrite = true;
           } else {
             if (logger.isLevelEnabled('trace')) {
               logger.trace(`Receive single request=${JSON.stringify(request)}`);
@@ -298,7 +316,8 @@ export async function initializeWsServer(
             );
 
             // send to client
-            sendToClient(ctx.websocket, request, response, logger);
+            sendToClient(ctx.websocket, request, response, logger, closeMemoryShare);
+            closeOnWrite = true;
           }
 
           // Calculate the duration of the connection
@@ -319,6 +338,11 @@ export async function initializeWsServer(
         logger.debug(`Request abandoned by the client: connectionId=%s, requestId=%s`, ctx.websocket.id, requestId);
       } finally {
         inFlightRequests.delete(abortController);
+
+        // Replies handed to the connection close the share once written; every other path closes it here.
+        if (!closeOnWrite) {
+          closeMemoryShare();
+        }
       }
     });
 

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { type GetLogsMemoryShare } from '../utils/getLogsMemoryBudget';
+
 /**
  * Represents the details of a request.
  */
@@ -26,16 +28,31 @@ export class RequestDetails {
   abortSignal?: AbortSignal;
 
   /**
+   * The request's share of the relay-wide response memory budget, closed once the response has been sent.
+   */
+  responseMemoryShare?: GetLogsMemoryShare;
+
+  /**
    * Creates an instance of RequestDetails.
    * @param details - The details of the request.
    */
-  constructor(details: { requestId: string; ipAddress: string; connectionId?: string; abortSignal?: AbortSignal }) {
+  constructor(details: {
+    requestId: string;
+    ipAddress: string;
+    connectionId?: string;
+    abortSignal?: AbortSignal;
+    responseMemoryShare?: GetLogsMemoryShare;
+  }) {
     this.requestId = details.requestId;
     this.ipAddress = details.ipAddress;
     this.connectionId = details.connectionId;
 
     if (details.abortSignal) {
       Object.defineProperty(this, 'abortSignal', { value: details.abortSignal, enumerable: false });
+    }
+
+    if (details.responseMemoryShare) {
+      Object.defineProperty(this, 'responseMemoryShare', { value: details.responseMemoryShare, enumerable: false });
     }
   }
 }
