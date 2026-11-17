@@ -20,7 +20,7 @@ This subsystem does two things:
 `.github/network-versions.env` holds exactly three values:
 
 ```
-SOLO_VERSION=0.68.0       # @hashgraph/solo npm package version (no leading "v")
+SOLO_VERSION=0.68.0       # @hiero-ledger/solo npm package version (no leading "v")
 NETWORK_TAG=v0.72.0       # hiero-consensus-node release tag
 MIRROR_NODE_TAG=v0.151.0  # hiero-mirror-node release tag
 ```
@@ -53,7 +53,7 @@ The workflows that deploy the network and load this file:
 `.github/workflows/bump-network-versions.yml` runs every Monday at 08:00 UTC (and on demand via `workflow_dispatch`). It runs `.github/scripts/bump-network-versions.sh`, which:
 
 1. Fetches the latest **stable** version of each component:
-   - Solo: the npm `latest` dist-tag (`npm view @hashgraph/solo dist-tags.latest`), which excludes pre-releases.
+   - Solo: the npm `latest` dist-tag (`npm view @hiero-ledger/solo dist-tags.latest`), which excludes pre-releases.
    - Consensus node / mirror node: GitHub's `releases/latest` endpoint, which excludes drafts and pre-releases.
 2. Aborts before writing anything if any fetch returned empty, so a transient failure can never overwrite a good pin with garbage.
 3. Rewrites only the lines in `network-versions.env` whose value actually changed.
