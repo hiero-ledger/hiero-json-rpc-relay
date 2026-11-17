@@ -358,7 +358,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     }
 
     if (global.relayIsLocal) {
-      // newPendingTransactions is only supported with nonce ordering, which is off by default.
+      // newPendingTransactions is only supported with nonce ordering; pinned explicitly so the test doesn't depend on the default.
       WsTestHelper.withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: true }, () => {
         it('Subscribes to newPendingTransactions and receives the hash and the full transaction', async function () {
           const notifications: { subscription: string; result: unknown }[] = [];

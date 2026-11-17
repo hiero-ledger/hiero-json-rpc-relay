@@ -509,6 +509,11 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX: {
     type: 'number',
     required: false,
@@ -902,7 +907,7 @@ const _CONFIG = {
   TXPOOL_API_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   TX_STATUS_TRACING: {
     type: 'boolean',
@@ -962,7 +967,7 @@ const _CONFIG = {
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',

@@ -1,5 +1,5 @@
 > [!NOTE]
-> This is an experimental feature hidden behind a flag `ENABLE_NONCE_ORDERING`
+> This feature is controlled by the `ENABLE_NONCE_ORDERING` flag (enabled by default).
 
 ## Nonce ordering with locks
 
@@ -46,7 +46,7 @@ Limitations (by design):
 
 ### Configuration
 
-- `ENABLE_NONCE_ORDERING` (boolean; default: false)
+- `ENABLE_NONCE_ORDERING` (boolean; default: true)
   - Master feature flag that enables the nonce ordering mechanism.
   - When disabled, transactions are processed without any locking, maintaining current behavior.
   - When enabled, transactions acquire locks before any async operations or side effects.
@@ -310,9 +310,9 @@ Yes! The lock service and transaction pool work together:
 
 Both features are independent and can be enabled/disabled separately.
 
-#### How do I enable this feature?
+#### How do I enable or disable this feature?
 
-Set the environment variable `ENABLE_NONCE_ORDERING=true`. The feature is disabled by default to allow for gradual rollout and testing.
+The feature is enabled by default. Set the environment variable `ENABLE_NONCE_ORDERING=false` to disable it.
 
 #### What if I don't use Redis? Do I still get ordering guarantees?
 

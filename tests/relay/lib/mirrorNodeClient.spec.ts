@@ -383,6 +383,97 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('request, retry and timeout counters', () => {
+    // The client reads the retry delay at construction, so zero keeps the retry tests fast.
+    overrideEnvsInMochaDescribe({ MIRROR_NODE_RETRY_DELAY: 0 });
+
+    // A dedicated registry, since every client built on the shared one replaces its metrics.
+    let counterRegistry: Registry;
+    let client: MirrorNodeClient;
+    let clientMock: MockAdapter;
+
+    beforeEach(() => {
+      counterRegistry = new Registry();
+      // No injected axios instance, so requests go through the client's own axios-retry setup.
+      client = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, counterRegistry, cacheService);
+      clientMock = new MockAdapter(client.getMirrorNodeRestInstance());
+    });
+
+    const count = async (metricName: string): Promise<number> => {
+      const metric = await counterRegistry.getSingleMetric(metricName)!.get();
+      return metric.values.find((v) => v.labels.method === 'accounts')?.value ?? 0;
+    };
+
+    const counts = async (): Promise<Record<string, number>> => ({
+      requests: await count('rpc_relay_mirror_node_request_count'),
+      retries: await count('rpc_relay_mirror_node_retry_count'),
+      timeouts: await count('rpc_relay_mirror_node_timeout_count'),
+      timeoutRetries: await count('rpc_relay_mirror_node_timeout_retry_count'),
+    });
+
+    it('counts a successful request', async () => {
+      clientMock.onGet('accounts').reply(200, JSON.stringify({ accounts: [] }));
+      await expect(client.get('accounts', 'accounts', requestDetails)).to.eventually.deep.equal({ accounts: [] });
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 0, timeoutRetries: 0 });
+    });
+
+    it('counts a client-side timeout', async () => {
+      clientMock.onGet('accounts').timeout();
+      await expect(client.get('accounts', 'accounts', requestDetails, 0))
+        .to.eventually.be.rejectedWith(/timeout of \d+ms exceeded/)
+        .and.have.property('statusCode', 504);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
+    });
+
+    it('counts a client-side timeout reported as ETIMEDOUT when clarifyTimeoutError is on', async () => {
+      const restInstance = client.getMirrorNodeRestInstance();
+      restInstance.defaults.transitional = { ...restInstance.defaults.transitional, clarifyTimeoutError: true };
+      clientMock.onGet('accounts').timeout();
+      await expect(client.get('accounts', 'accounts', requestDetails, 0)).to.eventually.be.rejectedWith(
+        /timeout of \d+ms exceeded/,
+      );
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
+    });
+
+    it('does not count an upstream 504 as a timeout', async () => {
+      clientMock.onGet('accounts').reply(504, ``);
+      await expect(client.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith('Request failed with status code 504')
+        .and.have.property('statusCode', 504);
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 0, timeoutRetries: 0 });
+    });
+
+    it('counts timed-out attempts that are retried before a success as timeout retries', async () => {
+      clientMock
+        .onGet('accounts')
+        .timeoutOnce()
+        .onGet('accounts')
+        .timeoutOnce()
+        .onGet('accounts')
+        .reply(200, JSON.stringify({ accounts: [] }));
+      await expect(client.get('accounts', 'accounts', requestDetails, 2)).to.eventually.deep.equal({ accounts: [] });
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 2, timeouts: 0, timeoutRetries: 2 });
+    });
+
+    it('counts timeout retries and the final timeout when every attempt times out', async () => {
+      clientMock.onGet('accounts').timeout();
+      await expect(client.get('accounts', 'accounts', requestDetails, 2)).to.eventually.be.rejectedWith(
+        /timeout of \d+ms exceeded/,
+      );
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 2, timeouts: 1, timeoutRetries: 2 });
+    });
+
+    it('counts a retry after a network error, but not as a timeout retry', async () => {
+      clientMock
+        .onGet('accounts')
+        .networkErrorOnce()
+        .onGet('accounts')
+        .reply(200, JSON.stringify({ accounts: [] }));
+      await expect(client.get('accounts', 'accounts', requestDetails, 1)).to.eventually.deep.equal({ accounts: [] });
+      expect(await counts()).to.deep.equal({ requests: 1, retries: 1, timeouts: 0, timeoutRetries: 0 });
+    });
+  });
+
   it('Can extract the account number out of an account pagination next link url', async () => {
     const accountId = '0.0.123';
     const url = `/api/v1/accounts/${accountId}?limit=100&timestamp=lt:1682455406.562695326`;
@@ -804,6 +895,29 @@ describe('MirrorNodeClient', async function () {
     const b11 = await mirrorNodeInstance.getBlock(11, requestDetails);
     expect(b10.number).to.equal(10);
     expect(b11.number).to.equal(11);
+  });
+
+  withOverriddenEnvsInMochaTest({ MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED: false }, () => {
+    it('`getBlocksByRange` does not write the fetched blocks to the per-block cache', async () => {
+      const fromBlock = 10;
+      const toBlock = 11;
+      const rangeBlocks = [
+        { ...block, number: 10 },
+        { ...block, number: 11 },
+      ];
+      mock
+        .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
+        .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+      const blocks = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
+
+      const cachedBlock10 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.10`, 'test');
+      const cachedBlock11 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.11`, 'test');
+
+      expect(blocks.map((b) => b.number)).to.deep.equal([10, 11]);
+      expect(cachedBlock10).to.be.null;
+      expect(cachedBlock11).to.be.null;
+    });
   });
 
   it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
