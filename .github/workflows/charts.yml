@@ -32,7 +32,7 @@ jobs:
           python-version: "3.11"
 
       - name: Setup Helm
-        uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
       - name: Install envsubst Dependency for Cosign
         run: sudo apt-get update && sudo apt-get install -y gettext-base=0.21-4ubuntu4
@@ -63,7 +63,7 @@ jobs:
           python-version: "3.11"
 
       - name: Setup Helm
-        uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
       - name: Setup kubectl
         uses: Azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
