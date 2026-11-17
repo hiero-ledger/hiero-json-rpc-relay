@@ -1442,7 +1442,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const wasAnyMirrorNodeCallMade = (): boolean => restMock.history.get.length > 0;
 
       withOverriddenEnvsInMochaTest(
-        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false, ENABLE_NONCE_ORDERING: false },
+        {
+          DISABLE_MN_PRECHECKS_ON_TX_SENDING: true,
+          USE_ASYNC_TX_PROCESSING: false,
+          ENABLE_NONCE_ORDERING: true,
+          ENABLE_TX_POOL: true,
+        },
         () => {
           it('should submit the transaction with zero Mirror Node calls on the happy path', async function () {
             sdkClientStub.submitEthereumTransaction.resolves({
@@ -1459,10 +1464,48 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
 
             expect(resultingHash).to.equal(ethereumHash);
-            // The acid test: no Mirror Node HTTP calls at all during the send flow.
+            // The acid test: no Mirror Node HTTP calls at all during the send flow - including the post-submission
+            // pool-cleanup poll, which must be skipped even with nonce ordering and the tx pool on.
             expect(wasAnyMirrorNodeCallMade()).to.be.false;
             // And we still submitted to the consensus node.
             sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+          });
+
+          it('should not poll Mirror Node for pool cleanup after submission', async function () {
+            const pollSpy = sinon.spy(transactionService, 'pollMirrorNodeAndCleanup');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // The transaction was never added to the pool, so there is nothing to clean up.
+            sinon.assert.notCalled(pollSpy);
+          });
+
+          withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
+            it('should not poll Mirror Node for pool cleanup after submission in async mode', async function () {
+              const pollSpy = sinon.spy(transactionService, 'pollMirrorNodeAndCleanup');
+              const processorSpy = sinon.spy(transactionService, 'sendRawTransactionProcessor');
+              sdkClientStub.submitEthereumTransaction.resolves({
+                txResponse: {
+                  transactionId: TransactionId.fromString(transactionIdServicesFormat),
+                } as unknown as TransactionResponse,
+                fileId: null,
+              });
+              const signed = await signTransaction(transaction);
+
+              await ethImpl.sendRawTransaction(signed, requestDetails);
+              // In async mode the hash is returned before submission completes - wait for the background processor.
+              await processorSpy.returnValues[0];
+
+              sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+              sinon.assert.notCalled(pollSpy);
+            });
           });
 
           it('should derive the Hedera max-fee basis from the user-signed gas price and pass 0 exchange rate', async function () {

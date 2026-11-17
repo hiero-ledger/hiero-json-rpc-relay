@@ -913,7 +913,11 @@ export class TransactionService implements ITransactionService {
     );
 
     if (shouldPollAndCleanup) {
-      if (ConfigService.get('ENABLE_NONCE_ORDERING') && ConfigService.get('ENABLE_TX_POOL')) {
+      if (
+        ConfigService.get('ENABLE_NONCE_ORDERING') &&
+        ConfigService.get('ENABLE_TX_POOL') &&
+        !ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
+      ) {
         if (ConfigService.get('USE_ASYNC_TX_PROCESSING') || submissionError) {
           void this.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
         } else {
