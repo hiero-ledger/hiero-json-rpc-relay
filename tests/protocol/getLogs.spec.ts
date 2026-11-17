@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
+import { ConfigService } from '../../src/config-service/services';
 import { predefined } from '../../src/relay';
 import { numberTo0x } from '../../src/relay/formatters';
 import { type Log } from '../../src/relay/lib/model';
@@ -155,6 +156,21 @@ describe('@release @protocol-acceptance @protocol-acceptance-contract-service et
         expect(txIndexLogIndexMapping.length).to.equal(uniqueTxIndexLogIndexMapping.length);
 
         log0Block = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [logs[0].transactionHash]);
+
+        // Within MAX_BLOCK_RANGE of the head the relay answers with the sender's latest nonce rather than the one
+        // at the requested block, so wait until log0's block is past that range (plus a block of cache slack).
+        const maxBlockRange = ConfigService.get('MAX_BLOCK_RANGE');
+        await Utils.waitUntil(
+          async () =>
+            Number(await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [])) -
+              parseInt(log0Block.blockNumber, 16) >
+            maxBlockRange + 1,
+          {
+            timeoutMs: 60_000,
+            description: `the log0 block to fall more than ${maxBlockRange} blocks behind the head`,
+          },
+        );
+
         const transactionCountLog0Block = await relay.provider.getTransactionCount(
           log0Block.from,
           log0Block.blockNumber,

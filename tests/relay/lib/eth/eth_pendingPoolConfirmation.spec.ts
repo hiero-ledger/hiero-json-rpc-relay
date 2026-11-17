@@ -237,6 +237,22 @@ describe('pending pool confirmation from eth_getTransactionReceipt and eth_getTr
       await expectPool(0, confirmedBaseline + 1);
     });
 
+    it('should drop a record rejected before consensus from the poll without confirming it, since its nonce did not move', async () => {
+      await poolService.saveTransaction(sender, parsedTx, confirmedBaseline);
+      mockContractResult(parsedTx, {
+        status: '0x0',
+        result: 'INSUFFICIENT_TX_FEE',
+        transaction_index: null,
+        block_number: null,
+        block_hash: constants.EMPTY_HEX,
+      });
+
+      await poll(parsedTx);
+
+      await expectPool(0, confirmedBaseline);
+      await expectLatestNonce(confirmedBaseline);
+    });
+
     it('should only confirm the transaction the receipt is for', async () => {
       await poolService.saveTransaction(sender, parsedTx, confirmedBaseline);
       await poolService.saveTransaction(sender, otherParsedTx, confirmedBaseline);
