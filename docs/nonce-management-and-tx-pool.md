@@ -1,5 +1,5 @@
 > [!NOTE]
-> This is an experimental feature hidden behind a flag `ENABLE_TX_POOL`
+> This feature is controlled by the `ENABLE_TX_POOL` flag (enabled by default).
 
 ## Nonce management and transaction pool
 
@@ -35,7 +35,7 @@ Limitations (by design): Hedera services do not buffer transactions by nonce; us
 
 ### Configuration
 
-- `ENABLE_TX_POOL` (boolean; default: false)
+- `ENABLE_TX_POOL` (boolean; default: true)
   - Enables nonce management via the per-address pending pool.
   - Affects both precheck behavior in `eth_sendRawTransaction` and `eth_getTransactionCount(..., "pending")` responses.
 

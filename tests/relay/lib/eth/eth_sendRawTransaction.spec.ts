@@ -1175,28 +1175,30 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           { statusName: 'INVALID_ALIAS_KEY', statusCode: Status.InvalidAliasKey._code },
         ];
 
-        POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
-          it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
-            // Reset history to ensure we're only checking calls from this test
-            restMock.resetHistory();
-            const signed = await signTransaction(transaction);
+        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+          POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
+            it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
+              // Reset history to ensure we're only checking calls from this test
+              restMock.resetHistory();
+              const signed = await signTransaction(transaction);
 
-            // SDK throws post-execution error with transaction ID
-            const sdkError = new SDKClientError(
-              { status: Status._fromCode(statusCode), message: statusName },
-              statusName,
-              transactionIdServicesFormat,
-            );
-            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+              // SDK throws post-execution error with transaction ID
+              const sdkError = new SDKClientError(
+                { status: Status._fromCode(statusCode), message: statusName },
+                statusName,
+                transactionIdServicesFormat,
+              );
+              sdkClientStub.submitEthereumTransaction.throws(sdkError);
 
-            // Mirror Node returns transaction hash (transaction executed but failed)
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+              // Mirror Node returns transaction hash (transaction executed but failed)
+              restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect(result).to.equal(ethereumHash);
+              const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+              expect(result).to.equal(ethereumHash);
 
-            // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
-            expect(wasContractResultEndpointCalled()).to.be.false;
+              // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
+              expect(wasContractResultEndpointCalled()).to.be.false;
+            });
           });
         });
 
@@ -1440,7 +1442,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const wasAnyMirrorNodeCallMade = (): boolean => restMock.history.get.length > 0;
 
       withOverriddenEnvsInMochaTest(
-        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false },
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false, ENABLE_NONCE_ORDERING: false },
         () => {
           it('should submit the transaction with zero Mirror Node calls on the happy path', async function () {
             sdkClientStub.submitEthereumTransaction.resolves({
@@ -1579,7 +1581,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       // Sanity: with the flag off, the existing prechecks DO run and DO make MN calls.
       // This guards against accidental regressions in the other direction.
       withOverriddenEnvsInMochaTest(
-        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false },
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false, ENABLE_NONCE_ORDERING: false },
         () => {
           it('should still run the stateful prechecks when the flag is off', async function () {
             const receiverAndGasStub = sinon.stub(transactionService['precheck'], 'validateReceiverAndGasStateful');
