@@ -78,6 +78,7 @@ describe('PollerService', async function () {
     _sliceCount?: number,
     params?: IContractLogsResultsParams,
     _limitOrderParams?: unknown,
+    _limits?: unknown,
   ): Promise<MirrorNodeContractLog[]> => {
     const [from, to] = blockRange(params);
     return chainLogs.filter((log) => log.block_number >= from && log.block_number <= to);
