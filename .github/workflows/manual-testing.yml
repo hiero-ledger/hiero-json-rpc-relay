@@ -10,8 +10,12 @@ on:
         description: 'Specify desired Mirror-Node image tag'
         required: true
         default: ''
+      blockNode:
+        description: 'Deploy a Block Node; the mirror node imports blocks from it instead of record files'
+        type: boolean
+        default: false
 
-run-name: Manual Test with N:${{ inputs.networkNodeTag }} and M:${{ inputs.mirrorNodeTag }}
+run-name: Manual Test with N:${{ inputs.networkNodeTag }} and M:${{ inputs.mirrorNodeTag }}${{ inputs.blockNode && ' and a Block Node' || '' }}
 permissions:
   contents: write
   checks: write
@@ -26,6 +30,7 @@ jobs:
       testfilter: api_batch1
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   api_batch_2:
     name: API Batch 2
@@ -34,6 +39,7 @@ jobs:
       testfilter: api_batch2
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   api_batch_3:
     name: API Batch 3
@@ -42,6 +48,7 @@ jobs:
       testfilter: api_batch3
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   erc20:
     name: ERC20
@@ -50,6 +57,7 @@ jobs:
       testfilter: erc20
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   ratelimiter:
     name: Rate Limiter
@@ -60,6 +68,7 @@ jobs:
       test_rate_limits: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   hbarlimiter:
     name: HBar Limiter
@@ -68,6 +77,7 @@ jobs:
       testfilter: hbarlimiter
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   tokencreate:
     name: Token Create
@@ -76,6 +86,7 @@ jobs:
       testfilter: tokencreate
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   tokenmanagement:
     name: Token Management
@@ -84,6 +95,7 @@ jobs:
       testfilter: tokenmanagement
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   htsprecompilev1:
     name: Precompile
@@ -92,6 +104,7 @@ jobs:
       testfilter: htsprecompilev1
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   precompilecalls:
     name: Precompile Calls
@@ -100,6 +113,7 @@ jobs:
       testfilter: precompile-calls
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   websocket-batch-1:
     name: Websocket Batch 1
@@ -109,6 +123,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   websocket-batch-2:
     name: Websocket Batch 2
@@ -118,6 +133,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   websocket-batch-3:
     name: Websocket Batch 3
@@ -127,6 +143,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   cacheservice:
     name: Cache Service
@@ -135,6 +152,7 @@ jobs:
       testfilter: cache-service
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   server-config:
     name: Server Config
@@ -143,6 +161,7 @@ jobs:
       testfilter: serverconfig
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-account-service:
     name: Protocol Account Service
@@ -152,6 +171,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-block-service:
     name: Protocol Block Service
@@ -161,6 +181,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-common-service:
     name: Protocol Common Service
@@ -170,6 +191,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-contract-service:
     name: Protocol Contract Service
@@ -179,6 +201,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-transaction-service:
     name: Protocol Transaction Service
@@ -188,6 +211,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-fee-service:
     name: Protocol Fee Service
@@ -197,6 +221,7 @@ jobs:
       test_ws_server: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   protocol-eth-plain:
     name: Protocol Eth Plain
@@ -207,6 +232,7 @@ jobs:
       test_rate_limits: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
+      block_node: ${{inputs.blockNode}}
 
   publish_results:
     name: Publish Results
