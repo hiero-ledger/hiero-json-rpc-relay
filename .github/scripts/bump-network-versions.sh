@@ -20,7 +20,7 @@ VERSIONS_FILE="${VERSIONS_FILE:-$REPO_ROOT/.github/network-versions.env}"
 
 CN_REPO="hiero-ledger/hiero-consensus-node"
 MN_REPO="hiero-ledger/hiero-mirror-node"
-SOLO_PKG="@hashgraph/solo"
+SOLO_PKG="@hiero-ledger/solo"
 
 # --- fetch latest stable versions --------------------------------------------
 latest_solo="$(npm view "$SOLO_PKG" dist-tags.latest)"
