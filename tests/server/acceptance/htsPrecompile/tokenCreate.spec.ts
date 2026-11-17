@@ -60,7 +60,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '10000000000'; //100 Hbar
+    const initialAmount: string = '20000000000'; //200 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
