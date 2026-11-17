@@ -1113,6 +1113,13 @@ export class TransactionService implements ITransactionService {
       try {
         const result = await this.mirrorNodeClient.getContractResult(txHash, requestDetails);
         if (result?.hash) {
+          // A non-SUCCESS record with no block linkage was rejected before consensus (e.g. INSUFFICIENT_TX_FEE):
+          // the sender's nonce did not move, so drop the entry without counting it as confirmed.
+          if (result.result !== constants.SUCCESS && isImmatureContractRecord(result, this.logger)) {
+            await this.transactionTracingService.recordRejected(txHash, { hederaStatus: result.result });
+            await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'rejected');
+            return;
+          }
           await this.transactionTracingService.recordValidated(txHash);
           await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
           return;

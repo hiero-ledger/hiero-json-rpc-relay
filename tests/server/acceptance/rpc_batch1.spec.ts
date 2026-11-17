@@ -754,48 +754,55 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         describe('ENABLE_TX_POOL = false', async () => {
           overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: false });
+          // Transactions sent while the pool is off never update the relay's cached confirmed count, so a sender
+          // shared with pool-enabled tests would leave them a stale nonce. Use a dedicated one instead.
+          let sender: AliasAccount;
+          before(async () => {
+            [sender] = await Utils.createMultipleAliasAccounts(mirrorNode, global.accounts[0], 1, initialBalance);
+          });
+
           it('should return latest nonce after transaction has been sent ', async () => {
-            const nonce = await relay.getAccountNonce(accounts[1].address);
+            const nonce = await relay.getAccountNonce(sender.address);
             const tx = {
               ...defaultLondonTransactionData,
               to: accounts[2].address,
               nonce,
             };
-            const signedTx = await accounts[1].wallet.signTransaction(tx);
+            const signedTx = await sender.wallet.signTransaction(tx);
             const txHash = await relay.sendRawTransaction(signedTx);
             await relay.pollForValidTransactionReceipt(txHash);
 
-            const nonceLatest = await relay.getAccountNonce(accounts[1].address);
+            const nonceLatest = await relay.getAccountNonce(sender.address);
 
             expect(nonce).to.not.equal(nonceLatest);
             expect(nonce).to.be.lessThan(nonceLatest);
           });
 
           it('should return equal nonces (pending and latest) when transaction has been sent', async () => {
-            const nonce = await relay.getAccountNonce(accounts[1].address);
+            const nonce = await relay.getAccountNonce(sender.address);
             const tx = {
               ...defaultLondonTransactionData,
               to: accounts[2].address,
               nonce,
             };
-            const signedTx = await accounts[1].wallet.signTransaction(tx);
+            const signedTx = await sender.wallet.signTransaction(tx);
             await relay.sendRawTransaction(signedTx);
 
-            const nonceLatest = await relay.getAccountNonce(accounts[1].address);
-            const noncePending = await relay.getAccountNonce(accounts[1].address, Constants.BLOCK_PENDING);
+            const nonceLatest = await relay.getAccountNonce(sender.address);
+            const noncePending = await relay.getAccountNonce(sender.address, Constants.BLOCK_PENDING);
 
             expect(nonceLatest).to.equal(noncePending);
           });
 
           withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
             it('should fail with WRONG_NONCE when multiple transactions have been sent simultaneously', async () => {
-              const nonceLatest = await relay.getAccountNonce(accounts[1].address);
+              const nonceLatest = await relay.getAccountNonce(sender.address);
 
               const txs: Promise<string>[] = [];
               for (let i = 0; i < 10; i++) {
                 txs.push(
                   relay.sendRawTransaction(
-                    await accounts[1].wallet.signTransaction({
+                    await sender.wallet.signTransaction({
                       ...defaultLondonTransactionData,
                       to: accounts[2].address,
                       nonce: nonceLatest + i,

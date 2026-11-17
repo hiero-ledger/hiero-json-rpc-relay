@@ -97,7 +97,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   };
 
   const waitForTheTransactionToBeIndexedByMirrorNode = async (hash: string): Promise<void> => {
-    restMock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, { hash, ...CONTRACT_RESPONSE_MOCK });
+    restMock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash });
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   };
 
@@ -435,7 +435,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           restMock
             .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-            .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+            .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -470,7 +470,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
               restMock
                 .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-                .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+                .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
               const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
               const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -1031,7 +1031,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
             restMock
               .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-              .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+              .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
             const currentTime = process.hrtime.bigint();
             lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
