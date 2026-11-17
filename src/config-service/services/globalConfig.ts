@@ -907,7 +907,7 @@ const _CONFIG = {
   TXPOOL_API_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   TX_STATUS_TRACING: {
     type: 'boolean',
@@ -967,7 +967,7 @@ const _CONFIG = {
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',

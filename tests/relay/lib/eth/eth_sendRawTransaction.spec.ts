@@ -97,7 +97,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   };
 
   const waitForTheTransactionToBeIndexedByMirrorNode = async (hash: string): Promise<void> => {
-    restMock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, { hash, ...CONTRACT_RESPONSE_MOCK });
+    restMock.onGet(`contracts/results/${hash}?hbar=false`).reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash });
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   };
 
@@ -435,7 +435,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           restMock
             .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-            .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+            .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -470,7 +470,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
               restMock
                 .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-                .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+                .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
               const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
               const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
@@ -1031,7 +1031,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
             restMock
               .onGet(`contracts/results/${ethereumHash}?hbar=false`)
-              .reply(200, { hash: ethereumHash, ...CONTRACT_RESPONSE_MOCK });
+              .reply(200, { ...CONTRACT_RESPONSE_MOCK[0], hash: ethereumHash });
 
             const currentTime = process.hrtime.bigint();
             lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
@@ -1175,28 +1175,30 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           { statusName: 'INVALID_ALIAS_KEY', statusCode: Status.InvalidAliasKey._code },
         ];
 
-        POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
-          it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
-            // Reset history to ensure we're only checking calls from this test
-            restMock.resetHistory();
-            const signed = await signTransaction(transaction);
+        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+          POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
+            it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
+              // Reset history to ensure we're only checking calls from this test
+              restMock.resetHistory();
+              const signed = await signTransaction(transaction);
 
-            // SDK throws post-execution error with transaction ID
-            const sdkError = new SDKClientError(
-              { status: Status._fromCode(statusCode), message: statusName },
-              statusName,
-              transactionIdServicesFormat,
-            );
-            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+              // SDK throws post-execution error with transaction ID
+              const sdkError = new SDKClientError(
+                { status: Status._fromCode(statusCode), message: statusName },
+                statusName,
+                transactionIdServicesFormat,
+              );
+              sdkClientStub.submitEthereumTransaction.throws(sdkError);
 
-            // Mirror Node returns transaction hash (transaction executed but failed)
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+              // Mirror Node returns transaction hash (transaction executed but failed)
+              restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect(result).to.equal(ethereumHash);
+              const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+              expect(result).to.equal(ethereumHash);
 
-            // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
-            expect(wasContractResultEndpointCalled()).to.be.false;
+              // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
+              expect(wasContractResultEndpointCalled()).to.be.false;
+            });
           });
         });
 
@@ -1440,7 +1442,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const wasAnyMirrorNodeCallMade = (): boolean => restMock.history.get.length > 0;
 
       withOverriddenEnvsInMochaTest(
-        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: true, USE_ASYNC_TX_PROCESSING: false },
+        {
+          DISABLE_MN_PRECHECKS_ON_TX_SENDING: true,
+          USE_ASYNC_TX_PROCESSING: false,
+          ENABLE_NONCE_ORDERING: true,
+          ENABLE_TX_POOL: true,
+        },
         () => {
           it('should submit the transaction with zero Mirror Node calls on the happy path', async function () {
             sdkClientStub.submitEthereumTransaction.resolves({
@@ -1457,10 +1464,48 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
 
             expect(resultingHash).to.equal(ethereumHash);
-            // The acid test: no Mirror Node HTTP calls at all during the send flow.
+            // The acid test: no Mirror Node HTTP calls at all during the send flow - including the post-submission
+            // pool-cleanup poll, which must be skipped even with nonce ordering and the tx pool on.
             expect(wasAnyMirrorNodeCallMade()).to.be.false;
             // And we still submitted to the consensus node.
             sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+          });
+
+          it('should not poll Mirror Node for pool cleanup after submission', async function () {
+            const pollSpy = sinon.spy(transactionService, 'pollMirrorNodeAndCleanup');
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+            const signed = await signTransaction(transaction);
+
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // The transaction was never added to the pool, so there is nothing to clean up.
+            sinon.assert.notCalled(pollSpy);
+          });
+
+          withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
+            it('should not poll Mirror Node for pool cleanup after submission in async mode', async function () {
+              const pollSpy = sinon.spy(transactionService, 'pollMirrorNodeAndCleanup');
+              const processorSpy = sinon.spy(transactionService, 'sendRawTransactionProcessor');
+              sdkClientStub.submitEthereumTransaction.resolves({
+                txResponse: {
+                  transactionId: TransactionId.fromString(transactionIdServicesFormat),
+                } as unknown as TransactionResponse,
+                fileId: null,
+              });
+              const signed = await signTransaction(transaction);
+
+              await ethImpl.sendRawTransaction(signed, requestDetails);
+              // In async mode the hash is returned before submission completes - wait for the background processor.
+              await processorSpy.returnValues[0];
+
+              sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+              sinon.assert.notCalled(pollSpy);
+            });
           });
 
           it('should derive the Hedera max-fee basis from the user-signed gas price and pass 0 exchange rate', async function () {
@@ -1579,7 +1624,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       // Sanity: with the flag off, the existing prechecks DO run and DO make MN calls.
       // This guards against accidental regressions in the other direction.
       withOverriddenEnvsInMochaTest(
-        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false },
+        { DISABLE_MN_PRECHECKS_ON_TX_SENDING: false, USE_ASYNC_TX_PROCESSING: false, ENABLE_NONCE_ORDERING: false },
         () => {
           it('should still run the stateful prechecks when the flag is off', async function () {
             const receiverAndGasStub = sinon.stub(transactionService['precheck'], 'validateReceiverAndGasStateful');
