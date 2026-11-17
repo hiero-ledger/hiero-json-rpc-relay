@@ -1001,17 +1001,17 @@ export class MirrorNodeClient {
       pageMax,
     );
 
-    // Populate the per-block cache so subsequent getBlock(number) calls from any service
-    // resolve from cache rather than issuing a new upstream request.
-    await Promise.all(
-      blocks.map((block) =>
-        this.cacheService.set(
-          `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
-          block,
-          MirrorNodeClient.GET_BLOCK_ENDPOINT,
+    if (ConfigService.get('MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED')) {
+      await Promise.all(
+        blocks.map((block) =>
+          this.cacheService.set(
+            `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
+            block,
+            MirrorNodeClient.GET_BLOCK_ENDPOINT,
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     return blocks;
   }

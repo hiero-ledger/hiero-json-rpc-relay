@@ -806,6 +806,29 @@ describe('MirrorNodeClient', async function () {
     expect(b11.number).to.equal(11);
   });
 
+  withOverriddenEnvsInMochaTest({ MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED: false }, () => {
+    it('`getBlocksByRange` does not write the fetched blocks to the per-block cache', async () => {
+      const fromBlock = 10;
+      const toBlock = 11;
+      const rangeBlocks = [
+        { ...block, number: 10 },
+        { ...block, number: 11 },
+      ];
+      mock
+        .onGet(`blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`)
+        .replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+      const blocks = await mirrorNodeInstance.getBlocksByRange(requestDetails, fromBlock, toBlock, DEFAULT_PAGE_MAX);
+
+      const cachedBlock10 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.10`, 'test');
+      const cachedBlock11 = await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.11`, 'test');
+
+      expect(blocks.map((b) => b.number)).to.deep.equal([10, 11]);
+      expect(cachedBlock10).to.be.null;
+      expect(cachedBlock11).to.be.null;
+    });
+  });
+
   it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
     const fromBlock = 1;
     const toBlock = 400;
