@@ -3,8 +3,8 @@
 // Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
 import '../bigNumberConfig';
 
-import Axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
-import axiosRetry from 'axios-retry';
+import Axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import axiosRetry, { type IAxiosRetryConfig } from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
 import https from 'https';
@@ -63,6 +63,7 @@ import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
+type MirrorCounterName = 'requests' | 'retries' | 'timeouts' | 'timeoutRetries';
 
 /**
  * Whether a Mirror Node contract-result / log record is "immature" - the block linkage is not (yet)
@@ -226,6 +227,7 @@ export class MirrorNodeClient {
    */
   public static readonly ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM = 'addLabelToMirrorResponseHistogram';
   public static readonly ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER = 'addLabelToMirrorErrorCodeCounter';
+  public static readonly INCREMENT_MIRROR_COUNTER = 'incrementMirrorCounter';
 
   /**
    * The logger used for logging all output from this class.
@@ -250,6 +252,13 @@ export class MirrorNodeClient {
    * @private
    */
   private readonly mirrorErrorCodeCounter: Counter;
+
+  /**
+   * Request, retry and timeout counters, kept apart from the error code counter because it labels a client-side
+   * timeout 504, the same as a real upstream 504.
+   * @private
+   */
+  private readonly mirrorCounters: Record<MirrorCounterName, Counter>;
 
   /**
    * The cache service used for caching responses.
@@ -408,6 +417,12 @@ export class MirrorNodeClient {
     const metricsFactory = new MetricsFactory(register);
     this.mirrorResponseHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseLatency);
     this.mirrorErrorCodeCounter = metricsFactory.counter(METRICS.mirrorNode.httpErrorCodes);
+    this.mirrorCounters = {
+      requests: metricsFactory.counter(METRICS.mirrorNode.requests),
+      retries: metricsFactory.counter(METRICS.mirrorNode.retries),
+      timeouts: metricsFactory.counter(METRICS.mirrorNode.timeouts),
+      timeoutRetries: metricsFactory.counter(METRICS.mirrorNode.timeoutRetries),
+    };
 
     if (isMainThread) {
       this.logger.info(
@@ -503,6 +518,7 @@ export class MirrorNodeClient {
     retries?: number,
   ): Promise<T | null> {
     throwIfRequestAborted(requestDetails);
+    this.incrementMirrorCounter('requests', pathLabel);
 
     const start = Date.now();
     const controller = new AbortController();
@@ -524,10 +540,19 @@ export class MirrorNodeClient {
         axiosRequestConfig.headers!['Forwarded'] = `for="${formattedClientIp}"`;
       }
 
-      // request specific config for axios-retry
+      // Count retries here, since the catch below only sees the last attempt.
+      const retryConfig: IAxiosRetryConfig = {
+        onRetry: (_retryCount, retryError) => {
+          this.incrementMirrorCounter('retries', pathLabel);
+          if (MirrorNodeClient.isTimeoutError(retryError)) {
+            this.incrementMirrorCounter('timeoutRetries', pathLabel);
+          }
+        },
+      };
       if (retries != null) {
-        axiosRequestConfig['axios-retry'] = { retries };
+        retryConfig.retries = retries;
       }
+      axiosRequestConfig['axios-retry'] = retryConfig;
 
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
@@ -583,6 +608,9 @@ export class MirrorNodeClient {
       // Record metrics
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
       this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
+      if (MirrorNodeClient.isTimeoutError(axiosError)) {
+        this.incrementMirrorCounter('timeouts', pathLabel);
+      }
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -631,6 +659,23 @@ export class MirrorNodeClient {
       },
       () => this.mirrorErrorCodeCounter.labels(pathLabel, value).inc(),
     );
+  }
+
+  /**
+   * Increments one of the mirror request, retry or timeout counters, via the parent thread when called from a worker.
+   *
+   * @param counter - Which counter to increment.
+   * @param pathLabel - Label identifying the mirrored request path.
+   */
+  public incrementMirrorCounter(counter: MirrorCounterName, pathLabel: string): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.INCREMENT_MIRROR_COUNTER, { counter, pathLabel }, () =>
+      this.mirrorCounters[counter].labels(pathLabel).inc(),
+    );
+  }
+
+  /** Axios reports its own MIRROR_NODE_TIMEOUT expiry as ECONNABORTED, or ETIMEDOUT when clarifyTimeoutError is on. */
+  private static isTimeoutError(error: { code?: string }): boolean {
+    return error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT;
   }
 
   async get<T = unknown>(

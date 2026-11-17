@@ -141,6 +141,26 @@ export const METRICS = {
       help: 'Count of errors returned from Mirror Node by HTTP status code and error type',
       labelNames: ['method', 'statusCode'],
     }),
+    requests: counter({
+      name: 'rpc_relay_mirror_node_request_count',
+      help: 'Count of Mirror Node requests, excluding axios-retry retries',
+      labelNames: ['method'],
+    }),
+    retries: counter({
+      name: 'rpc_relay_mirror_node_retry_count',
+      help: 'Count of Mirror Node request retries made by axios-retry, for any reason',
+      labelNames: ['method'],
+    }),
+    timeouts: counter({
+      name: 'rpc_relay_mirror_node_timeout_count',
+      help: 'Count of Mirror Node requests that failed because their final attempt exceeded MIRROR_NODE_TIMEOUT',
+      labelNames: ['method'],
+    }),
+    timeoutRetries: counter({
+      name: 'rpc_relay_mirror_node_timeout_retry_count',
+      help: 'Count of Mirror Node request retries made after an attempt exceeded MIRROR_NODE_TIMEOUT',
+      labelNames: ['method'],
+    }),
   },
 
   /** Operator account metrics. */
