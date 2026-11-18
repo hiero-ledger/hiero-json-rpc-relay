@@ -155,8 +155,14 @@ class TransactionReceiptFactory {
         return null;
       }
 
-      const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-      return prepend0x(tokenAddress);
+      // the mirror node may leave the call result empty ("0x"), in which case there is no address to report
+      const callResult = receiptResponse.call_result ?? '';
+      const rawResult = callResult.startsWith(constants.EMPTY_HEX) ? callResult.substring(2) : callResult;
+      if (rawResult.length < 40) {
+        return null;
+      }
+
+      return prepend0x(rawResult.substring(rawResult.length - 40));
     }
 
     return isDeployment ? receiptResponse.address : null;
