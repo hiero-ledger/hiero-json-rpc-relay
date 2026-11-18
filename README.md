@@ -125,6 +125,8 @@ test:
 
 The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.
 
+In CI the suite runs against a local network where the mirror node imports record files. Add the `block-node` label to a pull request to also run it against a network where the mirror node imports blocks from a Block Node; the label takes effect when it is added and on every later push. Every push to `main` runs both, and the Manual Testing workflow has a Block Node checkbox.
+
 ## Conformity Tests
 
 This project includes a set of **conformity tests** to ensure compliance with the [Ethereum JSON-RPC specification](https://ethereum.org/en/developers/docs/apis/json-rpc/). These tests verify that our implementation behaves consistently with the standard, covering expected methods, formats, and edge cases.

@@ -2,32 +2,34 @@
 
 ## Purpose
 
-The acceptance and conformity test suites run against a local Hedera network deployed with [Solo](https://github.com/hiero-ledger/solo). That network has three moving parts, each pinned to a specific version:
+The acceptance and conformity test suites run against a local Hedera network deployed with [Solo](https://github.com/hiero-ledger/solo). That network has four moving parts, each pinned to a specific version:
 
 - **Solo** — the CLI that deploys the local network
 - **Consensus node** — the [hiero-consensus-node](https://github.com/hiero-ledger/hiero-consensus-node) release
 - **Mirror node** — the [hiero-mirror-node](https://github.com/hiero-ledger/hiero-mirror-node) release
+- **Block Node** — the [hiero-block-node](https://github.com/hiero-ledger/hiero-block-node) release, deployed only by the Block Node acceptance runs
 
-Historically these three versions were hardcoded and duplicated across every workflow that deploys the network, so keeping them current meant editing each file by hand which is error-prone, and prone to drifting behind upstream releases.
+Historically these versions were hardcoded and duplicated across every workflow that deploys the network, so keeping them current meant editing each file by hand which is error-prone, and prone to drifting behind upstream releases.
 
 This subsystem does two things:
 
-1. **Centralizes** the three versions into a single source of truth, `.github/network-versions.env`.
+1. **Centralizes** the versions into a single source of truth, `.github/network-versions.env`.
 2. **Automates** keeping them current with a weekly workflow that opens a pull request bumping them to the latest stable releases, so CI validates every bump before it is merged.
 
 ## The single source of truth
 
-`.github/network-versions.env` holds exactly three values:
+`.github/network-versions.env` holds exactly four values:
 
 ```
 SOLO_VERSION=0.68.0       # @hiero-ledger/solo npm package version (no leading "v")
 NETWORK_TAG=v0.72.0       # hiero-consensus-node release tag
 MIRROR_NODE_TAG=v0.151.0  # hiero-mirror-node release tag
+BLOCK_NODE_TAG=v0.46.0    # hiero-block-node release tag
 ```
 
 These are **pinned** values, not "latest at runtime." Pinning keeps CI deterministic: the same commit always tests against the same network versions until a reviewed pull request changes them. Conceptually it plays the same role as a lockfile i.e. a fixed, committed set of versions that a bot proposes updates to.
 
-> The file must always contain all three keys with real values. It is only ever changed through a reviewed pull request (either the automated one described below, or by hand).
+> The file must always contain all four keys with real values. It is only ever changed through a reviewed pull request (either the automated one described below, or by hand).
 
 ## How the workflows consume it
 
@@ -38,7 +40,7 @@ Every workflow that deploys the local network loads the file into the job's envi
   run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
 ```
 
-This strips comment and blank lines and appends the `KEY=value` lines to `$GITHUB_ENV`, making `env.SOLO_VERSION`, `env.NETWORK_TAG`, and `env.MIRROR_NODE_TAG` available to later steps. The deploy steps then reference those variables while keeping a caller override (all of these are reusable workflows, `workflow_call` / `workflow_dispatch` with inputs):
+This strips comment and blank lines and appends the `KEY=value` lines to `$GITHUB_ENV`, making `env.SOLO_VERSION`, `env.NETWORK_TAG`, `env.MIRROR_NODE_TAG`, and `env.BLOCK_NODE_TAG` available to later steps. The deploy steps then reference those variables while keeping a caller override (all of these are reusable workflows, `workflow_call` / `workflow_dispatch` with inputs):
 `"${{ inputs.networkTag || env.NETWORK_TAG }}"` — a caller may pass an explicit version (for example `manual-testing.yml`), otherwise the pinned value is used.
 
 The workflows that deploy the network and load this file:
@@ -54,7 +56,7 @@ The workflows that deploy the network and load this file:
 
 1. Fetches the latest **stable** version of each component:
    - Solo: the npm `latest` dist-tag (`npm view @hiero-ledger/solo dist-tags.latest`), which excludes pre-releases.
-   - Consensus node / mirror node: GitHub's `releases/latest` endpoint, which excludes drafts and pre-releases.
+   - Consensus node / mirror node / Block Node: GitHub's `releases/latest` endpoint, which excludes drafts and pre-releases.
 2. Aborts before writing anything if any fetch returned empty, so a transient failure can never overwrite a good pin with garbage.
 3. Rewrites only the lines in `network-versions.env` whose value actually changed.
 4. Reports back to the workflow via step outputs: `changed` (true/false) and a `summary` of what moved.
@@ -64,6 +66,7 @@ If nothing changed, the workflow does nothing so no empty pull request. If anyth
 - on a **fixed branch**, `chore/bump-network-versions`, so a re-run updates the open pull request in place rather than opening duplicates;
 - restricted to `.github/network-versions.env` only (`add-paths`);
 - with a GPG-signed commit;
+- labelled `block-node`, so the Block Node acceptance jobs also run against the new versions;
 - authored with a **personal access token** (`GH_ACCESS_TOKEN`), **not** the default `GITHUB_TOKEN`. This is deliberate: pull requests opened by `GITHUB_TOKEN` do not trigger other workflows, so the bump pull request would open with no CI running on it. Using a PAT is what makes the full test suite run against the new versions.
 
 Because CI runs on the pull request, a version bump is only merged after the suite passes against the new versions and a human reviews it.
@@ -81,7 +84,7 @@ VERSIONS_FILE=/tmp/versions-test.env .github/scripts/bump-network-versions.sh
 
 It prints `updated …` / `current …` per version and rewrites only `/tmp/versions-test.env`. (Requires an authenticated `gh` and `npm`.)
 
-**When a bump pull request fails CI.** The three versions are bumped together, and nothing guarantees that the latest Solo, consensus node, and mirror node are mutually compatible; a new mirror node or consensus node release can break the current Solo, or vice versa. CI is the gate that surfaces this. When a bump pull request goes red, hold the problematic component back: edit `network-versions.env` on the pull request branch to pin the last known-good version for that one component, leaving the others bumped, and let CI re-run.
+**When a bump pull request fails CI.** The versions are bumped together, and nothing guarantees that the latest Solo, consensus node, mirror node, and Block Node are mutually compatible; a new mirror node or consensus node release can break the current Solo, or vice versa. CI is the gate that surfaces this. When a bump pull request goes red, hold the problematic component back: edit `network-versions.env` on the pull request branch to pin the last known-good version for that one component, leaving the others bumped, and let CI re-run.
 
 ## Notes
 
