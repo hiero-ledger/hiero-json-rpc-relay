@@ -345,6 +345,16 @@ describe('TransactionReceiptFactory', () => {
 
         expect(receipt.contractAddress).to.be.null;
       });
+
+      it('is null for a successful HTS token creation whose call result is empty', () => {
+        const receipt = buildReceipt({
+          function_parameters: `${constants.HTS_CREATE_FUNCTIONS_SELECTORS[0]}0000`,
+          call_result: '0x',
+          to: constants.HTS_ADDRESS,
+        });
+
+        expect(receipt.contractAddress).to.be.null;
+      });
     });
   });
 });
