@@ -228,7 +228,16 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be able to execute txpool_contentFrom for a valid address and get an empty object if there are no transactions for that signer', async () => {
-          await new Promise((r) => setTimeout(r, 2000)); // wait for at least one block if there are any pending transactions in the pool
+          // Wait for the transactions from the previous tests to leave the pool
+          await Utils.waitUntil(
+            async () => {
+              const pool = await relay.call('txpool_contentFrom', [accounts[1].address]);
+
+              return Object.keys(pool.pending).length === 0;
+            },
+            { timeoutMs: 15_000, intervalMs: 500, description: 'the transaction pool to empty' },
+          );
+
           const res = await relay.call('txpool_contentFrom', [accounts[1].address]);
 
           expect(res.pending).to.be.empty;
@@ -1398,11 +1407,16 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         it('should be null for a contract call whose callee deploys a contract', async function () {
-          const mirrorResult = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
-          expect(mirrorResult.created_contract_ids, 'createChild must deploy a Child contract').to.not.be.empty;
-
           const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [createChildTx.hash]);
 
+          // Only the Child emits Transfer, when createChild funds it, so that log's address is the new contract
+          const transferTopic = ethers.id('Transfer(address,address,uint256)');
+          const childLog = receipt.logs.find((log: { topics: string[] }) => log.topics[0] === transferTopic);
+          expect(childLog, 'createChild must deploy a Child contract').to.exist;
+
+          const childCode = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [childLog.address, 'latest']);
+
+          expect(childCode).to.not.equal('0x');
           expect(receipt.status).to.equal('0x1');
           expect(receipt.to).to.not.be.null;
           expect(receipt.contractAddress).to.be.null;
