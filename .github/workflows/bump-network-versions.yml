@@ -1,6 +1,6 @@
-name: Bump Solo, Consensus Node, and Mirror Node Versions
+name: Bump Solo, Consensus Node, Mirror Node, and Block Node Versions
 
-# Weekly job that checks for newer Solo / consensus-node / mirror-node releases,
+# Weekly job that checks for newer Solo / consensus-node / mirror-node / block-node releases,
 # updates the single source of truth (.github/network-versions.env), and opens a PR so
 # CI runs the full test suite against the new versions.
 #
@@ -56,11 +56,11 @@ jobs:
         uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-          commit-message: 'chore: bump Solo, consensus node, and mirror node versions'
+          commit-message: 'chore: bump Solo, consensus node, mirror node, and block node versions'
           committer: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
           author: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
           signoff: true
-          title: 'chore: bump Solo, consensus node, and mirror node versions'
+          title: 'chore: bump Solo, consensus node, mirror node, and block node versions'
           body: |
             Automated version bump opened by the weekly bump-network-versions workflow.
 
@@ -73,5 +73,6 @@ jobs:
           base: main
           add-paths: .github/network-versions.env
           delete-branch: true
-          labels: process
+          # block-node also runs the Block Node acceptance jobs on the new versions
+          labels: process, block-node
           assignees: swirlds-automation
