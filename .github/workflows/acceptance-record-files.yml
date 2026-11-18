@@ -1,7 +1,7 @@
-name: Acceptance Tests (Block Node)
+name: Acceptance Tests (Record Files)
 
-# The acceptance tests against a mirror node that imports blocks from a Block Node instead of record files.
-# Runs on PRs labelled `block-node` and on every push to main.
+# The acceptance tests against a mirror node that imports record files instead of blocks from a Block Node.
+# Runs on PRs labelled `record-files` and on every push to main.
 
 on:
   pull_request:
@@ -16,13 +16,13 @@ permissions:
 
 jobs:
   acceptance_tests:
-    name: ${{ matrix.test.name }} (Block Node)
+    name: ${{ matrix.test.name }} (Record Files)
     if: >-
       github.event_name == 'push' ||
-      (contains(github.event.pull_request.labels.*.name, 'block-node') &&
-      (github.event.action != 'labeled' || github.event.label.name == 'block-node'))
+      (contains(github.event.pull_request.labels.*.name, 'record-files') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'record-files'))
     concurrency:
-      group: block-node-checks-${{ github.head_ref || github.run_id }}-${{ matrix.test.name }}
+      group: record-files-checks-${{ github.head_ref || github.run_id }}-${{ matrix.test.name }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -71,4 +71,4 @@ jobs:
       test_ws_server: ${{ matrix.test.test_ws_server || false }}
       test_rate_limits: ${{ matrix.test.test_rate_limits || false }}
       on_valid_json_rpc_http_response_status_code: ${{ matrix.test.on_valid_json_rpc_http_response_status_code || 400 }}
-      block_node: true
+      block_node: false

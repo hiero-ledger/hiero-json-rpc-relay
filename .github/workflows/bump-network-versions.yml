@@ -73,6 +73,5 @@ jobs:
           base: main
           add-paths: .github/network-versions.env
           delete-branch: true
-          # block-node also runs the Block Node acceptance jobs on the new versions
-          labels: process, block-node
+          labels: process
           assignees: swirlds-automation

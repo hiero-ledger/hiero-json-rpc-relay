@@ -7,7 +7,7 @@ The acceptance and conformity test suites run against a local Hedera network dep
 - **Solo** — the CLI that deploys the local network
 - **Consensus node** — the [hiero-consensus-node](https://github.com/hiero-ledger/hiero-consensus-node) release
 - **Mirror node** — the [hiero-mirror-node](https://github.com/hiero-ledger/hiero-mirror-node) release
-- **Block Node** — the [hiero-block-node](https://github.com/hiero-ledger/hiero-block-node) release, deployed only by the Block Node acceptance runs
+- **Block Node** — the [hiero-block-node](https://github.com/hiero-ledger/hiero-block-node) release, deployed by the acceptance runs unless they use record files
 
 Historically these versions were hardcoded and duplicated across every workflow that deploys the network, so keeping them current meant editing each file by hand which is error-prone, and prone to drifting behind upstream releases.
 
@@ -66,7 +66,7 @@ If nothing changed, the workflow does nothing so no empty pull request. If anyth
 - on a **fixed branch**, `chore/bump-network-versions`, so a re-run updates the open pull request in place rather than opening duplicates;
 - restricted to `.github/network-versions.env` only (`add-paths`);
 - with a GPG-signed commit;
-- labelled `block-node`, so the Block Node acceptance jobs also run against the new versions;
+- without the `record-files` label, so only the Block Node acceptance jobs run; a reviewer adds the label to also run the record-file jobs against the new versions;
 - authored with a **personal access token** (`GH_ACCESS_TOKEN`), **not** the default `GITHUB_TOKEN`. This is deliberate: pull requests opened by `GITHUB_TOKEN` do not trigger other workflows, so the bump pull request would open with no CI running on it. Using a PAT is what makes the full test suite run against the new versions.
 
 Because CI runs on the pull request, a version bump is only merged after the suite passes against the new versions and a human reviews it.
