@@ -322,6 +322,11 @@ describe('ValidationService tests', async function () {
         reject: [0, -1, 1.5, NaN],
       },
       {
+        key: 'ETH_GET_LOGS_RELAY_MAX_RESPONSE_SIZE',
+        accept: [1, 52_428_800],
+        reject: [0, -1, 1.5, NaN],
+      },
+      {
         key: 'METRICS_UNKNOWN_METHOD_LABELS_MAX',
         accept: [0, 1, 100, UNKNOWN_METHOD_LABELS_CEILING - 1],
         reject: [-1, -5, NaN, UNKNOWN_METHOD_LABELS_CEILING, UNKNOWN_METHOD_LABELS_CEILING + 1],

@@ -263,6 +263,14 @@ const _CONFIG = {
     defaultValue: 26_214_400, // 25 MiB
     validation: (value: number) => value >= 1 || 'ETH_GET_LOGS_MAX_RESPONSE_SIZE must be 1 or greater.',
   },
+  ETH_GET_LOGS_RELAY_MAX_RESPONSE_SIZE: {
+    type: 'number',
+    required: false,
+    defaultValue: 52_428_800, // 50 MiB
+    validation: (value: number) =>
+      (Number.isInteger(value) && value >= 1) ||
+      'ETH_GET_LOGS_RELAY_MAX_RESPONSE_SIZE must be an integer of 1 or greater.',
+  },
   // Each sub-topic is sent to the Mirror Node as a repeated `topicN` query param, so this must not exceed the
   // Mirror Node's `hiero.mirror.rest.query.maxRepeatedQueryParameters` (default 100).
   ETH_GET_LOGS_SUB_TOPICS_LIMIT: {
