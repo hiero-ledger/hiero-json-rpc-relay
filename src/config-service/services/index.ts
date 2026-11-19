@@ -2,15 +2,15 @@
 
 import dotenv from 'dotenv';
 import findConfig from 'find-config';
-import pino from 'pino';
 import { isMainThread } from 'worker_threads';
 
+import { createLogger } from '../../logger';
 import type { ConfigKey, ConfigValue, GetTypeOfConfigKey } from './globalConfig';
 import { GlobalConfig } from './globalConfig';
 import { LoggerService } from './loggerService';
 import { ValidationService } from './validationService';
 
-// Bootstrap dotenv early so PRETTY_LOGS_ENABLED is available before logger construction.
+// Bootstrap dotenv early so LOG_LEVEL and PRETTY_LOGS_ENABLED are available before logger construction.
 // ConfigService loads .env lazily in its constructor, but the logger is created at module
 // load time — before the singleton is ever instantiated. A second dotenv.config() call
 // in the constructor is safe because dotenv does not override variables already in process.env.
@@ -19,24 +19,13 @@ if (_bootstrapEnvPath) {
   dotenv.config({ path: _bootstrapEnvPath });
 }
 
-// Mirror the GlobalConfig default (true): only suppress pino-pretty when the variable is
-// explicitly set to 'false'. Without this guard, pino unconditionally spawns a worker thread
-// for the pino-pretty transport regardless of log level or output destination.
-const _prettyLogsEnabled = process.env.PRETTY_LOGS_ENABLED?.toLowerCase() !== 'false';
-
-const mainLogger = pino({
-  name: 'hedera-json-rpc-relay',
-  ...(_prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-      },
-    },
-  }),
+// ConfigService can't be used to configure its own logger, so read the raw variables and mirror
+// the GlobalConfig defaults. PRETTY_LOGS_ENABLED is only false when explicitly set to 'false'.
+const mainLogger = createLogger({
+  level: process.env.LOG_LEVEL || (GlobalConfig.ENTRIES.LOG_LEVEL.defaultValue as string),
+  prettyLogsEnabled: process.env.PRETTY_LOGS_ENABLED?.toLowerCase() !== 'false',
 });
-const logger = mainLogger.child({ name: 'config-service' });
+const logger = mainLogger.child({ module: 'config-service' });
 
 export class ConfigService {
   /**

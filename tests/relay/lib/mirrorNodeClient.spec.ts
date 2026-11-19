@@ -57,7 +57,7 @@ describe('MirrorNodeClient', async function () {
     cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ module: `mirror-node` }),
       registry,
       cacheService,
       instance,
@@ -497,7 +497,7 @@ describe('MirrorNodeClient', async function () {
     const domain = ConfigService.get('MIRROR_NODE_URL').replace(/^https?:\/\//, '');
     const prodMirrorNodeInstance = new MirrorNodeClient(
       domain,
-      logger.child({ name: `mirror-node` }),
+      logger.child({ module: `mirror-node` }),
       registry,
       cacheService,
     );
@@ -522,7 +522,7 @@ describe('MirrorNodeClient', async function () {
     it('Can provide custom x-api-key header', async () => {
       const mirrorNodeInstanceOverridden = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: `mirror-node` }),
+        logger.child({ module: `mirror-node` }),
         registry,
         cacheService,
       );
@@ -536,7 +536,7 @@ describe('MirrorNodeClient', async function () {
     it('Can provide Authorization header', async () => {
       const mirrorNodeInstanceOverridden = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: `mirror-node` }),
+        logger.child({ module: `mirror-node` }),
         registry,
         cacheService,
       );
@@ -551,7 +551,7 @@ describe('MirrorNodeClient', async function () {
     it('should NOT include Is-Modularized header when not set', async () => {
       const mirrorNodeInstanceOverridden = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: `mirror-node` }),
+        logger.child({ module: `mirror-node` }),
         registry,
         cacheService,
       );
@@ -564,7 +564,7 @@ describe('MirrorNodeClient', async function () {
       it('should set the Is-Modularized header to false when the routing preference is explicitly set to false', async () => {
         const mirrorNodeInstanceOverridden = new MirrorNodeClient(
           ConfigService.get('MIRROR_NODE_URL'),
-          logger.child({ name: `mirror-node` }),
+          logger.child({ module: `mirror-node` }),
           registry,
           cacheService,
         );
@@ -579,7 +579,7 @@ describe('MirrorNodeClient', async function () {
       it('should set the Is-Modularized header to true when the routing preference is explicitly set to true', async () => {
         const mirrorNodeInstanceOverridden = new MirrorNodeClient(
           ConfigService.get('MIRROR_NODE_URL'),
-          logger.child({ name: `mirror-node` }),
+          logger.child({ module: `mirror-node` }),
           registry,
           cacheService,
         );
@@ -2829,7 +2829,7 @@ describe('MirrorNodeClient', async function () {
 
       const client = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: `mirror-node` }),
+        logger.child({ module: `mirror-node` }),
         registry,
         cacheService,
         restInstance,

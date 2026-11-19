@@ -29,9 +29,9 @@ export class LockStrategyFactory {
     const metricsService = new LockMetricsService(register);
 
     if (redisClient) {
-      return new RedisLockStrategy(redisClient, logger.child({ name: 'redis-lock-strategy' }), metricsService);
+      return new RedisLockStrategy(redisClient, logger.child({ module: 'redis-lock-strategy' }), metricsService);
     }
 
-    return new LocalLockStrategy(logger.child({ name: 'local-lock-strategy' }), metricsService);
+    return new LocalLockStrategy(logger.child({ module: 'local-lock-strategy' }), metricsService);
   }
 }

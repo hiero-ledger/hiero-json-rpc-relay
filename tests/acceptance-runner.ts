@@ -60,7 +60,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
         },
       },
     });
-    const logger = testLogger.child({ name: 'rpc-acceptance-test' });
+    const logger = testLogger.child({ module: 'rpc-acceptance-test' });
 
     const NETWORK = ConfigService.get('HEDERA_NETWORK');
     const OPERATOR_KEY = ConfigService.get('OPERATOR_KEY_MAIN');

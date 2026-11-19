@@ -43,7 +43,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'IPAddressHbarSpendingPlanRepository' }),
+        logger.child({ module: 'IPAddressHbarSpendingPlanRepository' }),
       );
     });
 

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
+import { AsyncResource } from 'node:async_hooks';
 
 import Koa from 'koa';
 import websockify from 'koa-websocket';
-import pino from 'pino';
 import { type Registry } from 'prom-client';
 import type { RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
+import { createLogger, logContext, runWithLogMethod, setLogMethod } from '../logger';
 import { METRICS, MetricsFactory } from '../metrics';
 import { predefined } from '../relay';
 import { Relay } from '../relay';
@@ -41,35 +41,12 @@ import {
 } from './utils/utils';
 
 const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was sent';
-// https://nodejs.org/api/async_context.html#asynchronous-context-tracking
-const context = new AsyncLocalStorage<{ requestId: string; connectionId: string }>();
-
-const mainLogger = pino({
-  name: 'hedera-json-rpc-relay',
+const mainLogger = createLogger({
   level: ConfigService.get('LOG_LEVEL'),
-  // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
-  mixin: () => {
-    const store = context.getStore();
-    return store
-      ? {
-          connectionId: `[Connection ID: ${store.connectionId}] `,
-          requestId: `[Request ID: ${store.requestId}] `,
-        }
-      : {};
-  },
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: true,
-      messageFormat: '{connectionId}{requestId}{msg}',
-      // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-      ignore: 'connectionId,requestId',
-    },
-  },
+  prettyLogsEnabled: ConfigService.get('PRETTY_LOGS_ENABLED'),
 });
 
-export const logger = mainLogger.child({ name: 'rpc-ws-server' });
+export const logger = mainLogger.child({ module: 'rpc-ws-server' });
 export async function initializeWsServer(
   sharedRelay?: Relay,
   sharedRegister?: Registry,
@@ -85,7 +62,7 @@ export async function initializeWsServer(
   // Create rate limit store using factory pattern
   const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
   const rateLimitStore = RateLimitStoreFactory.create(
-    logger.child({ name: 'rate-limit-store' }),
+    logger.child({ module: 'rate-limit-store' }),
     rateLimitDuration,
     rateLimitStoreFailureCounter,
     redisClient,
@@ -193,7 +170,7 @@ export async function initializeWsServer(
       });
 
       try {
-        await context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+        await logContext.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
           // Increment the total messages counter for each message received
           wsMetricRegistry.getCounter('totalMessageCounter').inc();
 
@@ -278,16 +255,18 @@ export async function initializeWsServer(
                   requestDetails.requestId,
                 );
               }
-              return getRequestResult(
-                ctx,
-                relay,
-                logger,
-                item,
-                limiter,
-                mirrorNodeClient,
-                wsMetricRegistry,
-                requestDetails,
-                subscriptionService,
+              return runWithLogMethod(item?.method, () =>
+                getRequestResult(
+                  ctx,
+                  relay,
+                  logger,
+                  item,
+                  limiter,
+                  mirrorNodeClient,
+                  wsMetricRegistry,
+                  requestDetails,
+                  subscriptionService,
+                ),
               );
             });
 
@@ -301,6 +280,8 @@ export async function initializeWsServer(
             if (logger.isLevelEnabled('trace')) {
               logger.trace(`Receive single request=${JSON.stringify(request)}`);
             }
+
+            setLogMethod(request?.method);
 
             // process requests
             const response = await getRequestResult(

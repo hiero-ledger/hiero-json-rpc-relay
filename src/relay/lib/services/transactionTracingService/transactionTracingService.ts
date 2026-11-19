@@ -38,7 +38,7 @@ export class TransactionTracingService implements ITransactionTracingService {
    * @param storage - Backing storage, or undefined to disable tracing (built by the composition root).
    */
   constructor(logger: Logger, storage?: ITransactionTracingStorage) {
-    this.logger = logger.child({ name: 'transaction-tracing-service' });
+    this.logger = logger.child({ module: 'transaction-tracing-service' });
     this.storage = storage;
   }
 

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import pino, { type Logger } from 'pino';
+import { type Logger } from 'pino';
 import { Registry } from 'prom-client';
 
 import { ConfigService } from '../../../../config-service/services';
+import { createLogger } from '../../../../logger';
 import { type ICacheClient } from '../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../factories/cacheClientFactory';
@@ -48,7 +49,10 @@ export function createWorkerContext(
   transactionPoolService?: TransactionPoolService,
   accountService?: AccountService,
 ): IWorkerContext {
-  const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
+  const logger: Logger = createLogger({
+    level: ConfigService.get('LOG_LEVEL'),
+    prettyLogsEnabled: ConfigService.get('PRETTY_LOGS_ENABLED'),
+  }).child({ module: 'worker' });
   const register = RegistryFactory.getInstance();
   if (!cacheService) {
     cacheService = CacheClientFactory.create(logger, register);

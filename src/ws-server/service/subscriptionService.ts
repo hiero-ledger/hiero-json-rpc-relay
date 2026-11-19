@@ -30,7 +30,7 @@ export class SubscriptionService {
   private resultsSentToSubscribersCounter: Counter;
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
-    this.pollerService = new PollerService(relay, logger.child({ name: 'poller' }), register);
+    this.pollerService = new PollerService(relay, logger.child({ module: 'poller' }), register);
     this.logger = logger;
     this.subscriptions = {};
 

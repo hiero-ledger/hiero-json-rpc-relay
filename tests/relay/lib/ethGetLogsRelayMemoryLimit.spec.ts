@@ -81,7 +81,7 @@ describe('eth_getLogs relay-wide memory limit', function () {
     const registry = new Registry();
     const mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: 'mirror-node' }),
+      logger.child({ module: 'mirror-node' }),
       registry,
       CacheClientFactory.create(logger, registry),
     );

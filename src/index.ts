@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import pino from 'pino';
 import { collectDefaultMetrics } from 'prom-client';
 
 import { ConfigService } from './config-service/services';
+import { createLogger } from './logger';
 import { Relay } from './relay';
 import { RedisClientManager } from './relay/lib/clients/redisClientManager';
 import constants from './relay/lib/constants';
@@ -12,23 +12,12 @@ import { setServerTimeout } from './server/koaJsonRpc/lib/utils';
 import { initializeServer } from './server/server';
 import { initializeWsServer } from './ws-server/webSocketServer';
 
-const prettyLogsEnabled = ConfigService.get('PRETTY_LOGS_ENABLED');
-
-const mainLogger = pino({
-  name: 'hedera-json-rpc-relay',
+const mainLogger = createLogger({
   level: ConfigService.get('LOG_LEVEL'),
-  ...(prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-      },
-    },
-  }),
+  prettyLogsEnabled: ConfigService.get('PRETTY_LOGS_ENABLED'),
 });
 
-const logger = mainLogger.child({ name: 'main' });
+const logger = mainLogger.child({ module: 'main' });
 
 async function main(): Promise<void> {
   const rpcHttpEnabled = ConfigService.get('RPC_HTTP_ENABLED');
@@ -43,7 +32,7 @@ async function main(): Promise<void> {
   try {
     // Shared initialization (done once)
     const register = RegistryFactory.getInstance(true);
-    const relay = await Relay.init(logger.child({ name: 'relay' }), register);
+    const relay = await Relay.init(logger.child({ module: 'relay' }), register);
     const redisClient = RedisClientManager.isRedisEnabled() ? await RedisClientManager.getClient(logger) : undefined;
 
     collectDefaultMetrics({ register, prefix: 'rpc_relay_' });

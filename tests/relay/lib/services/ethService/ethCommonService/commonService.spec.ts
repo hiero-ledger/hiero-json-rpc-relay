@@ -149,7 +149,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );
@@ -192,7 +192,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );
@@ -252,7 +252,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );
@@ -354,7 +354,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );
@@ -485,7 +485,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );
@@ -590,7 +590,7 @@ describe('CommonService', () => {
       const cacheService = CacheClientFactory.create(logger, registry);
       const mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );

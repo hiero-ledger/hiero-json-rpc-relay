@@ -98,7 +98,7 @@ describe('Precheck', async function () {
     // @ts-ignore
     const mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
-      logger.child({ name: `mirror-node` }),
+      logger.child({ module: `mirror-node` }),
       registry,
       CacheClientFactory.create(logger, registry),
       instance,

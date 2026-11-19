@@ -6,6 +6,7 @@ import { type Logger } from 'pino';
 import { type Histogram, type Registry } from 'prom-client';
 
 import { ConfigService } from '../../config-service/services';
+import { runWithLogMethod, setLogMethod } from '../../logger';
 import { METRICS, MetricsFactory } from '../../metrics';
 import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { methodConfiguration } from '../../relay/lib/config/methodConfiguration';
@@ -143,6 +144,7 @@ export default class KoaJsonRpc {
       response = jsonRespError(body.id, spec.InvalidRequest, requestId);
     } else {
       ctx.state.methodName = body.method;
+      setLogMethod(body.method);
       response = await this.getRequestResult(body, ctx.ip, requestId, abortSignal, memoryShare);
     }
 
@@ -210,7 +212,9 @@ export default class KoaJsonRpc {
         return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestId);
 
       const startTime = Date.now();
-      return this.getRequestResult(item, ctx.ip, requestId, abortSignal, memoryShare).then((res) => {
+      return runWithLogMethod(item.method, () =>
+        this.getRequestResult(item, ctx.ip, requestId, abortSignal, memoryShare),
+      ).then((res) => {
         const ms = Date.now() - startTime;
         const code = 'error' in res ? res.error.code : 200;
         this.methodResponseHistogram

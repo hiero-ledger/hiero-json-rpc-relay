@@ -56,7 +56,7 @@ export class RedisRateLimitStore implements RateLimitStore {
     duration: number,
     rateLimitStoreFailureCounter?: Counter,
   ) {
-    this.logger = logger.child({ name: 'redis-rate-limit-store' });
+    this.logger = logger.child({ module: 'redis-rate-limit-store' });
     this.duration = duration;
     this.rateLimitStoreFailureCounter = rateLimitStoreFailureCounter;
   }

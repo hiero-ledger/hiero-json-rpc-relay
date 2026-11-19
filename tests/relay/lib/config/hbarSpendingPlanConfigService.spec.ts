@@ -176,22 +176,22 @@ describe('HbarSpendingPlanConfigService', function () {
         redisClient = undefined;
       }
       cacheService = CacheClientFactory.create(
-        logger.child({ name: 'cache-service' }),
+        logger.child({ module: 'cache-service' }),
         registry,
         reservedKeys,
         redisClient,
       );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'hbar-spending-plan-repository' }),
+        logger.child({ module: 'hbar-spending-plan-repository' }),
       );
       evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'evm-address-spending-plan-repository' }),
+        logger.child({ module: 'evm-address-spending-plan-repository' }),
       );
       ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'ip-address-spending-plan-repository' }),
+        logger.child({ module: 'ip-address-spending-plan-repository' }),
       );
       hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
         logger,

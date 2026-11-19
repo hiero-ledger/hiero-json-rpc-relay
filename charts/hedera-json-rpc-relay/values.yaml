@@ -169,8 +169,10 @@ config:
   # LOCK_QUEUE_POLL_INTERVAL_MS:
   # LOCK_HEARTBEAT_MISSED_COUNT:
 
-  # ========== DEVELOPMENT & TESTING ==========
-  # LOG_LEVEL: 'trace'
+  # ========== LOGGING ==========
+  # JSON logs (one object per line, text level) for log collectors such as Loki.
+  PRETTY_LOGS_ENABLED: false
+  # LOG_LEVEL: 'info'
 
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []

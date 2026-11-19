@@ -77,7 +77,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   constructor(storage: PendingTransactionStorage, logger: Logger, register: Registry) {
     this.storage = storage;
-    this.logger = logger.child({ name: 'transaction-pool-service' });
+    this.logger = logger.child({ module: 'transaction-pool-service' });
     this.storageType = storage instanceof RedisPendingTransactionStorage ? 'redis' : 'local';
     const metricsFactory = new MetricsFactory(register);
 

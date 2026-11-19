@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { runWithRequestLogContext } from '../../../../logger';
 import { type RequestDetails } from '../../types';
 import { type LogTopic } from '../../types/requestParams';
 import { getBalance } from '../ethService/accountService/accountWorker';
@@ -60,10 +61,21 @@ export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | Get
  */
 export default async function handleTask(task: WorkerTask, ctx?: IWorkerContext): Promise<unknown> {
   // On a worker thread Piscina invokes this with no ctx; fall back to the shared per-thread cached context.
-  if (!ctx) {
-    ctx = getWorkerContext();
-  }
+  const workerContext = ctx ?? getWorkerContext();
 
+  // A worker thread has no request log context of its own; set it from the task so its lines carry the request ID.
+  return runWithRequestLogContext(task.requestDetails, () => runTask(task, workerContext));
+}
+
+/**
+ * Runs the handler for the given task.
+ *
+ * @param task - Discriminated-union descriptor for the task to execute.
+ * @param ctx - The shared worker context providing the clients and services
+ * @returns A promise that resolves to the handler's result.
+ * @throws {Error} If `task.type` does not match any known task variant.
+ */
+async function runTask(task: WorkerTask, ctx: IWorkerContext): Promise<unknown> {
   switch (task.type) {
     case 'getBlock':
       return await getBlock(ctx, task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);

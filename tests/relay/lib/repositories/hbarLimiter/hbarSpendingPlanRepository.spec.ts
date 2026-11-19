@@ -47,7 +47,7 @@ describe('HbarSpendingPlanRepository', function () {
       }
       cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClient);
       cacheServiceSpy = sinon.spy(cacheService);
-      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
+      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ module: `HbarSpendingPlanRepository` }));
     });
 
     afterEach(async () => {

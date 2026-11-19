@@ -29,7 +29,7 @@ export class LocalTransactionTimestampIndex implements ITransactionTimestampInde
   constructor(logger: Logger, ttlMs: number, maxEntries: number) {
     this.ttlMs = ttlMs;
     this.cache = new LocalLRUCache(
-      logger.child({ name: 'tx-timestamp-index-cache' }),
+      logger.child({ module: 'tx-timestamp-index-cache' }),
       new Registry(),
       undefined,
       maxEntries,

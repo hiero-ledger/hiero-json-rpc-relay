@@ -106,7 +106,11 @@ config:
   # ========== OTHER SETTINGS ==========
   # CLIENT_TRANSPORT_SECURITY:
   # USE_ASYNC_TX_PROCESSING:
-  # LOG_LEVEL: 'trace'
+
+  # ========== LOGGING ==========
+  # JSON logs (one object per line, text level) for log collectors such as Loki.
+  PRETTY_LOGS_ENABLED: false
+  # LOG_LEVEL: 'info'
 
 # Redis integration - these settings override any manually configured Redis settings
 # when Redis is enabled via the parent chart

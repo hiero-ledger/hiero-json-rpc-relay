@@ -134,7 +134,7 @@ describe('SdkClient', async function () {
     // mirror node client
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ module: `mirror-node` }),
       registry,
       cacheService,
       instance,
@@ -223,7 +223,7 @@ describe('SdkClient', async function () {
   describe('SDK Logger Configuration', () => {
     // Simple helper to create standard mock logger
     const createMockLogger = (additionalProps: Record<string, unknown> = {}): MockLogger => ({
-      child: sinon.stub().returns({ name: 'sdk-client' }),
+      child: sinon.stub().returns({ module: 'sdk-client' }),
       info: sinon.stub(),
       warn: sinon.stub(),
       ...additionalProps,
@@ -260,7 +260,7 @@ describe('SdkClient', async function () {
         const eventEmitter = new EventEmitter<TypedEvents>();
         new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
-        expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'debug' })).to.be.true;
+        expect(mockLogger.child.calledWith({ module: 'sdk-client' }, { level: 'debug' })).to.be.true;
       } finally {
         cleanupStubs(configStub, clientStub);
       }
@@ -281,7 +281,7 @@ describe('SdkClient', async function () {
         new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
         // Verify SDK logger uses SDK_LOG_LEVEL ('info'), not global LOG_LEVEL ('error')
-        expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'info' })).to.be.true;
+        expect(mockLogger.child.calledWith({ module: 'sdk-client' }, { level: 'info' })).to.be.true;
       } finally {
         cleanupStubs(configStub, clientStub);
       }
@@ -296,7 +296,7 @@ describe('SdkClient', async function () {
       // Mock child() to simulate pino inheritance behavior
       mockGlobalLogger.child.callsFake((newBindings, options) => ({
         service: 'hedera-relay', // Inherited from parent
-        name: newBindings.name, // Added by child
+        module: newBindings.module, // Added by child
         level: options.level, // Overridden by child options
       }));
 
@@ -311,12 +311,12 @@ describe('SdkClient', async function () {
         new SDKClient('testnet', mockGlobalLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
         // Verify child() was called correctly
-        expect(mockGlobalLogger.child.calledWith({ name: 'sdk-client' }, { level: 'warn' })).to.be.true;
+        expect(mockGlobalLogger.child.calledWith({ module: 'sdk-client' }, { level: 'warn' })).to.be.true;
 
         // Verify the child logger has the right properties
         const childLogger = mockGlobalLogger.child.returnValues[0];
         expect(childLogger.service).to.equal('hedera-relay'); // Inherited
-        expect(childLogger.name).to.equal('sdk-client'); // Added by child
+        expect(childLogger.module).to.equal('sdk-client'); // Added by child
         expect(childLogger.level).to.equal('warn'); // Overridden level
       } finally {
         cleanupStubs(configStub, clientStub);
@@ -340,7 +340,7 @@ describe('SdkClient', async function () {
           new SDKClient('testnet', mockLogger as unknown as Logger, eventEmitter, hbarLimitService);
 
           // Verify child logger is always created with 'sdk-client' name
-          expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level })).to.be.true;
+          expect(mockLogger.child.calledWith({ module: 'sdk-client' }, { level })).to.be.true;
         } finally {
           cleanupStubs(configStub, clientStub);
         }
@@ -371,7 +371,7 @@ describe('SdkClient', async function () {
     let mockedClient: MockedClient;
 
     const createMockLogger = (): MockLogger => ({
-      child: sinon.stub().returns({ name: 'sdk-client', warn: sinon.stub() }),
+      child: sinon.stub().returns({ module: 'sdk-client', warn: sinon.stub() }),
       info: sinon.stub(),
       warn: sinon.stub(),
     });

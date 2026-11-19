@@ -69,7 +69,7 @@ describe('eth_getLogs response size limits', function () {
     registry = new Registry();
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: 'mirror-node' }),
+      logger.child({ module: 'mirror-node' }),
       registry,
       CacheClientFactory.create(logger, registry),
     );
@@ -411,7 +411,7 @@ describe('eth_getLogs response size limits', function () {
     const newRealClient = (): MirrorNodeClient =>
       new MirrorNodeClient(
         `http://127.0.0.1:${port}`,
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         CacheClientFactory.create(logger, registry),
       );
