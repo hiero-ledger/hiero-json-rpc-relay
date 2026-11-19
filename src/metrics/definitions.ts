@@ -334,6 +334,16 @@ export const METRICS = {
     }),
   },
 
+  /** JSON-RPC call outcomes shared by the HTTP and WebSocket servers. */
+  rpc: {
+    /** Failed JSON-RPC calls, by method, JSON-RPC error code and who caused the error (`client` or `server`). */
+    errors: counter({
+      name: 'rpc_relay_rpc_errors_total',
+      help: 'Count of failed JSON-RPC calls by method, JSON-RPC error code and error class (client or server)',
+      labelNames: ['method', 'code', 'class'],
+    }),
+  },
+
   /** HTTP JSON-RPC server metrics. */
   server: {
     /** Latency of the whole HTTP request, observed by the Koa middleware. */

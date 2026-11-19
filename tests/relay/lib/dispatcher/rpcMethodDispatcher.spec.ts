@@ -231,19 +231,98 @@ describe('RpcMethodDispatcher', () => {
       expect(result.message).to.equal(`Test error`);
     });
 
-    it('should log the method params so a failed request can be reproduced', () => {
+    it('should log an unexpected error at error with its stack and a summary of the params', () => {
       const errorLogSpy = sinon.spy(logger, 'error');
+      const error = new Error('Test error');
 
       // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
-      dispatcher.handleRpcMethodError(new Error('Test error'), TEST_METHOD_NAME, TEST_PARAMS);
+      dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME, TEST_PARAMS);
 
       sinon.assert.calledOnceWithExactly(
         errorLogSpy,
+        sinon.match({ err: error, code: -32603, params: TEST_PARAMS }),
         sinon.match.string,
         TEST_METHOD_NAME,
-        JSON.stringify(TEST_PARAMS),
-        'Test error',
+        'Error invoking RPC: Test error',
       );
+    });
+
+    it('should log a client error at debug only', () => {
+      const errorLogSpy = sinon.spy(logger, 'error');
+      const debugLogSpy = sinon.spy(logger, 'debug');
+
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      dispatcher.handleRpcMethodError(predefined.CONTRACT_REVERT('boom'), TEST_METHOD_NAME, TEST_PARAMS);
+
+      sinon.assert.notCalled(errorLogSpy);
+      sinon.assert.calledOnceWithExactly(
+        debugLogSpy,
+        sinon.match({ code: 3, params: TEST_PARAMS }),
+        sinon.match.string,
+        TEST_METHOD_NAME,
+        'execution reverted: boom',
+      );
+    });
+
+    [
+      { description: 'a revert', error: predefined.CONTRACT_REVERT('boom'), errorClass: 'client' },
+      { description: 'a validation error', error: predefined.INVALID_PARAMETER(0, 'bad'), errorClass: 'client' },
+      { description: 'a block range that is too large', error: predefined.RANGE_TOO_LARGE(1000), errorClass: 'client' },
+      { description: 'FILTER_NOT_FOUND', error: predefined.FILTER_NOT_FOUND.asClientError(), errorClass: 'client' },
+      {
+        description: 'a Mirror Node 404',
+        error: new MirrorNodeClientError(new Error('Not found'), 404),
+        errorClass: 'client',
+      },
+      {
+        description: 'a Mirror Node 503',
+        error: new MirrorNodeClientError(new Error('Unavailable'), 503),
+        errorClass: 'server',
+      },
+      {
+        description: 'a Mirror Node 429',
+        error: new MirrorNodeClientError(new Error('Too many'), 429),
+        errorClass: 'server',
+      },
+      {
+        description: 'INVALID_SIGNATURE from a consensus node',
+        error: new SDKClientError({ status: Status.InvalidSignature, message: 'x' }),
+        errorClass: 'client',
+      },
+      {
+        description: 'BUSY from a consensus node',
+        error: new SDKClientError({ status: Status.Busy, message: 'x' }),
+        errorClass: 'server',
+      },
+      { description: 'an unexpected exception', error: new Error('boom'), errorClass: 'server' },
+    ].forEach(({ description, error, errorClass }) => {
+      it(`should count ${description} as a ${errorClass} error`, () => {
+        const errorLogSpy = sinon.spy(logger, 'error');
+        const countSpy = sinon.spy(dispatcher['rpcErrorsCounter']);
+
+        // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+        const result: JsonRpcError = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME, TEST_PARAMS);
+
+        sinon.assert.calledOnceWithExactly(
+          countSpy.labels as sinon.SinonSpy,
+          TEST_METHOD_NAME,
+          String(result.code),
+          errorClass,
+        );
+        expect(errorLogSpy.callCount).to.equal(errorClass === 'server' ? 1 : 0);
+      });
+    });
+
+    it('should label the counter through the method metric labeler', () => {
+      const labeler = sinon.stub().returns('unknown');
+      dispatcher = new RpcMethodDispatcher(methodRegistry, logger, undefined, labeler);
+      const countSpy = sinon.spy(dispatcher['rpcErrorsCounter']);
+
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      dispatcher.handleRpcMethodError(predefined.METHOD_NOT_FOUND('foo_bar'), 'foo_bar', []);
+
+      sinon.assert.calledOnceWithExactly(labeler, 'foo_bar');
+      sinon.assert.calledOnceWithExactly(countSpy.labels as sinon.SinonSpy, 'unknown', '-32601', 'client');
     });
 
     it('should return non time out SDKClientError as consensus error', () => {
@@ -272,9 +351,9 @@ describe('RpcMethodDispatcher', () => {
         expectedStatus._code,
         error.message,
       );
-      const expected = new JsonRpcError({ code, message });
       sinon.assert.calledOnceWithExactly(countSdkErrorSpy.labels, sinon.match(expectedStatus.toString()));
-      expect(result).to.deep.equal(expected);
+      expect(result).to.include({ code, message, isClientError: true });
+      expect(result.cause).to.equal(error);
     });
 
     it('should return INTERNAL_ERROR for other error types', () => {

@@ -184,8 +184,8 @@ export async function initializeWsServer(
           try {
             request = JSON.parse(msg.toString('ascii'));
           } catch (e) {
-            // Log an error if the message cannot be decoded and send an invalid request error to the client
-            logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
+            // A message that cannot be decoded is a client error; it may hold a raw transaction, so log it at debug only
+            logger.debug(`Could not decode message from connection, message: ${msg}, error: ${e}`);
             ctx.websocket.send(
               JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)),
             );
@@ -208,7 +208,7 @@ export async function initializeWsServer(
             // send error if batch request feature is not enabled
             if (!getWsBatchRequestsEnabled()) {
               const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
-              logger.warn(`${JSON.stringify(batchRequestDisabledError)}`);
+              logger.debug(`${JSON.stringify(batchRequestDisabledError)}`);
               ctx.websocket.send(
                 JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]),
               );
@@ -221,7 +221,7 @@ export async function initializeWsServer(
                 request.length,
                 getBatchRequestsMaxSize(),
               );
-              logger.warn(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
+              logger.debug(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
               ctx.websocket.send(
                 JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
               );
@@ -236,7 +236,7 @@ export async function initializeWsServer(
                 addressTotal,
                 maxAddressesPerRequest,
               );
-              logger.warn(`${JSON.stringify(batchRequestAddressTotalExceed)}`);
+              logger.debug(`${JSON.stringify(batchRequestAddressTotalExceed)}`);
               ctx.websocket.send(
                 JSON.stringify([jsonRespError(null, batchRequestAddressTotalExceed, requestDetails.requestId)]),
               );

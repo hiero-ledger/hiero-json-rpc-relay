@@ -915,12 +915,10 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         expect(logCalls[0].args[2]).to.equal(MIRROR_NODE_BLACKLISTED_ADDRESS);
       });
 
-      it('logs a rate limit 429 without the to address', async function () {
+      it('leaves logging a rate limit 429 to the dispatcher', async function () {
         const logCalls = await estimateWith429(mockData.tooManyRequests);
 
-        expect(logCalls).to.have.lengthOf(1);
-        expect(logCalls[0].args).to.have.lengthOf(2);
-        expect(logCalls[0].args[1]).to.equal('Could not simulate transaction in the MirrorNode.');
+        expect(logCalls).to.be.empty;
       });
     });
 

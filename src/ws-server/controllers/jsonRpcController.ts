@@ -5,6 +5,7 @@ import { type Logger } from 'pino';
 import { ConfigService } from '../../config-service/services';
 import { JsonRpcError, predefined, type Relay } from '../../relay';
 import { type MirrorNodeClient } from '../../relay/lib/clients';
+import { logRpcError } from '../../relay/lib/errors/rpcErrorReporting';
 import { type RequestDetails } from '../../relay/lib/types';
 import { isRequestAbortedError } from '../../relay/lib/utils/requestAbort';
 import { type IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
@@ -168,17 +169,13 @@ export const getRequestResult = async (
       throw error;
     }
 
-    logger.warn(
-      error,
-      `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,
-    );
+    const jsonRpcError =
+      error instanceof JsonRpcError
+        ? error
+        : predefined.INTERNAL_ERROR(JSON.stringify((error as Error).message || error), error);
 
-    let jsonRpcError: JsonRpcError;
-    if (error instanceof JsonRpcError) {
-      jsonRpcError = error;
-    } else {
-      jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify((error as Error).message || error));
-    }
+    // client errors at DEBUG, everything else at ERROR, the same as the relay's method dispatcher
+    logRpcError(logger, method, params, jsonRpcError);
 
     response = jsonRespError(request.id, jsonRpcError, requestDetails.requestId);
   }

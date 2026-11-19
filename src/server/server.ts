@@ -83,8 +83,9 @@ export async function initializeServer(
       // Since ctx.state.status might contain the request ID from JsonRpcError, remove it for a cleaner log.
       const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
 
-      // log call type, method, status code and latency; successful requests are too frequent to log at info
-      const level = `${contextStatus}` === `${HTTP_STATUS.OK}` ? 'debug' : 'info';
+      // log call type, method, status code and latency; successful requests are too frequent to log at info,
+      // and client errors (reverts, invalid params, …) are expected, so only server errors are logged at info
+      const level = ctx.state.serverError || ctx.status >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? 'info' : 'debug';
       logger[level](
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
