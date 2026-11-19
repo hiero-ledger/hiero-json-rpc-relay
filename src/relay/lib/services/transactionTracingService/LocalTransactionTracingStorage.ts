@@ -32,7 +32,7 @@ export class LocalTransactionTracingStorage implements ITransactionTracingStorag
   constructor(logger: Logger, ttlMs: number) {
     this.ttlMs = ttlMs;
     this.cache = new LocalLRUCache(
-      logger.child({ name: 'tx-tracing-cache' }),
+      logger.child({ module: 'tx-tracing-cache' }),
       new Registry(),
       undefined,
       ConfigService.get('TX_STATUS_TRACING_MAX_ENTRIES'),

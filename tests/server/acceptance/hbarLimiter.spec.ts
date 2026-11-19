@@ -94,7 +94,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
 
     cacheService = CacheClientFactory.create(
-      logger.child({ name: 'cache-service' }),
+      logger.child({ module: 'cache-service' }),
       register,
       reservedKeys,
       redisClient,
@@ -104,7 +104,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,
-      logger.child({ name: 'hbar-spending-plan-repository' }),
+      logger.child({ module: 'hbar-spending-plan-repository' }),
     );
   });
 

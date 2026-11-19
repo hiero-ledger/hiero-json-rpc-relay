@@ -1072,7 +1072,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number): void => {
 };
 
 export const startRedisInMemoryServer = async (logger: Logger, port: number): Promise<RedisInMemoryServer> => {
-  const redisInMemoryServer = new RedisInMemoryServer(logger.child({ name: 'RedisInMemoryServer' }), port);
+  const redisInMemoryServer = new RedisInMemoryServer(logger.child({ module: 'RedisInMemoryServer' }), port);
   await redisInMemoryServer.start();
   return redisInMemoryServer;
 };

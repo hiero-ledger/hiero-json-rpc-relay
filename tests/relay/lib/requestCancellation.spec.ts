@@ -50,7 +50,7 @@ describe('Request cancellation', function () {
     const cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: 'mirror-node' }),
+      logger.child({ module: 'mirror-node' }),
       registry,
       cacheService,
     );
@@ -159,7 +159,7 @@ describe('Request cancellation', function () {
       const cacheService = CacheClientFactory.create(logger, registry);
       const client = new MirrorNodeClient(
         `http://127.0.0.1:${port}`,
-        logger.child({ name: 'mirror-node' }),
+        logger.child({ module: 'mirror-node' }),
         registry,
         cacheService,
       );

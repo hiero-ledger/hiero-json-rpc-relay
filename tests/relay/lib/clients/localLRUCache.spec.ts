@@ -23,7 +23,7 @@ describe('LocalLRUCache Test Suite', async function () {
   let localLRUCache: LocalLRUCache;
 
   this.beforeAll(() => {
-    localLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+    localLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
   });
 
   this.beforeEach(() => {
@@ -97,7 +97,7 @@ describe('LocalLRUCache Test Suite', async function () {
     overrideEnvsInMochaDescribe({ CACHE_MAX: 2 });
 
     it('verify cache size', async function () {
-      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
       const keyValuePairs = {
         key1: 'value1',
         key2: 'value2',
@@ -118,8 +118,8 @@ describe('LocalLRUCache Test Suite', async function () {
     });
 
     it('should size an instance by its maxEntries override without affecting CACHE_MAX consumers', async function () {
-      const sizedCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, undefined, 4);
-      const sharedCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+      const sizedCache = new LocalLRUCache(logger.child({ module: `cache` }), registry, undefined, 4);
+      const sharedCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
       const keys = ['key1', 'key2', 'key3', 'key4'];
 
       for (const key of keys) {
@@ -139,7 +139,7 @@ describe('LocalLRUCache Test Suite', async function () {
     });
 
     it('should fall back to CACHE_MAX when the maxEntries override is not positive', async function () {
-      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, undefined, 0);
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry, undefined, 0);
 
       for (const key of ['key1', 'key2', 'key3']) {
         await customLocalLRUCache.set(key, key, callingMethod);
@@ -152,7 +152,7 @@ describe('LocalLRUCache Test Suite', async function () {
 
     it('should not evict reserved keys from the cache on reaching the max cache size limit', async function () {
       const reservedKeys = ['key1', 'key2'];
-      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry, new Set(reservedKeys));
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry, new Set(reservedKeys));
       const keyValuePairs = {
         key1: 'value1',
         key2: 'value2',
@@ -182,7 +182,7 @@ describe('LocalLRUCache Test Suite', async function () {
     });
 
     it('verify cache LRU nature', async function () {
-      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
       const key = 'key';
       let valueCount = 0; // keep track of values sets
       await customLocalLRUCache.set(key, ++valueCount, callingMethod);
@@ -194,7 +194,7 @@ describe('LocalLRUCache Test Suite', async function () {
     });
 
     it('verify cache ttl nature', async function () {
-      const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+      const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
       const key = 'key';
       const ttl = 100; // set ttl to 100ms
       await customLocalLRUCache.set(key, 'value', callingMethod, ttl);
@@ -206,7 +206,7 @@ describe('LocalLRUCache Test Suite', async function () {
     // set default cache ttl to 100ms to test the default ttl will be overridden by the ttl passed in set method
     withOverriddenEnvsInMochaTest({ CACHE_TTL: 100 }, async () => {
       it('it should set without TTL if -1 is passed for TTL', async () => {
-        const customLocalLRUCache = new LocalLRUCache(logger.child({ name: `cache` }), registry);
+        const customLocalLRUCache = new LocalLRUCache(logger.child({ module: `cache` }), registry);
         const lruCacheSpy = sinon.spy(customLocalLRUCache['cache']);
 
         const key = 'key';

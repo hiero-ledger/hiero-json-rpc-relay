@@ -136,7 +136,7 @@ describe('Metric Service', function () {
     });
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ module: `mirror-node` }),
       registry,
       CacheClientFactory.create(logger, registry),
       instance,
@@ -164,7 +164,12 @@ describe('Metric Service', function () {
     );
 
     const network = ConfigService.get('HEDERA_NETWORK')!;
-    const sdkClient = new SDKClient(network, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
+    const sdkClient = new SDKClient(
+      network,
+      logger.child({ module: `consensus-node` }),
+      eventEmitter,
+      hbarLimitService,
+    );
     // Init new MetricService instance
     const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
     metricService = new MetricService(logger, metricsCollector, registry, hbarLimitService);

@@ -462,7 +462,7 @@ const _CONFIG = {
   LOG_LEVEL: {
     type: 'string',
     required: false,
-    defaultValue: 'trace',
+    defaultValue: 'info',
   },
   PRETTY_LOGS_ENABLED: {
     type: 'boolean',

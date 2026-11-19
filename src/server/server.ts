@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import fs from 'fs';
 import type Koa from 'koa';
 import path from 'path';
-import pino from 'pino';
 import { type Registry } from 'prom-client';
 import { type RedisClientType } from 'redis';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigService } from '../config-service/services';
+import { createLogger, logContext } from '../logger';
 import { METRICS, MetricsFactory } from '../metrics';
 import { Relay } from '../relay';
 import { RedisClientManager } from '../relay/lib/clients/redisClientManager';
@@ -25,37 +23,14 @@ import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConfo
 import { applyCorsMiddleware } from './utils/corsUtils';
 import { applyProxyMiddleware } from './utils/proxyUtils';
 
-// https://nodejs.org/api/async_context.html#asynchronous-context-tracking
-const context = new AsyncLocalStorage<{ requestId: string }>();
-
-const prettyLogsEnabled = ConfigService.get('PRETTY_LOGS_ENABLED');
-
-const mainLogger = pino({
-  name: 'hedera-json-rpc-relay',
+const mainLogger = createLogger({
   level: ConfigService.get('LOG_LEVEL'),
-  // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
-  mixin: () => {
-    const store = context.getStore();
-    return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
-  },
-  // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
-  ...(prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-        messageFormat: '{requestId}{msg}',
-        // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-        ignore: 'requestId',
-      },
-    },
-  }),
+  prettyLogsEnabled: ConfigService.get('PRETTY_LOGS_ENABLED'),
 });
 
 const ethereumRPCConformityService = new EthereumRPCConformityService();
 
-export const logger = mainLogger.child({ name: 'rpc-server' });
+export const logger = mainLogger.child({ module: 'rpc-server' });
 
 /**
  * Initialize the server components
@@ -68,7 +43,7 @@ export async function initializeServer(
   redisClient?: RedisClientType,
 ): Promise<{ app: Koa; relay: Relay }> {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
-  const relay = sharedRelay ?? (await Relay.init(logger.child({ name: 'relay' }), register));
+  const relay = sharedRelay ?? (await Relay.init(logger.child({ module: 'relay' }), register));
   if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {
     redisClient = await RedisClientManager.getClient(logger);
   }
@@ -77,13 +52,13 @@ export async function initializeServer(
 
   // Create rate limit store using factory pattern
   const rateLimitStore = RateLimitStoreFactory.create(
-    logger.child({ name: 'rate-limit-store' }),
+    logger.child({ module: 'rate-limit-store' }),
     getLimitDuration(),
     rateLimitStoreFailureCounter,
     redisClient,
   );
 
-  const koaJsonRpc = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, rateLimitStore, {
+  const koaJsonRpc = new KoaJsonRpc(logger.child({ module: 'koa-rpc' }), register, relay, rateLimitStore, {
     limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
   });
 
@@ -222,7 +197,7 @@ export async function initializeServer(
 
     ctx.state.reqId = requestId;
 
-    return context.run({ requestId }, next);
+    return logContext.run({ requestId }, next);
   });
 
   const rpcApp = koaJsonRpc.rpcApp();

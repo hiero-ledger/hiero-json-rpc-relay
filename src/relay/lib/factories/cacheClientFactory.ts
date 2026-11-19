@@ -16,9 +16,9 @@ export class CacheClientFactory {
     redisClient?: RedisClientType,
   ): ICacheClient {
     return !ConfigService.get('TEST') && redisClient !== undefined
-      ? new MeasurableCache(new RedisCache(logger.child({ name: 'redisCache' }), redisClient), register, 'redis')
+      ? new MeasurableCache(new RedisCache(logger.child({ module: 'redisCache' }), redisClient), register, 'redis')
       : new MeasurableCache(
-          new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys),
+          new LocalLRUCache(logger.child({ module: 'localLRUCache' }), register, reservedKeys),
           register,
           'lru',
         );

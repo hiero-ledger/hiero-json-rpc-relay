@@ -307,7 +307,7 @@ export class Relay {
 
     // Create CacheService with the connected Redis client (or undefined for LRU-only)
     this.cacheService = CacheClientFactory.create(
-      this.logger.child({ name: 'cache-service' }),
+      this.logger.child({ module: 'cache-service' }),
       this.register,
       reservedKeys,
       this.redisClient,
@@ -316,15 +316,15 @@ export class Relay {
     // Create spending plan repositories
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,
-      this.logger.child({ name: 'hbar-spending-plan-repository' }),
+      this.logger.child({ module: 'hbar-spending-plan-repository' }),
     );
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
       this.cacheService,
-      this.logger.child({ name: 'evm-address-spending-plan-repository' }),
+      this.logger.child({ module: 'evm-address-spending-plan-repository' }),
     );
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
       this.cacheService,
-      this.logger.child({ name: 'ip-address-spending-plan-repository' }),
+      this.logger.child({ module: 'ip-address-spending-plan-repository' }),
     );
 
     // Create HBAR limit service
@@ -332,7 +332,7 @@ export class Relay {
       hbarSpendingPlanRepository,
       evmAddressHbarSpendingPlanRepository,
       ipAddressHbarSpendingPlanRepository,
-      this.logger.child({ name: 'hbar-rate-limit' }),
+      this.logger.child({ module: 'hbar-rate-limit' }),
       this.register,
       duration,
     );
@@ -348,13 +348,13 @@ export class Relay {
     // Create Mirror Node client.
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      this.logger.child({ name: `mirror-node` }),
+      this.logger.child({ module: `mirror-node` }),
       this.register,
       this.cacheService,
       undefined,
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
       undefined,
-      TransactionTimestampIndexFactory.create(this.logger.child({ name: 'tx-timestamp-index' }), this.redisClient),
+      TransactionTimestampIndexFactory.create(this.logger.child({ module: 'tx-timestamp-index' }), this.redisClient),
     );
 
     // Create Metric service
@@ -366,7 +366,7 @@ export class Relay {
     const storage = PendingTransactionStorageFactory.create(this.redisClient);
     const transactionPoolService = new TransactionPoolService(
       storage,
-      this.logger.child({ name: 'transaction-pool-service' }),
+      this.logger.child({ module: 'transaction-pool-service' }),
       this.register,
     );
 
@@ -385,7 +385,7 @@ export class Relay {
     this.ethImpl = new EthImpl(
       hapiService,
       this.mirrorNodeClient,
-      this.logger.child({ name: 'relay-eth' }),
+      this.logger.child({ module: 'relay-eth' }),
       chainId,
       this.cacheService,
       transactionPoolService,
@@ -425,7 +425,7 @@ export class Relay {
 
     // Create HBAR spending plan config service
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
-      this.logger.child({ name: 'hbar-spending-plan-config-service' }),
+      this.logger.child({ module: 'hbar-spending-plan-config-service' }),
       hbarSpendingPlanRepository,
       evmAddressHbarSpendingPlanRepository,
       ipAddressHbarSpendingPlanRepository,

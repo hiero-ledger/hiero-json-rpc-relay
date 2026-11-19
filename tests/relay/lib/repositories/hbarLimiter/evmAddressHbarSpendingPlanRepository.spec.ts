@@ -46,7 +46,7 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'EvmAddressHbarSpendingPlanRepository' }),
+        logger.child({ module: 'EvmAddressHbarSpendingPlanRepository' }),
       );
     });
 

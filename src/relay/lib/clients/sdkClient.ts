@@ -145,7 +145,7 @@ export class SDKClient {
 
     const sdkLogger = new HederaLogger({ level: LogLevel._fromString(sdkLogLevel), silent: true }).setLogger(
       // @ts-ignore
-      logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
+      logger.child({ module: 'sdk-client' }, { level: sdkLogLevel }),
     );
 
     logger.info(

@@ -25,13 +25,13 @@ describe('RedisCache Test Suite', async function () {
   let redisCache: RedisCache;
   let redisClient: RedisClientType;
 
-  const logger = mockLogger.child({ name: 'mock' });
+  const logger = mockLogger.child({ module: 'mock' });
 
   useInMemoryRedisServer(logger, 6379);
 
   this.beforeAll(async () => {
     redisClient = await RedisClientManager.getClient(logger);
-    redisCache = new RedisCache(logger.child({ name: `cache` }), redisClient);
+    redisCache = new RedisCache(logger.child({ module: `cache` }), redisClient);
     redisCache['options'].ttl = 100;
     sinon.spy(redisClient, 'set');
   });
