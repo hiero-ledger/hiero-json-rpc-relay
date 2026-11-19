@@ -1,12 +1,10 @@
 name: Acceptance Tests (Record Files)
 
 # The acceptance tests against a mirror node that imports record files instead of blocks from a Block Node.
-# Runs on PRs labelled `record-files` and on every push to main.
+# Runs on every push to main, and on any branch from the "Run workflow" button.
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
-    branches: [main, release/**]
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -17,13 +15,6 @@ permissions:
 jobs:
   acceptance_tests:
     name: ${{ matrix.test.name }} (Record Files)
-    if: >-
-      github.event_name == 'push' ||
-      (contains(github.event.pull_request.labels.*.name, 'record-files') &&
-      (github.event.action != 'labeled' || github.event.label.name == 'record-files'))
-    concurrency:
-      group: record-files-checks-${{ github.head_ref || github.run_id }}-${{ matrix.test.name }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       max-parallel: 6

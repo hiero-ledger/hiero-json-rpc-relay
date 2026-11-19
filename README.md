@@ -125,7 +125,7 @@ test:
 
 The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.
 
-In CI the suite runs against a local network where the mirror node imports blocks from a Block Node. Add the `record-files` label to a pull request to also run it against a network where the mirror node imports record files; the label takes effect when it is added and on every later push. Every push to `main` runs both, and the Manual Testing workflow has a Record files checkbox.
+In CI the suite runs against a local network where the mirror node imports blocks from a Block Node. To also run it against a network where the mirror node imports record files, start the Acceptance Tests (Record Files) workflow from the Actions tab with "Run workflow" on the pull request's branch. Every push to `main` runs both, and the Manual Testing workflow has a Record files checkbox.
 
 ## Conformity Tests
 

@@ -66,7 +66,7 @@ If nothing changed, the workflow does nothing so no empty pull request. If anyth
 - on a **fixed branch**, `chore/bump-network-versions`, so a re-run updates the open pull request in place rather than opening duplicates;
 - restricted to `.github/network-versions.env` only (`add-paths`);
 - with a GPG-signed commit;
-- without the `record-files` label, so only the Block Node acceptance jobs run; a reviewer adds the label to also run the record-file jobs against the new versions;
+- run against a Block Node only; a reviewer starts the Acceptance Tests (Record Files) workflow on the bump branch to also run the record-file jobs against the new versions;
 - authored with a **personal access token** (`GH_ACCESS_TOKEN`), **not** the default `GITHUB_TOKEN`. This is deliberate: pull requests opened by `GITHUB_TOKEN` do not trigger other workflows, so the bump pull request would open with no CI running on it. Using a PAT is what makes the full test suite run against the new versions.
 
 Because CI runs on the pull request, a version bump is only merged after the suite passes against the new versions and a human reviews it.
