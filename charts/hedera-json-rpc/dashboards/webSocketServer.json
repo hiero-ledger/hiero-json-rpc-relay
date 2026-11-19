@@ -8766,6 +8766,425 @@
           ],
           "title": "Transaction Response by Status",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "description": "Mirror Node requests (rpc_relay_mirror_node_request_count) and the axios-retry retries made on top of them (rpc_relay_mirror_node_retry_count).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 572
+          },
+          "id": 199,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(rpc_relay_mirror_node_request_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "requests",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(rpc_relay_mirror_node_retry_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "retries",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Mirror Node Requests & Retries (RPS)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "description": "Attempts that exceeded MIRROR_NODE_TIMEOUT and were retried (rpc_relay_mirror_node_timeout_retry_count), and requests whose final attempt timed out (rpc_relay_mirror_node_timeout_count).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 572
+          },
+          "id": 200,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(rpc_relay_mirror_node_timeout_retry_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "timed out, retried",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(rpc_relay_mirror_node_timeout_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "timed out, request failed",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Mirror Node Timeouts (RPS)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "description": "Share of Mirror Node attempts, retries included, that exceeded MIRROR_NODE_TIMEOUT.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 580
+          },
+          "id": 201,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "(\n  (sum(rate(rpc_relay_mirror_node_timeout_count{namespace=\"$namespace\"}[$__rate_interval])) or vector(0))\n  + (sum(rate(rpc_relay_mirror_node_timeout_retry_count{namespace=\"$namespace\"}[$__rate_interval])) or vector(0))\n)\n/\n(\n  sum(rate(rpc_relay_mirror_node_request_count{namespace=\"$namespace\"}[$__rate_interval]))\n  + (sum(rate(rpc_relay_mirror_node_retry_count{namespace=\"$namespace\"}[$__rate_interval])) or vector(0))\n)",
+              "instant": false,
+              "legendFormat": "timed-out share of attempts",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Mirror Node Timed-out Attempts (%)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "description": "Mirror Node attempts that exceeded MIRROR_NODE_TIMEOUT, by path: retried, or failing the request.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 580
+          },
+          "id": 202,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum by (method) (rate(rpc_relay_mirror_node_timeout_retry_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "{{method}} retried",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "default": true,
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "sum by (method) (rate(rpc_relay_mirror_node_timeout_count{namespace=\"$namespace\"}[$__rate_interval]))",
+              "instant": false,
+              "legendFormat": "{{method}} failed",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Mirror Node Timeouts by Path (RPS)",
+          "type": "timeseries"
         }
       ],
       "title": "Mirror Node Details - Volume, RPS, Usage and Latency",
