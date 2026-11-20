@@ -1,0 +1,43 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [main, release/**]
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run (performance, load, stress)'
+        required: true
+        default: 'performance'
+        type: choice
+        options:
+          - performance
+          - load
+          - stress
+      target_rps:
+        description: 'Target Total RPS (only for stress tests)'
+        required: false
+        default: '100'
+      filter_test:
+        description: 'Filter tests (comma separated)'
+        required: false
+        default: '*'
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  performance_test:
+    name: Performance Test (${{ inputs.test_type || 'performance' }})
+    uses: ./.github/workflows/performance-workflow.yml
+    with:
+      test_type: ${{ inputs.test_type || 'performance' }}
+      target_rps: ${{ inputs.target_rps || '100' }}
+      filter_test: ${{ inputs.filter_test || '*' }}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

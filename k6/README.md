@@ -16,6 +16,18 @@ This module covers the [k6](https://k6.io/) based performance tests for the Hede
 
 The tests are organized in files matching their method.
 You can run the tests of an API as a test suite, you can also run tests one at a time.
+The suite includes specialized tests for **large block transaction retrievals** (heavy blocks).
+
+### Heavy Block Tests
+
+These tests validate the system's ability to handle blocks with a high volume of transactions (e.g., 800+ synthetic transactions).
+
+- `eth_getBlockByNumber_withManySyntheticTxs`
+- `eth_getBlockByHash_withManySyntheticTxs`
+- `eth_getBlockReceipts_withManySyntheticTxs`
+- `eth_getLogs_withManySyntheticTxs`
+
+These scenarios are automatically prepared by the `prep.js` script.
 
 ### Test Prepare
 
@@ -592,7 +604,12 @@ Current traffic distribution is based on 90 days of production RPS data (April 2
 
 Distribution by total requests per second (example for STRESS_TEST_TARGET_TOTAL_RPS=100):
 
-- `eth_getBlockByNumber`: 68.0 RPS
-- `eth_getLogs`: 13.0 RPS
-- `eth_chainId`: 6.0 RPS
-- Other endpoints: Remaining RPS allocated proportionally
+
+## CI Pipeline
+
+Performance tests are integrated into the Continuous Integration (CI) pipeline via GitHub Actions.
+
+- **Workflow**: `.github/workflows/performance.yml`
+- **Triggers**: Runs on every push to `main`, scheduled daily, and can be triggered manually.
+- **Reporting**: Generates `report.md` (for performance/load) or `stress-test-report.md` (for stress) and uploads them as artifacts. Results are also posted to the GitHub Action Job Summary.
+- **Thresholds**: CI will fail if the pass rate drops below 95% or if P95 latency exceeds 500ms (configurable via `DEFAULT_PASS_RATE` and `DEFAULT_MAX_DURATION`).

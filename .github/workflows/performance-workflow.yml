@@ -1,0 +1,176 @@
+name: Reusable performance tests workflow
+
+on:
+  workflow_call:
+    inputs:
+      test_type:
+        required: false
+        default: 'performance'
+        type: string
+      target_rps:
+        required: false
+        default: '100'
+        type: string
+      filter_test:
+        required: false
+        default: '*'
+        type: string
+    secrets:
+      CODECOV_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  performance-workflow:
+    runs-on: hiero-smart-contracts-linux-large
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Create .env file
+        run: cp ./tests/server/localAcceptance.env .env
+
+      - name: Build Typescript
+        run: npm run build
+
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "v0.72.0"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "v0.72.0"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "v0.151.0"
+            --values-file: .github/mirror-node-values.yaml
+          EOF
+
+      - name: Setup Kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
+
+      - name: Start the solo node
+        run: |
+          npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --deploy-explorer=false \
+            --deploy-relay=false
+        timeout-minutes: 15
+
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
+
+      - name: Start Relay
+        run: |
+          npm run start > relay.log 2>&1 &
+          echo "Relay started in background"
+
+      - name: Wait for Relay to be ready
+        run: |
+          count=0
+          until curl -s http://localhost:7546/health/liveness || [ $count -eq 12 ]; do
+            echo "Waiting for Relay... ($count)"
+            sleep 10
+            count=$((count + 1))
+          done
+          if ! curl -s http://localhost:7546/health/liveness; then
+            echo "Relay failed to start"
+            cat relay.log
+            exit 1
+          fi
+          echo "Relay is ready"
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Install k6 packages
+        run: |
+          cd k6
+          npm ci
+
+      - name: Run k6 prep
+        run: |
+          cd k6
+          npm run prep
+        env:
+          PRIVATE_KEY: 0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524
+          MIRROR_BASE_URL: http://localhost:5551
+          RELAY_BASE_URL: http://localhost:7546
+
+      - name: Run k6 tests
+        run: |
+          cd k6
+          if [ "${{ inputs.test_type }}" == "stress" ]; then
+            npm run stress-test
+          else
+            npm run k6
+          fi
+        env:
+          PRIVATE_KEY: 0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524
+          MIRROR_BASE_URL: http://localhost:5551
+          RELAY_BASE_URL: http://localhost:7546
+          TEST_TYPE: ${{ inputs.test_type }}
+          STRESS_TEST_TARGET_TOTAL_RPS: ${{ inputs.target_rps }}
+          FILTER_TEST: ${{ inputs.filter_test }}
+          DEFAULT_DURATION: 30s
+          DEFAULT_VUS: 2
+          DEBUG_MODE: true
+
+      - name: Add Report to Summary
+        if: always()
+        run: |
+          if [ -f k6/report.md ]; then
+            cat k6/report.md >> $GITHUB_STEP_SUMMARY
+          elif [ -f k6/stress-test-report.md ]; then
+            cat k6/stress-test-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-report-${{ inputs.test_type }}
+          path: |
+            k6/*.md
+            relay.log
+
+      - name: Upload coverage report
+        if: ${{ github.actor != 'dependabot[bot]' && !cancelled() && always() }}
+        run: bash .github/scripts/codecov-upload.sh
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
