@@ -690,6 +690,8 @@ describe('Precheck', async function () {
         expect(thrown).to.exist;
         expect(thrown.code).to.eq(-32001);
         expect(thrown.message).to.contain(parsedTx.from);
+        // a sender without an account is the client's mistake, logged at debug
+        expect(thrown.isClientError).to.be.true;
       }
     });
 

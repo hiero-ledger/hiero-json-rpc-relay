@@ -291,7 +291,8 @@ describe('Errors', () => {
 
       [
         { status: 'INVALID_SIGNATURE', client: true },
-        { status: 'INSUFFICIENT_PAYER_BALANCE', client: true },
+        { status: 'INSUFFICIENT_PAYER_BALANCE', client: false },
+        { status: 'INSUFFICIENT_TX_FEE', client: false },
         { status: 'WRONG_NONCE', client: true },
         { status: 'BUSY', client: false },
         { status: 'PLATFORM_NOT_ACTIVE', client: false },

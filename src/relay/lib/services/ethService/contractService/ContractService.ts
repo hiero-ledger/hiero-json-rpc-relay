@@ -159,7 +159,7 @@ export class ContractService implements IContractService {
       if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) {
         if (isBlockHash(blockNumberOrTag) && ContractService.isMirrorNodeUnknownBlock(e)) {
-          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`);
+          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`).asClientError();
         }
         await this.handleMirrorNodeClientError(e, call.to);
       }
@@ -223,7 +223,7 @@ export class ContractService implements IContractService {
       isBlockHash(blockNumber) &&
       !(await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true))
     ) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`).asClientError();
     }
 
     // check for static precompile cases first before consulting nodes
@@ -330,7 +330,7 @@ export class ContractService implements IContractService {
     // To save a request to the mirror node for `latest` and `pending` blocks, we directly return null from `getHistoricalBlockResponse`
     // But if a block number or `earliest` tag is passed and the mirror node returns `null`, we should throw an error.
     if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash) && blockResponse == null) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTagOrHash}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTagOrHash}'.`).asClientError();
     }
 
     const blockEndTimestamp = blockResponse?.timestamp?.to;

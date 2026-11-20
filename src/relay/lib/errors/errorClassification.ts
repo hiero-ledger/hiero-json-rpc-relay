@@ -23,6 +23,10 @@ export function isClientHttpStatus(status: number | undefined): boolean {
 /**
  * Hedera statuses caused by the transaction or call the client sent, rather than by the relay or the network.
  * Every other status counts as a server error, so a status missing from this list is logged at `ERROR`.
+ *
+ * Statuses about the payer or the transaction fee (`INSUFFICIENT_PAYER_BALANCE`, `PAYER_ACCOUNT_NOT_FOUND`,
+ * `INSUFFICIENT_TX_FEE`, …) are left out on purpose: the relay's operator account pays for the transactions
+ * it submits, so they can just as well be the relay's problem.
  */
 export const CLIENT_HEDERA_STATUSES: ReadonlySet<string> = new Set([
   'ACCOUNT_DELETED',
@@ -34,9 +38,7 @@ export const CLIENT_HEDERA_STATUSES: ReadonlySet<string> = new Set([
   'CONTRACT_REVERT_EXECUTED',
   'INSUFFICIENT_ACCOUNT_BALANCE',
   'INSUFFICIENT_GAS',
-  'INSUFFICIENT_PAYER_BALANCE',
   'INSUFFICIENT_TOKEN_BALANCE',
-  'INSUFFICIENT_TX_FEE',
   'INVALID_ACCOUNT_ID',
   'INVALID_CONTRACT_ID',
   'INVALID_ETHEREUM_TRANSACTION',
@@ -47,7 +49,6 @@ export const CLIENT_HEDERA_STATUSES: ReadonlySet<string> = new Set([
   'LOCAL_CALL_MODIFICATION_EXCEPTION',
   'MAX_CHILD_RECORDS_EXCEEDED',
   'MAX_GAS_LIMIT_EXCEEDED',
-  'PAYER_ACCOUNT_NOT_FOUND',
   'SPENDER_DOES_NOT_HAVE_ALLOWANCE',
   'TOKEN_IS_PAUSED',
   'TOKEN_NOT_ASSOCIATED_TO_ACCOUNT',

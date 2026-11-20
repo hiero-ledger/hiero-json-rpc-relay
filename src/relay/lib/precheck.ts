@@ -100,7 +100,7 @@ export class Precheck {
   async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<IAccountInfo> {
     const accountInfo = await this.mirrorNodeClient.getAccount(tx.from!, requestDetails);
     if (accountInfo == null) {
-      throw predefined.RESOURCE_NOT_FOUND(`address '${tx.from}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`address '${tx.from}'.`).asClientError();
     }
 
     return accountInfo;

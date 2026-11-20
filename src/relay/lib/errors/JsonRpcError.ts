@@ -484,8 +484,7 @@ export const predefined = {
   /**
    * The single `-32003` shape every rejected-transaction path returns, so the traced-outcome fallback and
    * the Mirror-Node immature-record path cannot diverge in the `data` clients decode.
-   * A client error when the Hedera status is one of `CLIENT_HEDERA_STATUSES` (e.g. `WRONG_NONCE`,
-   * `INSUFFICIENT_TX_FEE` from the receipt).
+   * A client error when the Hedera status is one of `CLIENT_HEDERA_STATUSES` (e.g. `WRONG_NONCE` from the receipt).
    *
    * @param details.txHash - The offending transaction's keccak256 hash (lower-cased).
    * @param details.hederaStatus - The underlying Hedera status code (e.g. `WRONG_NONCE`), when known.

@@ -27,7 +27,13 @@ describe('errorClassification', () => {
   describe('isClientHederaStatus', () => {
     it('treats listed statuses as client errors', () => {
       expect(isClientHederaStatus(Status.InvalidSignature.toString())).to.be.true;
-      expect(isClientHederaStatus(Status.InsufficientPayerBalance.toString())).to.be.true;
+      expect(isClientHederaStatus(Status.WrongNonce.toString())).to.be.true;
+    });
+
+    it('treats statuses the relay operator can cause as server errors', () => {
+      expect(isClientHederaStatus(Status.InsufficientPayerBalance.toString())).to.be.false;
+      expect(isClientHederaStatus(Status.PayerAccountNotFound.toString())).to.be.false;
+      expect(isClientHederaStatus(Status.InsufficientTxFee.toString())).to.be.false;
     });
 
     it('treats any other status as a server error', () => {
