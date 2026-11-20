@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '../../config-service/services';
-import { JsonRpcError, predefined } from '../../relay';
+import { predefined } from '../../relay';
 import { type MirrorNodeClient } from '../../relay/lib/clients';
 import constants from '../../relay/lib/constants';
 import { type RequestDetails } from '../../relay/lib/types';
@@ -35,11 +35,9 @@ const validateIsContractOrTokenAddress = async (
     [constants.TYPE_CONTRACT, constants.TYPE_TOKEN],
   );
   if (!isContractOrToken) {
-    throw new JsonRpcError(
-      predefined.INVALID_PARAMETER(
-        'filters.address',
-        `${address} is not a valid contract or token type or does not exists`,
-      ),
+    throw predefined.INVALID_PARAMETER(
+      'filters.address',
+      `${address} is not a valid contract or token type or does not exists`,
     );
   }
 };

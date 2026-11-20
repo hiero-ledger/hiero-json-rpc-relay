@@ -17,6 +17,7 @@ import { ConfigService } from '../../../config-service/services';
 import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
+import { isClientHttpStatus } from '../errors/errorClassification';
 import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
@@ -809,12 +810,12 @@ export class MirrorNodeClient {
         );
       }
     } else {
-      this.logger.error(
-        new Error(err.message),
-        `Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%s`,
+      this.logger[isClientHttpStatus(effectiveStatusCode) ? 'debug' : 'warn'](
+        `Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%s, message=%s`,
         method,
         path,
         effectiveStatusCode,
+        err.message,
       );
     }
 

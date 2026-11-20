@@ -222,6 +222,15 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
         ethImpl,
         args,
       );
+      // a missing block is the client's mistake, logged at debug
+      await expect(
+        ethImpl.getStorageAt(
+          CONTRACT_ADDRESS_1,
+          defaultDetailedContractResults.state_changes[0].slot,
+          numberTo0x(BLOCK_NUMBER),
+          requestDetails,
+        ),
+      ).to.be.rejected.and.eventually.have.property('isClientError', true);
     });
 
     it('eth_getStorageAt should return zeroHex32Byte when slot wrong', async function () {

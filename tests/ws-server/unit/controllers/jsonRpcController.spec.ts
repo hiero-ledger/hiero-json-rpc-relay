@@ -21,6 +21,8 @@ import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 import { withOverriddenEnvsInMochaTest } from '../../../../tests/relay/helpers';
 
 interface MockLogger {
+  debug: sinon.SinonStub;
+  error: sinon.SinonStub;
   warn: sinon.SinonStub;
   trace: sinon.SinonStub;
   isLevelEnabled?: sinon.SinonStub;
@@ -56,6 +58,8 @@ describe('JSON Rpc Controller', function () {
 
   beforeEach(() => {
     mockLogger = {
+      debug: sinon.stub(),
+      error: sinon.stub(),
       warn: sinon.stub(),
       trace: sinon.stub(),
       isLevelEnabled: sinon.stub().returns(true),
@@ -177,6 +181,10 @@ describe('JSON Rpc Controller', function () {
 
       expect(resp.error.code).to.equal(-32608);
       expect(resp.error.message).to.include('Exceeded maximum allowed subscriptions');
+      // a client error: logged at debug only
+      sinon.assert.calledOnce(mockLogger.debug);
+      sinon.assert.notCalled(mockLogger.error);
+      sinon.assert.notCalled(mockLogger.warn);
     });
     withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
       it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
@@ -227,6 +235,11 @@ describe('JSON Rpc Controller', function () {
       const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
 
       expect(resp.error.code).to.equal(-32603);
+      // an unexpected exception (here the missing `isLevelEnabled`): logged at error with the original error as the cause
+      sinon.assert.calledOnceWithMatch(
+        mockLogger.error,
+        sinon.match({ err: sinon.match.instanceOf(Error), code: -32603 }),
+      );
     });
 
     it('bounds the "method" counter label when unknown method names flood in', async function () {

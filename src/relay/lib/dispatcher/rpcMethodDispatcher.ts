@@ -3,11 +3,12 @@
 import { type Logger } from 'pino';
 import { type Counter, Registry } from 'prom-client';
 
-import { METRICS, MetricsFactory } from '../../../metrics';
+import { createMethodMetricLabeler, METRICS, MetricsFactory } from '../../../metrics';
 import { Utils } from '../../utils';
 import { JsonRpcError } from '../errors/JsonRpcError';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
+import { logRpcError, toJsonRpcError } from '../errors/rpcErrorReporting';
 import { SDKClientError } from '../errors/SDKClientError';
 import { type OperationHandler, type RequestDetails, type RpcMethodRegistry } from '../types';
 import { isRequestAbortedError } from '../utils/requestAbort';
@@ -25,19 +26,27 @@ import { RPC_PARAM_VALIDATION_RULES_KEY, validateParams } from '../validators';
  */
 export class RpcMethodDispatcher {
   private readonly consensusNodeErrorsCounter: Counter;
+  private readonly rpcErrorsCounter: Counter;
+  private readonly methodMetricLabeler: (method: unknown) => string;
+
   /**
    * Creates a new RpcMethodDispatcher
    *
    * @param methodRegistry - Map of RPC method names to their implementations
    * @param logger - Logger for recording execution information
    * @param register - Prometheus metrics registry
+   * @param methodMetricLabeler - Maps a method name to a bounded metric label; defaults to the registered methods
    */
   constructor(
     private readonly methodRegistry: RpcMethodRegistry,
     private readonly logger: Logger,
     register: Registry = new Registry(),
+    methodMetricLabeler?: (method: unknown) => string,
   ) {
-    this.consensusNodeErrorsCounter = new MetricsFactory(register).counter(METRICS.consensusNode.errors);
+    const metricsFactory = new MetricsFactory(register);
+    this.consensusNodeErrorsCounter = metricsFactory.counter(METRICS.consensusNode.errors);
+    this.rpcErrorsCounter = metricsFactory.counter(METRICS.rpc.errors);
+    this.methodMetricLabeler = methodMetricLabeler ?? createMethodMetricLabeler(methodRegistry.keys(), 0);
   }
 
   /**
@@ -148,55 +157,36 @@ export class RpcMethodDispatcher {
   /**
    * Handles errors that occur during RPC method execution
    *
-   * This method processes different types of errors and converts them to
-   * appropriate JSON-RPC error responses. It handles:
-   * - JsonRpcError instances are returned as-is with the request ID attached
-   * - MirrorNodeClientError instances are converted to appropriate JsonRpcError types
-   *   (currently only timeout errors are specifically handled)
-   * - All other errors are converted to generic INTERNAL_ERROR responses
+   * The error is first mapped to the JsonRpcError returned to the client (see {@link toJsonRpcError}):
+   * - JsonRpcError instances are returned as-is
+   * - SDKClientError instances become REQUEST_TIMEOUT or CONSENSUS_NODE_ERROR
+   * - MirrorNodeClientError instances become MIRROR_NODE_UPSTREAM_FAIL
+   * - All other errors, unexpected exceptions, become INTERNAL_ERROR
    *
-   * All errors are logged with request context and parameters, so a failed request can be reproduced
-   * without logging the parameters of every request.
+   * The log level is then decided on the resulting error: client errors are logged at DEBUG with the full
+   * params, everything else at ERROR with the cause's stack and a summary of the params (see {@link logRpcError}).
+   * Every error is counted in `rpc_relay_rpc_errors_total` by method, code and class.
    *
    * @param error - The error that occurred during method execution
    * @param rpcMethodName - The name of the RPC method that failed
    * @param rpcMethodParams - The parameters the RPC method was called with
-   * @returns A JsonRpcError instance with appropriate error code, message and request ID
+   * @returns A JsonRpcError instance with appropriate error code and message
    */
   private handleRpcMethodError(error: unknown, rpcMethodName: string, rpcMethodParams: unknown[]): JsonRpcError {
-    const errorMessage = (error as { message?: unknown })?.message?.toString() || 'Unknown error';
     if (isRequestAbortedError(error)) {
       this.logger.debug(`Method execution cancelled by the caller: rpcMethodName=%s`, rpcMethodName);
       throw error;
     }
 
-    this.logger.error(
-      `Error executing method: rpcMethodName=%s, params=%s, error=%s`,
-      rpcMethodName,
-      JSON.stringify(rpcMethodParams),
-      errorMessage,
-    );
-
-    // If error is already a JsonRpcError, use it directly
-    if (error instanceof JsonRpcError) {
-      return error;
-    }
-
-    // Handle GRPC errors
     if (error instanceof SDKClientError) {
       this.consensusNodeErrorsCounter.labels(error.status.toString()).inc(1);
-      return error.isGrpcTimeout()
-        ? predefined.REQUEST_TIMEOUT
-        : predefined.CONSENSUS_NODE_ERROR(error.status.toString(), error.statusCode, error.message);
     }
 
-    // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
-    if (error instanceof MirrorNodeClientError) {
-      return predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure');
-    }
+    const jsonRpcError = toJsonRpcError(error);
+    const errorClass = logRpcError(this.logger, rpcMethodName, rpcMethodParams, jsonRpcError, error);
+    this.rpcErrorsCounter.labels(this.methodMetricLabeler(rpcMethodName), String(jsonRpcError.code), errorClass).inc();
 
-    // Default to internal error for all other error types
-    return predefined.INTERNAL_ERROR(errorMessage);
+    return jsonRpcError;
   }
 
   /**

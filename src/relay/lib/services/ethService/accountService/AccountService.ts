@@ -427,7 +427,7 @@ export class AccountService implements IAccountService {
   private async getBlockNumberByHash(blockHash: string, requestDetails: RequestDetails): Promise<number> {
     const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
     if (!block) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockHash}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockHash}'.`).asClientError();
     }
     return Number(block.number);
   }

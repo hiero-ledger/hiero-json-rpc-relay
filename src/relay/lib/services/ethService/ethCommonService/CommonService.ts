@@ -470,22 +470,29 @@ export class CommonService implements ICommonService {
     return numberTo0x(latestBlock.number);
   }
 
+  /**
+   * Rethrows an error to the method dispatcher, which logs it at the level its class calls for:
+   * client errors at DEBUG, everything else at ERROR with its stack and a summary of the params.
+   * Unexpected exceptions are wrapped in INTERNAL_ERROR with the original error as the cause.
+   *
+   * @param error - The error to rethrow.
+   * @param logMessage - Context for the error, logged at DEBUG.
+   * @throws Always.
+   */
   public genericErrorHandler(error: unknown, logMessage?: string): void {
     if (isRequestAbortedError(error)) {
       throw error;
     }
 
     if (logMessage) {
-      this.logger.error(error, logMessage);
-    } else {
-      this.logger.error(error);
+      this.logger.debug(error, logMessage);
     }
 
     // preserve the original error and throw to the upper layer
     if (error instanceof JsonRpcError || error instanceof SDKClientError || error instanceof MirrorNodeClientError) {
       throw error;
     }
-    throw predefined.INTERNAL_ERROR((error as Error).message.toString());
+    throw predefined.INTERNAL_ERROR((error as Error).message.toString(), error);
   }
 
   public async validateBlockHashAndAddTimestampToParams(

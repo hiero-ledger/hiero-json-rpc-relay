@@ -184,7 +184,7 @@ export class FilterService implements IFilterService {
 
     const filter = await this.getFilterFromCache(filterId, this.ethGetFilterLogs);
     if (filter?.type !== constants.FILTER.TYPE.LOG) {
-      throw predefined.FILTER_NOT_FOUND;
+      throw predefined.FILTER_NOT_FOUND.asClientError();
     }
 
     const { fromBlock, toBlock, address, topics } = filter.params as Required<INewFilterParams>;
@@ -262,7 +262,7 @@ export class FilterService implements IFilterService {
     const filter = await this.getFilterFromCache(filterId, this.ethGetFilterChanges);
 
     if (!filter) {
-      throw predefined.FILTER_NOT_FOUND;
+      throw predefined.FILTER_NOT_FOUND.asClientError();
     }
 
     let result: string[] | Log[];
