@@ -420,7 +420,9 @@ describe('MirrorNodeClient', async function () {
     it('counts a client-side timeout', async () => {
       clientMock.onGet('accounts').timeout();
       await expect(client.get('accounts', 'accounts', requestDetails, 0))
-        .to.eventually.be.rejectedWith(/timeout of \d+ms exceeded/)
+        .to.eventually.be.rejectedWith(
+          /Relay timed out waiting for mirror node response after \d+ms \(MIRROR_NODE_TIMEOUT\)/,
+        )
         .and.have.property('statusCode', 504);
       expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
     });
@@ -430,7 +432,7 @@ describe('MirrorNodeClient', async function () {
       restInstance.defaults.transitional = { ...restInstance.defaults.transitional, clarifyTimeoutError: true };
       clientMock.onGet('accounts').timeout();
       await expect(client.get('accounts', 'accounts', requestDetails, 0)).to.eventually.be.rejectedWith(
-        /timeout of \d+ms exceeded/,
+        /Relay timed out waiting for mirror node response after \d+ms \(MIRROR_NODE_TIMEOUT\)/,
       );
       expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 1, timeoutRetries: 0 });
     });
@@ -438,9 +440,18 @@ describe('MirrorNodeClient', async function () {
     it('does not count an upstream 504 as a timeout', async () => {
       clientMock.onGet('accounts').reply(504, ``);
       await expect(client.get('accounts', 'accounts', requestDetails))
-        .to.eventually.be.rejectedWith('Request failed with status code 504')
+        .to.eventually.be.rejectedWith('Mirror node returned HTTP 504')
         .and.have.property('statusCode', 504);
       expect(await counts()).to.deep.equal({ requests: 1, retries: 0, timeouts: 0, timeoutRetries: 0 });
+    });
+
+    it('keeps the mirror node message on an upstream 504 that carries one', async () => {
+      clientMock
+        .onGet('accounts')
+        .reply(504, JSON.stringify({ _status: { messages: [{ message: 'Upstream query timed out' }] } }));
+      await expect(client.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith('Upstream query timed out')
+        .and.have.property('statusCode', 504);
     });
 
     it('counts timed-out attempts that are retried before a success as timeout retries', async () => {
@@ -458,7 +469,7 @@ describe('MirrorNodeClient', async function () {
     it('counts timeout retries and the final timeout when every attempt times out', async () => {
       clientMock.onGet('accounts').timeout();
       await expect(client.get('accounts', 'accounts', requestDetails, 2)).to.eventually.be.rejectedWith(
-        /timeout of \d+ms exceeded/,
+        /Relay timed out waiting for mirror node response after \d+ms \(MIRROR_NODE_TIMEOUT\)/,
       );
       expect(await counts()).to.deep.equal({ requests: 1, retries: 2, timeouts: 1, timeoutRetries: 2 });
     });

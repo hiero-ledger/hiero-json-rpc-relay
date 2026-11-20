@@ -746,6 +746,45 @@ export class MirrorNodeClient {
     return error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT;
   }
 
+  /**
+   * Both a relay-side timeout and a real upstream 504 end up with status 504, so the message is what tells them apart:
+   * - the relay gave up waiting after MIRROR_NODE_TIMEOUT (no HTTP response at all), or
+   * - the mirror node (or a gateway in front of it) answered with HTTP 504.
+   * A 504 that carries the mirror node's own `_status` message keeps that message.
+   *
+   * @returns the message to use, or undefined to keep the original one.
+   */
+  private static gatewayTimeoutMessage(
+    error: {
+      code?: string;
+      message?: string;
+      config?: { timeout?: number };
+      response?: { data?: unknown };
+    },
+    mirrorError: MirrorNodeClientError,
+  ): string | undefined {
+    // axios also uses ECONNABORTED for a plain "Request aborted", so only its timeout message counts as a timeout here
+    const isClientTimeout =
+      error.code === AxiosError.ETIMEDOUT ||
+      (error.code === AxiosError.ECONNABORTED && /^timeout of \d+ms exceeded$/.test(error.message ?? ''));
+    if (!error.response && isClientTimeout) {
+      const timeout = error.config?.timeout || ConfigService.get('MIRROR_NODE_TIMEOUT');
+      return `Relay timed out waiting for mirror node response after ${timeout}ms (MIRROR_NODE_TIMEOUT)`;
+    }
+
+    const statusMessages = (error.response?.data as { _status?: { messages?: unknown[] } } | undefined)?._status
+      ?.messages;
+    if (
+      error.response &&
+      mirrorError.statusCode === MirrorNodeClientError.statusCodes.GATEWAY_TIMEOUT &&
+      !statusMessages?.length
+    ) {
+      return `Mirror node returned HTTP ${MirrorNodeClientError.statusCodes.GATEWAY_TIMEOUT}`;
+    }
+
+    return undefined;
+  }
+
   async get<T = unknown>(
     path: string,
     pathLabel: string,
@@ -780,9 +819,15 @@ export class MirrorNodeClient {
   ): null {
     const mirrorError = new MirrorNodeClientError(error, effectiveStatusCode);
     const err = error as {
+      code?: string;
       message?: string;
+      config?: { timeout?: number };
       response?: { statusText?: string; detail?: unknown; data?: unknown };
     };
+    const gatewayTimeoutMessage = MirrorNodeClient.gatewayTimeoutMessage(err, mirrorError);
+    if (gatewayTimeoutMessage) {
+      mirrorError.message = gatewayTimeoutMessage;
+    }
     const acceptedErrorResponses = MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.get(pathLabel);
 
     if (err.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
@@ -810,7 +855,7 @@ export class MirrorNodeClient {
       }
     } else {
       this.logger.error(
-        new Error(err.message),
+        new Error(mirrorError.message),
         `Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%s`,
         method,
         path,

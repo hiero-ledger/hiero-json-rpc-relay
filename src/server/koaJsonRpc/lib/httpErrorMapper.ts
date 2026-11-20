@@ -10,6 +10,7 @@ export const HTTP_STATUS = {
   CLIENT_CLOSED_REQUEST: 499,
   INTERNAL_SERVER_ERROR: 500,
   NOT_IMPLEMENTED: 501,
+  GATEWAY_TIMEOUT: 504,
 };
 
 // Direct mapping from RPC error codes to HTTP status codes
@@ -26,11 +27,13 @@ const ERROR_CODE_MAP: Record<number, number> = {
 // - MN 404 -> Relay HTTP 400
 // - MN 429 -> Relay HTTP 429
 // - MN 501 -> Relay HTTP 501
+// - MN 504 -> Relay HTTP 504
 // - Any other error codes from the Mirror Node will be mapped to Relay HTTP 500 by default
 const MIRROR_NODE_ERROR_MAP: Record<number, number> = {
   404: HTTP_STATUS.BAD_REQUEST,
   429: HTTP_STATUS.TOO_MANY_REQUESTS,
   501: HTTP_STATUS.NOT_IMPLEMENTED,
+  504: HTTP_STATUS.GATEWAY_TIMEOUT,
 };
 
 /**
