@@ -21,6 +21,7 @@ interface ErrorEnvelope {
   statusCode?: number;
   data?: string;
   detail?: string;
+  clientError?: boolean;
 }
 
 /**
@@ -85,6 +86,7 @@ export function unwrapError(err: unknown): Error {
         code: parsedErr.code,
         data: parsedErr.data,
         message: parsedErr.message,
+        clientError: parsedErr.clientError === true,
       });
     }
 

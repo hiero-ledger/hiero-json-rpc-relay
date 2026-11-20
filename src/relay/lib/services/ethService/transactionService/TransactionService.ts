@@ -488,7 +488,10 @@ export class TransactionService implements ITransactionService {
       // Mirror Node ingress / pool persistence errors surface here as INTERNAL_ERROR - trace them as rejected.
       // Recorded for admin inspection: this error is thrown synchronously to the client (before the async
       // hash return), so the receipt fallback never consults it.
-      const rejection = predefined.INTERNAL_ERROR(`Failed to save transaction to pool: ${(error as Error).message}`);
+      const rejection = predefined.INTERNAL_ERROR(
+        `Failed to save transaction to pool: ${(error as Error).message}`,
+        error,
+      );
       await this.transactionTracingService.recordRejected(parsedTx.hash!, { error: rejection.message });
       throw rejection;
     } finally {

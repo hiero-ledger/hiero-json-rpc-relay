@@ -222,6 +222,96 @@ describe('Errors', () => {
       });
     });
 
+    describe('client error flag and cause', () => {
+      it('is not a client error and has no cause by default', () => {
+        const err = new JsonRpcError({ code: -32000, message: 'x' });
+        expect(err.isClientError).to.be.false;
+        expect(err.cause).to.be.undefined;
+        expect(err.toJSON()).to.not.have.property('clientError');
+      });
+
+      it('keeps the cause out of the serialized error', () => {
+        const cause = new Error('original');
+        const err = predefined.INTERNAL_ERROR('wrapped', cause);
+        expect(err.cause).to.equal(cause);
+        expect(err.message).to.equal('Error invoking RPC: wrapped');
+        expect(JSON.stringify(err)).to.not.include('original');
+      });
+
+      it('passes the cause to COULD_NOT_SIMULATE_TRANSACTION', () => {
+        const cause = new Error('original');
+        expect(predefined.COULD_NOT_SIMULATE_TRANSACTION('x', cause).cause).to.equal(cause);
+      });
+
+      it('flags errors that are always caused by the client', () => {
+        expect(predefined.INVALID_PARAMETERS.isClientError).to.be.true;
+        expect(predefined.METHOD_NOT_FOUND('foo_bar').isClientError).to.be.true;
+        expect(predefined.CONTRACT_REVERT('boom').isClientError).to.be.true;
+        expect(predefined.RANGE_TOO_LARGE(1000).isClientError).to.be.true;
+        expect(predefined.NONCE_TOO_LOW(1, 2).isClientError).to.be.true;
+      });
+
+      it('leaves errors that can have either cause unflagged', () => {
+        expect(predefined.INTERNAL_ERROR().isClientError).to.be.false;
+        expect(predefined.REQUEST_TIMEOUT.isClientError).to.be.false;
+        expect(predefined.RESOURCE_NOT_FOUND('x').isClientError).to.be.false;
+        expect(predefined.FILTER_NOT_FOUND.isClientError).to.be.false;
+        expect(predefined.COULD_NOT_SIMULATE_TRANSACTION('x').isClientError).to.be.false;
+        expect(predefined.HBAR_RATE_LIMIT_EXCEEDED.isClientError).to.be.false;
+      });
+
+      it('asClientError returns a flagged copy and leaves the shared predefined error unchanged', () => {
+        const flagged = predefined.FILTER_NOT_FOUND.asClientError();
+        expect(flagged).to.not.equal(predefined.FILTER_NOT_FOUND);
+        expect(flagged.isClientError).to.be.true;
+        expect(flagged).to.include({ code: predefined.FILTER_NOT_FOUND.code, message: 'Filter not found' });
+        expect(predefined.FILTER_NOT_FOUND.isClientError).to.be.false;
+        expect(flagged.toJSON()).to.include({ clientError: true });
+      });
+
+      it('asClientError keeps the cause and returns a client error as is', () => {
+        const cause = new Error('original');
+        expect(predefined.COULD_NOT_SIMULATE_TRANSACTION('x', cause).asClientError().cause).to.equal(cause);
+        expect(predefined.INVALID_PARAMETERS.asClientError()).to.equal(predefined.INVALID_PARAMETERS);
+      });
+
+      [
+        { status: 400, client: true },
+        { status: 404, client: true },
+        { status: 429, client: false },
+        { status: 500, client: false },
+        { status: 503, client: false },
+        { status: 504, client: false },
+        { status: 567, client: false },
+      ].forEach(({ status, client }) => {
+        it(`classifies MIRROR_NODE_UPSTREAM_FAIL with status ${status} as ${client ? 'client' : 'server'}`, () => {
+          expect(predefined.MIRROR_NODE_UPSTREAM_FAIL(status, 'x').isClientError).to.equal(client);
+        });
+      });
+
+      [
+        { status: 'INVALID_SIGNATURE', client: true },
+        { status: 'INSUFFICIENT_PAYER_BALANCE', client: false },
+        { status: 'INSUFFICIENT_TX_FEE', client: false },
+        { status: 'WRONG_NONCE', client: true },
+        { status: 'BUSY', client: false },
+        { status: 'PLATFORM_NOT_ACTIVE', client: false },
+      ].forEach(({ status, client }) => {
+        it(`classifies Hedera status ${status} as ${client ? 'client' : 'server'}`, () => {
+          expect(predefined.CONSENSUS_NODE_ERROR(status, 1, 'x').isClientError).to.equal(client);
+          expect(predefined.TRANSACTION_REJECTED(status).isClientError).to.equal(client);
+          expect(
+            predefined.TRANSACTION_REJECTED_DETAILED({ txHash: '0x1', hederaStatus: status }).isClientError,
+          ).to.equal(client);
+        });
+      });
+
+      it('classifies a rejected transaction without a Hedera status as server', () => {
+        expect(predefined.TRANSACTION_REJECTED_DETAILED({ txHash: '0x1', detail: 'timed out' }).isClientError).to.be
+          .false;
+      });
+    });
+
     it('every predefined error uses a negative code', () => {
       const positiveCodeExceptions = ['CONTRACT_REVERT'];
       const dummyArgs: unknown[] = ['1', 1, '1', 1];

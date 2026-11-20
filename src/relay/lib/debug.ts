@@ -1297,7 +1297,9 @@ export class DebugImpl implements Debug {
       .getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails)
       .then((fetchedLogs: Log[]): Log => {
         if (fetchedLogs.length === 0) {
-          throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${transactionIdOrHash}`);
+          throw predefined
+            .RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${transactionIdOrHash}`)
+            .asClientError();
         }
         return fetchedLogs[0];
       });
@@ -1346,7 +1348,9 @@ export class DebugImpl implements Debug {
 
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockIdentifier, true);
 
-      if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockIdentifier} not found`);
+      if (blockResponse == null) {
+        throw predefined.RESOURCE_NOT_FOUND(`Block ${blockIdentifier} not found`).asClientError();
+      }
 
       // Get ALL transaction hashes (EVM + synthetic) along with pre-fetched data
       const { transactionHashes, preFetchedData } = await this.getBlockTransactionDetails(

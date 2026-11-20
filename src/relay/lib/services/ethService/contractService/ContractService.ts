@@ -16,6 +16,7 @@ import {
 import type { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
+import { isClientHttpStatus } from '../../../errors/errorClassification';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { type Log } from '../../../model';
@@ -158,13 +159,13 @@ export class ContractService implements IContractService {
       if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) {
         if (isBlockHash(blockNumberOrTag) && ContractService.isMirrorNodeUnknownBlock(e)) {
-          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`);
+          throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTag}'.`).asClientError();
         }
         await this.handleMirrorNodeClientError(e, call.to);
       }
 
-      this.logger.error(e, 'Failed to successfully submit eth_call');
-      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
+      // logged at ERROR with its stack by the dispatcher
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString(), e);
     }
   }
 
@@ -199,8 +200,7 @@ export class ContractService implements IContractService {
       if (e instanceof JsonRpcError || isRequestAbortedError(e)) throw e;
       if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e, transaction.to);
 
-      this.logger.error(e, 'Failed to successfully estimate gas');
-      throw predefined.INTERNAL_ERROR((e as Error).message.toString());
+      throw predefined.INTERNAL_ERROR((e as Error).message.toString(), e);
     }
   }
 
@@ -223,7 +223,7 @@ export class ContractService implements IContractService {
       isBlockHash(blockNumber) &&
       !(await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true))
     ) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumber}'.`).asClientError();
     }
 
     // check for static precompile cases first before consulting nodes
@@ -330,7 +330,7 @@ export class ContractService implements IContractService {
     // To save a request to the mirror node for `latest` and `pending` blocks, we directly return null from `getHistoricalBlockResponse`
     // But if a block number or `earliest` tag is passed and the mirror node returns `null`, we should throw an error.
     if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash) && blockResponse == null) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTagOrHash}'.`);
+      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTagOrHash}'.`).asClientError();
     }
 
     const blockEndTimestamp = blockResponse?.timestamp?.to;
@@ -549,7 +549,7 @@ export class ContractService implements IContractService {
     const blacklist = ConfigService.get('CONTRACT_CALL_BLACKLIST');
     if (blacklist.some((address) => address.toLowerCase() === to.toLowerCase())) {
       this.logger.info(`Rejected call to blacklisted contract: to=%s`, to);
-      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
+      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`).asClientError();
     }
   }
 
@@ -603,9 +603,6 @@ export class ContractService implements IContractService {
     if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
-    // For 400, treat it as an expected "could not simulate transaction" case and do not store additional logs.
-    // For any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
-    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic.
     // A rejection by a mirror node request filter means the contract is missing from CONTRACT_CALL_BLACKLIST, so log its address
     if (e.isInvalidRequestRateLimit()) {
       this.logger.error(
@@ -613,10 +610,12 @@ export class ContractService implements IContractService {
         'Could not simulate transaction in the MirrorNode. Rejected by a mirror node request filter: to=%s',
         to,
       );
-    } else if (e.statusCode !== 400) {
-      this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
     }
-    throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
+
+    // The original error is passed as the cause, so the dispatcher logs upstream failures (429, 5xx, timeouts)
+    // at ERROR with its stack. A 4xx other than 429 means the call itself was rejected: a client error.
+    const error = predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message, e);
+    throw isClientHttpStatus(e.statusCode) ? error.asClientError() : error;
   }
 
   /**
