@@ -618,12 +618,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
         const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-        await relay.pollForValidTransactionReceipt(transactionHash);
+        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         expect(info).to.have.property('contract_id');
         expect(info.contract_id).to.not.be.null;
-        expect(info).to.have.property('created_contract_ids');
-        expect(info.created_contract_ids.length).to.be.equal(1);
+        expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
       });
 
       it('@xts should execute "eth_sendRawTransaction" and deploy a real contract which can be accessible', async function () {
@@ -660,12 +659,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
         const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-        await relay.pollForValidTransactionReceipt(transactionHash);
+        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         expect(info).to.have.property('contract_id');
         expect(info.contract_id).to.not.be.null;
-        expect(info).to.have.property('created_contract_ids');
-        expect(info.created_contract_ids.length).to.be.equal(1);
+        expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
         expect(info.max_fee_per_gas).to.eq('0x');
         expect(info.max_priority_fee_per_gas).to.eq('0x');
         expect(info).to.have.property('access_list');
@@ -680,14 +678,13 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
         };
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
         const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-        await relay.pollForValidTransactionReceipt(transactionHash);
+        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         expect(info).to.have.property('contract_id');
         expect(info.contract_id).to.not.be.null;
         expect(info).to.have.property('max_fee_per_gas');
         expect(info).to.have.property('max_priority_fee_per_gas');
-        expect(info).to.have.property('created_contract_ids');
-        expect(info.created_contract_ids.length).to.be.equal(1);
+        expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
         expect(info).to.have.property('type');
         expect(info.type).to.be.equal(2);
         expect(info).to.have.property('access_list');
@@ -710,12 +707,11 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           };
           const signedTx = await sender.wallet.signTransaction(transaction);
           const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-          await relay.pollForValidTransactionReceipt(transactionHash);
+          const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
           const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
           expect(info).to.have.property('contract_id');
           expect(info.contract_id).to.not.be.null;
-          expect(info).to.have.property('created_contract_ids');
-          expect(info.created_contract_ids.length).to.be.equal(1);
+          expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
           await Utils.wait(3000);
         }
       });
@@ -768,13 +764,12 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
         const transactionHash = (await client.call(METHOD_NAME, [signedTx])) as string;
-        await relay.pollForValidTransactionReceipt(transactionHash);
+        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
         expect(info).to.have.property('contract_id');
         expect(info.contract_id).to.not.be.null;
-        expect(info).to.have.property('created_contract_ids');
-        expect(info.created_contract_ids.length).to.be.equal(1);
+        expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
 
         const diffInTinybars = BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF);
         const diffInHbars = Number(diffInTinybars) / 100_000_000;
@@ -824,8 +819,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
           expect(info).to.have.property('contract_id');
           expect(info.contract_id).to.not.be.null;
-          expect(info).to.have.property('created_contract_ids');
-          expect(info.created_contract_ids.length).to.be.equal(1);
+
+          const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+
+          expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
 
           const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
           expect(balanceAfter).to.be.equal(balanceBefore);
@@ -848,8 +845,10 @@ describe('@release @protocol-acceptance @protocol-acceptance-transaction-service
           const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
           expect(info).to.have.property('contract_id');
           expect(info.contract_id).to.not.be.null;
-          expect(info).to.have.property('created_contract_ids');
-          expect(info.created_contract_ids.length).to.be.equal(1);
+
+          const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+
+          expect(receipt.contractAddress).to.be.a('string').and.equal(info.address);
 
           const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
           expect(balanceAfter).to.be.equal(balanceBefore);

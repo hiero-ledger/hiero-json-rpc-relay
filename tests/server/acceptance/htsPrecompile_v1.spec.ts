@@ -39,7 +39,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '10000000000'; //100 Hbar
+    const initialAmount: string = '20000000000'; //200 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
@@ -64,7 +64,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   async function createHTSToken(): Promise<string> {
     const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createFungibleTokenPublic(accounts[0].wallet.address, {
-      value: BigInt('10000000000000000000'),
+      value: BigInt('15000000000000000000'),
       gasLimit: 1_000_000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
@@ -77,7 +77,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
   async function createNftHTSToken(): Promise<string> {
     const baseHTSContract = new ethers.Contract(BaseHTSContractAddress, BaseHTSJson.abi, txSigner.wallet);
     const tx = await baseHTSContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
-      value: BigInt('10000000000000000000'),
+      value: BigInt('15000000000000000000'),
       gasLimit: 1_000_000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
@@ -93,7 +93,7 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
       accounts[0].wallet.address,
       HTSTokenContractAddress,
       {
-        value: BigInt('20000000000000000000'),
+        value: BigInt('30000000000000000000'),
         gasLimit: 1_000_000,
       },
     );

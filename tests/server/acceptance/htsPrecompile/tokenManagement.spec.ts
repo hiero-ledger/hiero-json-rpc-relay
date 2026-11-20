@@ -46,7 +46,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const initialAmount: string = '10000000000'; //100 Hbar
+    const initialAmount: string = '20000000000'; //200 Hbar
 
     const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     txSigner = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
@@ -126,7 +126,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   async function createHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
-      value: BigInt('10000000000000000000'),
+      value: BigInt('15000000000000000000'),
       gasLimit: 10000000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
@@ -139,7 +139,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   async function createNftHTSToken(): Promise<string> {
     const mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, txSigner.wallet);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
-      value: BigInt('10000000000000000000'),
+      value: BigInt('15000000000000000000'),
       gasLimit: 10000000,
     });
     const { tokenAddress } = (await tx.wait()).logs.filter(
@@ -636,7 +636,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
 
       // create token with new default freeze status
       const tx = await mainContractOwner.createFungibleTokenPublic(accounts[0].wallet.address, {
-        value: BigInt('10000000000000000000'),
+        value: BigInt('15000000000000000000'),
         gasLimit: 10000000,
       });
 
@@ -662,7 +662,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
 
       // create non fungible token with new default freeze status
       const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
-        value: BigInt('10000000000000000000'),
+        value: BigInt('15000000000000000000'),
         gasLimit: 10000000,
       });
       const { tokenAddress } = (await tx.wait()).logs.filter(
