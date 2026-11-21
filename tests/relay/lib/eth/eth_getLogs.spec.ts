@@ -122,7 +122,9 @@ describe('@ethGetLogs using MirrorNode', async function () {
         [{ blockHash: BLOCK_HASH, fromBlock: null, toBlock: null, address: null, topics: null }, requestDetails],
         (error: MirrorNodeClientError) => {
           expect(error.statusCode).to.equal(504);
-          expect(error.message).to.eq('timeout of 10000ms exceeded');
+          expect(error.message).to.eq(
+            'Relay timed out waiting for mirror node response after 10000ms (MIRROR_NODE_TIMEOUT)',
+          );
         },
       );
     });
@@ -136,7 +138,9 @@ describe('@ethGetLogs using MirrorNode', async function () {
         ],
         (error: MirrorNodeClientError) => {
           expect(error.statusCode).to.equal(504);
-          expect(error.message).to.eq('timeout of 10000ms exceeded');
+          expect(error.message).to.eq(
+            'Relay timed out waiting for mirror node response after 10000ms (MIRROR_NODE_TIMEOUT)',
+          );
         },
       );
     });
