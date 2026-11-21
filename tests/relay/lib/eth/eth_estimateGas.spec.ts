@@ -822,7 +822,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
         );
 
         const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
-          `Request failed with status code ${statusCode}`,
+          statusCode === 504 ? 'Mirror node returned HTTP 504' : `Request failed with status code ${statusCode}`,
         );
         await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails))
           .to.be.rejectedWith(JsonRpcError, expectedError.message)
