@@ -47,7 +47,7 @@ describe('translateRpcErrorToHttpStatus', () => {
       { status: 501, message: 'Not implemented', expectedStatus: 501 },
       { status: 502, message: 'Bad Gateway', expectedStatus: 500 },
       { status: 503, message: 'Service Unavailable', expectedStatus: 500 },
-      { status: 504, message: 'Gateway Timeout', expectedStatus: 500 },
+      { status: 504, message: 'Gateway Timeout', expectedStatus: 504 },
       { status: 567, message: 'Unknown Mirror Node error', expectedStatus: 500 },
     ];
 
