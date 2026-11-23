@@ -61,6 +61,14 @@ describe('mapPrestateResponse', function () {
     expect(result[accountAddress].balance).to.equal('0x0');
   });
 
+  it('returns a missing balance as 0x0', function () {
+    const withoutBalance = { ...accountTrace, balance: null } as unknown as IPrestateAccountTrace;
+
+    const result = mapPrestateResponse({ pre: [withoutBalance] });
+
+    expect(result[accountAddress].balance).to.equal('0x0');
+  });
+
   // The mirror node leaves `code` unset for accounts rather than sending an empty bytecode.
   it('restores an absent code to 0x', function () {
     const result = mapPrestateResponse({ pre: [accountTrace] });
