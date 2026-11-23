@@ -945,6 +945,115 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  describe('block cache reuse metrics', () => {
+    // A dedicated registry, since every client built on the shared one replaces its metrics.
+    let metricsRegistry: Registry;
+    let client: MirrorNodeClient;
+
+    const rangeUrl = (fromBlock: number, toBlock: number): string =>
+      `blocks?block.number=gte:${fromBlock}&block.number=lte:${toBlock}&limit=100&order=asc`;
+    const rangeBlocks = [
+      { ...block, number: 10 },
+      { ...block, number: 11 },
+    ];
+
+    const metricValue = async (name: string, label: string, value: string): Promise<number> => {
+      const metric = await metricsRegistry.getSingleMetric(name)!.get();
+      return metric.values.find((v) => v.labels[label] === value)?.value ?? 0;
+    };
+    const rangeWrites = (): Promise<number> =>
+      metricValue('rpc_relay_block_range_cache_writes_total', 'method', 'blocks');
+    const hits = async (): Promise<{ range: number; getBlock: number }> => ({
+      range: await metricValue('rpc_relay_block_cache_hits_total', 'source', 'range'),
+      getBlock: await metricValue('rpc_relay_block_cache_hits_total', 'source', 'getBlock'),
+    });
+
+    beforeEach(() => {
+      metricsRegistry = new Registry();
+      client = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger,
+        metricsRegistry,
+        cacheService,
+        instance,
+      );
+    });
+
+    it('counts every block the range fetch writes and tags each cached entry with the range source', async () => {
+      mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+      const blocks = await client.getBlocksByRange(requestDetails, 10, 11, DEFAULT_PAGE_MAX);
+
+      expect(await rangeWrites()).to.equal(2);
+      expect(await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.10`, 'test')).to.have.property(
+        '_src',
+        'range',
+      );
+      expect(await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.11`, 'test')).to.have.property(
+        '_src',
+        'range',
+      );
+      // The blocks returned to the caller are not tagged.
+      blocks.forEach((b) => expect(b).to.not.have.property('_src'));
+    });
+
+    it('counts a hit on a range-written entry as source=range and returns the block without the marker', async () => {
+      mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+      await client.getBlocksByRange(requestDetails, 10, 11, DEFAULT_PAGE_MAX);
+
+      const first = await client.getBlock(10, requestDetails);
+      const second = await client.getBlock(10, requestDetails);
+
+      expect(first).to.deep.equal({ ...block, number: 10 });
+      expect(second).to.deep.equal({ ...block, number: 10 });
+      expect(await hits()).to.deep.equal({ range: 2, getBlock: 0 });
+      // Stripping the marker from the returned block must not strip it from the cache entry.
+      expect(await cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.10`, 'test')).to.have.property(
+        '_src',
+        'range',
+      );
+    });
+
+    it('counts a hit on an entry getBlock cached itself as source=getBlock', async () => {
+      mock.onGet('blocks/12').replyOnce(200, JSON.stringify({ ...block, number: 12 }));
+
+      await client.getBlock(12, requestDetails); // miss: fetched and cached without a marker
+      const cached = await client.getBlock(12, requestDetails);
+
+      expect(cached).to.deep.equal({ ...block, number: 12 });
+      expect(await hits()).to.deep.equal({ range: 0, getBlock: 1 });
+      expect(await rangeWrites()).to.equal(0);
+    });
+
+    it('does not overwrite or count blocks the caller reports as already cached', async () => {
+      mock.onGet('blocks/10').replyOnce(200, JSON.stringify({ ...block, number: 10 }));
+      mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+      await client.getBlock(10, requestDetails); // miss: cached by getBlock, as eth_getLogs does for its bounds
+      const blocks = await client.getBlocksByRange(requestDetails, 10, 11, DEFAULT_PAGE_MAX, [10]);
+      await client.getBlock(10, requestDetails);
+      await client.getBlock(11, requestDetails);
+
+      expect(blocks.map((b) => b.number)).to.deep.equal([10, 11]);
+      expect(await rangeWrites()).to.equal(1);
+      expect(await hits()).to.deep.equal({ range: 1, getBlock: 1 });
+    });
+
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED: false }, () => {
+      it('counts no range writes and no range hits when the range cache is disabled', async () => {
+        mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+        mock.onGet('blocks/10').replyOnce(200, JSON.stringify({ ...block, number: 10 }));
+
+        await client.getBlocksByRange(requestDetails, 10, 11, DEFAULT_PAGE_MAX);
+        const fetched = await client.getBlock(10, requestDetails); // not cached by the range, so a network fetch
+
+        expect(fetched).to.deep.equal({ ...block, number: 10 });
+        expect(await rangeWrites()).to.equal(0);
+        expect(await hits()).to.deep.equal({ range: 0, getBlock: 0 });
+      });
+    });
+  });
+
   it('`getBlocksByRange` honours a caller-supplied page cap', async () => {
     const fromBlock = 1;
     const toBlock = 400;

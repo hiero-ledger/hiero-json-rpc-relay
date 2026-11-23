@@ -841,6 +841,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
         htsResult.client,
       );
 
+      await mirrorNode.get(`/tokens/${htsTokenId}`);
+
       const tokenAddress = Utils.idToEvmAddress(htsTokenId.toString());
       htsToken = new ethers.Contract(tokenAddress, IERC20Json.abi, htsAccounts[0].wallet);
     });

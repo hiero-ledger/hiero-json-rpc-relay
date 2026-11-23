@@ -1,3 +1,8 @@
+# Solo caps the importer at 220Mi, too little for the TSS proof in a Block Node's first block
+importer:
+  resources:
+    limits:
+      memory: 1Gi
 web3:
   env:
     HIERO_MIRROR_WEB3_OPCODE_TRACER_ENABLED: "true"

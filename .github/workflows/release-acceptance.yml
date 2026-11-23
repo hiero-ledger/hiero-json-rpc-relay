@@ -114,6 +114,7 @@ jobs:
         env:
           MIRROR_NODE_PORT: 5551
           GRPC_LOCAL_PORT: 50211
+          MIRROR_NODE_VERSION: ${{ inputs.mirrorTag || env.MIRROR_NODE_TAG }}
         run: |
           npx @hiero-ledger/solo@${{ inputs.soloVersion || env.SOLO_VERSION }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
