@@ -1,0 +1,65 @@
+name: Acceptance Tests (Record Files)
+
+# The acceptance tests against a mirror node that imports record files instead of blocks from a Block Node.
+# Runs on every push to main, and on any branch from the "Run workflow" button.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  acceptance_tests:
+    name: ${{ matrix.test.name }} (Record Files)
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        test:
+          - { name: 'API Batch 1', testfilter: 'api_batch1' }
+          - { name: 'API Batch 2', testfilter: 'api_batch2' }
+          - { name: 'API Batch 3', testfilter: 'api_batch3' }
+          - { name: 'Debug API', testfilter: 'debug' }
+          - { name: 'ERC20', testfilter: 'erc20' }
+          - { name: 'Rate Limiter', testfilter: 'ratelimiter', test_ws_server: true, test_rate_limits: true }
+          - { name: 'SendRawTransaction Extension', testfilter: 'send_raw_transaction_extension' }
+          - { name: 'HBar Limiter Batch 1', testfilter: 'hbarlimiter_batch1' }
+          - { name: 'HBar Limiter Batch 2', testfilter: 'hbarlimiter_batch2' }
+          - { name: 'HBar Limiter Batch 3', testfilter: 'hbarlimiter_batch3' }
+          - { name: 'Token Create', testfilter: 'tokencreate' }
+          - { name: 'Token Management', testfilter: 'tokenmanagement' }
+          - { name: 'Precompile', testfilter: 'htsprecompilev1' }
+          - { name: 'Precompile Calls', testfilter: 'precompile-calls' }
+          - { name: 'Websocket Batch 1', testfilter: 'ws_batch1', test_ws_server: true }
+          - { name: 'Websocket Batch 2', testfilter: 'ws_batch2', test_ws_server: true }
+          - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
+          - { name: 'Sub Tinybar Monetary Precision', testfilter: 'sub_tinybar_monetary_precision' }
+          - { name: 'Cache Service', testfilter: 'cache-service' }
+          - { name: 'Protocol Account Service', testfilter: 'protocol-account-service', test_ws_server: true }
+          - { name: 'Protocol Block Service', testfilter: 'protocol-block-service', test_ws_server: true }
+          - { name: 'Protocol Common Service', testfilter: 'protocol-common-service', test_ws_server: true }
+          - { name: 'Protocol Contract Service', testfilter: 'protocol-contract-service', test_ws_server: true }
+          - { name: 'Protocol Transaction Service', testfilter: 'protocol-transaction-service', test_ws_server: true }
+          - { name: 'Protocol Fee Service', testfilter: 'protocol-fee-service', test_ws_server: true }
+          - {
+              name: 'Protocol Eth Plain',
+              testfilter: 'protocol-eth-plain',
+              test_ws_server: true,
+              test_rate_limits: true,
+            }
+          - { name: 'Server Config', testfilter: 'serverconfig' }
+          - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
+          - name: 'Semantics and default OK response status'
+            testfilter: 'json_rpc_compliance'
+            on_valid_json_rpc_http_response_status_code: 200
+    uses: ./.github/workflows/acceptance-workflow.yml
+    with:
+      testfilter: ${{ matrix.test.testfilter }}
+      test_ws_server: ${{ matrix.test.test_ws_server || false }}
+      test_rate_limits: ${{ matrix.test.test_rate_limits || false }}
+      on_valid_json_rpc_http_response_status_code: ${{ matrix.test.on_valid_json_rpc_http_response_status_code || 400 }}
+      block_node: false

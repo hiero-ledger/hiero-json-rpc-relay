@@ -37,6 +37,11 @@ on:
       soloVersion:
         required: false
         type: string
+      block_node:
+        description: 'Deploy a Block Node; the mirror node then imports blocks from it instead of record files'
+        required: false
+        default: false
+        type: boolean
     secrets:
       operator_key:
         description: 'The ED25519, ECDSA, or DER encoded private key of the operator'
@@ -118,6 +123,13 @@ jobs:
             --values-file: .github/mirror-node-values.yaml
           EOF
 
+          if [ "${{ inputs.block_node }}" = "true" ]; then
+            cat >> .github/falcon.yml <<EOF
+          blockNode:
+            --block-node-version: "${{ env.BLOCK_NODE_TAG }}"
+          EOF
+          fi
+
       - name: Setup Kind
         uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
         with:
@@ -132,6 +144,9 @@ jobs:
         env:
           MIRROR_NODE_PORT: 5551
           GRPC_LOCAL_PORT: 50211
+          MIRROR_NODE_VERSION: ${{ inputs.mirrorTag || env.MIRROR_NODE_TAG }}
+          BLOCK_NODE_VERSION: ${{ env.BLOCK_NODE_TAG }}
+          ONE_SHOT_WITH_BLOCK_NODE: ${{ inputs.block_node }}
         run: |
           npx @hiero-ledger/solo@${{ inputs.soloVersion || env.SOLO_VERSION }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
@@ -175,7 +190,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mirror-node-logs-${{ inputs.testfilter }}-${{ inputs.on_valid_json_rpc_http_response_status_code }}
+          name: mirror-node-logs-${{ inputs.testfilter }}-${{ inputs.on_valid_json_rpc_http_response_status_code }}${{ inputs.block_node && '-block-node' || '' }}
           path: mirror-node-logs/
           if-no-files-found: warn
 
@@ -191,7 +206,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Test Results (${{ inputs.testfilter }}) ${{ inputs.on_valid_json_rpc_http_response_status_code}}
+          name: Test Results (${{ inputs.testfilter }}) ${{ inputs.on_valid_json_rpc_http_response_status_code}}${{ inputs.block_node && ' block-node' || '' }}
           path: test-*.xml
 
       - name: Publish Test Report
