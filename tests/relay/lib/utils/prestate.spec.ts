@@ -22,7 +22,7 @@ describe('mapPrestateResponse', function () {
 
   const contractTrace: IPrestateAccountTrace = {
     address: contractAddress,
-    balance: '0xe8d4a51000',
+    balance: 100,
     code: '0x6080604052',
     nonce: 1,
     storage: { [slot]: value },
@@ -30,7 +30,7 @@ describe('mapPrestateResponse', function () {
 
   const accountTrace: IPrestateAccountTrace = {
     address: accountAddress,
-    balance: '0x15d3ef79800',
+    balance: 150,
     code: null,
     nonce: 7,
     storage: {},
@@ -48,10 +48,17 @@ describe('mapPrestateResponse', function () {
     });
   });
 
-  it('passes the balance through unchanged', function () {
-    const result = mapPrestateResponse({ pre: [contractTrace] });
+  it('converts the balance from tinybars to hex weibars', function () {
+    const result = mapPrestateResponse({ pre: [contractTrace, accountTrace] });
 
-    expect(result[contractAddress].balance).to.equal(contractTrace.balance);
+    expect(result[contractAddress].balance).to.equal('0xe8d4a51000');
+    expect(result[accountAddress].balance).to.equal('0x15d3ef79800');
+  });
+
+  it('returns a zero balance as 0x0', function () {
+    const result = mapPrestateResponse({ pre: [{ ...accountTrace, balance: 0 }] });
+
+    expect(result[accountAddress].balance).to.equal('0x0');
   });
 
   // The mirror node leaves `code` unset for accounts rather than sending an empty bytecode.
@@ -207,7 +214,7 @@ describe('mapPrestateDiffResponse', function () {
 
   const contractPre: IPrestateAccountTrace = {
     address: contractAddress,
-    balance: '0x0',
+    balance: 0,
     code: '0x6080604052',
     nonce: 1,
     storage: { [changedSlot]: one, [readSlot]: one, [clearedSlot]: one },
@@ -215,7 +222,7 @@ describe('mapPrestateDiffResponse', function () {
 
   const senderPre: IPrestateAccountTrace = {
     address: senderAddress,
-    balance: '0x64',
+    balance: 100,
     code: null,
     nonce: 4,
     storage: {},
@@ -227,13 +234,27 @@ describe('mapPrestateDiffResponse', function () {
     const upperSender = senderAddress.toUpperCase().replace('0X', '0x');
     const response: IPrestateResponse = {
       pre: [{ ...senderPre, address: upperSender }],
-      post: [{ ...unchanged, address: upperSender, balance: '0x32', nonce: 5 }],
+      post: [{ ...unchanged, address: upperSender, balance: 50, nonce: 5 }],
     };
 
     const result = mapPrestateDiffResponse(response);
 
-    expect(result.pre).to.deep.equal({ [senderAddress]: { balance: '0x64', nonce: 4, code: '0x', storage: {} } });
-    expect(result.post).to.deep.equal({ [senderAddress]: { balance: '0x32', nonce: 5 } });
+    expect(result.pre).to.deep.equal({
+      [senderAddress]: { balance: '0xe8d4a51000', nonce: 4, code: '0x', storage: {} },
+    });
+    expect(result.post).to.deep.equal({ [senderAddress]: { balance: '0x746a528800', nonce: 5 } });
+  });
+
+  // A drained account must still show its new balance; 0 is a change, not an unchanged (null) field.
+  it('keeps a post balance of zero as 0x0', function () {
+    const response: IPrestateResponse = {
+      pre: [senderPre],
+      post: [{ ...unchanged, address: senderAddress, balance: 0 }],
+    };
+
+    const result = mapPrestateDiffResponse(response);
+
+    expect(result.post).to.deep.equal({ [senderAddress]: { balance: '0x0' } });
   });
 
   it('shows a changed slot with its old value in pre and its new value in post', function () {
@@ -274,7 +295,7 @@ describe('mapPrestateDiffResponse', function () {
   it('keeps an account created by the transaction in post only', function () {
     const created = {
       address: createdAddress,
-      balance: '0x0',
+      balance: 0,
       code: '0x6080',
       nonce: 1,
       storage: { [changedSlot]: one },
@@ -301,7 +322,7 @@ describe('mapPrestateDiffResponse', function () {
   });
 
   it('skips post entries without an address', function () {
-    const response = { pre: [], post: [{ ...unchanged, balance: '0x1' }] } as unknown as IPrestateResponse;
+    const response = { pre: [], post: [{ ...unchanged, balance: 1 }] } as unknown as IPrestateResponse;
 
     expect(mapPrestateDiffResponse(response).post).to.deep.equal({});
   });

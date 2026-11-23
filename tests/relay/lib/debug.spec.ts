@@ -3135,7 +3135,7 @@ describe('Debug API Test Suite', async function () {
       pre: [
         {
           address: contractEvmAddress,
-          balance: '0xe8d4a51000',
+          balance: 100,
           code: '0x6080604052',
           nonce: 3,
           storage: { [slot]: value },
@@ -3291,7 +3291,7 @@ describe('Debug API Test Suite', async function () {
     describe('prestateTracer options', async function () {
       const emptyAddress = '0x00000000000000000000000000000000000004d2';
       const emptyAccount = { balance: '0x0', nonce: 0, code: '0x', storage: {} };
-      const emptyTrace = { address: emptyAddress, balance: '0x0', code: null, nonce: 0, storage: {} };
+      const emptyTrace = { address: emptyAddress, balance: 0, code: null, nonce: 0, storage: {} };
       const responseWithEmpty = { pre: [...prestateResponse.pre, emptyTrace] };
       const prestateWithEmpty = { ...mappedPrestate, [emptyAddress]: emptyAccount };
 
