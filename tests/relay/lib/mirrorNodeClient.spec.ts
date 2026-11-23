@@ -2800,6 +2800,15 @@ describe('MirrorNodeClient', async function () {
       });
     });
 
+    it('should keep a balance above 2^53 exact', async () => {
+      const body = `{"pre":[{"address":"0x00000000000000000000000000000000000003f6","balance":4999999999999999999,"code":null,"nonce":0,"storage":{}}]}`;
+      mock.onGet(prestatePath).reply(200, body);
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result!.pre[0].balance.toString()).to.equal('4999999999999999999');
+    });
+
     it('should request the diff with diff=true', async () => {
       const path = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=true`;
       const post = [{ address: mockPrestate.pre[0].address, balance: 1, code: null, nonce: null, storage: null }];
