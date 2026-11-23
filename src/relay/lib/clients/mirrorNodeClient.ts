@@ -626,6 +626,8 @@ export class MirrorNodeClient {
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {
+        // JSON.stringify throws on bigint; json-bigint writes it as an exact JSON number.
+        axiosRequestConfig['transformRequest'] = [(body: unknown): string => JSONBigInt.stringify(body)];
         response = await this.web3Client.post<T>(path, data, axiosRequestConfig);
       }
 

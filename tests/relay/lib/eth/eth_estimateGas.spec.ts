@@ -1044,7 +1044,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       it('sends the translated override set as state_overrides', async () => {
         const body = await postedBody({ [OVERRIDE_ADDRESS]: { balance: '0x2540be400' } });
 
-        expect(body.state_overrides).to.deep.equal([{ address: OVERRIDE_ADDRESS, balance: '0x1' }]);
+        expect(body.state_overrides).to.deep.equal([{ address: OVERRIDE_ADDRESS, balance: 1 }]);
         expect(body.estimate).to.be.true;
       });
 

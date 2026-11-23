@@ -444,7 +444,7 @@ export class ContractService implements IContractService {
       }
 
       if (override.nonce !== undefined) {
-        entry.nonce = numberTo0x(BigInt(override.nonce));
+        entry.nonce = BigInt(override.nonce);
       }
 
       if (override.code !== undefined) {
@@ -488,16 +488,16 @@ export class ContractService implements IContractService {
   /**
    * Converts a weibar balance override to tinybars, capped at what the network can hold.
    */
-  private toTinybarBalance(balance: string, address: string): string {
+  private toTinybarBalance(balance: string, address: string): bigint {
     const tinybars = weibarToTinyBar(balance);
     const totalSupply = BigInt(constants.TOTAL_SUPPLY_TINYBARS);
 
     if (tinybars > totalSupply) {
       this.logger.warn('Balance override for %s exceeds the total supply and was capped', address);
-      return numberTo0x(totalSupply);
+      return totalSupply;
     }
 
-    return numberTo0x(tinybars);
+    return tinybars;
   }
 
   private static toStorageEntries(storage: AccountStorage): IStorageEntry[] {

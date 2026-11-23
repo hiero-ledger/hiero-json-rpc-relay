@@ -705,6 +705,20 @@ describe('MirrorNodeClient', async function () {
     expect(result!.result).to.eq(mockResult.result);
   });
 
+  it('`post` writes a bigint in the body as an exact JSON number', async () => {
+    mock.onPost('contracts/call').reply(200, JSON.stringify({ result: '0x' }));
+    mock.resetHistory();
+
+    await mirrorNodeInstance.post(
+      'contracts/call',
+      { balance: constants.INT64_MAX, nested: [{ nonce: BigInt(1) }], to: '0x1' },
+      'contracts/call',
+      requestDetails,
+    );
+
+    expect(mock.history.post[0].data).to.equal('{"balance":9223372036854775807,"nested":[{"nonce":1}],"to":"0x1"}');
+  });
+
   it('call to non-existing REST route returns 404', async () => {
     try {
       expect(await mirrorNodeInstance.get('non-existing-route', 'non-existing-route', requestDetails)).to.throw;

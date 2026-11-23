@@ -78,9 +78,9 @@ export interface IStorageEntry {
  */
 export interface IStateOverride {
   address: string;
-  balance?: string;
+  balance?: bigint;
   code?: string;
-  nonce?: string;
+  nonce?: bigint;
   state?: IStorageEntry[];
   state_diff?: IStorageEntry[];
 }
