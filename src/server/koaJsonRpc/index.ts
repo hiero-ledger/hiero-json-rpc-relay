@@ -35,13 +35,6 @@ const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 const CLIENT_DISCONNECTED_ABORT_REASON = 'The client closed the connection before the response was written';
 const CLIENT_DISCONNECTED = 'CLIENT DISCONNECTED';
 
-/**
- * Error responses for a failure on the relay's side (an unflagged JsonRpcError or an unexpected exception),
- * so the access log keeps them at `INFO` while client errors drop to `DEBUG`. A WeakSet keeps the flag
- * out of the serialized response.
- */
-const serverErrorResponses = new WeakSet<IJsonRpcResponse>();
-
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
   private readonly defaultRateLimit: number = getDefaultRateLimit();
@@ -162,7 +155,6 @@ export default class KoaJsonRpc {
 
       ctx.status = statusErrorCode;
       ctx.state.status = `${ctx.status} (${statusErrorMessage})`;
-      ctx.state.serverError = serverErrorResponses.has(response);
     }
   }
 
@@ -268,20 +260,15 @@ export default class KoaJsonRpc {
       if (!(result instanceof JsonRpcError)) {
         return jsonRespResult(request.id, result);
       }
-      const response = jsonRespError(request.id, result, requestId);
-      if (!result.isClientError) {
-        serverErrorResponses.add(response);
-      }
-      return response;
+      return jsonRespError(request.id, result, requestId);
     } catch (err) {
       if (isRequestAbortedError(err)) {
         throw err;
       }
 
-      /* istanbul ignore next: this catch block covers programmatic errors and should not happen */
-      const response = jsonRespError(request.id, spec.InternalError(err), requestId);
-      serverErrorResponses.add(response);
-      return response;
+      // Programmatic errors that escaped the method dispatcher (e.g. in the rate limiter): nothing else logs them.
+      this.logger.error(err, 'Unexpected error serving method %s', request.method);
+      return jsonRespError(request.id, spec.InternalError(err), requestId);
     }
   }
 

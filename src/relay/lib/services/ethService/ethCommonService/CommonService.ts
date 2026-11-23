@@ -475,6 +475,9 @@ export class CommonService implements ICommonService {
    * client errors at DEBUG, everything else at ERROR with its stack and a summary of the params.
    * Unexpected exceptions are wrapped in INTERNAL_ERROR with the original error as the cause.
    *
+   * The error is only logged here at DEBUG, so every layer stays visible at `LOG_LEVEL=debug` while
+   * the dispatcher writes the single line that reaches `INFO` and above.
+   *
    * @param error - The error to rethrow.
    * @param logMessage - Context for the error, logged at DEBUG.
    * @throws Always.
@@ -484,9 +487,7 @@ export class CommonService implements ICommonService {
       throw error;
     }
 
-    if (logMessage) {
-      this.logger.debug(error, logMessage);
-    }
+    this.logger.debug(error, logMessage ?? 'Rethrowing error to the method dispatcher');
 
     // preserve the original error and throw to the upper layer
     if (error instanceof JsonRpcError || error instanceof SDKClientError || error instanceof MirrorNodeClientError) {

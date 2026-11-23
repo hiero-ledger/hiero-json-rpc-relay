@@ -839,7 +839,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const expectRejectedWithoutMirrorNodeCall = async (to: string): Promise<void> => {
       web3Mock.onPost('contracts/call').reply(200, JSON.stringify({ result: GAS_ESTIMATE }));
       web3Mock.resetHistory();
-      const infoSpy = spy(contractService['logger'], 'info');
+      const debugSpy = spy(contractService['logger'], 'debug');
 
       try {
         const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
@@ -847,9 +847,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
           .to.be.rejectedWith(JsonRpcError, expectedError.message)
           .and.eventually.have.property('code', expectedError.code);
         expect(web3Mock.history.post).to.have.lengthOf(0);
-        expect(infoSpy.calledOnce).to.be.true;
+        expect(debugSpy.withArgs('Rejected call to blacklisted contract: to=%s').calledOnce).to.be.true;
       } finally {
-        infoSpy.restore();
+        debugSpy.restore();
       }
     };
 
@@ -897,14 +897,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       const estimateWith429 = async (body: object): Promise<SinonSpyCall[]> => {
         const callData = { from: FROM_ADDRESS, to: MIRROR_NODE_BLACKLISTED_ADDRESS };
         await mockContractCall(callData, true, 429, body, requestDetails);
-        const errorSpy = spy(contractService['logger'], 'error');
+        const debugSpy = spy(contractService['logger'], 'debug');
         try {
           await expect(ethImpl.estimateGas(callData, null, undefined, requestDetails)).to.be.rejectedWith(JsonRpcError);
         } finally {
-          errorSpy.restore();
+          debugSpy.restore();
         }
 
-        return errorSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
+        return debugSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
       };
 
       it('logs the to address when the mirror node returns 429 with detail "Invalid request"', async function () {

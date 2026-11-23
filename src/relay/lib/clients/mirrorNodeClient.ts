@@ -17,10 +17,8 @@ import { ConfigService } from '../../../config-service/services';
 import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
-import { isClientHttpStatus } from '../errors/errorClassification';
 import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
-import { SDKClientError } from '../errors/SDKClientError';
 import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
 import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
@@ -111,7 +109,7 @@ export const isImmatureContractRecord = (
     (record.transaction_index == null || record.block_number == null || record.block_hash === constants.EMPTY_HEX);
 
   if (isImmature) {
-    logger.info(`Immature record detected: %s`, JSON.stringify(record));
+    logger.debug(`Immature record detected: %s`, JSON.stringify(record));
   }
 
   return isImmature;
@@ -555,7 +553,7 @@ export class MirrorNodeClient {
         ? JSON.parse(data)
         : JSONBigInt.parse(data as string);
     } catch (error) {
-      this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
+      this.logger.debug(`Failed to parse response data from Mirror Node: %s`, error);
     }
 
     // return raw data so response can be processed properly by subsequent operations.
@@ -855,7 +853,7 @@ export class MirrorNodeClient {
         );
       }
     } else {
-      this.logger[isClientHttpStatus(effectiveStatusCode) ? 'debug' : 'warn'](
+      this.logger.debug(
         `Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%s, message=%s`,
         method,
         path,
@@ -2084,36 +2082,6 @@ export class MirrorNodeClient {
     return records?.transactions ?? [];
   }
 
-  /**
-   * Check if transaction fail is because of contract revert and try to fetch and log the reason.
-   *
-   * @param e - The error object.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   */
-  public async getContractRevertReasonFromTransaction(
-    e: unknown,
-    requestDetails: RequestDetails,
-  ): Promise<string | null | undefined> {
-    if (e instanceof SDKClientError && e.isContractRevertExecuted()) {
-      const transactionId = e.message.match(constants.TRANSACTION_ID_REGEX);
-      if (transactionId) {
-        const tx = await this.getTransactionById(transactionId[0], requestDetails);
-
-        if (tx === null) {
-          this.logger.error(`Transaction failed with null result`);
-          return null;
-        } else if ((tx as { length?: number }).length === 0) {
-          this.logger.error(`Transaction failed with empty result`);
-          return null;
-        } else if (tx?.transactions.length > 1) {
-          const result = tx.transactions[1].result;
-          this.logger.error(`Transaction failed with result: ${result}`);
-          return result;
-        }
-      }
-    }
-  }
-
   getQueryParams(params: object): string {
     let paramString = '';
     for (const [key, value] of Object.entries(params)) {
@@ -2519,10 +2487,40 @@ export class MirrorNodeClient {
         }),
       );
 
-    if (searchableTypes.includes(constants.TYPE_CONTRACT)) {
-      const contract = await this.getContract(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
+    // Every lookup error is turned into `null` below, so the method dispatcher never sees it: collect the
+    // failures (other than "not found") and log them once per call at WARN, see `warnOnFailedLookups`.
+    const failedLookups: { type: string; error: unknown }[] = [];
+    const recordFailedLookup =
+      (type: string) =>
+      (error: unknown): null => {
+        const notFound = error instanceof MirrorNodeClientError && error.isNotFound();
+        if (!notFound && !isRequestAborted(requestDetails)) {
+          failedLookups.push({ type, error });
+        }
         return null;
-      });
+      };
+    const warnOnFailedLookups = (): void => {
+      if (failedLookups.length === 0) return;
+      this.logger.warn(
+        { err: failedLookups[0].error },
+        `Entity type lookups failed and were treated as not found: entity=%s, caller=%s, failed=%s`,
+        entityIdentifier,
+        callerName,
+        failedLookups
+          .map(
+            ({ type, error }) =>
+              `${type}(${error instanceof MirrorNodeClientError ? error.statusCode : (error as Error)?.message})`,
+          )
+          .join(', '),
+      );
+      // later failures of lookups still in flight do not change the result; they stay at DEBUG
+      failedLookups.length = 0;
+    };
+
+    if (searchableTypes.includes(constants.TYPE_CONTRACT)) {
+      const contract = await this.getContract(entityIdentifier, requestDetails, retries, timestamp).catch(
+        recordFailedLookup(constants.TYPE_CONTRACT),
+      );
 
       if (contract) {
         const response = {
@@ -2540,9 +2538,9 @@ export class MirrorNodeClient {
       const promises = [
         searchableTypes.includes(constants.TYPE_ACCOUNT)
           ? buildPromise(
-              this.getAccount(entityIdentifier, requestDetails, params, retries).catch(() => {
-                return null;
-              }),
+              this.getAccount(entityIdentifier, requestDetails, params, retries).catch(
+                recordFailedLookup(constants.TYPE_ACCOUNT),
+              ),
             )
           : Promise.reject(),
       ];
@@ -2558,9 +2556,9 @@ export class MirrorNodeClient {
       promises.push(
         searchableTypes.includes(constants.TYPE_TOKEN)
           ? buildPromise(
-              this.getTokenById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
-                return null;
-              }),
+              this.getTokenById(toEntityId(entityIdentifier), requestDetails, retries).catch(
+                recordFailedLookup(constants.TYPE_TOKEN),
+              ),
             )
           : Promise.reject(),
       );
@@ -2568,9 +2566,9 @@ export class MirrorNodeClient {
       promises.push(
         searchableTypes.includes(constants.TYPE_SCHEDULE)
           ? buildPromise(
-              this.getScheduleById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
-                return null;
-              }),
+              this.getScheduleById(toEntityId(entityIdentifier), requestDetails, retries).catch(
+                recordFailedLookup(constants.TYPE_SCHEDULE),
+              ),
             )
           : Promise.reject(),
       );
@@ -2581,8 +2579,11 @@ export class MirrorNodeClient {
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
     } catch {
+      warnOnFailedLookups();
       return null;
     }
+
+    warnOnFailedLookups();
 
     let type;
     switch (data.index) {

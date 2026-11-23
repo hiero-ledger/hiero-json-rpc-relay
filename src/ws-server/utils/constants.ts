@@ -12,4 +12,6 @@ export const WS_CONSTANTS = {
   POLLER_MAX_BLOCKS_PER_POLL: 10,
   // Caps the growing delay between retries of a failed WebSocket poll.
   POLLER_MAX_RETRY_DELAY_MS: 10_000,
+  // A failed WebSocket poll is logged at WARN, and at ERROR from this many consecutive failures on.
+  POLLER_CONSECUTIVE_FAILURES_ERROR_THRESHOLD: 5,
 };

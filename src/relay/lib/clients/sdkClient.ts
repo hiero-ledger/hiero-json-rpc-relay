@@ -17,6 +17,7 @@ import {
   LogLevel,
   type PublicKey,
   type Query,
+  ReceiptStatusError,
   Status,
   type Transaction,
   type TransactionRecord,
@@ -270,13 +271,13 @@ export class SDKClient {
     let queryCost: number | undefined;
     let status!: string;
 
-    this.logger.info(`Execute %s query.`, queryConstructorName);
+    this.logger.debug(`Execute %s query.`, queryConstructorName);
 
     try {
       queryResponse = await query.execute(this.clientMain);
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = Status.Success.toString();
-      this.logger.info(
+      this.logger.debug(
         `Successfully execute %s query: callerName=%s, cost=%s tinybars`,
         queryConstructorName,
         callerName,
@@ -362,7 +363,7 @@ export class SDKClient {
     }
 
     try {
-      this.logger.info(`Execute %s transaction`, txConstructorName);
+      this.logger.debug(`Execute %s transaction`, txConstructorName);
       transactionResponse = await transaction.execute(executableClient);
 
       transactionId = transactionResponse.transactionId.toString();
@@ -370,7 +371,7 @@ export class SDKClient {
       // .getReceipt() will throw an error if, in any case, the status !== 22 (SUCCESS).
       const transactionReceipt = await transactionResponse.getReceipt(executableClient);
 
-      this.logger.info(
+      this.logger.debug(
         `Successfully execute %s transaction: transactionId=%s, callerName=%s, status=%s(%s)`,
         txConstructorName,
         transactionResponse.transactionId,
@@ -381,14 +382,24 @@ export class SDKClient {
       return transactionResponse;
     } catch (e) {
       const err = e as { message?: string; nodeAccountId?: string };
-      this.logger.warn(
-        e,
-        `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s%s`,
-        transaction.transactionId,
-        callerName,
-        txConstructorName,
-        err.nodeAccountId ? `, nodeAccountId=${err.nodeAccountId}` : '',
-      );
+      if (e instanceof ReceiptStatusError) {
+        this.logger.debug(
+          `Transaction failed with receipt status: transactionId=%s, callerName=%s, txConstructorName=%s, status=%s`,
+          transaction.transactionId,
+          callerName,
+          txConstructorName,
+          e.status,
+        );
+      } else {
+        this.logger.warn(
+          e,
+          `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s%s`,
+          transaction.transactionId,
+          callerName,
+          txConstructorName,
+          err.nodeAccountId ? `, nodeAccountId=${err.nodeAccountId}` : '',
+        );
+      }
 
       if (e instanceof JsonRpcError) {
         throw e;
@@ -457,10 +468,10 @@ export class SDKClient {
     }
 
     try {
-      this.logger.info(`Execute %s transaction`, txConstructorName);
+      this.logger.debug(`Execute %s transaction`, txConstructorName);
       transactionResponses = await transaction.executeAll(this.clientMain);
 
-      this.logger.info(
+      this.logger.debug(
         `Successfully execute all %s %s transactions: callerName=%s, status=%s(%s)`,
         transactionResponses.length,
         txConstructorName,

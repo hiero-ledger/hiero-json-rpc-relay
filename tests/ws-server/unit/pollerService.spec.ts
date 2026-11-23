@@ -19,6 +19,7 @@ import {
   type MirrorNodeContractLog,
 } from '../../../src/relay/lib/types';
 import { PollerService } from '../../../src/ws-server/service/pollerService';
+import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 import recorded from './fixtures/mainnetContractLogs.json';
 
 const logger = pino({ level: 'trace' });
@@ -46,6 +47,7 @@ describe('PollerService', async function () {
   let poller: PollerService;
   let sandbox: sinon.SinonSandbox;
   let loggerInfoSpy: sinon.SinonSpy;
+  let loggerDebugSpy: sinon.SinonSpy;
   let clock: sinon.SinonFakeTimers;
   let configServiceStub: sinon.SinonStub;
   let activePollsGaugeSpy: { inc: sinon.SinonSpy; dec: sinon.SinonSpy };
@@ -148,6 +150,7 @@ describe('PollerService', async function () {
     };
 
     loggerInfoSpy = sandbox.spy(logger, 'info');
+    loggerDebugSpy = sandbox.spy(logger, 'debug');
   });
 
   afterEach(() => {
@@ -165,7 +168,7 @@ describe('PollerService', async function () {
       await clock.tickAsync(0);
       expect(poller.hasPoll(logsTag)).to.be.true;
       expect(poller.isPolling()).to.be.true;
-      expect(loggerInfoSpy.calledWith(`Poller: Tag ${logsTag} added to polling list`)).to.be.true;
+      expect(loggerDebugSpy.calledWith(`Poller: Tag ${logsTag} added to polling list`)).to.be.true;
       expect(loggerInfoSpy.calledWith(`Poller: Starting polling with interval=${INTERVAL}`)).to.be.true;
       expect(activePollsGaugeSpy.inc.calledOnce).to.be.true;
       expect(ethImplStub.blockNumber.calledOnce).to.be.true;
@@ -183,7 +186,7 @@ describe('PollerService', async function () {
       poller.add(logsTag, callback);
       poller.add(logsTag, callback);
 
-      expect(loggerInfoSpy.withArgs(`Poller: Tag ${logsTag} added to polling list`).calledOnce).to.be.true;
+      expect(loggerDebugSpy.withArgs(`Poller: Tag ${logsTag} added to polling list`).calledOnce).to.be.true;
       expect(activePollsGaugeSpy.inc.calledOnce).to.be.true;
     });
   });
@@ -198,8 +201,8 @@ describe('PollerService', async function () {
 
       expect(poller.hasPoll(logsTag)).to.be.false;
       expect(poller.isPolling()).to.be.false;
-      expect(loggerInfoSpy.calledWith(`Poller: Tag ${logsTag} removed from polling list`)).to.be.true;
-      expect(loggerInfoSpy.calledWith('Poller: No active polls.')).to.be.true;
+      expect(loggerDebugSpy.calledWith(`Poller: Tag ${logsTag} removed from polling list`)).to.be.true;
+      expect(loggerDebugSpy.calledWith('Poller: No active polls.')).to.be.true;
       expect(loggerInfoSpy.calledWith('Poller: Stopping polling')).to.be.true;
       expect(activePollsGaugeSpy.dec.calledWith(1)).to.be.true;
     });
@@ -534,6 +537,24 @@ describe('PollerService', async function () {
       await clock.tickAsync(35000);
 
       expect(attempts).to.deep.equal([1000, 3000, 7000, 15000, 25000, 35000]);
+    });
+
+    it('should log a failed poll at WARN, and at ERROR once it keeps failing', async () => {
+      const warnSpy = sandbox.spy(logger, 'warn');
+      const errorSpy = sandbox.spy(logger, 'error');
+      const pollFailures = (spy: sinon.SinonSpy): string[] =>
+        spy.args
+          .map((args) => args[1])
+          .filter((msg): msg is string => typeof msg === 'string' && msg.includes('Poll failed'))
+          .map((msg) => msg.split('consecutiveFailures=')[1]);
+      mirrorNodeStub.getContractResultsLogsWithRetry.rejects(new Error('Mirror Node is down'));
+      await subscribe();
+      head++;
+      await clock.tickAsync(35000);
+
+      const threshold = WS_CONSTANTS.POLLER_CONSECUTIVE_FAILURES_ERROR_THRESHOLD;
+      expect(pollFailures(warnSpy)).to.deep.equal(Array.from({ length: threshold - 1 }, (_, i) => String(i + 1)));
+      expect(pollFailures(errorSpy)[0]).to.equal(String(threshold));
     });
 
     it('should send a failed block once it recovers, then poll at the normal interval again', async () => {

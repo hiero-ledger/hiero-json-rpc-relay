@@ -15,6 +15,7 @@ import {
   FileInfoQuery,
   Hbar,
   Query,
+  ReceiptStatusError,
   Status,
   TransactionId,
   type TransactionReceipt,
@@ -1362,6 +1363,54 @@ describe('SdkClient', async function () {
 
         expect(response).to.eq(transactionResponse);
         expect(transactionStub.called).to.be.true;
+      });
+    });
+
+    describe('failure logging', () => {
+      const executeFailing = async (failure: Error): Promise<unknown> => {
+        const transactionResponse = {
+          ...getMockedTransactionResponse(EthereumTransaction.name),
+          getReceipt: () => Promise.reject(failure),
+        } as unknown as TransactionResponse;
+        sinon.stub(EthereumTransaction.prototype, 'execute').resolves(transactionResponse);
+
+        return sdkClient
+          .executeTransaction(
+            new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+            mockedCallerName,
+            requestDetails,
+            false,
+            randomAccountAddress,
+          )
+          .catch((e: unknown) => e);
+      };
+
+      it('logs a failed receipt status at DEBUG, without a WARN', async () => {
+        const sdkLogger = (sdkClient as unknown as { logger: Logger }).logger;
+        const warnSpy = sinon.spy(sdkLogger, 'warn');
+        const debugSpy = sinon.spy(sdkLogger, 'debug');
+
+        const error = await executeFailing(
+          new ReceiptStatusError({
+            status: Status.ContractRevertExecuted,
+            transactionId,
+            transactionReceipt: {} as TransactionReceipt,
+          }),
+        );
+
+        expect(error).to.be.instanceOf(SDKClientError);
+        expect(warnSpy.called).to.be.false;
+        expect(debugSpy.calledWithMatch(sinon.match(/^Transaction failed with receipt status/), sinon.match.any)).to.be
+          .true;
+      });
+
+      it('logs a transport failure at WARN', async () => {
+        const warnSpy = sinon.spy((sdkClient as unknown as { logger: Logger }).logger, 'warn');
+
+        const error = await executeFailing(new Error('UNAVAILABLE: connection refused'));
+
+        expect(error).to.be.instanceOf(SDKClientError);
+        expect(warnSpy.calledOnce).to.be.true;
       });
     });
 

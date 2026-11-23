@@ -36,7 +36,7 @@ function createMockContext(): WsContext {
 describe('Unsubscribe Controller', function () {
   const subscriptionId = '5644';
 
-  let mockLogger: { warn: sinon.SinonStub };
+  let mockLogger: { warn: sinon.SinonStub; debug: sinon.SinonStub };
   let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
   let stubRelay: sinon.SinonStubbedInstance<Relay>;
   let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
@@ -48,6 +48,7 @@ describe('Unsubscribe Controller', function () {
   beforeEach(() => {
     mockLogger = {
       warn: sinon.stub(),
+      debug: sinon.stub(),
     };
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
     stubWsMetricRegistry.getCounter.returns({

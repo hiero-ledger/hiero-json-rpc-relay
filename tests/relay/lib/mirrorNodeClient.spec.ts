@@ -16,7 +16,6 @@ import { type JsonRpcError, MirrorNodeClientError, predefined } from '../../../s
 import { isChildContractRecord, isSyntheticContractRecord, MirrorNodeClient } from '../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../src/relay/lib/clients/cache/ICacheClient';
 import constants from '../../../src/relay/lib/constants';
-import { SDKClientError } from '../../../src/relay/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import {
   DisabledTransactionTimestampIndex,
@@ -1962,6 +1961,54 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.be.null;
     });
 
+    describe('failed lookups', () => {
+      let warnSpy: sinon.SinonSpy;
+
+      beforeEach(() => {
+        warnSpy = sinon.spy((mirrorNodeInstance as unknown as { logger: Logger }).logger, 'warn');
+      });
+
+      afterEach(() => {
+        warnSpy.restore();
+      });
+
+      it('logs one WARN per call when lookups fail with something other than 404', async () => {
+        mock.onGet(`contracts/${notFoundAddress}`).reply(503, JSON.stringify({}));
+        mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(500, JSON.stringify({}));
+        mock.onGet(new RegExp(`^tokens/`)).reply(404, JSON.stringify(mockData.notFound));
+
+        const entityType = await mirrorNodeInstance.resolveEntityType(
+          notFoundAddress,
+          'mirrorNodeClientTest',
+          requestDetails,
+          undefined,
+          0,
+        );
+
+        expect(entityType).to.be.null;
+        expect(warnSpy.calledOnce).to.be.true;
+        const [, , entity, caller, failed] = warnSpy.firstCall.args;
+        expect(entity).to.eq(notFoundAddress);
+        expect(caller).to.eq('mirrorNodeClientTest');
+        expect(failed).to.eq(`${constants.TYPE_CONTRACT}(503), ${constants.TYPE_ACCOUNT}(500)`);
+      });
+
+      it('does not log a WARN when every lookup returns 404', async () => {
+        mock.onGet(`contracts/${notFoundAddress}`).reply(404, JSON.stringify(mockData.notFound));
+        mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
+        mock.onGet(new RegExp(`^tokens/`)).reply(404, JSON.stringify(mockData.notFound));
+
+        const entityType = await mirrorNodeInstance.resolveEntityType(
+          notFoundAddress,
+          'mirrorNodeClientTest',
+          requestDetails,
+        );
+
+        expect(entityType).to.be.null;
+        expect(warnSpy.called).to.be.false;
+      });
+    });
+
     it('calls mirror node tokens API when token is long zero type', async () => {
       mock.onGet(`contracts/${mockData.tokenId}`).reply(404, JSON.stringify(mockData.notFound));
       mock.onGet(`tokens/${mockData.tokenId}`).reply(200, JSON.stringify(mockData.token));
@@ -2140,8 +2187,6 @@ describe('MirrorNodeClient', async function () {
       ],
     };
 
-    const transactionId = '0.0.902-1684375868-230217103';
-
     it('should be able to fetch transaction by transaction id', async () => {
       mock.onGet(`transactions/${defaultTransactionIdFormatted}`).reply(200, JSON.stringify(defaultTransaction));
       const transaction = await mirrorNodeInstance.getTransactionById(defaultTransactionId, requestDetails);
@@ -2168,39 +2213,6 @@ describe('MirrorNodeClient', async function () {
       mock.onGet(`transactions/${invalidTransactionId}`).reply(404, JSON.stringify(mockData.notFound));
       const transaction = await mirrorNodeInstance.getTransactionById(invalidTransactionId, requestDetails);
       expect(transaction).to.be.null;
-    });
-
-    it('should get the state of a null transaction when the contract reverts', async () => {
-      const error = new SDKClientError({
-        status: { _code: 33 },
-        message: 'Error: receipt for transaction 0.0.902@1684375868.230217103 contained error status',
-      });
-      mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify(null));
-
-      const result = await mirrorNodeInstance.getContractRevertReasonFromTransaction(error, requestDetails);
-      expect(result).to.be.null;
-    });
-
-    it('should get the state of an empty transaction when the contract reverts', async () => {
-      const error = new SDKClientError({
-        status: { _code: 33 },
-        message: 'Error: receipt for transaction 0.0.902@1684375868.230217103 contained error status',
-      });
-      mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify([]));
-
-      const result = await mirrorNodeInstance.getContractRevertReasonFromTransaction(error, requestDetails);
-      expect(result).to.be.null;
-    });
-
-    it('should get the state of a failed transaction when the contract reverts', async () => {
-      const error = new SDKClientError({
-        status: { _code: 33 },
-        message: 'Error: receipt for transaction 0.0.902@1684375868.230217103 contained error status',
-      });
-      mock.onGet(`transactions/${transactionId}`).reply(200, JSON.stringify(defaultTransaction));
-
-      const result = await mirrorNodeInstance.getContractRevertReasonFromTransaction(error, requestDetails);
-      expect(result).to.eq('INVALID_FULL_PREFIX_SIGNATURE_FOR_PRECOMPILE');
     });
   });
 

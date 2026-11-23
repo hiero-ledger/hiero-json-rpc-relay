@@ -208,7 +208,8 @@ export class HbarLimitService implements IHbarLimitService {
       spendingLimit.toTinybars().lte(spendingPlan.amountSpent) ||
       spendingLimit.toTinybars().lt(spendingPlan.amountSpent + estimatedTxFee);
 
-    this.logger.info(
+    // only a signer that is limited is worth INFO; the check itself runs for every transaction
+    this.logger[exceedsLimit ? 'info' : 'debug'](
       `Signer account ${
         exceedsLimit ? 'has' : 'has NOT'
       } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${Hbar.fromTinybars(
@@ -274,7 +275,7 @@ export class HbarLimitService implements IHbarLimitService {
     // Done asynchronously in the background
     void this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier);
 
-    this.logger.info(
+    this.logger.debug(
       `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
         cost,
       )}, remainingBudget=${remainingBudget}, spendingPlanId=${

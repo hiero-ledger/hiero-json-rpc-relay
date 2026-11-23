@@ -181,12 +181,11 @@ describe('subscriptionService', async function () {
     const subId = subscriptionService.subscribe(wsConnection, tag1.event);
     const subId2 = subscriptionService.subscribe(wsConnection, tag2.event, tag2.filters);
     const loggerDebugSpy = sandbox.spy(logger, 'debug');
-    const loggerInfoSpy = sandbox.spy(logger, 'info');
 
     const count = subscriptionService.unsubscribe(wsConnection);
 
     expect(count).to.be.eq(2);
-    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from all subscriptions`, wsConnection.id)).to.be.eq(
+    expect(loggerDebugSpy.calledWith(`Connection %s: Unsubscribing from all subscriptions`, wsConnection.id)).to.be.eq(
       true,
     );
     expect(
@@ -218,12 +217,11 @@ describe('subscriptionService', async function () {
     subscriptionService.subscribe(wsConnection, tag1.event);
     const subId2 = subscriptionService.subscribe(wsConnection, tag2.event, tag2.filters);
     const loggerDebugSpy = sandbox.spy(logger, 'debug');
-    const loggerInfoSpy = sandbox.spy(logger, 'info');
 
     const count = subscriptionService.unsubscribe(wsConnection, subId2);
 
     expect(count).to.be.eq(1);
-    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`, wsConnection.id, subId2)).to.be.eq(true);
+    expect(loggerDebugSpy.calledWith(`Connection %s: Unsubscribing from %s`, wsConnection.id, subId2)).to.be.eq(true);
     expect(
       loggerDebugSpy.calledWith(
         `Connection %s. Unsubscribing subId: %s; tag: %s`,
