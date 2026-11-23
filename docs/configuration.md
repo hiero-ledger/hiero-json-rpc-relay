@@ -26,9 +26,8 @@ non-numeric value for a numeric property, or invalid JSON for a list property wi
 `Configuration error` naming the property, rather than being silently coerced. A few properties also carry
 range checks, which are stated in their descriptions below.
 
-> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.158.0** or later.
-> Older versions do not support the `hbar` query parameter and return HTTP 400 on contract
-> result endpoints. The relay always logs a compatibility warning at startup.
+> **Minimum Mirror Node version:** This relay requires Mirror Node **v0.167.0** or later.
+> The relay always logs a compatibility warning at startup.
 
 ## Relay
 
