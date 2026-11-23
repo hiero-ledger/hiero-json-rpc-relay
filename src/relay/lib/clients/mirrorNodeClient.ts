@@ -65,7 +65,14 @@ import type { ICacheClient } from './cache/ICacheClient';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
-type MirrorCounterName = 'requests' | 'retries' | 'timeouts' | 'timeoutRetries';
+type MirrorCounterName =
+  'requests' | 'retries' | 'timeouts' | 'timeoutRetries' | 'blockRangeCacheWrites' | 'blockCacheHits';
+
+/**
+ * A block as stored in the per-block cache. `_src` is set only on entries written by
+ * {@link MirrorNodeClient.getBlocksByRange}, so a later cache hit can be attributed to the range fetch.
+ */
+type CachedMirrorNodeBlock = MirrorNodeBlock & { _src?: typeof MirrorNodeClient.BLOCK_CACHE_SOURCE_RANGE };
 
 /**
  * Optional per-page hooks of {@link MirrorNodeClient.getPaginatedResults}.
@@ -250,6 +257,12 @@ export class MirrorNodeClient {
   public static readonly ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM = 'addLabelToMirrorResponseHistogram';
   public static readonly ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER = 'addLabelToMirrorErrorCodeCounter';
   public static readonly INCREMENT_MIRROR_COUNTER = 'incrementMirrorCounter';
+
+  /**
+   * Values of the `source` label of the block cache hits counter: who wrote the per-block cache entry.
+   */
+  public static readonly BLOCK_CACHE_SOURCE_RANGE = 'range';
+  public static readonly BLOCK_CACHE_SOURCE_GET_BLOCK = 'getBlock';
 
   /**
    * The logger used for logging all output from this class.
@@ -475,6 +488,8 @@ export class MirrorNodeClient {
       retries: metricsFactory.counter(METRICS.mirrorNode.retries),
       timeouts: metricsFactory.counter(METRICS.mirrorNode.timeouts),
       timeoutRetries: metricsFactory.counter(METRICS.mirrorNode.timeoutRetries),
+      blockRangeCacheWrites: metricsFactory.counter(METRICS.mirrorNode.blockRangeCacheWrites),
+      blockCacheHits: metricsFactory.counter(METRICS.mirrorNode.blockCacheHits),
     };
 
     if (isMainThread) {
@@ -731,14 +746,18 @@ export class MirrorNodeClient {
   }
 
   /**
-   * Increments one of the mirror request, retry or timeout counters, via the parent thread when called from a worker.
+   * Increments one of the mirror request, retry, timeout or block cache counters, via the parent thread when called
+   * from a worker.
    *
    * @param counter - Which counter to increment.
-   * @param pathLabel - Label identifying the mirrored request path.
+   * @param label - Value of the counter's single label: the mirrored request path, or the block cache hit source.
+   * @param amount - How much to increment by; defaults to 1.
    */
-  public incrementMirrorCounter(counter: MirrorCounterName, pathLabel: string): void {
-    WorkersPool.updateMetricViaWorkerOrLocal(MirrorNodeClient.INCREMENT_MIRROR_COUNTER, { counter, pathLabel }, () =>
-      this.mirrorCounters[counter].labels(pathLabel).inc(),
+  public incrementMirrorCounter(counter: MirrorCounterName, label: string, amount: number = 1): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.INCREMENT_MIRROR_COUNTER,
+      { counter, pathLabel: label, amount },
+      () => this.mirrorCounters[counter].labels(label).inc(amount),
     );
   }
 
@@ -1091,12 +1110,21 @@ export class MirrorNodeClient {
 
   public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
-    const cachedResponse = await this.cacheService.getAsync<MirrorNodeBlock>(
+    const cachedResponse = await this.cacheService.getAsync<CachedMirrorNodeBlock>(
       cachedLabel,
       MirrorNodeClient.GET_BLOCK_ENDPOINT,
     );
     if (cachedResponse) {
-      return cachedResponse;
+      // Copy rather than delete: the LRU cache hands back the stored object itself, so mutating it would drop the
+      // marker from the cache entry too.
+      const { _src, ...block } = cachedResponse;
+      this.incrementMirrorCounter(
+        'blockCacheHits',
+        _src === MirrorNodeClient.BLOCK_CACHE_SOURCE_RANGE
+          ? MirrorNodeClient.BLOCK_CACHE_SOURCE_RANGE
+          : MirrorNodeClient.BLOCK_CACHE_SOURCE_GET_BLOCK,
+      );
+      return block;
     }
 
     const block = await this.get<MirrorNodeBlock>(
@@ -1170,15 +1198,19 @@ export class MirrorNodeClient {
     );
 
     if (ConfigService.get('MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED')) {
+      // Each entry carries a source marker so getBlock can count hits on range-written entries separately.
       await Promise.all(
         blocks.map((block) =>
           this.cacheService.set(
             `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
-            block,
+            { ...block, _src: MirrorNodeClient.BLOCK_CACHE_SOURCE_RANGE } satisfies CachedMirrorNodeBlock,
             MirrorNodeClient.GET_BLOCK_ENDPOINT,
           ),
         ),
       );
+      if (blocks.length > 0) {
+        this.incrementMirrorCounter('blockRangeCacheWrites', MirrorNodeClient.GET_BLOCKS_ENDPOINT, blocks.length);
+      }
     }
 
     return blocks;
