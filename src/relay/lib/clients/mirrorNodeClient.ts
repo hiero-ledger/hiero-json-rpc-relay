@@ -1173,6 +1173,9 @@ export class MirrorNodeClient {
    * @param fromBlock - Inclusive lower bound block number (oldest).
    * @param toBlock - Inclusive upper bound block number (newest).
    * @param pageMax - Maximum number of pages to traverse before throwing `PAGINATION_MAX`.
+   * @param alreadyCached - Numbers of blocks the caller has just cached through {@link getBlock}. They are not
+   * written again, so their cache entries keep the `getBlock` source and later hits on them are not counted as
+   * range reuse.
    * @returns Blocks in ascending order by block number.
    */
   public async getBlocksByRange(
@@ -1180,6 +1183,7 @@ export class MirrorNodeClient {
     fromBlock: number,
     toBlock: number,
     pageMax: number,
+    alreadyCached: readonly number[] = [],
   ): Promise<MirrorNodeBlock[]> {
     const queryParamObject = {};
     this.setQueryParam(queryParamObject, 'block.number', [`gte:${fromBlock}`, `lte:${toBlock}`]);
@@ -1198,9 +1202,11 @@ export class MirrorNodeClient {
     );
 
     if (ConfigService.get('MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED')) {
+      const skip = new Set(alreadyCached);
+      const blocksToCache = blocks.filter((block) => !skip.has(block.number));
       // Each entry carries a source marker so getBlock can count hits on range-written entries separately.
       await Promise.all(
-        blocks.map((block) =>
+        blocksToCache.map((block) =>
           this.cacheService.set(
             `${constants.CACHE_KEY.GET_BLOCK}.${block.number}`,
             { ...block, _src: MirrorNodeClient.BLOCK_CACHE_SOURCE_RANGE } satisfies CachedMirrorNodeBlock,
@@ -1208,8 +1214,12 @@ export class MirrorNodeClient {
           ),
         ),
       );
-      if (blocks.length > 0) {
-        this.incrementMirrorCounter('blockRangeCacheWrites', MirrorNodeClient.GET_BLOCKS_ENDPOINT, blocks.length);
+      if (blocksToCache.length > 0) {
+        this.incrementMirrorCounter(
+          'blockRangeCacheWrites',
+          MirrorNodeClient.GET_BLOCKS_ENDPOINT,
+          blocksToCache.length,
+        );
       }
     }
 

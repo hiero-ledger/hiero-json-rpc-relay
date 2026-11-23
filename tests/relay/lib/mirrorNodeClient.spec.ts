@@ -1011,6 +1011,20 @@ describe('MirrorNodeClient', async function () {
       expect(await rangeWrites()).to.equal(0);
     });
 
+    it('does not overwrite or count blocks the caller reports as already cached', async () => {
+      mock.onGet('blocks/10').replyOnce(200, JSON.stringify({ ...block, number: 10 }));
+      mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));
+
+      await client.getBlock(10, requestDetails); // miss: cached by getBlock, as eth_getLogs does for its bounds
+      const blocks = await client.getBlocksByRange(requestDetails, 10, 11, DEFAULT_PAGE_MAX, [10]);
+      await client.getBlock(10, requestDetails);
+      await client.getBlock(11, requestDetails);
+
+      expect(blocks.map((b) => b.number)).to.deep.equal([10, 11]);
+      expect(await rangeWrites()).to.equal(1);
+      expect(await hits()).to.deep.equal({ range: 1, getBlock: 1 });
+    });
+
     withOverriddenEnvsInMochaTest({ MIRROR_NODE_BLOCK_RANGE_CACHE_ENABLED: false }, () => {
       it('counts no range writes and no range hits when the range cache is disabled', async () => {
         mock.onGet(rangeUrl(10, 11)).replyOnce(200, JSON.stringify({ blocks: rangeBlocks, links: { next: null } }));

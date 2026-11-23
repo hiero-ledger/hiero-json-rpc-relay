@@ -245,11 +245,29 @@ export class CommonService implements ICommonService {
       }
 
       if (sliceCountWrapper) {
-        sliceCountWrapper.value = await this.resolveRangeSliceCount(fromBlockNum, toBlockNum, requestDetails);
+        // The bounds resolved by number above went through getBlock and are cached already.
+        const alreadyCachedBlocks: number[] = [];
+        if (this.isResolvedThroughBlockNumberCache(fromBlock)) alreadyCachedBlocks.push(fromBlockNum);
+        if (this.isResolvedThroughBlockNumberCache(toBlock)) alreadyCachedBlocks.push(toBlockNum);
+        sliceCountWrapper.value = await this.resolveRangeSliceCount(
+          fromBlockNum,
+          toBlockNum,
+          requestDetails,
+          alreadyCachedBlocks,
+        );
       }
     }
 
     return true;
+  }
+
+  /**
+   * Whether {@link getHistoricalBlockResponse} resolves this block tag through `getBlock(number)`, which caches the
+   * block under its number. Latest-like tags go through the latest block endpoint instead, and hashes are cached
+   * under the hash.
+   */
+  private isResolvedThroughBlockNumberCache(blockNumberOrTag: string): boolean {
+    return !this.blockTagIsLatestOrPending(blockNumberOrTag) && blockNumberOrTag.length < 32;
   }
 
   /**
@@ -267,6 +285,7 @@ export class CommonService implements ICommonService {
    * @param fromBlockNumber - Inclusive lower bound block number of the range.
    * @param toBlockNumber - Inclusive upper bound block number of the range.
    * @param requestDetails - Request metadata used for logging and tracing.
+   * @param alreadyCachedBlocks - Numbers of blocks already in the per-block cache, which the range fetch skips writing.
    * @returns Number of timestamp slices to use, or `SEQUENTIAL_SLICE_COUNT` to disable slicing.
    * @private
    */
@@ -274,6 +293,7 @@ export class CommonService implements ICommonService {
     fromBlockNumber: number,
     toBlockNumber: number,
     requestDetails: RequestDetails,
+    alreadyCachedBlocks: readonly number[] = [],
   ): Promise<number> {
     const maxLogsPerSlice = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE');
     const maxSlices = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES');
@@ -311,7 +331,13 @@ export class CommonService implements ICommonService {
 
     let blocks: MirrorNodeBlock[];
     try {
-      blocks = await this.mirrorNodeClient.getBlocksByRange(requestDetails, fromBlockNumber, toBlockNumber, pageMax);
+      blocks = await this.mirrorNodeClient.getBlocksByRange(
+        requestDetails,
+        fromBlockNumber,
+        toBlockNumber,
+        pageMax,
+        alreadyCachedBlocks,
+      );
     } catch (error) {
       if (isRequestAbortedError(error)) throw error;
 
