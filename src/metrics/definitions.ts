@@ -161,6 +161,16 @@ export const METRICS = {
       help: 'Count of Mirror Node request retries made after an attempt exceeded MIRROR_NODE_TIMEOUT',
       labelNames: ['method'],
     }),
+    blockRangeCacheWrites: counter({
+      name: 'rpc_relay_block_range_cache_writes_total',
+      help: 'Blocks written to the per-block cache by getBlocksByRange',
+      labelNames: ['method'],
+    }),
+    blockCacheHits: counter({
+      name: 'rpc_relay_block_cache_hits_total',
+      help: 'getBlock cache hits by who wrote the entry',
+      labelNames: ['source'], // 'range' | 'getBlock'
+    }),
   },
 
   /** Operator account metrics. */

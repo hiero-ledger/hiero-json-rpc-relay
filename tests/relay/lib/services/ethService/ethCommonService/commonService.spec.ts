@@ -568,6 +568,8 @@ describe('CommonService', () => {
 
     let commonService: CommonService;
     let restMock: MockAdapter;
+    let mirrorNodeClient: MirrorNodeClient;
+    let cacheService: ReturnType<typeof CacheClientFactory.create>;
 
     function block(number: number, count: number, secondsFromEpoch: number): Record<string, unknown> {
       return {
@@ -587,8 +589,8 @@ describe('CommonService', () => {
     beforeEach(() => {
       const logger = pino({ level: 'silent' });
       const registry = new Registry();
-      const cacheService = CacheClientFactory.create(logger, registry);
-      const mirrorNodeClient = new MirrorNodeClient(
+      cacheService = CacheClientFactory.create(logger, registry);
+      mirrorNodeClient = new MirrorNodeClient(
         ConfigService.get('MIRROR_NODE_URL'),
         logger.child({ module: 'mirror-node' }),
         registry,
@@ -712,6 +714,45 @@ describe('CommonService', () => {
       restMock.onGet('blocks/100').reply(200, JSON.stringify(block(100, 250, 0)));
 
       expect(await resolveSliceCount('0x64', '0x64')).to.equal(3);
+    });
+
+    it('does not let the range fetch overwrite the numeric bounds getBlock already cached', async () => {
+      mockEndpointBlocks(100, 102);
+      restMock.onGet(rangeQuery(100, 102)).reply(
+        200,
+        JSON.stringify({
+          blocks: [block(100, 1, 0), block(101, 1, 2), block(102, 1, 4)],
+          links: { next: null },
+        }),
+      );
+      const getBlocksByRange = sinon.spy(mirrorNodeClient, 'getBlocksByRange');
+
+      await resolveSliceCount('0x64', '0x66');
+
+      expect(getBlocksByRange.firstCall.args[4]).to.deep.equal([100, 102]);
+      // The bounds keep the entry getBlock wrote; only the interior block is written by the range.
+      const cached = (n: number): Promise<unknown> =>
+        cacheService.getAsync(`${constants.CACHE_KEY.GET_BLOCK}.${n}`, 'test');
+      expect(await cached(100)).to.not.have.property('_src');
+      expect(await cached(101)).to.have.property('_src', 'range');
+      expect(await cached(102)).to.not.have.property('_src');
+    });
+
+    it('does not skip a bound resolved through the latest block, since getBlock never cached it', async () => {
+      const from = LATEST_BLOCK_NUMBER - 1;
+      restMock.onGet(`blocks/${from}`).reply(200, JSON.stringify(block(from, 1, 0)));
+      restMock.onGet(rangeQuery(from, LATEST_BLOCK_NUMBER)).reply(
+        200,
+        JSON.stringify({
+          blocks: [block(from, 1, 0), block(LATEST_BLOCK_NUMBER, 1, 5000)],
+          links: { next: null },
+        }),
+      );
+      const getBlocksByRange = sinon.spy(mirrorNodeClient, 'getBlocksByRange');
+
+      await resolveSliceCount(prepend0x(from.toString(16)), 'latest');
+
+      expect(getBlocksByRange.firstCall.args[4]).to.deep.equal([from]);
     });
   });
 });
