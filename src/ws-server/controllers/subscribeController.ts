@@ -39,7 +39,7 @@ const subscribeToNewHeads = (
   subscriptionService: SubscriptionService,
 ): SubscriptionId => {
   const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, filters);
-  logger.info(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
+  logger.debug(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
   return subscriptionId;
 };
 
@@ -67,7 +67,7 @@ const handleEthSubscribeNewHeads = (
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
   if (!wsNewHeadsEnabled) {
-    logger.warn(`Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`);
+    logger.debug(`Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`);
     throw predefined.UNSUPPORTED_METHOD;
   }
 
@@ -93,7 +93,7 @@ const handleEthSubscribeNewPendingTransactions = (
     !ConfigService.get('ENABLE_NONCE_ORDERING') ||
     ConfigService.get('DISABLE_MN_PRECHECKS_ON_TX_SENDING')
   ) {
-    logger.warn(
+    logger.debug(
       `newPendingTransactions requires ENABLE_TX_POOL=true, ENABLE_NONCE_ORDERING=true and DISABLE_MN_PRECHECKS_ON_TX_SENDING=false`,
     );
     throw predefined.UNSUPPORTED_METHOD;

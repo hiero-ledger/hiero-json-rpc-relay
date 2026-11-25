@@ -114,7 +114,7 @@ export async function initializeWsServer(
     ctx.websocket.limiter = limiter;
     ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
-    logger.info(`New connection established. Current active connections: ${ctx.app.server._connections}`);
+    logger.debug(`New connection established. Current active connections: ${ctx.app.server._connections}`);
 
     // Close event handle
     // https://nodejs.org/api/async_context.html#static-method-asyncresourcebindfn-type-thisarg
@@ -122,7 +122,7 @@ export async function initializeWsServer(
     ctx.websocket.on(
       'close',
       AsyncResource.bind(async (code: number, message: Buffer) => {
-        logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
+        logger.debug(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
 
         for (const inFlightRequest of inFlightRequests) {
           inFlightRequest.abort(requestAbortReason(CLIENT_DISCONNECTED_ABORT_REASON));

@@ -82,7 +82,7 @@ export class SubscriptionService {
 
     const subId = this.generateId();
 
-    this.logger.info(`Connection %s: created subscription %s, listening for %s`, connection.id, subId, tag);
+    this.logger.debug(`Connection %s: created subscription %s, listening for %s`, connection.id, subId, tag);
 
     if (!this.subscriptions[tag]) {
       this.subscriptions[tag] = [];
@@ -104,9 +104,9 @@ export class SubscriptionService {
     const { id } = connection;
 
     if (subId) {
-      this.logger.info(`Connection %s: Unsubscribing from %s`, id, subId);
+      this.logger.debug(`Connection %s: Unsubscribing from %s`, id, subId);
     } else {
-      this.logger.info(`Connection %s: Unsubscribing from all subscriptions`, id);
+      this.logger.debug(`Connection %s: Unsubscribing from all subscriptions`, id);
     }
 
     let subCount = 0;

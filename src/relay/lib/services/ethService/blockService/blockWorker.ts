@@ -49,6 +49,9 @@ interface IReceiptRootHash {
 
 type SerializedLog = [Uint8Array, Uint8Array[], Uint8Array];
 
+/** Whether this thread has already logged an invalid `hapi_version` at WARN; later ones go to DEBUG. */
+let invalidHapiVersionLogged = false;
+
 /**
  * Builds Ethereum-style receipt objects.
  *
@@ -450,9 +453,12 @@ export async function getBlock(
     // strips pre-release/build metadata identifiers (e.g. "0.59.20-node-alpha" → "0.59.20")
     const normalizedVersion = hapiVersion?.split(/[-+]/)[0];
     if (!normalizedVersion || !Utils.VERSION_REGEX.test(normalizedVersion)) {
-      logger.error(
+      // The default gas limit is a safe fallback and the same Mirror Node data repeats on every block build,
+      // so WARN once per worker thread (module state is per thread) and DEBUG after that.
+      logger[invalidHapiVersionLogged ? 'debug' : 'warn'](
         `Invalid HAPI version format: "${hapiVersion}". Expected format "major.minor.patch". Returning default gas limit.`,
       );
+      invalidHapiVersionLogged = true;
     }
 
     const syntheticTimestampEntries = contractResults

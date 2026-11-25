@@ -71,22 +71,21 @@ export async function initializeServer(
 
   applyCorsMiddleware(app);
 
-  // Middleware for non POST request timing
+  // Access log and request timing. Every access line is written at DEBUG: the same data is in
+  // `rpc_relay_method_response{method, statusCode}` (499 for a client disconnect), and the cause of a failed
+  // JSON-RPC call is logged once by the method dispatcher.
   app.use(async (ctx, next) => {
     const start = Date.now();
     await next();
     const ms = Date.now() - start;
 
     if (ctx.method !== 'POST') {
-      logger.info(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
+      logger.debug(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
     } else {
       // Since ctx.state.status might contain the request ID from JsonRpcError, remove it for a cleaner log.
       const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
 
-      // log call type, method, status code and latency; successful requests are too frequent to log at info,
-      // and client errors (reverts, invalid params, …) are expected, so only server errors are logged at info
-      const level = ctx.state.serverError || ctx.status >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? 'info' : 'debug';
-      logger[level](
+      logger.debug(
         `${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
       );
       const statusCode = ctx.state.clientDisconnected ? HTTP_STATUS.CLIENT_CLOSED_REQUEST : ctx.status;

@@ -173,6 +173,7 @@ config:
   # JSON logs (one object per line, text level) for log collectors such as Loki.
   PRETTY_LOGS_ENABLED: false
   # LOG_LEVEL: 'info'
+  SDK_LOG_LEVEL: 'warn'
 
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []

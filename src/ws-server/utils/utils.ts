@@ -96,7 +96,7 @@ export const validateJsonRpcRequest = (request: IJsonRpcRequest, logger: Logger)
     hasInvalidRequestId(request, logger) ||
     !hasOwnProperty(request, 'id')
   ) {
-    logger.warn(
+    logger.debug(
       `Invalid request, request.jsonrpc: ${request.jsonrpc}, request.method: ${request.method}, request.id: ${request.id}, request.method: ${request.method}`,
     );
     return false;
@@ -155,7 +155,7 @@ const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger): boolean 
   if (getRequestIdIsOptional() && !hasId) {
     // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
     request.id = '0';
-    logger.warn('Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response');
+    logger.debug('Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response');
     return false;
   }
 
@@ -190,7 +190,7 @@ export const constructValidLogSubscriptionFilter = (filters: object): object => 
  */
 export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: RequestDetails): IJsonRpcResponse => {
   const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
-  logger.warn(`${JSON.stringify(wsSubscriptionsDisabledError)}`);
+  logger.debug(`${JSON.stringify(wsSubscriptionsDisabledError)}`);
   return jsonRespError(null, wsSubscriptionsDisabledError, requestDetails.requestId);
 };
 
