@@ -17,6 +17,7 @@ import { ConfigService } from '../../../config-service/services';
 import { METRICS, MetricsFactory } from '../../../metrics';
 import { formatTransactionId } from '../../formatters';
 import { Utils } from '../../utils';
+import { isClientHttpStatus } from '../errors/errorClassification';
 import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { DisabledTransactionTimestampIndex } from '../services/transactionTimestampIndexService/TransactionTimestampIndexFactory';
@@ -2488,13 +2489,15 @@ export class MirrorNodeClient {
       );
 
     // Every lookup error is turned into `null` below, so the method dispatcher never sees it: collect the
-    // failures (other than "not found") and log them once per call at WARN, see `warnOnFailedLookups`.
+    // upstream failures and log them once per call at WARN, see `warnOnFailedLookups`.
+    // A 4xx other than 429 is an answer, not a failure: the token and schedule lookups get a 400
+    // ("Invalid parameter") for any address that is not a long-zero one, i.e. on most `eth_getCode` calls.
     const failedLookups: { type: string; error: unknown }[] = [];
     const recordFailedLookup =
       (type: string) =>
       (error: unknown): null => {
-        const notFound = error instanceof MirrorNodeClientError && error.isNotFound();
-        if (!notFound && !isRequestAborted(requestDetails)) {
+        const answered = error instanceof MirrorNodeClientError && isClientHttpStatus(error.statusCode);
+        if (!answered && !isRequestAborted(requestDetails)) {
           failedLookups.push({ type, error });
         }
         return null;

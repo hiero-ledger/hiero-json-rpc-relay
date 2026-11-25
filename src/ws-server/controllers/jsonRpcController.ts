@@ -73,6 +73,8 @@ const handleSendingRequestsToRelay = async ({
       throw err;
     }
 
+    // Programmatic errors that escaped the method dispatcher: nothing else logs them.
+    logger.error(err, 'Unexpected error serving method %s', method);
     return jsonRespError(request.id, spec.InternalError(err), requestDetails.requestId);
   }
 };

@@ -15,6 +15,7 @@ import {
   HbarUnit,
   Logger as HederaLogger,
   LogLevel,
+  PrecheckStatusError,
   type PublicKey,
   type Query,
   ReceiptStatusError,
@@ -34,6 +35,7 @@ import { CommonService, type PaymasterAccount } from '../services';
 import { type HbarLimitService } from '../services/hbarLimitService';
 import type { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
+import { isClientHederaStatus } from './../errors/errorClassification';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
 
@@ -382,9 +384,14 @@ export class SDKClient {
       return transactionResponse;
     } catch (e) {
       const err = e as { message?: string; nodeAccountId?: string };
-      if (e instanceof ReceiptStatusError) {
+      // A receipt status (e.g. CONTRACT_REVERT_EXECUTED) or a precheck rejection the client caused
+      // (e.g. INVALID_SIGNATURE) is an outcome of the transaction, not a network failure: DEBUG, no stack.
+      if (
+        e instanceof ReceiptStatusError ||
+        (e instanceof PrecheckStatusError && isClientHederaStatus(e.status.toString()))
+      ) {
         this.logger.debug(
-          `Transaction failed with receipt status: transactionId=%s, callerName=%s, txConstructorName=%s, status=%s`,
+          `Transaction failed with status: transactionId=%s, callerName=%s, txConstructorName=%s, status=%s`,
           transaction.transactionId,
           callerName,
           txConstructorName,

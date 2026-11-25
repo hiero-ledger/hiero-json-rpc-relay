@@ -1252,6 +1252,45 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       });
     });
 
+    describe('Mirror Node poll cleanup', function () {
+      withOverriddenEnvsInMochaTest(
+        {
+          SEND_RAW_TRANSACTION_POLLING_MAX_ATTEMPTS: 2,
+          SEND_RAW_TRANSACTION_POLLING_INTERVAL_MS: 1,
+          SEND_RAW_TRANSACTION_WAIT_TIME: 1,
+        },
+        () => {
+          it('logs each failed poll attempt at WARN with the error, and only the zombie cleanup at ERROR', async function () {
+            const parsedTx = ethers.Transaction.from(await signTransaction(transaction));
+            const internals = transactionService as unknown as {
+              logger: Logger;
+              mirrorNodeClient: MirrorNodeClient;
+              transactionPoolService: { removeTransaction: (...args: unknown[]) => Promise<void> };
+              pollMirrorNodeAndCleanup: (tx: ethers.Transaction, details: RequestDetails) => Promise<void>;
+            };
+            const failure = new Error('Mirror Node is down');
+            sinon.stub(internals.mirrorNodeClient, 'getContractResult').rejects(failure);
+            sinon.stub(internals.transactionPoolService, 'removeTransaction').resolves();
+            const warnSpy = sinon.spy(internals.logger, 'warn');
+            const errorSpy = sinon.spy(internals.logger, 'error');
+
+            await internals.pollMirrorNodeAndCleanup(parsedTx, requestDetails);
+
+            const pollWarnings = warnSpy
+              .getCalls()
+              .filter((c) => String(c.args[1]).startsWith('Mirror Node poll failed'));
+            expect(pollWarnings.map((c) => [c.args[0], c.args[3], c.args[4]])).to.deep.equal([
+              [failure, 1, 2],
+              [failure, 2, 2],
+            ]);
+            expect(errorSpy.getCalls().map((c) => String(c.args[0]))).to.deep.equal([
+              'Zombie cleanup: transaction %s not found in Mirror Node after %d attempts',
+            ]);
+          });
+        },
+      );
+    });
+
     describe('WRONG_NONCE Error Handling', function () {
       /**
        * Tests that WRONG_NONCE errors are properly converted to NONCE_TOO_HIGH or NONCE_TOO_LOW
@@ -1407,6 +1446,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             .replyOnce(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }))
             .onGet(accountEndpoint)
             .replyOnce(500);
+          const warnSpy = sinon.spy((transactionService as unknown as { logger: Logger }).logger, 'warn');
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails))
             .to.be.rejectedWith(JsonRpcError)
@@ -1418,6 +1458,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           // Verify accounts endpoint WAS called
           expect(wasAccountEndpointCalled()).to.be.true;
+          // the fallback swallows the Mirror Node failure, so it is the only line that reports it
+          expect(warnSpy.calledWithMatch(sinon.match.any, sinon.match(/^Failed to fetch account nonce/))).to.be.true;
         });
       });
     });

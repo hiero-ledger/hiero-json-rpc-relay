@@ -1972,10 +1972,13 @@ describe('MirrorNodeClient', async function () {
         warnSpy.restore();
       });
 
-      it('logs one WARN per call when lookups fail with something other than 404', async () => {
+      const invalidParameter = (name: string): string =>
+        JSON.stringify({ _status: { messages: [{ message: `Invalid parameter: ${name}` }] } });
+
+      it('logs one WARN per call when lookups fail upstream (5xx, 429)', async () => {
         mock.onGet(`contracts/${notFoundAddress}`).reply(503, JSON.stringify({}));
         mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(500, JSON.stringify({}));
-        mock.onGet(new RegExp(`^tokens/`)).reply(404, JSON.stringify(mockData.notFound));
+        mock.onGet(new RegExp(`^tokens/`)).reply(429, JSON.stringify({}));
 
         const entityType = await mirrorNodeInstance.resolveEntityType(
           notFoundAddress,
@@ -1990,7 +1993,47 @@ describe('MirrorNodeClient', async function () {
         const [, , entity, caller, failed] = warnSpy.firstCall.args;
         expect(entity).to.eq(notFoundAddress);
         expect(caller).to.eq('mirrorNodeClientTest');
-        expect(failed).to.eq(`${constants.TYPE_CONTRACT}(503), ${constants.TYPE_ACCOUNT}(500)`);
+        expect(failed).to.include(`${constants.TYPE_CONTRACT}(503)`);
+        expect(failed).to.include(`${constants.TYPE_ACCOUNT}(500)`);
+        expect(failed).to.include(`${constants.TYPE_TOKEN}(429)`);
+      });
+
+      it('does not log a WARN when the token and schedule lookups reject a non long-zero address with 400', async () => {
+        // the Mirror Node answers `tokens/<id>` and `schedules/<id>` with 400 when the address does not map to an entity id
+        mock.onGet(`contracts/${notFoundAddress}`).reply(404, JSON.stringify(mockData.notFound));
+        mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
+        mock.onGet(new RegExp(`^tokens/`)).reply(400, invalidParameter('tokenid'));
+        mock.onGet(new RegExp(`^schedules/`)).reply(400, invalidParameter('scheduleid'));
+
+        const entityType = await mirrorNodeInstance.resolveEntityType(
+          notFoundAddress,
+          'mirrorNodeClientTest',
+          requestDetails,
+          [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN, constants.TYPE_SCHEDULE],
+          0,
+        );
+
+        expect(entityType).to.be.null;
+        expect(warnSpy.called).to.be.false;
+      });
+
+      it('does not log a WARN when an account is found while the token lookup is rejected with 400', async () => {
+        mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
+        mock
+          .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
+          .reply(200, JSON.stringify(mockData.account));
+        mock.onGet(new RegExp(`^tokens/`)).reply(400, invalidParameter('tokenid'));
+
+        const entityType = await mirrorNodeInstance.resolveEntityType(
+          mockData.accountEvmAddress,
+          'mirrorNodeClientTest',
+          requestDetails,
+          undefined,
+          0,
+        );
+
+        expect(entityType!.type).to.eq(constants.TYPE_ACCOUNT);
+        expect(warnSpy.called).to.be.false;
       });
 
       it('does not log a WARN when every lookup returns 404', async () => {

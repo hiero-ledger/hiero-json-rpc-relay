@@ -228,6 +228,16 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.message).to.include('Unknown error invoking RPC');
     });
 
+    it('logs an unexpected error thrown by the relay at ERROR', async function () {
+      const error = new Error('boom');
+      stubRelay.executeRpcMethod.rejects(error);
+
+      const resp = (await getRequestResult(...defaultRequestParams)) as JsonRpcErrorResponse;
+
+      expect(resp.error.code).to.equal(-32603);
+      sinon.assert.calledOnceWithExactly(mockLogger.error, error, 'Unexpected error serving method %s', 'eth_chainId');
+    });
+
     it('should transform every error to JsonRpcError`', async function () {
       delete mockLogger.isLevelEnabled;
 
