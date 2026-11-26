@@ -3,14 +3,23 @@
 // Side-effect import: configures the json-bigint bignumber.js instance before any response is parsed.
 import '../bigNumberConfig';
 
-import Axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import Axios, {
+  AxiosError,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type AxiosResponseHeaders,
+  type AxiosResponseTransformer,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import axiosRetry, { type IAxiosRetryConfig } from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
 import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
+import { performance } from 'perf_hooks';
 import type { Logger } from 'pino';
-import { type Counter, type Histogram, type Registry } from 'prom-client';
+import { type Counter, type Gauge, type Histogram, type Registry } from 'prom-client';
 import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
@@ -61,6 +70,7 @@ import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '
 import { estimateLogsResponseSize, ResponseSizeBudget } from '../utils/responseSizeBudget';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
+import { attemptTimingsOf, type HttpAttemptTimings, timeRequestsOf } from './mirrorNodeHttpTimings';
 import type { IOpcodesResponse } from './models/IOpcodesResponse';
 import type { IPrestateResponse } from './models/IPrestateResponse';
 type REQUEST_METHODS = 'GET' | 'POST';
@@ -295,6 +305,26 @@ export class MirrorNodeClient {
   private readonly mirrorCounters: Record<MirrorCounterName, Counter>;
 
   /**
+   * Phase split of each call, attempt and in-flight counts. Recorded on the local registry only, not forwarded from
+   * worker threads: they describe this thread's own HTTP agents and event loop.
+   */
+  private readonly mirrorPhaseHistogram: Histogram;
+  private readonly mirrorUpstreamHistogram: Histogram;
+  private readonly mirrorAttemptCounter: Counter;
+  private readonly mirrorInFlightGauge: Gauge;
+  private readonly mirrorTickBurstHistogram: Histogram;
+  private readonly mirrorResponseSizeHistogram: Histogram;
+  private readonly mirrorBigIntParseCounter: Counter;
+
+  /** Calls in flight now, and the most at once since the last scrape. */
+  private inFlight = 0;
+  private inFlightPeak = 0;
+
+  /** Requests and new sockets started in the current event-loop iteration, observed at its end. */
+  private readonly tickBurst = { requests: 0, new_sockets: 0 };
+  private tickBurstFlushScheduled = false;
+
+  /**
    * The cache service used for caching responses.
    * @private
    */
@@ -364,6 +394,9 @@ export class MirrorNodeClient {
       betterLookupInstall(httpAgent as Parameters<typeof betterLookupInstall>[0]);
       betterLookupInstall(httpsAgent as Parameters<typeof betterLookupInstall>[0]);
     }
+    const onNewSocket = (): void => this.countInThisTick('new_sockets');
+    timeRequestsOf(httpAgent, onNewSocket);
+    timeRequestsOf(httpsAgent, onNewSocket);
 
     const axiosClient: AxiosInstance = Axios.create({
       baseURL: baseUrl,
@@ -490,6 +523,33 @@ export class MirrorNodeClient {
       blockRangeCacheWrites: metricsFactory.counter(METRICS.mirrorNode.blockRangeCacheWrites),
       blockCacheHits: metricsFactory.counter(METRICS.mirrorNode.blockCacheHits),
     };
+    this.mirrorPhaseHistogram = metricsFactory.histogram(METRICS.mirrorNode.phaseDuration);
+    this.mirrorUpstreamHistogram = metricsFactory.histogram(METRICS.mirrorNode.upstreamDuration);
+    this.mirrorAttemptCounter = metricsFactory.counter(METRICS.mirrorNode.attempts);
+    this.mirrorInFlightGauge = metricsFactory.gauge(METRICS.mirrorNode.inFlight);
+    this.mirrorTickBurstHistogram = metricsFactory.histogram(METRICS.mirrorNode.tickBurst);
+    this.mirrorResponseSizeHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseSize);
+    this.mirrorBigIntParseCounter = metricsFactory.counter(METRICS.mirrorNode.bigIntParses);
+    const inFlightPeakGauge: Gauge = metricsFactory.gauge(METRICS.mirrorNode.inFlightPeak, {
+      collect: (): void => {
+        inFlightPeakGauge.set(this.inFlightPeak);
+        this.inFlightPeak = this.inFlight;
+      },
+    });
+    const clients: Record<string, AxiosInstance> = { rest: this.restClient };
+    if (this.web3Client !== this.restClient) {
+      clients.web3 = this.web3Client;
+    }
+    metricsFactory.gauge(METRICS.mirrorNode.agentSockets, {
+      collect(this: Gauge): void {
+        for (const [client, axiosClient] of Object.entries(clients)) {
+          const state = MirrorNodeClient.agentSocketCounts(axiosClient);
+          this.labels(client, 'active').set(state.active);
+          this.labels(client, 'free').set(state.free);
+          this.labels(client, 'queued').set(state.queued);
+        }
+      },
+    });
 
     if (isMainThread) {
       this.logger.info(
@@ -556,18 +616,23 @@ export class MirrorNodeClient {
    * Parses a response body and if there is a big number in it - uses JSONBigInt.parse instead of JSON.parse
    *
    * @param data - The raw response body.
+   * @param pathLabel - The mirrored request path, to count responses that need json-bigint.
    * @returns The parsed body, or `data` unchanged when it is empty or cannot be parsed.
    */
-  private parseResponseBody(data: unknown): unknown {
+  private parseResponseBody(data: unknown, pathLabel?: string): unknown {
     // if the data is not valid, just return it to stick to the current behaviour
     if (!data) {
       return data;
     }
 
     try {
-      return typeof data === 'string' && !MirrorNodeClient.WIDENED_NUMBER_LITERAL_REGEX.test(data)
-        ? JSON.parse(data)
-        : JSONBigInt.parse(data as string);
+      if (typeof data === 'string' && !MirrorNodeClient.WIDENED_NUMBER_LITERAL_REGEX.test(data)) {
+        return JSON.parse(data);
+      }
+      if (pathLabel) {
+        this.mirrorBigIntParseCounter.labels(pathLabel).inc();
+      }
+      return JSONBigInt.parse(data as string);
     } catch (error) {
       this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
     }
@@ -587,8 +652,22 @@ export class MirrorNodeClient {
   ): Promise<T | null> {
     throwIfRequestAborted(requestDetails);
     this.incrementMirrorCounter('requests', pathLabel);
+    this.mirrorInFlightGauge.labels(pathLabel).inc();
+    this.inFlight++;
+    this.inFlightPeak = Math.max(this.inFlightPeak, this.inFlight);
+    this.countInThisTick('requests');
 
     const start = Date.now();
+    const callStart = performance.now();
+    // Timings of the attempts axios-retry gave up on; the last attempt is read from the response or the final error.
+    const retriedAttempts: HttpAttemptTimings[] = [];
+    let parseMs = 0;
+    const onParsed = (ms: number, body: unknown): void => {
+      parseMs += ms;
+      if (typeof body === 'string') {
+        this.mirrorResponseSizeHistogram.labels(pathLabel).observe(body.length);
+      }
+    };
     const controller = new AbortController();
     const callerSignal = getRequestAbortSignal(requestDetails);
     const onCallerAbort = (): void => controller.abort(callerSignal?.reason);
@@ -611,6 +690,10 @@ export class MirrorNodeClient {
       // Count retries here, since the catch below only sees the last attempt.
       const retryConfig: IAxiosRetryConfig = {
         onRetry: (_retryCount, retryError) => {
+          const attempt = attemptTimingsOf(retryError.request);
+          if (attempt) {
+            retriedAttempts.push(attempt);
+          }
           this.incrementMirrorCounter('retries', pathLabel);
           if (MirrorNodeClient.isTimeoutError(retryError)) {
             this.incrementMirrorCounter('timeoutRetries', pathLabel);
@@ -630,20 +713,32 @@ export class MirrorNodeClient {
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
         if (MirrorNodeClient.WEB3_GET_PATH_LABELS.has(pathLabel)) {
+          axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
+            this.web3Client.defaults.transformResponse,
+            onParsed,
+          );
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
           // is converted to a JS Number type, precision is lost due to rounding.
           // To prevent this, `transformResponse` is used to intercept
           // and process the response before Axios’s default JSON.parse conversion.
-          axiosRequestConfig['transformResponse'] = [(data: unknown): unknown => this.parseResponseBody(data)];
+          axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
+            (data: unknown): unknown => this.parseResponseBody(data, pathLabel),
+            onParsed,
+          );
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {
+        axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
+          this.web3Client.defaults.transformResponse,
+          onParsed,
+        );
         response = await this.web3Client.post<T>(path, data, axiosRequestConfig);
       }
 
       const ms = Date.now() - start;
+      this.observeCallPhases(pathLabel, retriedAttempts, attemptTimingsOf(response.request), parseMs, callStart);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `Successfully received response from mirror node server: method=%s, path=%s, status=%s, duration:%sms, data:%s`,
@@ -679,6 +774,13 @@ export class MirrorNodeClient {
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
+      this.observeCallPhases(
+        pathLabel,
+        retriedAttempts,
+        attemptTimingsOf((error as { request?: unknown }).request),
+        parseMs,
+        callStart,
+      );
       this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode.toString(), ms);
       this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode.toString());
       if (MirrorNodeClient.isTimeoutError(axiosError)) {
@@ -702,7 +804,125 @@ export class MirrorNodeClient {
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
     } finally {
       callerSignal?.removeEventListener('abort', onCallerAbort);
+      this.mirrorInFlightGauge.labels(pathLabel).dec();
+      this.inFlight--;
     }
+  }
+
+  /**
+   * Counts Mirror Node work started in the current event-loop iteration. The first count of an iteration schedules a
+   * `setImmediate` that observes the totals, so each iteration that started any work is one observation.
+   *
+   * @param kind - Requests started, or new sockets opened.
+   */
+  private countInThisTick(kind: keyof MirrorNodeClient['tickBurst']): void {
+    this.tickBurst[kind]++;
+    if (this.tickBurstFlushScheduled) {
+      return;
+    }
+    this.tickBurstFlushScheduled = true;
+    setImmediate(() => {
+      this.tickBurstFlushScheduled = false;
+      for (const counted of Object.keys(this.tickBurst) as (keyof MirrorNodeClient['tickBurst'])[]) {
+        if (this.tickBurst[counted] > 0) {
+          this.mirrorTickBurstHistogram.labels(counted).observe(this.tickBurst[counted]);
+          this.tickBurst[counted] = 0;
+        }
+      }
+    });
+  }
+
+  /**
+   * Wraps axios response transformers so the time spent in them (JSON parsing) is reported. Called with axios's
+   * request config as `this`, like the transformers it wraps.
+   *
+   * @param transforms - The transformers to run, in order.
+   * @param onParsed - Receives the milliseconds spent and the raw body; called once per transformed response, so once
+   * per attempt.
+   * @returns A single transformer that runs `transforms` and times them.
+   */
+  private static timedTransforms(
+    transforms: AxiosResponseTransformer | AxiosResponseTransformer[] | undefined,
+    onParsed: (ms: number, body: unknown) => void,
+  ): AxiosResponseTransformer[] {
+    const chain = transforms == null ? [] : Array.isArray(transforms) ? transforms : [transforms];
+    return [
+      function (
+        this: InternalAxiosRequestConfig,
+        data: unknown,
+        headers: AxiosResponseHeaders,
+        status?: number,
+      ): unknown {
+        const parseStart = performance.now();
+        try {
+          return chain.reduce((value, transform) => transform.call(this, value, headers, status), data);
+        } finally {
+          onParsed(performance.now() - parseStart, data);
+        }
+      },
+    ];
+  }
+
+  /**
+   * Records how long each phase of a Mirror Node call took. The phases of all attempts, the parse time and `other`
+   * add up to the call's total, so a stacked chart of `rpc_relay_mirror_node_phase_duration` by phase shows where the
+   * time of `rpc_relay_mirror_response` went. Each attempt that was sent on a ready socket also records its `ttfb`
+   * and `download` as one `rpc_relay_mirror_node_upstream_duration` value: the Mirror Node's own latency, which can
+   * have percentiles, unlike a sum of two phase histograms. Nothing is recorded when the HTTP attempts were not
+   * timed, for example with a mocked axios adapter.
+   *
+   * @param pathLabel - The `method` label: the mirrored request path.
+   * @param retriedAttempts - Attempts that failed and were retried.
+   * @param lastAttempt - The attempt that produced the response or the final error.
+   * @param parseMs - Time spent parsing response bodies, over all attempts.
+   * @param callStart - `performance.now()` when the call started.
+   */
+  private observeCallPhases(
+    pathLabel: string,
+    retriedAttempts: readonly HttpAttemptTimings[],
+    lastAttempt: HttpAttemptTimings | undefined,
+    parseMs: number,
+    callStart: number,
+  ): void {
+    const attempts = lastAttempt ? [...retriedAttempts, lastAttempt] : retriedAttempts;
+    if (attempts.length === 0) {
+      return;
+    }
+    const totalMs = performance.now() - callStart;
+    let accountedMs = parseMs;
+    for (const attempt of attempts) {
+      this.mirrorAttemptCounter.labels(pathLabel, attempt.socketKind).inc();
+      for (const [phase, phaseMs] of Object.entries(attempt.phases)) {
+        this.mirrorPhaseHistogram.labels(pathLabel, phase).observe(phaseMs);
+        accountedMs += phaseMs;
+      }
+      // An attempt that never got a ready socket did not reach the Mirror Node, so it says nothing about its latency.
+      if (attempt.phases.ttfb !== undefined) {
+        this.mirrorUpstreamHistogram.labels(pathLabel).observe(attempt.phases.ttfb + (attempt.phases.download ?? 0));
+      }
+    }
+    this.mirrorPhaseHistogram.labels(pathLabel, 'parse').observe(parseMs);
+    this.mirrorPhaseHistogram.labels(pathLabel, 'other').observe(Math.max(0, totalMs - accountedMs));
+  }
+
+  /**
+   * Counts the sockets of an axios client's HTTP and HTTPS agents.
+   *
+   * @param client - A Mirror Node axios client.
+   * @returns Sockets serving a request, idle kept-alive sockets, and requests waiting for a socket.
+   */
+  private static agentSocketCounts(client: AxiosInstance): { active: number; free: number; queued: number } {
+    const counts = { active: 0, free: 0, queued: 0 };
+    const total = (byOrigin: NodeJS.ReadOnlyDict<unknown[]> | undefined): number =>
+      Object.values(byOrigin ?? {}).reduce((sum, list) => sum + (list?.length ?? 0), 0);
+    for (const agent of new Set([client.defaults.httpAgent, client.defaults.httpsAgent])) {
+      if (agent instanceof http.Agent) {
+        counts.active += total(agent.sockets);
+        counts.free += total(agent.freeSockets);
+        counts.queued += total(agent.requests);
+      }
+    }
+    return counts;
   }
 
   /**
