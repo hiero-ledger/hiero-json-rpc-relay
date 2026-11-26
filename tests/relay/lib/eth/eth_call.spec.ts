@@ -151,7 +151,21 @@ describe('@ethCall Eth Call spec', async function () {
     it('sends the translated override set as state_overrides', async () => {
       const body = await postedBody({ [CONTRACT_ADDRESS_1]: { balance: '0x2540be400' } });
 
-      expect(body.state_overrides).to.deep.equal([{ address: CONTRACT_ADDRESS_1.toLowerCase(), balance: '0x1' }]);
+      expect(body.state_overrides).to.deep.equal([{ address: CONTRACT_ADDRESS_1.toLowerCase(), balance: 1 }]);
+    });
+
+    it('sends balance and nonce above 2^53 as exact JSON numbers', async () => {
+      // one below the cap, since 5e18 itself happens to be exact as a JS number
+      const tinybars = BigInt(constants.TOTAL_SUPPLY_TINYBARS) - BigInt(1);
+      const weibars = tinybars * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+
+      await postedBody({
+        [CONTRACT_ADDRESS_1]: { balance: numberTo0x(weibars), nonce: numberTo0x(constants.INT64_MAX) },
+      });
+
+      const rawBody = web3Mock.history.post[0].data;
+      expect(rawBody).to.include(`"balance":${tinybars}`);
+      expect(rawBody).to.include(`"nonce":${constants.INT64_MAX}`);
     });
 
     it('omits state_overrides when no override is passed', async () => {
@@ -1223,13 +1237,13 @@ describe('@ethCall Eth Call spec', async function () {
           '0xAbC0000000000000000000000000000000000001': { nonce: '0x1' },
         });
 
-        expect(result).to.deep.equal([{ address: '0xabc0000000000000000000000000000000000001', nonce: '0x1' }]);
+        expect(result).to.deep.equal([{ address: '0xabc0000000000000000000000000000000000001', nonce: BigInt(1) }]);
       });
 
       it('should convert balance from weibars to tinybars', () => {
         const result = contractService.formatStateOverrides({ '0x1': { balance: '0x56bc75e2d63100000' } });
 
-        expect(result[0].balance).to.equal('0x2540be400');
+        expect(result[0].balance).to.equal(BigInt(10_000_000_000));
       });
 
       it('should leave a balance exactly at the total supply untouched', () => {
@@ -1238,7 +1252,7 @@ describe('@ethCall Eth Call spec', async function () {
 
         const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
 
-        expect(result[0].balance).to.equal(numberTo0x(supply));
+        expect(result[0].balance).to.equal(supply);
       });
 
       it('should leave a balance just below the total supply untouched', () => {
@@ -1247,19 +1261,19 @@ describe('@ethCall Eth Call spec', async function () {
 
         const result = contractService.formatStateOverrides({ '0x1': { balance: numberTo0x(weibars) } });
 
-        expect(result[0].balance).to.equal(numberTo0x(justBelow));
+        expect(result[0].balance).to.equal(justBelow);
       });
 
       it('should cap a balance above the total supply', () => {
         const result = contractService.formatStateOverrides({ '0x1': { balance: `0x${'f'.repeat(64)}` } });
 
-        expect(result[0].balance).to.equal(numberTo0x(BigInt(constants.TOTAL_SUPPLY_TINYBARS)));
+        expect(result[0].balance).to.equal(BigInt(constants.TOTAL_SUPPLY_TINYBARS));
       });
 
-      it('should normalise nonce to minimal hex', () => {
+      it('should convert a zero-padded hex nonce to a number', () => {
         const result = contractService.formatStateOverrides({ '0x1': { nonce: '0x0000000000000001' } });
 
-        expect(result[0].nonce).to.equal('0x1');
+        expect(result[0].nonce).to.equal(BigInt(1));
       });
 
       it('should pass code through unchanged', () => {
@@ -1313,7 +1327,7 @@ describe('@ethCall Eth Call spec', async function () {
       it('should drop entries that carry no fields', () => {
         const result = contractService.formatStateOverrides({ '0x1': {}, '0x2': { nonce: '0x1' } });
 
-        expect(result).to.deep.equal([{ address: '0x2', nonce: '0x1' }]);
+        expect(result).to.deep.equal([{ address: '0x2', nonce: BigInt(1) }]);
       });
 
       it('should return an empty array when every entry is dropped', () => {

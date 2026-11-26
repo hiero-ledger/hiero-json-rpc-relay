@@ -712,24 +712,23 @@ export class MirrorNodeClient {
 
       let response: AxiosResponse<T>;
       if (method === MirrorNodeClient.HTTP_GET) {
+        // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
+        // is converted to a JS Number type, precision is lost due to rounding.
+        // To prevent this, `transformResponse` is used to intercept
+        // and process the response before Axios’s default JSON.parse conversion.
+        axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
+          (data: unknown): unknown => this.parseResponseBody(data, pathLabel),
+          onParsed,
+        );
+
         if (MirrorNodeClient.WEB3_GET_PATH_LABELS.has(pathLabel)) {
-          axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
-            this.web3Client.defaults.transformResponse,
-            onParsed,
-          );
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
-          // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
-          // is converted to a JS Number type, precision is lost due to rounding.
-          // To prevent this, `transformResponse` is used to intercept
-          // and process the response before Axios’s default JSON.parse conversion.
-          axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
-            (data: unknown): unknown => this.parseResponseBody(data, pathLabel),
-            onParsed,
-          );
           response = await this.restClient.get<T>(path, axiosRequestConfig);
         }
       } else {
+        // JSON.stringify throws on bigint; json-bigint writes it as an exact JSON number.
+        axiosRequestConfig['transformRequest'] = [(body: unknown): string => JSONBigInt.stringify(body)];
         axiosRequestConfig.transformResponse = MirrorNodeClient.timedTransforms(
           this.web3Client.defaults.transformResponse,
           onParsed,

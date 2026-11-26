@@ -704,6 +704,20 @@ describe('MirrorNodeClient', async function () {
     expect(result!.result).to.eq(mockResult.result);
   });
 
+  it('`post` writes a bigint in the body as an exact JSON number', async () => {
+    mock.onPost('contracts/call').reply(200, JSON.stringify({ result: '0x' }));
+    mock.resetHistory();
+
+    await mirrorNodeInstance.post(
+      'contracts/call',
+      { balance: constants.INT64_MAX, nested: [{ nonce: BigInt(1) }], to: '0x1' },
+      'contracts/call',
+      requestDetails,
+    );
+
+    expect(mock.history.post[0].data).to.equal('{"balance":9223372036854775807,"nested":[{"nonce":1}],"to":"0x1"}');
+  });
+
   it('call to non-existing REST route returns 404', async () => {
     try {
       expect(await mirrorNodeInstance.get('non-existing-route', 'non-existing-route', requestDetails)).to.throw;
@@ -2904,7 +2918,7 @@ describe('MirrorNodeClient', async function () {
       pre: [
         {
           address: '0x305a8e76ac38fc088132fb780b2171950ff023f7',
-          balance: '0x3e8',
+          balance: 1000,
           code: '0x6080604052',
           nonce: 1,
           storage: {
@@ -2914,7 +2928,7 @@ describe('MirrorNodeClient', async function () {
         },
         {
           address: '0x00000000000000000000000000000000000003f6',
-          balance: '0x2540be400',
+          balance: 100,
           code: '0x',
           nonce: 7,
           storage: {},
@@ -2950,9 +2964,18 @@ describe('MirrorNodeClient', async function () {
       });
     });
 
+    it('should keep a balance above 2^53 exact', async () => {
+      const body = `{"pre":[{"address":"0x00000000000000000000000000000000000003f6","balance":4999999999999999999,"code":null,"nonce":0,"storage":{}}]}`;
+      mock.onGet(prestatePath).reply(200, body);
+
+      const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails);
+
+      expect(result!.pre[0].balance.toString()).to.equal('4999999999999999999');
+    });
+
     it('should request the diff with diff=true', async () => {
       const path = `contracts/results/${transactionHash}/prestate?code=true&storage=true&diff=true`;
-      const post = [{ address: mockPrestate.pre[0].address, balance: '0x1', code: null, nonce: null, storage: null }];
+      const post = [{ address: mockPrestate.pre[0].address, balance: 1, code: null, nonce: null, storage: null }];
       mock.onGet(path).reply(200, JSON.stringify({ ...mockPrestate, post }));
 
       const result = await mirrorNodeInstance.getContractResultPrestate(transactionHash, requestDetails, {

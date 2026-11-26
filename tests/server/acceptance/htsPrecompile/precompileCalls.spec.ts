@@ -296,6 +296,9 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
   //According to this ticket the following describe should be deleted after adaptations are applied -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
   describe('Calling HTS token through HederaTokenService', async () => {
     describe('Function with HederaTokenService.getTokenCustomFees(token)', async () => {
+      // The mirror node returns fee collectors as their account number (long-zero), as the consensus node stores them.
+      const feeCollectorAddress = (): string => Utils.idToEvmAddress(accounts[0].accountId.toString());
+
       it('token with no custom fees', async () => {
         const customFees = await htsImpl.getCustomFeesForToken.staticCall(tokenAddressNoFees);
         expect(customFees).to.exist;
@@ -316,7 +319,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.fixedFees[0].amount.toString()).to.eq('1');
         expect(customFees.fixedFees[0].tokenId).to.eq(ZERO_HEX);
         expect(customFees.fixedFees[0].feeCollector).to.exist;
-        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
 
         expect(customFees.fractionalFees).to.exist;
         expect(customFees.fractionalFees.length).to.eq(0);
@@ -333,7 +336,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.fixedFees[0].amount.toString()).to.eq('1');
         expect(customFees.fixedFees[0].tokenId).to.eq(ZERO_HEX);
         expect(customFees.fixedFees[0].feeCollector).to.exist;
-        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
 
         expect(customFees.fractionalFees).to.exist;
         expect(customFees.fractionalFees.length).to.eq(0);
@@ -361,7 +364,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.fractionalFees[0].netOfTransfers).to.eq(false);
 
         expect(customFees.fractionalFees[0].feeCollector).to.exist;
-        expect(customFees.fractionalFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fractionalFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
         expect(customFees.fixedFees).to.exist;
         expect(customFees.fixedFees.length).to.eq(0);
         expect(customFees.royaltyFees).to.exist;
@@ -389,7 +392,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.fractionalFees[0].netOfTransfers).to.eq(false);
 
         expect(customFees.fractionalFees[0].feeCollector).to.exist;
-        expect(customFees.fractionalFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fractionalFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
 
         expect(customFees.fixedFees).to.exist;
         expect(customFees.fixedFees.length).to.eq(2);
@@ -398,13 +401,13 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.fixedFees[0].amount.toString()).to.eq('1');
         expect(customFees.fixedFees[0].tokenId).to.eq(ZERO_HEX);
         expect(customFees.fixedFees[0].feeCollector).to.exist;
-        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fixedFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
 
         expect(customFees.fixedFees[1].amount).to.exist;
         expect(customFees.fixedFees[1].amount.toString()).to.eq('1');
         expect(customFees.fixedFees[1].tokenId).to.eq(ZERO_HEX);
         expect(customFees.fixedFees[1].feeCollector).to.exist;
-        expect(customFees.fixedFees[1].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.fixedFees[1].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
 
         expect(customFees.royaltyFees).to.exist;
         expect(customFees.royaltyFees.length).to.eq(0);
@@ -436,7 +439,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         expect(customFees.royaltyFees[0].denominator.toString()).to.eq('10');
         expect(customFees.royaltyFees[0].tokenId).to.eq(ZERO_HEX);
         expect(customFees.royaltyFees[0].feeCollector).to.exist;
-        expect(customFees.royaltyFees[0].feeCollector.toLowerCase()).to.eq(accounts[0].address.toLowerCase());
+        expect(customFees.royaltyFees[0].feeCollector.toLowerCase()).to.eq(feeCollectorAddress());
       });
     });
 

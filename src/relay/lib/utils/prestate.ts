@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { isEmptyAccount } from '../../formatters';
+import { isEmptyAccount, numberTo0x, tinybarsToWeibars } from '../../formatters';
 import type {
   IPrestateAccountTrace,
   IPrestatePostAccountTrace,
@@ -18,12 +18,12 @@ import type {
 /**
  * Converts a single mirror node account trace into the tracer's entity state.
  *
- * The mirror node leaves `code` and `nonce` unset rather than defaulting them, so an account with no
- * bytecode arrives as null and has to be restored to the geth representation.
+ * The mirror node returns the balance in tinybars and leaves `code` and `nonce` unset rather than defaulting
+ * them, so all three have to be converted to the geth representation.
  */
 const toEntityTraceState = (accountTrace: IPrestateAccountTrace): EntityTraceState => {
   return {
-    balance: accountTrace.balance,
+    balance: numberTo0x(tinybarsToWeibars(accountTrace.balance) ?? 0),
     nonce: accountTrace.nonce ?? 0,
     code: accountTrace.code ?? constants.EMPTY_HEX,
     storage: accountTrace.storage ?? {},
@@ -100,7 +100,7 @@ const toChangedEntityTraceState = (accountTrace: IPrestatePostAccountTrace): Cha
   const state: ChangedEntityTraceState = {};
 
   if (accountTrace.balance !== null) {
-    state.balance = accountTrace.balance;
+    state.balance = numberTo0x(tinybarsToWeibars(accountTrace.balance) ?? 0);
   }
 
   if (accountTrace.nonce !== null) {

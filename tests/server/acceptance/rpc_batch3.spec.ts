@@ -299,10 +299,15 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       expect(withOverride).to.equal(VALUE(100_000_000));
     });
 
-    it('ignores a balance override on an aliased address with no account behind it', async function () {
-      // Only long-zero addresses resolve to a Hedera entity, so an override on an aliased address
-      // that was never created is dropped without any error.
-      const result = await ethCall([
+    it('applies a balance override to an aliased account that does not exist on chain', async function () {
+      const withoutOverride = await ethCall([
+        { to: deployerAddress },
+        'latest',
+        { [deployerAddress]: { code: balanceReader(ABSENT_ALIASED) } },
+      ]);
+      expect(withoutOverride).to.equal(VALUE(0));
+
+      const withOverride = await ethCall([
         { to: deployerAddress },
         'latest',
         {
@@ -310,8 +315,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           [ABSENT_ALIASED]: { balance: '0xde0b6b3a7640000' },
         },
       ]);
-
-      expect(result).to.equal(VALUE(0));
+      expect(withOverride).to.equal(VALUE(100_000_000));
     });
 
     it('makes an overridden balance spendable, not merely readable', async function () {

@@ -665,7 +665,7 @@ deleted appears in `pre` only.
 
 ##### Hedera specifics
 
-- **Touched slots require mirror node v0.165.0 with `hiero.mirror.web3.api.prestate.enabled`.** Without it the relay
+- **Touched slots require mirror node v0.167.0 with `hiero.mirror.web3.api.prestate.enabled`.** Without it the relay
   falls back to reporting the contract's full storage at the transaction's timestamp, which is correct state but not a
   statement about what the transaction accessed.
 - **A slot whose value was zero before the transaction is omitted**, including the first write to a slot. Absence from

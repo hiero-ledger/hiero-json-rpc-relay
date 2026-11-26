@@ -10,7 +10,7 @@ import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { type JsonRpcError, predefined } from '../../../src/relay';
-import { strip0x } from '../../../src/relay/formatters';
+import { numberTo0x, strip0x } from '../../../src/relay/formatters';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import { type IOpcodesResponse } from '../../../src/relay/lib/clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from '../../../src/relay/lib/constants';
@@ -3135,7 +3135,7 @@ describe('Debug API Test Suite', async function () {
       pre: [
         {
           address: contractEvmAddress,
-          balance: '0xe8d4a51000',
+          balance: 100,
           code: '0x6080604052',
           nonce: 3,
           storage: { [slot]: value },
@@ -3229,6 +3229,42 @@ describe('Debug API Test Suite', async function () {
         expect(fallbackStub.called).to.be.false;
       });
 
+      describe('a balance above 2^53 tinybars', async function () {
+        const tinybars = '4999999999999999999';
+        const expectedBalance = numberTo0x(BigInt(tinybars) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF));
+
+        it('should convert it exactly', async function () {
+          const body = JSON.stringify(prestateResponse).replace('"balance":100', `"balance":${tinybars}`);
+          web3Mock.onGet(prestatePath).reply(200, body);
+
+          const result = (await debugService.prestateTracer(
+            transactionHash,
+            {},
+            requestDetails,
+          )) as EntityTraceStateMap;
+
+          expect(result[contractEvmAddress].balance).to.equal(expectedBalance);
+        });
+
+        it('should convert it exactly when read back from the cache as a string', async function () {
+          const cached = { pre: [{ ...prestateResponse.pre[0], balance: tinybars }] };
+          await cacheService.set(
+            `${constants.CACHE_KEY.PRESTATE_ENDPOINT_RESPONSE}_${transactionHash}_true_true_false`,
+            cached,
+            'test',
+          );
+
+          const result = (await debugService.prestateTracer(
+            transactionHash,
+            {},
+            requestDetails,
+          )) as EntityTraceStateMap;
+
+          expect(result[contractEvmAddress].balance).to.equal(expectedBalance);
+          expect(web3Mock.history.get).to.be.empty;
+        });
+      });
+
       it('should return an empty endpoint result rather than falling back', async function () {
         web3Mock.onGet(prestatePath).reply(200, JSON.stringify({ pre: [] }));
         const fallbackStub = sinon.stub(debugService, 'prestateFromContractState');
@@ -3291,7 +3327,7 @@ describe('Debug API Test Suite', async function () {
     describe('prestateTracer options', async function () {
       const emptyAddress = '0x00000000000000000000000000000000000004d2';
       const emptyAccount = { balance: '0x0', nonce: 0, code: '0x', storage: {} };
-      const emptyTrace = { address: emptyAddress, balance: '0x0', code: null, nonce: 0, storage: {} };
+      const emptyTrace = { address: emptyAddress, balance: 0, code: null, nonce: 0, storage: {} };
       const responseWithEmpty = { pre: [...prestateResponse.pre, emptyTrace] };
       const prestateWithEmpty = { ...mappedPrestate, [emptyAddress]: emptyAccount };
 
