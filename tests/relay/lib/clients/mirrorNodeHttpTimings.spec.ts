@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import http from 'http';
 import { type AddressInfo } from 'net';
 import pino from 'pino';
-import { type MetricObjectWithValues, type MetricValue, Registry } from 'prom-client';
+import { type MetricObjectWithValues, type MetricValueWithName, Registry } from 'prom-client';
 
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients';
 import { attemptTimingsOf } from '../../../../src/relay/lib/clients/mirrorNodeHttpTimings';
@@ -58,8 +58,10 @@ describe('MirrorNodeClient HTTP phase metrics', function () {
   const newClient = (registry: Registry): MirrorNodeClient =>
     new MirrorNodeClient(baseUrl, logger, registry, CacheClientFactory.create(logger, registry));
 
-  const metric = async (registry: Registry, name: string): Promise<MetricObjectWithValues<MetricValue<string>>> =>
-    registry.getSingleMetric(name)!.get();
+  const metric = async (
+    registry: Registry,
+    name: string,
+  ): Promise<MetricObjectWithValues<MetricValueWithName<string>>> => registry.getSingleMetric(name)!.get();
 
   /** Sum and count of `rpc_relay_mirror_node_phase_duration` per phase. */
   const phases = async (registry: Registry): Promise<Record<string, { sum: number; count: number }>> => {
