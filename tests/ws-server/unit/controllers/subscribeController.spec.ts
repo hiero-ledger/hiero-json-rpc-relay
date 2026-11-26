@@ -41,7 +41,7 @@ describe('Subscribe Controller', function () {
   const nonExistingMethod = 'non-existing-method';
   const subscriptionId = '5644';
 
-  let mockLogger: { warn: sinon.SinonStub; info: sinon.SinonStub };
+  let mockLogger: { warn: sinon.SinonStub; info: sinon.SinonStub; debug: sinon.SinonStub };
   let stubWsMetricRegistry: sinon.SinonStubbedInstance<WsMetricRegistry>;
   let stubRelay: sinon.SinonStubbedInstance<Relay>;
   let stubConnectionLimiter: sinon.SinonStubbedInstance<ConnectionLimiter>;
@@ -54,6 +54,7 @@ describe('Subscribe Controller', function () {
     mockLogger = {
       warn: sinon.stub(),
       info: sinon.stub(),
+      debug: sinon.stub(),
     };
     stubWsMetricRegistry = sinon.createStubInstance(WsMetricRegistry);
     stubWsMetricRegistry.getCounter.returns({

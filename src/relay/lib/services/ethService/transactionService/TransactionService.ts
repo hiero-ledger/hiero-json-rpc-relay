@@ -17,7 +17,9 @@ import {
   type MirrorNodeClient,
 } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
+import { isClientHttpStatus } from '../../../errors/errorClassification';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
@@ -999,10 +1001,17 @@ export class TransactionService implements ITransactionService {
             const txCounts = await this.accountService.getTransactionCounts(parsedTx.from!, requestDetails);
             // Decrementing because currently investigated transaction is still placed on the pending queue.
             accountNonce = txCounts.pendingCount + txCounts.confirmedCount - 1;
-          } catch (mirrorNodeError) {
-            // Mirror Node request failed (e.g., 404, 429, 5xx)
-            // Simply ignore and fallback to the original rejection to avoid masking the true error
-            this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+          } catch (lookupError) {
+            // Fall back to the original rejection to avoid masking the true error. The dispatcher never sees
+            // this error, so an upstream failure (5xx, 429, timeout, pool storage) is logged here at WARN;
+            // a 4xx is an answer from the Mirror Node, not a failure.
+            const answered =
+              isRequestAbortedError(lookupError) ||
+              (lookupError instanceof MirrorNodeClientError && isClientHttpStatus(lookupError.statusCode));
+            this.logger[answered ? 'debug' : 'warn'](
+              lookupError,
+              `Failed to fetch account nonce for WRONG_NONCE error handling, falling back to TRANSACTION_REJECTED`,
+            );
           }
         }
 
@@ -1131,8 +1140,15 @@ export class TransactionService implements ITransactionService {
           await this.transactionPoolService.removeTransaction(senderAddress, parsedTx.serialized, 'confirmed');
           return;
         }
-      } catch {
-        this.logger.error('Mirror Node poll failed for transaction %s on %d attempt', txHash, i);
+      } catch (error) {
+        // retried on the next attempt; the zombie cleanup below is logged at ERROR if every attempt fails
+        this.logger.warn(
+          error,
+          'Mirror Node poll failed for transaction %s on attempt %d of %d',
+          txHash,
+          i + 1,
+          maxAttempts,
+        );
       }
     }
     // zombie cleanup: max attempts reached, remove anyway

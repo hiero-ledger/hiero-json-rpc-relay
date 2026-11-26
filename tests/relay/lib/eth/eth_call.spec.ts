@@ -628,7 +628,7 @@ describe('@ethCall Eth Call spec', async function () {
       const expectRejectedWithoutMirrorNodeCall = async (to: string): Promise<void> => {
         web3Mock.onPost('contracts/call').reply(200, JSON.stringify({ result: '0x00' }));
         web3Mock.resetHistory();
-        const infoSpy = sinon.spy(contractService['logger'], 'info');
+        const debugSpy = sinon.spy(contractService['logger'], 'debug');
 
         try {
           const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`);
@@ -638,9 +638,9 @@ describe('@ethCall Eth Call spec', async function () {
             .to.be.rejectedWith(JsonRpcError, expectedError.message)
             .and.to.eventually.have.property('code', expectedError.code);
           expect(web3Mock.history.post).to.have.lengthOf(0);
-          expect(infoSpy.calledOnce).to.be.true;
+          expect(debugSpy.withArgs('Rejected call to blacklisted contract: to=%s').calledOnce).to.be.true;
         } finally {
-          infoSpy.restore();
+          debugSpy.restore();
         }
       };
 
@@ -691,14 +691,14 @@ describe('@ethCall Eth Call spec', async function () {
         const callWith429 = async (body: object): Promise<sinon.SinonSpyCall[]> => {
           const callData = { ...defaultCallData, to: MIRROR_NODE_BLACKLISTED_ADDRESS, data: CONTRACT_CALL_DATA };
           await mockContractCall({ ...callData, block: 'latest' }, false, 429, body, requestDetails);
-          const errorSpy = sinon.spy(contractService['logger'], 'error');
+          const debugSpy = sinon.spy(contractService['logger'], 'debug');
           try {
             await expect(contractService.call(callData, 'latest', requestDetails)).to.be.rejectedWith(JsonRpcError);
           } finally {
-            errorSpy.restore();
+            debugSpy.restore();
           }
 
-          return errorSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
+          return debugSpy.getCalls().filter((c) => String(c.args[1]).startsWith('Could not simulate transaction'));
         };
 
         it('logs the to address when the mirror node returns 429 with detail "Invalid request"', async function () {

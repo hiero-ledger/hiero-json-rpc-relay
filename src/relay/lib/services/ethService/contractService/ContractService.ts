@@ -280,7 +280,7 @@ export class ContractService implements IContractService {
     } catch (error) {
       if (isRequestAbortedError(error)) throw error;
 
-      this.logger.error(
+      this.logger.debug(
         `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
         address,
         blockNumber,
@@ -548,7 +548,7 @@ export class ContractService implements IContractService {
 
     const blacklist = ConfigService.get('CONTRACT_CALL_BLACKLIST');
     if (blacklist.some((address) => address.toLowerCase() === to.toLowerCase())) {
-      this.logger.info(`Rejected call to blacklisted contract: to=%s`, to);
+      this.logger.debug(`Rejected call to blacklisted contract: to=%s`, to);
       throw predefined.COULD_NOT_SIMULATE_TRANSACTION(`contract ${to} is blacklisted`).asClientError();
     }
   }
@@ -603,9 +603,10 @@ export class ContractService implements IContractService {
     if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
-    // A rejection by a mirror node request filter means the contract is missing from CONTRACT_CALL_BLACKLIST, so log its address
+    // A rejection by a mirror node request filter means the contract is missing from CONTRACT_CALL_BLACKLIST.
+    // The dispatcher logs the failure at ERROR with `to` in its params summary; this line adds context at DEBUG.
     if (e.isInvalidRequestRateLimit()) {
-      this.logger.error(
+      this.logger.debug(
         e,
         'Could not simulate transaction in the MirrorNode. Rejected by a mirror node request filter: to=%s',
         to,

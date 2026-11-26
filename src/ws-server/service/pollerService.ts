@@ -122,7 +122,12 @@ export class PollerService {
       this.failedPollsCounter.inc();
       loop.failures++;
       delay = Math.min(delay * 2 ** loop.failures, WS_CONSTANTS.POLLER_MAX_RETRY_DELAY_MS);
-      this.logger.error(error, `${LOGGER_PREFIX} Poll failed, retrying in ${delay}ms`);
+      // a single failure is retried and usually recovers; only a run of failures is worth ERROR
+      const level = loop.failures >= WS_CONSTANTS.POLLER_CONSECUTIVE_FAILURES_ERROR_THRESHOLD ? 'error' : 'warn';
+      this.logger[level](
+        error,
+        `${LOGGER_PREFIX} Poll failed, retrying in ${delay}ms: consecutiveFailures=${loop.failures}`,
+      );
     }
 
     if (this.loop === loop) {
@@ -281,7 +286,7 @@ export class PollerService {
    */
   public add(tag: string, callback: (...args: unknown[]) => unknown): void {
     if (!this.hasPoll(tag)) {
-      this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
+      this.logger.debug(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       const { event, filters } = JSON.parse(tag);
       this.polls.push({
         tag,
@@ -306,7 +311,7 @@ export class PollerService {
    * @param tag - The tag to remove.
    */
   public remove(tag: string): void {
-    this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
+    this.logger.debug(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
     const pollsAtStart = this.polls.length;
     this.polls = this.polls.filter((p) => p.tag !== tag);
 
@@ -320,7 +325,7 @@ export class PollerService {
     }
 
     if (!this.polls.length) {
-      this.logger.info(`${LOGGER_PREFIX} No active polls.`);
+      this.logger.debug(`${LOGGER_PREFIX} No active polls.`);
       this.stop();
     }
   }
