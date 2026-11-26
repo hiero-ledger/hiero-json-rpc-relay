@@ -165,26 +165,30 @@ describe('MirrorNodeClient HTTP phase metrics', function () {
     });
   });
 
-  withOverriddenEnvsInMochaTest({ MIRROR_NODE_HTTP_MAX_SOCKETS: 1, MIRROR_NODE_TIMEOUT: 150 }, () => {
-    it('attributes a timeout to the phase the request was stuck in', async () => {
-      const registry = new Registry();
-      const client = newClient(registry);
-      responseDelayMs = 400;
+  // no retries, so each call is one attempt that times out (CI's test.env sets MIRROR_NODE_RETRIES=3)
+  withOverriddenEnvsInMochaTest(
+    { MIRROR_NODE_HTTP_MAX_SOCKETS: 1, MIRROR_NODE_TIMEOUT: 150, MIRROR_NODE_RETRIES: 0 },
+    () => {
+      it('attributes a timeout to the phase the request was stuck in', async () => {
+        const registry = new Registry();
+        const client = newClient(registry);
+        responseDelayMs = 400;
 
-      const results = await Promise.allSettled([
-        client.get('network/fees', pathLabel, requestDetails),
-        client.get('network/fees', pathLabel, requestDetails),
-      ]);
+        const results = await Promise.allSettled([
+          client.get('network/fees', pathLabel, requestDetails),
+          client.get('network/fees', pathLabel, requestDetails),
+        ]);
 
-      expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'rejected']);
-      const byPhase = await phases(registry);
-      // MIRROR_NODE_TIMEOUT starts once a request has a socket: the second call first waited for the first one's
-      // socket, which closed when the first call timed out, and then timed out waiting for its own response headers
-      expect(byPhase.pool_wait.sum).to.be.at.least(140);
-      expect(byPhase.ttfb.sum).to.be.at.least(290);
-      expect(await upstream(registry)).to.deep.equal({ sum: byPhase.ttfb.sum, count: 2 });
-    });
-  });
+        expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'rejected']);
+        const byPhase = await phases(registry);
+        // MIRROR_NODE_TIMEOUT starts once a request has a socket: the second call first waited for the first one's
+        // socket, which closed when the first call timed out, and then timed out waiting for its own response headers
+        expect(byPhase.pool_wait.sum).to.be.at.least(140);
+        expect(byPhase.ttfb.sum).to.be.at.least(290);
+        expect(await upstream(registry)).to.deep.equal({ sum: byPhase.ttfb.sum, count: 2 });
+      });
+    },
+  );
 
   withOverriddenEnvsInMochaTest({ MIRROR_NODE_RETRY_DELAY: 20 }, () => {
     it('includes retried attempts, and puts the retry delay in other', async () => {
