@@ -3573,12 +3573,25 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
+              "expr": "avg(rate(rpc_relay_mirror_node_upstream_duration_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_node_upstream_duration_count{ namespace=\"$namespace\"}[1m]))",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Mirror Node (upstream)",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
               "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))",
               "hide": false,
               "instant": false,
-              "legendFormat": "Mirror Node",
+              "legendFormat": "Relay-side MN call",
               "range": true,
-              "refId": "B"
+              "refId": "MN_RELAY_SIDE"
             }
           ],
           "title": "Avg. Latency (ms)",
@@ -3683,12 +3696,25 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
+              "expr": "avg(rate(rpc_relay_mirror_node_upstream_duration_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_node_upstream_duration_count{ namespace=\"$namespace\"}[1m]))",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Mirror Node (upstream)",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
               "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))",
               "hide": false,
               "instant": false,
-              "legendFormat": "Mirror Node",
+              "legendFormat": "Relay-side MN call",
               "range": true,
-              "refId": "B"
+              "refId": "MN_RELAY_SIDE"
             }
           ],
           "title": "Avg. Latency (ms)",
@@ -6544,11 +6570,23 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))",
+              "expr": "avg(rate(rpc_relay_mirror_node_upstream_duration_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_node_upstream_duration_count{ namespace=\"$namespace\"}[1m]))",
               "instant": false,
-              "legendFormat": "__auto",
+              "legendFormat": "Mirror Node (upstream)",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))",
+              "instant": false,
+              "legendFormat": "Relay-side MN call",
+              "range": true,
+              "refId": "MN_RELAY_SIDE"
             }
           ],
           "title": "Avg. Latency (ms)",
@@ -6649,14 +6687,26 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))   ",
+              "expr": "avg(rate(rpc_relay_mirror_node_upstream_duration_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_node_upstream_duration_count{ namespace=\"$namespace\"}[1m]))",
               "instant": false,
-              "legendFormat": "Mirror Node Avg. Latency",
+              "legendFormat": "Mirror Node upstream avg. latency",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "grafanacloud-prom"
+              },
+              "editorMode": "code",
+              "expr": "avg(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m]))/avg(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m]))",
+              "instant": false,
+              "legendFormat": "Relay-side MN call avg. latency",
+              "range": true,
+              "refId": "MN_RELAY_SIDE"
             }
           ],
-          "title": "Mirror  Node Avg. Latency (ms)",
+          "title": "Mirror Node Avg. Latency (ms): upstream vs relay-side",
           "type": "timeseries"
         },
         {
@@ -6749,7 +6799,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_sum{ namespace=\"$namespace\"}[1m])) by (method) /\nsum(rate(rpc_relay_mirror_response_count{ namespace=\"$namespace\"}[1m])) by (method)",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_sum{ namespace=\"$namespace\"}[1m])) by (method) /\nsum(rate(rpc_relay_mirror_node_upstream_duration_count{ namespace=\"$namespace\"}[1m])) by (method)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -6850,7 +6900,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.90, sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\"}[1m])) by (le, method))",
+              "expr": "histogram_quantile(0.90, sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\"}[1m])) by (le, method))",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -6952,7 +7002,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\"}[1m])) by (le, method))",
+              "expr": "histogram_quantile(0.95, sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\"}[1m])) by (le, method))",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7311,7 +7361,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"1000\"}[1m])) by (method)",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"1000\"}[1m])) by (method)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7408,7 +7458,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"5000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_response_bucket{namespace=\"$namespace\", le=\"1000\"}[1m])) by (method)",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"5000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_node_upstream_duration_bucket{namespace=\"$namespace\", le=\"1000\"}[1m])) by (method)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7505,7 +7555,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"10000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"5000\"}[1m])) by (method)  ",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"10000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"5000\"}[1m])) by (method)  ",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7602,7 +7652,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"20000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"10000\"}[1m])) by (method)",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"20000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"10000\"}[1m])) by (method)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7699,7 +7749,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"30000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"20000\"}[1m])) by (method) ",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"30000\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"20000\"}[1m])) by (method) ",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -7796,7 +7846,7 @@
                 "uid": "grafanacloud-prom"
               },
               "editorMode": "code",
-              "expr": "sum(rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"+Inf\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_response_bucket{ namespace=\"$namespace\", le=\"30000\"}[1m])) by (method)",
+              "expr": "sum(rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"+Inf\"}[1m]) - ignoring(le) rate(rpc_relay_mirror_node_upstream_duration_bucket{ namespace=\"$namespace\", le=\"30000\"}[1m])) by (method)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
