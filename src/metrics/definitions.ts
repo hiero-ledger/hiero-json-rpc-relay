@@ -39,6 +39,9 @@ const RPC_LATENCY_MS_BUCKETS = [
 /** Latency buckets in milliseconds for Mirror Node calls. */
 const MIRROR_NODE_LATENCY_MS_BUCKETS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000] as const;
 
+/** Buckets in milliseconds for the phases of a Mirror Node call, which start well below a millisecond. */
+const MIRROR_NODE_PHASE_MS_BUCKETS = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000] as const;
+
 /** Duration buckets in seconds for lock waits and holds. */
 const LOCK_DURATION_SECONDS_BUCKETS = [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30] as const;
 
@@ -132,7 +135,10 @@ export const METRICS = {
   mirrorNode: {
     responseLatency: histogram({
       name: 'rpc_relay_mirror_response',
-      help: 'Mirror node response method statusCode latency histogram',
+      help:
+        'Relay-side duration of a Mirror Node call in milliseconds, by method and status code. It includes the wait ' +
+        'for a free socket, connection setup, retries and their delays, response parsing and event-loop lag, so it is ' +
+        'not the Mirror Node latency alone; for that see rpc_relay_mirror_node_upstream_duration',
       labelNames: ['method', 'statusCode'],
       buckets: MIRROR_NODE_LATENCY_MS_BUCKETS,
     }),
@@ -160,6 +166,65 @@ export const METRICS = {
       name: 'rpc_relay_mirror_node_timeout_retry_count',
       help: 'Count of Mirror Node request retries made after an attempt exceeded MIRROR_NODE_TIMEOUT',
       labelNames: ['method'],
+    }),
+    phaseDuration: histogram({
+      name: 'rpc_relay_mirror_node_phase_duration',
+      help:
+        'Mirror Node call time in milliseconds split by phase: pool_wait (waiting for a free socket), dns, connect, ' +
+        'tls (new sockets only), ttfb (request sent to response headers), download (body), parse (JSON), and other ' +
+        '(retry delays, decompression, event-loop lag between phases). The phases of a call add up to rpc_relay_mirror_response',
+      labelNames: ['method', 'phase'],
+      buckets: MIRROR_NODE_PHASE_MS_BUCKETS,
+    }),
+    upstreamDuration: histogram({
+      name: 'rpc_relay_mirror_node_upstream_duration',
+      help:
+        'Mirror Node latency in milliseconds per HTTP attempt, retries included: from the request being sent on a ' +
+        'ready socket until the last byte of the response (ttfb + download). It leaves out the relay-side wait for a ' +
+        'socket, connection setup, parsing and retry delays, but includes the network round trip and any event-loop ' +
+        'lag that delayed the response callbacks',
+      labelNames: ['method'],
+      buckets: MIRROR_NODE_LATENCY_MS_BUCKETS,
+    }),
+    attempts: counter({
+      name: 'rpc_relay_mirror_node_attempt_count',
+      help: 'Count of Mirror Node HTTP attempts, including retries, by whether they opened a new socket or reused one',
+      labelNames: ['method', 'socket'],
+    }),
+    inFlight: gauge({
+      name: 'rpc_relay_mirror_node_in_flight_requests',
+      help: 'Mirror Node calls started and not yet finished, including the time spent in retries',
+      labelNames: ['method'],
+    }),
+    inFlightPeak: gauge({
+      name: 'rpc_relay_mirror_node_in_flight_requests_peak',
+      help: 'Highest number of Mirror Node calls in flight at once since the previous scrape',
+    }),
+    tickBurst: histogram({
+      name: 'rpc_relay_mirror_node_tick_burst',
+      help:
+        'Mirror Node work started within one event-loop iteration: requests (calls started) and new_sockets ' +
+        '(connections, so TLS handshakes, opened). Only iterations that started at least one are observed',
+      labelNames: ['kind'],
+      buckets: [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000],
+    }),
+    responseSize: histogram({
+      name: 'rpc_relay_mirror_node_response_size_bytes',
+      help: 'Size of the Mirror Node response bodies passed to the JSON parser, in characters',
+      labelNames: ['method'],
+      buckets: [1e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7, 5e7],
+    }),
+    bigIntParses: counter({
+      name: 'rpc_relay_mirror_node_json_bigint_parse_count',
+      help: 'Count of Mirror Node responses parsed with the slower json-bigint parser because they hold a number too big for JSON.parse',
+      labelNames: ['method'],
+    }),
+    agentSockets: gauge({
+      name: 'rpc_relay_mirror_node_agent_sockets',
+      help:
+        'Sockets of the Mirror Node HTTP agents at scrape time: active (serving a request), free (idle, kept alive) ' +
+        'and queued (requests waiting because the agent is at MIRROR_NODE_HTTP_MAX_SOCKETS)',
+      labelNames: ['client', 'state'],
     }),
     blockRangeCacheWrites: counter({
       name: 'rpc_relay_block_range_cache_writes_total',
