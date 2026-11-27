@@ -63,13 +63,13 @@ jobs:
           echo "Waiting for HTTP relay..."
           for i in {1..10}; do
             response=$(curl -s http://localhost:7546/health/liveness || true)
-            if [ "$response" = "OK" ]; then
+            if [[ "${response}" == "OK" ]]; then
               echo "HTTP relay is healthy."
               exit 0
             fi
             sleep 2
           done
-          echo "HTTP relay failed liveness check: $response"
+          echo "HTTP relay failed liveness check: ${response}"
           docker logs relay
           exit 1
 
@@ -88,13 +88,13 @@ jobs:
           echo "Waiting for WebSocket relay..."
           for i in {1..10}; do
             response=$(curl -s http://localhost:8547/health/liveness || true)
-            if [ "$response" = "OK" ]; then
+            if [[ "${response}" == "OK" ]]; then
               echo "WebSocket relay is healthy."
               exit 0
             fi
             sleep 2
           done
-          echo "WebSocket relay failed liveness check: $response"
+          echo "WebSocket relay failed liveness check: ${response}"
           docker logs relay-ws
           exit 1
 

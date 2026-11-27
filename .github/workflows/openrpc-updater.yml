@@ -124,22 +124,22 @@ jobs:
         run: |
           MERGE_OUTPUT=$(node cli.js --merge --original ./original-openrpc.json --modified ../../docs/openrpc.json)
           MERGE_EXIT_CODE=$?
-          echo "$MERGE_OUTPUT"
+          echo "${MERGE_OUTPUT}"
 
-          if [ $MERGE_EXIT_CODE -eq 0 ]; then
-            if [[ "$MERGE_OUTPUT" =~ No\ differences\ found\ after\ merge ]]; then
+          if [[ ${MERGE_EXIT_CODE} -eq 0 ]]; then
+            if [[ "${MERGE_OUTPUT}" =~ No\ differences\ found\ after\ merge ]]; then
               echo "No differences found. Skipping PR creation."
-              echo "SKIP_PR=true" >> $GITHUB_ENV
+              echo "SKIP_PR=true" >> ${GITHUB_ENV}
               exit 0
-            elif [[ "$MERGE_OUTPUT" == *"Merge completed"* ]]; then
+            elif [[ "${MERGE_OUTPUT}" == *"Merge completed"* ]]; then
               echo "Successfully updated openrpc.json"
-              echo "SKIP_PR=false" >> $GITHUB_ENV
+              echo "SKIP_PR=false" >> ${GITHUB_ENV}
             else
-              echo "Unexpected output. Output was: $MERGE_OUTPUT"
+              echo "Unexpected output. Output was: ${MERGE_OUTPUT}"
               exit 1
             fi
           else
-            echo "Failed to update file. Output was: $MERGE_OUTPUT"
+            echo "Failed to update file. Output was: ${MERGE_OUTPUT}"
             exit 1
           fi
 
@@ -148,7 +148,7 @@ jobs:
         run: |
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           UNIQUE_BRANCH="update-openrpc-${TIMESTAMP}"
-          echo "UNIQUE_BRANCH=${UNIQUE_BRANCH}" >> $GITHUB_ENV
+          echo "UNIQUE_BRANCH=${UNIQUE_BRANCH}" >> ${GITHUB_ENV}
           echo "Generated unique branch name: ${UNIQUE_BRANCH}"
 
       - name: Import GPG Key

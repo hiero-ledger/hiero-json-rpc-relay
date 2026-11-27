@@ -52,21 +52,21 @@ jobs:
           # Strip leading 'v' if present
           VERSION="${TAG#v}"
 
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "${VERSION}" ]]; then
             echo "::error::Could not determine version from tag: ${TAG}"
             exit 1
           fi
 
           # Determine if this is an RC release
-          if [[ "$VERSION" == *-rc* ]]; then
+          if [[ "${VERSION}" == *-rc* ]]; then
             IS_RC="true"
           else
             IS_RC="false"
           fi
 
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "is-rc=${IS_RC}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> ${GITHUB_OUTPUT}
+          echo "version=${VERSION}" >> ${GITHUB_OUTPUT}
+          echo "is-rc=${IS_RC}" >> ${GITHUB_OUTPUT}
           echo "Resolved tag=${TAG}, version=${VERSION}, is-rc=${IS_RC}"
 
       - name: Checkout repository at tag
@@ -90,7 +90,7 @@ jobs:
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${{ steps.resolve-tag.outputs.version }}"
 
-          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+          if [[ "${PACKAGE_VERSION}" != "${TAG_VERSION}" ]]; then
             echo "::error::package.json version (${PACKAGE_VERSION}) does not match tag version (${TAG_VERSION})"
             exit 1
           fi
@@ -108,17 +108,17 @@ jobs:
         id: build-package
         run: |
           PACK_OUTPUT=$(npm pack --json)
-          echo "$PACK_OUTPUT"
+          echo "${PACK_OUTPUT}"
 
-          FILENAME=$(echo "$PACK_OUTPUT" | jq -r '.[0].filename')
+          FILENAME=$(echo "${PACK_OUTPUT}" | jq -r '.[0].filename')
 
-          if [[ -z "$FILENAME" || "$FILENAME" == "null" ]]; then
+          if [[ -z "${FILENAME}" || "${FILENAME}" == "null" ]]; then
             echo "Failed to determine package filename"
             exit 1
           fi
 
-          echo "artifact-name=${FILENAME}" >> $GITHUB_OUTPUT
-          ls -lh "$FILENAME"
+          echo "artifact-name=${FILENAME}" >> ${GITHUB_OUTPUT}
+          ls -lh "${FILENAME}"
 
       - name: Generate checksum
         run: |

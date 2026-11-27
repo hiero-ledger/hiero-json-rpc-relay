@@ -37,7 +37,7 @@ Every workflow that deploys the local network loads the file into the job's envi
 
 ```yaml
 - name: Load pinned versions
-  run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
+  run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "${GITHUB_ENV}"
 ```
 
 This strips comment and blank lines and appends the `KEY=value` lines to `$GITHUB_ENV`, making `env.SOLO_VERSION`, `env.NETWORK_TAG`, `env.MIRROR_NODE_TAG`, and `env.BLOCK_NODE_TAG` available to later steps. The deploy steps then reference those variables while keeping a caller override (all of these are reusable workflows, `workflow_call` / `workflow_dispatch` with inputs):
