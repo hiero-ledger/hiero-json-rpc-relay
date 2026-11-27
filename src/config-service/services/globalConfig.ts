@@ -636,6 +636,14 @@ const _CONFIG = {
     validation: (value: number) =>
       value >= 1 || 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE must be 1 or greater.',
   },
+  MIRROR_NODE_TIMESTAMP_SLICING_MAX_RETRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 3,
+    validation: (value: number) =>
+      (Number.isInteger(value) && value >= 0) ||
+      'MIRROR_NODE_TIMESTAMP_SLICING_MAX_RETRIES must be an integer of 0 or greater.',
+  },
   MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: {
     type: 'number',
     required: false,

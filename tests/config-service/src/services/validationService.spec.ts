@@ -307,6 +307,11 @@ describe('ValidationService tests', async function () {
         reject: [0, -5, NaN],
       },
       {
+        key: 'MIRROR_NODE_TIMESTAMP_SLICING_MAX_RETRIES',
+        accept: [0, 1, 3],
+        reject: [-1, 1.5, NaN],
+      },
+      {
         key: 'ETH_GET_LOGS_MAX_PAGE_SIZE',
         accept: [1, 8_388_608],
         reject: [0, -1, NaN],
