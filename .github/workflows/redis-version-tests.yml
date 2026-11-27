@@ -41,18 +41,18 @@ jobs:
         env:
           REQUESTED: ${{ inputs.redis_version }}
         run: |
-          if [ -n "$REQUESTED" ]; then
-            VERSION="$REQUESTED"
+          if [[ -n "${REQUESTED}" ]]; then
+            VERSION="${REQUESTED}"
           else
             VERSION=$(curl -sSfL https://api.github.com/repos/redis/redis/releases/latest \
               | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).tag_name.replace(/^v/,'')))")
           fi
-          if [ -z "$VERSION" ]; then
+          if [[ -z "${VERSION}" ]]; then
             echo "Could not resolve a Redis version" >&2
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Testing against Redis $VERSION"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "Testing against Redis ${VERSION}"
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y make gcc g++

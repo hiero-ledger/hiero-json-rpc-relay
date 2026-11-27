@@ -45,19 +45,19 @@ jobs:
           HEDERA_PORTAL_PASSWORD: ${{ secrets.HEDERA_PORTAL_PASSWORD }}
         run: |
           RESPONSE=$(jq --null-input -r --arg USER "${HEDERA_PORTAL_USER}" --arg PASS "${HEDERA_PORTAL_PASSWORD}" '{"email": $USER, "password": $PASS}' | curl -sSL -c /tmp/cookiejar.bin --data @- -X POST -H "Accept: application/json" -H "Content-Type: application/json" https://portal.hedera.com/api/session)
-          echo "::add-mask::$RESPONSE"
-          echo "The response was: $RESPONSE"
+          echo "::add-mask::${RESPONSE}"
+          echo "The response was: ${RESPONSE}"
           ACCOUNTS_JSON="$(curl -sSL -b /tmp/cookiejar.bin -H "Accept: application/json" https://portal.hedera.com/api/account)"
-          echo "::add-mask::$ACCOUNTS_JSON"
-          TESTNET_ACCOUNT=$(echo $ACCOUNTS_JSON | jq -r '.accounts[] | select(.network=="testnet") | .accountNum')
-          echo "The testnet account is: $TESTNET_ACCOUNT"
-          PUBLIC_KEY=$(echo $ACCOUNTS_JSON | jq -r '.accounts[] | select(.network=="testnet") | .publicKey')
-          echo "The publicKey is: $PUBLIC_KEY"
-          PRIVATE_KEY=$(echo $ACCOUNTS_JSON | jq -r '.accounts[] | select(.network=="testnet") | .privateKey')
-          echo "::add-mask::$PRIVATE_KEY"
-          echo "The privateKey is: $PRIVATE_KEY"
-          echo "OPERATOR_ID_MAIN=0.0.${TESTNET_ACCOUNT}" >> $GITHUB_ENV
-          echo "OPERATOR_KEY_MAIN=${PRIVATE_KEY}" >> $GITHUB_ENV
+          echo "::add-mask::${ACCOUNTS_JSON}"
+          TESTNET_ACCOUNT=$(echo ${ACCOUNTS_JSON} | jq -r '.accounts[] | select(.network=="testnet") | .accountNum')
+          echo "The testnet account is: ${TESTNET_ACCOUNT}"
+          PUBLIC_KEY=$(echo ${ACCOUNTS_JSON} | jq -r '.accounts[] | select(.network=="testnet") | .publicKey')
+          echo "The publicKey is: ${PUBLIC_KEY}"
+          PRIVATE_KEY=$(echo ${ACCOUNTS_JSON} | jq -r '.accounts[] | select(.network=="testnet") | .privateKey')
+          echo "::add-mask::${PRIVATE_KEY}"
+          echo "The privateKey is: ${PRIVATE_KEY}"
+          echo "OPERATOR_ID_MAIN=0.0.${TESTNET_ACCOUNT}" >> ${GITHUB_ENV}
+          echo "OPERATOR_KEY_MAIN=${PRIVATE_KEY}" >> ${GITHUB_ENV}
 
       - name: Setup node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -80,7 +80,7 @@ jobs:
         run: npm run build
 
       - name: Load pinned versions
-        run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "$GITHUB_ENV"
+        run: grep -vE '^[[:space:]]*(#|$)' .github/network-versions.env >> "${GITHUB_ENV}"
 
       - name: Generate falcon-values config file
         run: |

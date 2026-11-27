@@ -42,11 +42,11 @@ jobs:
             VERSION=${{ steps.version_parser.outputs.release }} || \
             VERSION="${{ steps.version_parser.outputs.release }}-${{ steps.version_parser.outputs.prerelease }}"
           RELEASE_TAG="v${VERSION}"
-          cat >> $GITHUB_ENV <<EOF
-          NEXT_VERSION_SNAPSHOT=$NEXT_VERSION_SNAPSHOT
-          RELEASE_BRANCH=$RELEASE_BRANCH
-          RELEASE_TAG=$RELEASE_TAG
-          VERSION=$VERSION
+          cat >> ${GITHUB_ENV} <<EOF
+          NEXT_VERSION_SNAPSHOT=${NEXT_VERSION_SNAPSHOT}
+          RELEASE_BRANCH=${RELEASE_BRANCH}
+          RELEASE_TAG=${RELEASE_TAG}
+          VERSION=${VERSION}
           MILESTONE=${{ steps.version_parser.outputs.release}}
           EOF
 
@@ -76,8 +76,8 @@ jobs:
             git push -u origin ${RELEASE_BRANCH}
 
             # create a PR to bump main branch to the next snapshot version
-            echo "CREATE_PR=true" >> $GITHUB_ENV
-            echo "PR_TITLE=chore(release): Bump versions for v$NEXT_VERSION_SNAPSHOT" >> $GITHUB_ENV
+            echo "CREATE_PR=true" >> ${GITHUB_ENV}
+            echo "PR_TITLE=chore(release): Bump versions for v${NEXT_VERSION_SNAPSHOT}" >> ${GITHUB_ENV}
           else
             git checkout ${RELEASE_BRANCH}
           fi
