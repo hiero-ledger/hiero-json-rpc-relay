@@ -3566,7 +3566,12 @@ describe('MirrorNodeClient', async function () {
       };
 
       withOverriddenEnvsInMochaTest(
-        { MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 2, MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: 30 },
+        {
+          MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 2,
+          MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: 30,
+          // pinned, since a worker pool would split the limit and other suites may leave it enabled
+          WORKERS_POOL_ENABLED: false,
+        },
         () => {
           it('should cap log requests in flight across calls, addresses and slices', async () => {
             const held = holdLogRequests();
