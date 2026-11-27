@@ -226,6 +226,21 @@ export const METRICS = {
         'and queued (requests waiting because the agent is at MIRROR_NODE_HTTP_MAX_SOCKETS)',
       labelNames: ['client', 'state'],
     }),
+    logsLimiterRequests: gauge({
+      name: 'rpc_relay_mirror_node_logs_limiter_requests',
+      help:
+        'Mirror Node log requests under the MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS limit of this thread at scrape ' +
+        'time: active (holding a permit) and queued (waiting for one)',
+      labelNames: ['state'],
+    }),
+    logsLimiterWait: histogram({
+      name: 'rpc_relay_mirror_node_logs_limiter_wait',
+      help:
+        'Time in milliseconds a Mirror Node log request waited for a permit of the MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS ' +
+        'limit before it was sent. It is not part of rpc_relay_mirror_response',
+      labelNames: ['method'],
+      buckets: MIRROR_NODE_PHASE_MS_BUCKETS,
+    }),
     blockRangeCacheWrites: counter({
       name: 'rpc_relay_block_range_cache_writes_total',
       help: 'Blocks written to the per-block cache by getBlocksByRange',

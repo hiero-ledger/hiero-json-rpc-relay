@@ -569,6 +569,14 @@ const _CONFIG = {
     required: false,
     defaultValue: 100,
   },
+  MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+    validation: (value: number) =>
+      (Number.isInteger(value) && value >= 1) ||
+      'MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS must be an integer of 1 or greater.',
+  },
   MIRROR_NODE_MAX_REDIRECTS: {
     type: 'number',
     required: false,
