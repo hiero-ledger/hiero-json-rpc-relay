@@ -3524,6 +3524,161 @@ describe('MirrorNodeClient', async function () {
         });
       });
     });
+
+    describe('MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS', () => {
+      const range = { timestamp: ['gte:1707944548.000000000', 'lte:1707944552.000000000'] };
+      const logsLimiter = (): { activeCount: number; queuedCount: number } => MirrorNodeClient['logsRequestLimiter'];
+      let openHeldRequests: (() => void) | undefined;
+
+      afterEach(async () => {
+        // a failed test must not leave permits held for the next ones, since the limiter is shared
+        openHeldRequests?.();
+        openHeldRequests = undefined;
+        await waitUntil(() => logsLimiter().activeCount === 0 && logsLimiter().queuedCount === 0);
+      });
+
+      /**
+       * Answers every log request only once `open` resolves, counting how many were in flight at once.
+       */
+      const holdLogRequests = (): { open: () => void; inFlight: () => number; peak: () => number } => {
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        let inFlight = 0;
+        let peak = 0;
+        let count = 0;
+        mock.onGet(/results\/logs.*/).reply(async () => {
+          inFlight++;
+          peak = Math.max(peak, inFlight);
+          await gate;
+          inFlight--;
+          const i = count++;
+          return [200, JSON.stringify({ logs: [createMockLog(`1707944548.${i}00000000`, i, `0xabc${i}`)] })];
+        });
+        openHeldRequests = release;
+        return { open: release, inFlight: () => inFlight, peak: () => peak };
+      };
+
+      const waitUntil = async (condition: () => boolean): Promise<void> => {
+        for (let i = 0; i < 100 && !condition(); i++) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+        expect(condition()).to.be.true;
+      };
+
+      withOverriddenEnvsInMochaTest(
+        {
+          MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 2,
+          MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: 30,
+          // pinned, since a worker pool would split the limit and other suites may leave it enabled
+          WORKERS_POOL_ENABLED: false,
+        },
+        () => {
+          it('should cap log requests in flight across calls, addresses and slices', async () => {
+            const held = holdLogRequests();
+
+            const calls = Promise.all([
+              mirrorNodeInstance.getContractResultsLogsWithRetry(requestDetails, 4, range),
+              mirrorNodeInstance.getContractResultsLogsByAddress(random20BytesAddress(), requestDetails, 4, range),
+              mirrorNodeInstance.getContractResultsLogsByAddress(random20BytesAddress(), requestDetails, 4, range),
+            ]);
+
+            await waitUntil(() => held.inFlight() === 2 && logsLimiter().queuedCount === 10);
+            expect(logsLimiter().activeCount).to.equal(2);
+
+            held.open();
+            const results = await calls;
+
+            expect(results.map((logs) => logs.length)).to.deep.equal([4, 4, 4]);
+            expect(mock.history.get.length).to.equal(12);
+            expect(held.peak()).to.equal(2);
+            expect(logsLimiter().activeCount).to.equal(0);
+            expect(logsLimiter().queuedCount).to.equal(0);
+          });
+
+          it('should not hold back requests to other endpoints', async () => {
+            const held = holdLogRequests();
+            mock.onGet('network/fees').reply(200, JSON.stringify({ fees: [] }));
+
+            const logs = mirrorNodeInstance.getContractResultsLogsWithRetry(requestDetails, 4, range);
+            await waitUntil(() => held.inFlight() === 2 && logsLimiter().queuedCount === 2);
+
+            const fees = await mirrorNodeInstance.get('network/fees', 'network/fees', requestDetails);
+            expect(fees).to.deep.equal({ fees: [] });
+
+            held.open();
+            expect(await logs).to.have.length(4);
+          });
+
+          it('should take an abandoned request out of the queue without sending it', async () => {
+            const held = holdLogRequests();
+            const controller = new AbortController();
+            const abandonable = new RequestDetails({
+              requestId: 'abandoned',
+              ipAddress: '0.0.0.0',
+              abortSignal: controller.signal,
+            });
+
+            const first = mirrorNodeInstance.getContractResultsLogsWithRetry(requestDetails, 2, range);
+            await waitUntil(() => held.inFlight() === 2);
+            const abandoned = mirrorNodeInstance.getContractResultsLogsByAddress(
+              random20BytesAddress(),
+              abandonable,
+              2,
+              range,
+            );
+            await waitUntil(() => logsLimiter().queuedCount === 2);
+
+            controller.abort();
+            await expect(abandoned).to.be.rejectedWith(/aborted/i);
+            expect(logsLimiter().queuedCount).to.equal(0);
+
+            held.open();
+            expect(await first).to.have.length(2);
+            expect(mock.history.get.length).to.equal(2);
+            expect(logsLimiter().activeCount).to.equal(0);
+          });
+
+          it('should release the permit when a log request fails', async () => {
+            mock.onGet(/results\/logs.*/).reply(400, JSON.stringify({ _status: { messages: [{ message: 'boom' }] } }));
+
+            await expect(
+              mirrorNodeInstance.getContractResultsLogsByAddress(random20BytesAddress(), requestDetails, 1, range),
+            ).to.be.rejected;
+            expect(logsLimiter().activeCount).to.equal(0);
+            expect(logsLimiter().queuedCount).to.equal(0);
+          });
+        },
+      );
+
+      describe('logsRequestLimit', () => {
+        withOverriddenEnvsInMochaTest(
+          { MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 100, WORKERS_POOL_ENABLED: false },
+          () => {
+            it('should give the whole limit to the only thread when workers are disabled', () => {
+              expect(MirrorNodeClient.logsRequestLimit()).to.equal(100);
+            });
+          },
+        );
+
+        withOverriddenEnvsInMochaTest(
+          { MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 100, WORKERS_POOL_ENABLED: true, WORKERS_POOL_MAX_THREADS: 4 },
+          () => {
+            it('should split the limit between the main thread and the worker threads', () => {
+              expect(MirrorNodeClient.logsRequestLimit()).to.equal(20);
+            });
+          },
+        );
+
+        withOverriddenEnvsInMochaTest(
+          { MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS: 3, WORKERS_POOL_ENABLED: true, WORKERS_POOL_MAX_THREADS: 4 },
+          () => {
+            it('should leave every thread at least one permit', () => {
+              expect(MirrorNodeClient.logsRequestLimit()).to.equal(1);
+            });
+          },
+        );
+      });
+    });
   });
 
   describe('response body parsing', () => {

@@ -322,6 +322,11 @@ describe('ValidationService tests', async function () {
         reject: [0, -1, 1.5, NaN],
       },
       {
+        key: 'MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS',
+        accept: [1, 100],
+        reject: [0, -1, 1.5, NaN],
+      },
+      {
         key: 'ETH_GET_LOGS_RELAY_MAX_RESPONSE_SIZE',
         accept: [1, 52_428_800],
         reject: [0, -1, 1.5, NaN],

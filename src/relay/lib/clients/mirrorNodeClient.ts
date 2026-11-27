@@ -66,6 +66,7 @@ import type {
   QueryParamObject,
   QueryParamValue,
 } from '../types/mirrorNode';
+import { ConcurrencyLimiter, type ReleasePermit } from '../utils/concurrencyLimiter';
 import { getRequestAbortSignal, isRequestAborted, throwIfRequestAborted } from '../utils/requestAbort';
 import { estimateLogsResponseSize, ResponseSizeBudget } from '../utils/responseSizeBudget';
 import constants from './../constants';
@@ -211,6 +212,36 @@ export class MirrorNodeClient {
     MirrorNodeClient.GET_CONTRACTS_RESULTS_PRESTATE,
   ]);
 
+  /**
+   * Path labels of the log endpoints whose requests share {@link MirrorNodeClient.logsRequestLimiter}.
+   */
+  private static readonly LOGS_PATH_LABELS: ReadonlySet<string> = new Set([
+    MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+    MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT,
+  ]);
+
+  /**
+   * Limits the Mirror Node log requests in flight at once across every call, address and client of this thread,
+   * since the per-call `MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY` cap does not bound their total.
+   */
+  private static readonly logsRequestLimiter = new ConcurrencyLimiter(() => MirrorNodeClient.logsRequestLimit());
+
+  /**
+   * Returns this thread's share of `MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS`. With the worker pool enabled, the
+   * main thread and each worker thread hold their own client and HTTP agents, so the limit is split evenly
+   * between them to keep the process total within it.
+   *
+   * @returns The maximum number of log requests this thread may have in flight, at least 1.
+   */
+  static logsRequestLimit(): number {
+    const limit = ConfigService.get('MIRROR_NODE_LOGS_MAX_CONCURRENT_REQUESTS');
+    if (!ConfigService.get('WORKERS_POOL_ENABLED')) {
+      return limit;
+    }
+    const threads = ConfigService.get('WORKERS_POOL_MAX_THREADS') + 1;
+    return Math.max(1, Math.floor(limit / threads));
+  }
+
   static acceptedErrorStatusesResponsePerRequestPathMap: Map<string, Array<number>> = new Map([
     [MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT, [404]],
     [MirrorNodeClient.GET_BALANCE_ENDPOINT, [404]],
@@ -315,6 +346,7 @@ export class MirrorNodeClient {
   private readonly mirrorTickBurstHistogram: Histogram;
   private readonly mirrorResponseSizeHistogram: Histogram;
   private readonly mirrorBigIntParseCounter: Counter;
+  private readonly mirrorLogsLimiterWaitHistogram: Histogram;
 
   /** Calls in flight now, and the most at once since the last scrape. */
   private inFlight = 0;
@@ -530,6 +562,13 @@ export class MirrorNodeClient {
     this.mirrorTickBurstHistogram = metricsFactory.histogram(METRICS.mirrorNode.tickBurst);
     this.mirrorResponseSizeHistogram = metricsFactory.histogram(METRICS.mirrorNode.responseSize);
     this.mirrorBigIntParseCounter = metricsFactory.counter(METRICS.mirrorNode.bigIntParses);
+    this.mirrorLogsLimiterWaitHistogram = metricsFactory.histogram(METRICS.mirrorNode.logsLimiterWait);
+    metricsFactory.gauge(METRICS.mirrorNode.logsLimiterRequests, {
+      collect(this: Gauge): void {
+        this.labels('active').set(MirrorNodeClient.logsRequestLimiter.activeCount);
+        this.labels('queued').set(MirrorNodeClient.logsRequestLimiter.queuedCount);
+      },
+    });
     const inFlightPeakGauge: Gauge = metricsFactory.gauge(METRICS.mirrorNode.inFlightPeak, {
       collect: (): void => {
         inFlightPeakGauge.set(this.inFlightPeak);
@@ -641,7 +680,49 @@ export class MirrorNodeClient {
     return data;
   }
 
+  /**
+   * Sends a Mirror Node request. Requests to the log endpoints first wait for a permit of the thread-wide
+   * {@link MirrorNodeClient.logsRequestLimiter}, and hold it until their response, retries included, is handled.
+   */
   private async request<T>(
+    path: string,
+    pathLabel: string,
+    method: REQUEST_METHODS,
+    requestDetails: RequestDetails,
+    data?: unknown,
+    retries?: number,
+    maxContentLength?: number,
+  ): Promise<T | null> {
+    if (!MirrorNodeClient.LOGS_PATH_LABELS.has(pathLabel)) {
+      return this.sendRequest<T>(path, pathLabel, method, requestDetails, data, retries, maxContentLength);
+    }
+
+    const release = await this.acquireLogsRequestPermit(pathLabel, requestDetails);
+    try {
+      return await this.sendRequest<T>(path, pathLabel, method, requestDetails, data, retries, maxContentLength);
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Waits for a permit of {@link MirrorNodeClient.logsRequestLimiter} and records how long the wait took.
+   *
+   * @param pathLabel - Template path of the request, used as the metric label.
+   * @param requestDetails - The request details; aborting their signal takes the request out of the queue.
+   * @returns The function that gives the permit back.
+   * @throws The caller's abort reason, when the request is abandoned while it waits.
+   */
+  private async acquireLogsRequestPermit(pathLabel: string, requestDetails: RequestDetails): Promise<ReleasePermit> {
+    const waitStart = performance.now();
+    try {
+      return await MirrorNodeClient.logsRequestLimiter.acquire(getRequestAbortSignal(requestDetails));
+    } finally {
+      this.mirrorLogsLimiterWaitHistogram.labels(pathLabel).observe(performance.now() - waitStart);
+    }
+  }
+
+  private async sendRequest<T>(
     path: string,
     pathLabel: string,
     method: REQUEST_METHODS,
